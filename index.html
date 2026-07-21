@@ -698,14 +698,44 @@
         <span class="tl">Next · ${esc(rc.off_time || '')} ${esc(rc.course || '')}</span>
         <span class="nrname">${esc(rc.race_name || '')}</span>
       </button>
-      <div class="npicks">${picks}</div>`;
+      <div class="npicks">${picks}</div>
+      <div class="npicks">TOP T <span class="no" id="ntT">…</span> · TOP J <span class="no" id="ntJ">…</span></div>`;
     $('nrGo').onclick = () => {
       T.course = rc.course;
       T.openTarget = rc.race_id;
       renderMeetings([...new Set(T.cards.map(c => c.course))]);
       renderRaces();
+      renderTile();
     };
+    // top trainer & jockey at this course among today's field — fills as course records load
+    const seq = ++nextSeq;
+    const fill = (kind, idKey, nameKey, spanId) => {
+      const best = { pct: -1, name: null, solid: false };
+      const seen = new Set();
+      (rc.runners || []).forEach(r => {
+        const id = r[idKey];
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        getCourseMap(kind, id).then(rows => {
+          if (seq !== nextSeq) return;
+          const row = findCourseRow(rows, rc);
+          if (!row) return;
+          const p = Number(row['win_%']) || 0;
+          const runs = Number(row.runners ?? row.runs ?? 0);
+          const solid = runs >= 10;
+          // prefer solid samples; among equals, higher win%
+          if ((solid && !best.solid) || (solid === best.solid && p > best.pct)) {
+            best.pct = p; best.name = r[nameKey]; best.solid = solid;
+            const span = document.getElementById(spanId);
+            if (span) span.textContent = `${best.name} ${(p * 100).toFixed(1)}%${solid ? '' : '*'}`;
+          }
+        });
+      });
+    };
+    fill('trainers', 'trainer_id', 'trainer', 'ntT');
+    fill('jockeys', 'jockey_id', 'jockey', 'ntJ');
   }
+  let nextSeq = 0;
 
   function renderMeetings(courses) {
     const m = $('meetings'); m.innerHTML = '';
