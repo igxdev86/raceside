@@ -446,13 +446,47 @@
   // ---------- experiments ----------
   const EXP = { loaded: false };
   $('expRun').onclick = () => runExperiment();
+  function clothDrawGrid(grid) {
+    const wrap = el('div','tablewrap');
+    const rows = [['c1_3','Cloth 1–3'],['c4_6','Cloth 4–6'],['c7_9','Cloth 7–9'],['c10p','Cloth 10+']];
+    const cols = [['low','Drawn low'],['mid','Drawn mid'],['high','Drawn high']];
+    const table = el('table');
+    const thead = el('thead');
+    const hr = el('tr');
+    hr.appendChild(el('th',null,''));
+    cols.forEach(([,label]) => hr.appendChild(el('th',null,esc(label))));
+    thead.appendChild(hr); table.appendChild(thead);
+    const tbody = el('tbody');
+    rows.forEach(([rk, rlabel]) => {
+      const tr = el('tr');
+      tr.appendChild(el('td',null,esc(rlabel)));
+      cols.forEach(([ck]) => {
+        const cell = grid[rk + '|' + ck];
+        const td = el('td');
+        if (!cell || !cell.runs) { td.textContent = '—'; tr.appendChild(td); return; }
+        const dev = (cell.ae || 0) - 1;
+        const span = el('span','heat', (cell.ae || 0).toFixed(2) + ' (' + cell.wins + '/' + cell.expected.toFixed(0) + ')');
+        span.style.background = dev >= 0
+          ? `rgba(18,161,80,${Math.min(0.35, dev * 1.2).toFixed(2)})`
+          : `rgba(215,38,61,${Math.min(0.35, -dev * 1.2).toFixed(2)})`;
+        if (cell.runs < 200) span.style.opacity = '.55';
+        td.appendChild(span);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
   async function runExperiment() {
     const a = parseInt($('expA').value, 10) || 4;
     const b = parseInt($('expB').value, 10) || 7;
     $('expTiles').hidden = true;
     $('expArea').innerHTML = '<div class="state"><div class="spinner"></div>replaying two months of meetings — first run takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/experiment?a=' + a + '&b=' + b);
+      const r = await fetch('/api/experiment?a=' + a + '&b=' + b + '&v=2');
       let d = null;
       try { d = await r.json(); } catch {}
       if (!r.ok || !d || !d.ok) {
@@ -505,6 +539,11 @@
       table.appendChild(tbody);
       wrap.appendChild(table);
       $('expArea').innerHTML = '';
+      if (d.grid && Object.keys(d.grid).length) {
+        $('expArea').appendChild(el('div','ftoggle','CLOTH × DRAW — FLAT · A/E per cell (1.00 = exactly as expected)'));
+        $('expArea').appendChild(clothDrawGrid(d.grid));
+        $('expArea').appendChild(el('p','note','Rows: cloth number bands. Columns: the stall band each horse was drawn in (thirds of the field). Cell = actual wins ÷ field-adjusted expected wins, so field sizes can\'t fake an edge. Green over 1.00 beats chance; cells under 200 runs shown faint.'));
+      }
       $('expArea').appendChild(el('div','ftoggle','CONTEXT — HOW OFTEN EACH CLOTH NUMBER WINS'));
       $('expArea').appendChild(wrap);
     } catch (e) { $('expArea').innerHTML = errBox(e); }
