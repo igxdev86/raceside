@@ -444,7 +444,7 @@
   function renderMonth(d) {
     const t = d.totals, fin = d.races || 1;
     $('mMeta').innerHTML = `<h2>${d.month === 'this' ? 'This Month' : 'Last Month'}</h2>
-      <div class="meta"><b>${d.races}</b> races · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''} · GB+IRE</div>`;
+      <div class="meta"><b>${d.races}</b> races graded${d.skipped ? ' · ' + d.skipped + ' skipped (unrated fields)' : ''} · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''} · GB+IRE</div>`;
     $('mTiles').hidden = false;
     $('mT1').innerHTML = `<span class="tl">🏆 winners</span>
       <span class="tv">${t.cups}<span class="ts">/${d.races}</span><span class="tp">${Math.round(t.cups / fin * 100)}%</span></span>`;
@@ -1060,6 +1060,12 @@
   // Ratings rel-to-field: RPR 25 + TS 15 · Connections A/E: T@course 12, J@course 8, T@dist 10
   // Breeding A/E (this class+code+dist): S 8, DS 7 · Form 8 + Freshness 7. Letter stat excluded.
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
   function aeUnit(m) {
     if (!m || m.missing || !(m.ae > 0)) return 0.35;              // unknown → neutral-low
     let v = clamp01((m.ae - 0.6) / 0.8);                          // A/E 0.6→0 … 1.4→1
@@ -1085,11 +1091,11 @@
     return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
   }
   function scoreAll(items, rc) {
-    const rprs = items.map(it => Number(it.r.rpr));
-    const tss = items.map(it => Number(it.r.ts));
+    const rprs = items.map(it => parseRt(it.r.rpr));
+    const tss = items.map(it => parseRt(it.r.ts));
     const scores = items.map(it =>
-      relUnit(Number(it.r.rpr), rprs) * 25 +
-      relUnit(Number(it.r.ts), tss) * 15 +
+      relUnit(parseRt(it.r.rpr), rprs) * 25 +
+      relUnit(parseRt(it.r.ts), tss) * 15 +
       aeUnit(it.m.T) * 12 + aeUnit(it.m.J) * 8 + aeUnit(it.m.TD) * 10 +
       aeUnit(it.m.S) * 8 + aeUnit(it.m.DS) * 7 +
       formUnit(it.r.form) * 8 + freshUnit(it.r.last_run) * 7
@@ -1117,10 +1123,10 @@
     const rs = rc.runners || [];
     const map = {};
     if (!rs.length) return map;
-    const rprs = rs.map(r => Number(r.rpr)), tss = rs.map(r => Number(r.ts));
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
     rs.forEach(r => {
       if (!r.horse_id) return;
-      const s = relUnit(Number(r.rpr), rprs) * 25 + relUnit(Number(r.ts), tss) * 15 +
+      const s = relUnit(parseRt(r.rpr), rprs) * 25 + relUnit(parseRt(r.ts), tss) * 15 +
                 formUnit(r.form) * 8 + freshUnit(r.last_run) * 7;
       map[r.horse_id] = Math.round(s * 100) / 100;
     });
