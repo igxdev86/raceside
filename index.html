@@ -338,6 +338,7 @@
       <div class="tile" id="mT6"></div>
       <div class="tile" id="mT7"></div>
     </div>
+    <div class="tile" id="mIconBar" hidden style="display:block;margin:0 0 12px"></div>
     <div id="mArea"></div>
     <p class="note">Grades the ratings core of SCORE (RPR 25 + TS 15, relative to field, same tie rules) across every GB &amp; IRE race in the period — historical results don't carry form strings or freshness, so connections/breeding/form aren't in this backtest. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank. Multiples: full-cover £1 doubles, trebles and 4-folds across each day's <b>unique</b> 🏆 picks (tied-top races excluded), settled at SP — ROI% is the comparable figure, stakes are large by construction.</p>
   </div>
@@ -477,6 +478,21 @@
     multi('mT5', '🏆 doubles · £1 cover', t.dbl || 0, t.dblStake || 0);
     multi('mT6', '🏆 trebles · £1 cover', t.trb || 0, t.trbStake || 0);
     multi('mT7', '🏆 4-folds · £1 cover', t.acc4 || 0, t.acc4Stake || 0);
+    // which icon wins most
+    const g2 = d.daily.reduce((a, x) => a + (x.gem2 || 0), 0);
+    const g3 = d.daily.reduce((a, x) => a + (x.gem3 || 0), 0);
+    const outside = d.races - t.cups - g2 - g3;
+    const seg = (n, color) => `<span style="display:inline-block;height:12px;border-radius:3px;background:${color};width:${(n / (d.races || 1) * 100).toFixed(1)}%"></span>`;
+    const pctOf = (n) => Math.round(n / (d.races || 1) * 100);
+    $('mIconBar').hidden = false;
+    $('mIconBar').innerHTML = `<span class="tl" style="display:block;margin-bottom:8px">Which icon wins</span>
+      <div style="display:flex;gap:2px;width:100%">${seg(t.cups, 'var(--blue)')}${seg(g2, '#D7263D')}${seg(g3, '#6FB2FF')}${seg(Math.max(outside, 0), 'var(--line2)')}</div>
+      <div class="npicks" style="margin-top:8px">
+        <span class="np">🏆 <b>${t.cups}</b> · ${pctOf(t.cups)}%</span>
+        <span class="np">♦️ <b>${g2}</b> · ${pctOf(g2)}%</span>
+        <span class="np">🔹 <b>${g3}</b> · ${pctOf(g3)}%</span>
+        <span class="np" style="color:var(--faint)">outside top 3 <b>${Math.max(outside, 0)}</b> · ${pctOf(Math.max(outside, 0))}%</span>
+      </div>`;
     const wrap = el('div','tablewrap');
     const table = el('table');
     table.innerHTML = '<thead><tr><th>Date</th><th>Races</th><th>🏆</th><th>♦️</th><th>🔹</th><th>🏆♦️🔹 %</th><th>£1 🏆</th><th>£1 🏆♦️🔹</th><th>Dbls</th><th>Trbls</th><th>4-folds</th></tr></thead>';
