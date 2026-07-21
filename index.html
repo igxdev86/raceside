@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F5F7FA; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF; --line2:#D3DAE4;
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF; --line2:#D3DAE4;
     --ink:#101418; --dim:#5B6675; --faint:#939CAB;
     --blue:#2456E6; --blue-ink:#FFFFFF; --blue-soft:#EAF0FF;
     --green:#12A150; --red:#D7263D;
@@ -172,6 +172,20 @@
   @media (prefers-reduced-motion:reduce){.spinner{animation:none;border-top-color:var(--line)}}
 
   .note{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.6}
+  /* on-navy text */
+  .wordmark{color:#fff}
+  .wordmark small{color:#8FA3C8}
+  footer{color:#8FA3C8}
+  #analyseView > .state, #todayView > .note, #quirksView > .note, #entityView > .note{color:#A9BAD9}
+  .state{color:#A9BAD9}
+  .state .big{color:#fff}
+  .ftoggle{color:#A9BAD9}
+  .note{color:#8FA3C8}
+  .marker{border-color:#fff;color:#0E1D3D;background:#fff}
+
+  .hits .state{color:var(--dim)}
+  .hits .state .big{color:var(--ink)}
+
   footer{margin-top:40px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
   @media (min-width:640px){
     .fgrid{grid-template-columns:1fr 1fr 1fr}
