@@ -66,6 +66,10 @@
     <div class="logo">BMB<small>today's racing</small></div>
     <div class="date" id="date"></div>
   </header>
+  <nav class="meetings" id="daytoggle" style="margin-bottom:4px">
+    <button class="chip on" data-day="today">Today</button>
+    <button class="chip" data-day="tomorrow">Tomorrow</button>
+  </nav>
   <nav class="meetings" id="meetings"></nav>
   <div class="races" id="races"><div class="state"><div class="spinner"></div>loading the cards…</div></div>
   <footer>BMB · GB &amp; IRE · data: The Racing API · <a href="/lab.html" style="color:inherit">lab →</a></footer>
@@ -79,7 +83,19 @@
 
   $('date').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
 
-  let cards = [], course = null;
+  let cards = [], course = null, day = 'today';
+
+  document.querySelectorAll('#daytoggle .chip').forEach(b => b.onclick = () => {
+    if (b.dataset.day === day) return;
+    day = b.dataset.day;
+    document.querySelectorAll('#daytoggle .chip').forEach(x => x.classList.toggle('on', x.dataset.day === day));
+    $('date').textContent = new Date(Date.now() + (day === 'tomorrow' ? 86400000 : 0))
+      .toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+    $('races').innerHTML = '<div class="state"><div class="spinner"></div>loading the cards…</div>';
+    $('meetings').innerHTML = '';
+    course = null;
+    load();
+  });
 
   function bestOdds(r) {
     const list = Array.isArray(r.odds) ? r.odds : [];
@@ -103,10 +119,10 @@
   async function load() {
     let data = null;
     for (const tier of ['standard','basic','free']) {
-      try { data = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+      try { data = await api('/v1/racecards/' + tier, { day: day }); break; } catch {}
     }
     if (!data || !(data.racecards || []).length) {
-      $('races').innerHTML = '<div class="state">No cards today.</div>';
+      $('races').innerHTML = '<div class="state">No cards for ' + day + ' yet.</div>';
       return;
     }
     cards = data.racecards;
