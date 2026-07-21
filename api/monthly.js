@@ -1,11 +1,10 @@
-// RACESIDE — monthly icon performance grader
-// Pages GB+IRE results for the period and grades the ratings core of SCORE
-// (RPR 25 + TS 15, relative to field, tie-aware dense ranks — same icon rules as the app).
-// month=this → 1st of month..today (cached 1h) · month=last → full previous month (cached 7 days)
+// RACESIDE — monthly icon performance grader (v2)
+// Grades the ratings core of SCORE over the period, tie-aware, same icon rules as the app.
+// Basis per race: rpr_ts (RPR 25 + TS 15) → fallback ofr (official rating, 40) → skip.
+// Always returns a small raw-data diagnostic so failures are visible, never silent.
 
 export const config = { maxDuration: 60 };
 
-const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const numRt = (v) => {
   const s = String(v ?? '').trim();
   if (!s || s === '-' || s === '\u2013') return NaN;
@@ -29,6 +28,24 @@ function spDec(run) {
   const n = Number(s);
   return !isNaN(n) && n > 1 ? n : null;
 }
+function buildMap(runners, mode) {
+  const map = {};
+  if (mode === 'rpr_ts') {
+    const rprs = runners.map((x) => numRt(x.rpr));
+    const tss = runners.map((x) => numRt(x.tsr));
+    runners.forEach((x, i) => {
+      if (!x.horse_id) return;
+      map[x.horse_id] = Math.round((relUnit(rprs[i], rprs) * 25 + relUnit(tss[i], tss) * 15) * 100) / 100;
+    });
+  } else {
+    const ors = runners.map((x) => numRt(x.or));
+    runners.forEach((x, i) => {
+      if (!x.horse_id) return;
+      map[x.horse_id] = Math.round(relUnit(ors[i], ors) * 40 * 100) / 100;
+    });
+  }
+  return map;
+}
 
 export default async function handler(req, res) {
   const user = process.env.RACING_API_USERNAME;
@@ -48,8 +65,10 @@ export default async function handler(req, res) {
   const fmt = (d) => d.toISOString().slice(0, 10);
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
-  const days = {}; // date → {races,cups,gem2,gem3,top3,pl,pl3,staked,staked3}
-  let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0;
+  const days = {};
+  const basis = { rpr_ts: 0, ofr: 0 };
+  const diag = [];
+  let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0, upstreamTotal = null;
 
   try {
     while (skip < total && pages < 30) {
@@ -62,24 +81,34 @@ export default async function handler(req, res) {
         attempts++;
         await new Promise((ok) => setTimeout(ok, 2000 * attempts));
       }
-      if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
+      if (!r.ok) {
+        const body = await r.text().catch(() => '');
+        return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status, detail: body.slice(0, 300) });
+      }
       const page = await r.json();
       total = Number(page.total) || 0;
+      upstreamTotal = total;
       for (const race of page.results || []) {
         const runners = race.runners || [];
-        if (runners.length < 2) continue;
+        if (diag.length < 3 && runners[0]) {
+          const f = runners[0];
+          diag.push({ date: race.date, rpr: f.rpr ?? null, tsr: f.tsr ?? null, or: f.or ?? null, sp_dec: f.sp_dec ?? null, pos: f.position ?? null });
+        }
+        if (runners.length < 2) { skipped++; continue; }
         const win = runners.find((x) => String(x.position) === '1');
-        if (!win || !win.horse_id) continue;
-        // ratings-core score, tie-aware — blanks parse as missing, not zero
-        const rprs = runners.map((x) => numRt(x.rpr));
-        const tss = runners.map((x) => numRt(x.tsr));
-        const map = {};
-        runners.forEach((x, i) => {
-          if (!x.horse_id) return;
-          map[x.horse_id] = Math.round((relUnit(rprs[i], rprs) * 25 + relUnit(tss[i], tss) * 15) * 100) / 100;
-        });
-        const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
-        if (vals.length < 2) { skipped++; continue; } // ratings can't separate the field — don't fake-grade it
+        if (!win || !win.horse_id) { skipped++; continue; }
+
+        let map = buildMap(runners, 'rpr_ts');
+        let vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+        let usedBasis = 'rpr_ts';
+        if (vals.length < 2) {
+          map = buildMap(runners, 'ofr');
+          vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+          usedBasis = 'ofr';
+        }
+        if (vals.length < 2) { skipped++; continue; }
+        basis[usedBasis]++;
+
         const rankOf = (id) => (map[id] == null ? -1 : vals.filter((v) => v > map[id]).length);
         const topSet = Object.keys(map).filter((id) => map[id] === vals[0]);
         const cut3 = vals[Math.min(2, vals.length - 1)];
@@ -115,7 +144,7 @@ export default async function handler(req, res) {
     : 's-maxage=3600, stale-while-revalidate=21600');
   return res.status(200).json({
     ok: true, month: which, from: fmt(start), to: fmt(end),
-    races, skipped, truncated: skip < total,
+    races, skipped, basis, upstreamTotal, truncated: skip < total, diag,
     totals: {
       cups: sum('cups'), gem2: sum('gem2'), gem3: sum('gem3'), top3: sum('top3'),
       pl: Math.round(sum('pl') * 100) / 100, pl3: Math.round(sum('pl3') * 100) / 100,
