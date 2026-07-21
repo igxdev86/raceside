@@ -140,6 +140,11 @@
   tbody tr.winrow:hover td{background:rgba(63,191,111,.14)}
   .posb{font-family:var(--mono);font-size:10px;color:var(--dim);margin-right:6px}
   .posb.w{color:var(--green);font-weight:600}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:2px 0 12px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .tile .tl{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+  .tile .tv{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--green)}
+  .tile .ts{font-size:14px;color:var(--dim);font-weight:400}
+  .tile .tp{font-size:13px;color:var(--brass);font-weight:500;margin-left:6px}
 
   /* ---- states ---- */
   .state{margin-top:26px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px;padding:30px 10px}
@@ -262,6 +267,7 @@
       <button class="chk on" data-day="today">TODAY</button>
       <button class="chk" data-day="tomorrow">TOMORROW</button>
     </div>
+    <div class="tile" id="scoreTile" hidden></div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
     <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
@@ -314,7 +320,7 @@
     sortKey: 'runners', sortDir: -1,
     filters: { start:'', end:'', region:[], type:[], race_class:[], going:[], minF:'', maxF:'', minRuns:'' },
   };
-  const T = { day:'today', cards:null, course:null, loadedDay:null, openRace:null };
+  const T = { day:'today', cards:null, course:null, loadedDay:null, openRace:null, results:{}, raceTop:{} };
   const Q = { courses:null, courseId:null, data:null };
 
   const $ = (id) => document.getElementById(id);
@@ -636,13 +642,15 @@
     T.cards = (data.racecards || []).filter(rc => !rc.is_abandoned || true);
     T.loadedDay = T.day;
     T.results = {};
+    T.raceTop = {};
     const resData = await resP;
     ((resData && resData.results) || []).forEach(r => { if (r.race_id) T.results[r.race_id] = r; });
-    if (!T.cards.length) { races.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing declared for ' + esc(T.day) + ' yet.</div>'; return; }
+    if (!T.cards.length) { races.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing declared for ' + esc(T.day) + ' yet.</div>'; renderTile(); return; }
     const courses = [...new Set(T.cards.map(rc => rc.course))];
     if (!T.course || !courses.includes(T.course)) T.course = courses[0];
     renderMeetings(courses);
     renderRaces();
+    renderTile();
   }
 
   function renderMeetings(courses) {
@@ -880,7 +888,7 @@
     if (isNaN(n)) return 0.4;
     return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
   }
-  function scoreAll(items) {
+  function scoreAll(items, rc) {
     const rprs = items.map(it => Number(it.r.rpr));
     const tss = items.map(it => Number(it.r.ts));
     const scores = items.map(it =>
@@ -891,11 +899,54 @@
       formUnit(it.r.form) * 8 + freshUnit(it.r.last_run) * 7
     );
     const top = Math.max(...scores, 0.0001);
+    let topIdx = -1;
     items.forEach((it, i) => {
+      const isTop = scores[i] === top;
+      if (isTop && topIdx < 0) topIdx = i;
       it.scoreEl.textContent = String(Math.round(scores[i]));
-      it.scoreEl.style.background = `rgba(214,165,68,${((scores[i] / top) * 0.55).toFixed(2)})`;
-      it.scoreEl.style.fontWeight = scores[i] === Math.max(...scores) ? '600' : '400';
+      it.scoreEl.style.background = isTop
+        ? 'rgba(63,191,111,.38)'
+        : `rgba(214,165,68,${((scores[i] / top) * 0.45).toFixed(2)})`;
+      it.scoreEl.style.fontWeight = isTop ? '600' : '400';
     });
+    if (rc && rc.race_id && topIdx >= 0) {
+      T.raceTop[rc.race_id] = items[topIdx].r.horse_id || null;
+      renderTile();
+    }
+  }
+
+  // base score (ratings + form + freshness only) — used for the tile on races not yet opened
+  function staticTopHorse(rc) {
+    const rs = rc.runners || [];
+    if (!rs.length) return null;
+    const rprs = rs.map(r => Number(r.rpr)), tss = rs.map(r => Number(r.ts));
+    let bi = -1, bs = -1;
+    rs.forEach((r, i) => {
+      const s = relUnit(Number(r.rpr), rprs) * 25 + relUnit(Number(r.ts), tss) * 15 +
+                formUnit(r.form) * 8 + freshUnit(r.last_run) * 7;
+      if (s > bs) { bs = s; bi = i; }
+    });
+    return bi >= 0 ? (rs[bi].horse_id || null) : null;
+  }
+
+  function renderTile() {
+    const tile = $('scoreTile');
+    if (T.day !== 'today' || !T.cards || !T.results) { tile.hidden = true; return; }
+    let fin = 0, hits = 0;
+    T.cards.forEach(rc => {
+      const res = T.results[rc.race_id];
+      if (!res) return;
+      const win = (res.runners || []).find(x => String(x.position) === '1');
+      if (!win || !win.horse_id) return;
+      const topHorse = T.raceTop[rc.race_id] || staticTopHorse(rc);
+      if (!topHorse) return;
+      fin++;
+      if (topHorse === win.horse_id) hits++;
+    });
+    if (!fin) { tile.hidden = true; return; }
+    tile.hidden = false;
+    tile.innerHTML = `<span class="tl">Top score winners</span>
+      <span class="tv">${hits}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits / fin) * 100)}%</span></span>`;
   }
 
   function annotateRace(rc, items) {
@@ -917,8 +968,8 @@
     if (cp) bloodFilters.race_class = [cp];
     const trainerFilters = {};                  // trainer: this code only (keep the sample)
     if (tp) trainerFilters.type = [tp];
-    const recompute = () => scoreAll(items);
-    scoreAll(items);                            // instant first pass from ratings + form + freshness
+    const recompute = () => scoreAll(items, rc);
+    scoreAll(items, rc);                        // instant first pass from ratings + form + freshness
     // trainer & jockey at course + conditioned distance stats — queued, edge-cached 1h
     items.forEach(it => {
       if (it.r.trainer_id) {
