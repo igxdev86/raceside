@@ -116,7 +116,12 @@ export default async function handler(req, res) {
         const wr = rankOf(win.horse_id);
         const d = spDec(win);
         const key = race.date || 'unknown';
-        const day = (days[key] ||= { races: 0, cups: 0, gem2: 0, gem3: 0, top3: 0, pl: 0, pl3: 0, staked: 0, staked3: 0 });
+        const day = (days[key] ||= { races: 0, cups: 0, gem2: 0, gem3: 0, top3: 0, pl: 0, pl3: 0, staked: 0, staked3: 0, nSel: 0, winSPs: [] });
+        // multiples slate: unique top pick only (ties can't be acca legs)
+        if (topSet.length === 1) {
+          day.nSel++;
+          if (wr === 0) { const dd = spDec(win); if (dd) day.winSPs.push(dd); }
+        }
         races++; day.races++;
         if (wr === 0) day.cups++;
         if (wr === 1) day.gem2++;
@@ -134,10 +139,32 @@ export default async function handler(req, res) {
     return res.status(502).json({ ok: false, error: 'upstream', detail: String(e) });
   }
 
+  const comb = (n, k) => {
+    if (k > n) return 0;
+    let r = 1;
+    for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
+    return Math.round(r);
+  };
+  const esyms = (ws) => {
+    const e = [1, 0, 0, 0, 0];
+    for (const w of ws) for (let k = 4; k >= 1; k--) e[k] += e[k - 1] * w;
+    return e;
+  };
   const daily = Object.entries(days)
-    .map(([date, v]) => ({ date, ...v, pl: Math.round(v.pl * 100) / 100, pl3: Math.round(v.pl3 * 100) / 100 }))
+    .map(([date, v]) => {
+      const e = esyms(v.winSPs);
+      const mk = (k) => {
+        const stake = comb(v.nSel, k);
+        return { pl: Math.round((e[k] - stake) * 100) / 100, stake };
+      };
+      const d2 = mk(2), d3 = mk(3), d4 = mk(4);
+      const { winSPs, ...rest } = v;
+      return { date, ...rest,
+        pl: Math.round(v.pl * 100) / 100, pl3: Math.round(v.pl3 * 100) / 100,
+        dbl: d2.pl, dblStake: d2.stake, trb: d3.pl, trbStake: d3.stake, acc4: d4.pl, acc4Stake: d4.stake };
+    })
     .sort((a, b) => b.date.localeCompare(a.date));
-  const sum = (k) => daily.reduce((a, x) => a + x[k], 0);
+  const sum = (k) => daily.reduce((a, x) => a + (x[k] || 0), 0);
 
   res.setHeader('Cache-Control', which === 'last'
     ? 's-maxage=604800, stale-while-revalidate=1209600'
@@ -149,6 +176,9 @@ export default async function handler(req, res) {
       cups: sum('cups'), gem2: sum('gem2'), gem3: sum('gem3'), top3: sum('top3'),
       pl: Math.round(sum('pl') * 100) / 100, pl3: Math.round(sum('pl3') * 100) / 100,
       staked: sum('staked'), staked3: sum('staked3'),
+      dbl: Math.round(sum('dbl') * 100) / 100, dblStake: sum('dblStake'),
+      trb: Math.round(sum('trb') * 100) / 100, trbStake: sum('trbStake'),
+      acc4: Math.round(sum('acc4') * 100) / 100, acc4Stake: sum('acc4Stake'),
     },
     daily,
   });
