@@ -140,6 +140,8 @@
   tbody tr.winrow:hover td{background:rgba(63,191,111,.14)}
   .posb{font-family:var(--mono);font-size:10px;color:var(--dim);margin-right:6px}
   .posb.w{color:var(--green);font-weight:600}
+  .tilerow{display:flex;gap:8px;margin:2px 0 12px;flex-wrap:wrap}
+  .tilerow .tile{flex:1;min-width:240px;margin:0}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:2px 0 12px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   .tile .tl{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
   .tile .tv{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--green)}
@@ -267,7 +269,10 @@
       <button class="chk on" data-day="today">TODAY</button>
       <button class="chk" data-day="tomorrow">TOMORROW</button>
     </div>
-    <div class="tile" id="scoreTile" hidden></div>
+    <div class="tilerow" id="tilerow" hidden>
+      <div class="tile" id="scoreTile"></div>
+      <div class="tile" id="score3Tile"></div>
+    </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
     <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
@@ -935,23 +940,27 @@
   function staticTopHorse(rc) { return staticRank(rc)[0] || null; }
 
   function renderTile() {
-    const tile = $('scoreTile');
-    if (T.day !== 'today' || !T.cards || !T.results) { tile.hidden = true; return; }
-    let fin = 0, hits = 0;
+    const row = $('tilerow');
+    if (T.day !== 'today' || !T.cards || !T.results) { row.hidden = true; return; }
+    let fin = 0, hits = 0, hits3 = 0;
     T.cards.forEach(rc => {
       const res = T.results[rc.race_id];
       if (!res) return;
       const win = (res.runners || []).find(x => String(x.position) === '1');
       if (!win || !win.horse_id) return;
-      const topHorse = T.raceTop[rc.race_id] || staticTopHorse(rc);
-      if (!topHorse) return;
+      const ranks = T.raceRank[rc.race_id] || staticRank(rc);
+      if (!ranks.length) return;
       fin++;
-      if (topHorse === win.horse_id) hits++;
+      const idx = ranks.indexOf(win.horse_id);
+      if (idx === 0) hits++;
+      if (idx >= 0 && idx <= 2) hits3++;
     });
-    if (!fin) { tile.hidden = true; return; }
-    tile.hidden = false;
-    tile.innerHTML = `<span class="tl">Top score winners</span>
+    if (!fin) { row.hidden = true; return; }
+    row.hidden = false;
+    $('scoreTile').innerHTML = `<span class="tl">Top score winners</span>
       <span class="tv">${hits}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits / fin) * 100)}%</span></span>`;
+    $('score3Tile').innerHTML = `<span class="tl">Top 3 score winners</span>
+      <span class="tv">${hits3}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits3 / fin) * 100)}%</span></span>`;
   }
 
   function annotateRace(rc, items) {
