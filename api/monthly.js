@@ -6,6 +6,12 @@
 export const config = { maxDuration: 60 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const numRt = (v) => {
+  const s = String(v ?? '').trim();
+  if (!s || s === '-' || s === '\u2013') return NaN;
+  const n = Number(s);
+  return n > 0 ? n : NaN;
+};
 function relUnit(v, arr) {
   const ns = arr.filter((x) => !isNaN(x));
   if (isNaN(v) || ns.length < 2) return 0.4;
@@ -43,7 +49,7 @@ export default async function handler(req, res) {
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
   const days = {}; // date → {races,cups,gem2,gem3,top3,pl,pl3,staked,staked3}
-  let races = 0, skip = 0, total = Infinity, pages = 0;
+  let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0;
 
   try {
     while (skip < total && pages < 30) {
@@ -64,16 +70,16 @@ export default async function handler(req, res) {
         if (runners.length < 2) continue;
         const win = runners.find((x) => String(x.position) === '1');
         if (!win || !win.horse_id) continue;
-        // ratings-core score, tie-aware
-        const rprs = runners.map((x) => Number(x.rpr));
-        const tss = runners.map((x) => Number(x.tsr));
+        // ratings-core score, tie-aware — blanks parse as missing, not zero
+        const rprs = runners.map((x) => numRt(x.rpr));
+        const tss = runners.map((x) => numRt(x.tsr));
         const map = {};
         runners.forEach((x, i) => {
           if (!x.horse_id) return;
           map[x.horse_id] = Math.round((relUnit(rprs[i], rprs) * 25 + relUnit(tss[i], tss) * 15) * 100) / 100;
         });
         const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
-        if (!vals.length) continue;
+        if (vals.length < 2) { skipped++; continue; } // ratings can't separate the field — don't fake-grade it
         const rankOf = (id) => (map[id] == null ? -1 : vals.filter((v) => v > map[id]).length);
         const topSet = Object.keys(map).filter((id) => map[id] === vals[0]);
         const cut3 = vals[Math.min(2, vals.length - 1)];
@@ -109,7 +115,7 @@ export default async function handler(req, res) {
     : 's-maxage=3600, stale-while-revalidate=21600');
   return res.status(200).json({
     ok: true, month: which, from: fmt(start), to: fmt(end),
-    races, truncated: skip < total,
+    races, skipped, truncated: skip < total,
     totals: {
       cups: sum('cups'), gem2: sum('gem2'), gem3: sum('gem3'), top3: sum('top3'),
       pl: Math.round(sum('pl') * 100) / 100, pl3: Math.round(sum('pl3') * 100) / 100,
