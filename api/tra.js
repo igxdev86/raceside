@@ -11,6 +11,7 @@ const ALLOWED = [
   /^\/v1\/results\/today$/,
   /^\/v1\/courses$/,
   /^\/v1\/courses\/regions$/,
+  /^\/v1\/racecards\/(free|basic|standard|big-races|summaries)$/,
 ];
 
 export default async function handler(req, res) {
@@ -41,8 +42,11 @@ export default async function handler(req, res) {
       },
     });
     const body = await upstream.text();
-    // Historical stats barely move — cache hard at the edge to protect the 1 req/s limit
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    // Historical stats barely move — cache hard. Racecards change (NRs, odds) — cache light.
+    const isCards = path.startsWith('/v1/racecards');
+    res.setHeader('Cache-Control', isCards
+      ? 's-maxage=180, stale-while-revalidate=600'
+      : 's-maxage=3600, stale-while-revalidate=86400');
     res.setHeader('Content-Type', 'application/json');
     return res.status(upstream.status).send(body);
   } catch (e) {
