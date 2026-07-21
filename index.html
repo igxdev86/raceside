@@ -1055,15 +1055,15 @@
     });
     if (!fin) { row.hidden = true; return; }
     row.hidden = false;
-    $('scoreTile').innerHTML = `<span class="tl">Top score winners</span>
+    $('scoreTile').innerHTML = `<span class="tl">🏆 winners</span>
       <span class="tv">${hits}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits / fin) * 100)}%</span></span>`;
-    $('score3Tile').innerHTML = `<span class="tl">Top 3 score winners</span>
+    $('score3Tile').innerHTML = `<span class="tl">🏆♦️🔹 winners</span>
       <span class="tv">${hits3}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits3 / fin) * 100)}%</span></span>`;
     const plTxt = (pl > 0 ? '+' : '') + pl.toFixed(2);
-    $('plTile').innerHTML = `<span class="tl">£1 on top score · SP</span>
+    $('plTile').innerHTML = `<span class="tl">£1 on 🏆 · SP</span>
       <span class="tv" style="color:${pl > 0 ? 'var(--green)' : pl < 0 ? 'var(--red)' : 'var(--dim)'}">${plTxt}<span class="ts">/${staked} staked</span></span>`;
     const pl3Txt = (pl3 > 0 ? '+' : '') + pl3.toFixed(2);
-    $('pl3Tile').innerHTML = `<span class="tl">£1 each on top 3 · SP</span>
+    $('pl3Tile').innerHTML = `<span class="tl">£1 on 🏆♦️🔹 · SP</span>
       <span class="tv" style="color:${pl3 > 0 ? 'var(--green)' : pl3 < 0 ? 'var(--red)' : 'var(--dim)'}">${pl3Txt}<span class="ts">/${staked3} staked</span></span>`;
   }
 
