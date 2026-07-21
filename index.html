@@ -273,6 +273,7 @@
       <div class="tile" id="scoreTile"></div>
       <div class="tile" id="score3Tile"></div>
       <div class="tile" id="plTile"></div>
+      <div class="tile" id="pl3Tile"></div>
     </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
@@ -955,7 +956,7 @@
   function renderTile() {
     const row = $('tilerow');
     if (T.day !== 'today' || !T.cards || !T.results) { row.hidden = true; return; }
-    let fin = 0, hits = 0, hits3 = 0, staked = 0, pl = 0;
+    let fin = 0, hits = 0, hits3 = 0, staked = 0, pl = 0, pl3 = 0;
     T.cards.forEach(rc => {
       const res = T.results[rc.race_id];
       if (!res) return;
@@ -975,6 +976,13 @@
       } else {
         pl -= 1;
       }
+      // £1 on each of the top 3 scores (£3 per race)
+      if (idx >= 0 && idx <= 2) {
+        const d = spDec(win);
+        pl3 += d ? d - 3 : -2; // winner returns SP, other two stakes lost (SP unknown → stake back, -2)
+      } else {
+        pl3 -= 3;
+      }
     });
     if (!fin) { row.hidden = true; return; }
     row.hidden = false;
@@ -985,6 +993,9 @@
     const plTxt = (pl > 0 ? '+' : '') + pl.toFixed(2);
     $('plTile').innerHTML = `<span class="tl">£1 on top score · SP</span>
       <span class="tv" style="color:${pl > 0 ? 'var(--green)' : pl < 0 ? 'var(--red)' : 'var(--dim)'}">${plTxt}<span class="ts">/${staked} staked</span></span>`;
+    const pl3Txt = (pl3 > 0 ? '+' : '') + pl3.toFixed(2);
+    $('pl3Tile').innerHTML = `<span class="tl">£1 each on top 3 · SP</span>
+      <span class="tv" style="color:${pl3 > 0 ? 'var(--green)' : pl3 < 0 ? 'var(--red)' : 'var(--dim)'}">${pl3Txt}<span class="ts">/${staked * 3} staked</span></span>`;
   }
 
   function annotateRace(rc, items) {
