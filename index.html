@@ -209,6 +209,7 @@
     <button class="mtab" id="mQuirks">Quirks</button>
     <button class="mtab" id="mThisM">This Month</button>
     <button class="mtab" id="mLastM">Last Month</button>
+    <button class="mtab" id="mExp">Experiments</button>
   </nav>
 
   <!-- ============ ANALYSE ============ -->
@@ -345,6 +346,24 @@
     <p class="note">Grades the backtestable core of SCORE — RPR 22 + TS 13 relative to field, plus trainer 14-day form (5) reconstructed leak-free from a fortnight of lookback results before each race day — with the same tie rules as the live app. C&amp;D flags, form strings, freshness and connection A/E can't be rebuilt from historical results, so they're excluded rather than faked. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank. Multiples: full-cover £1 doubles, trebles and 4-folds across each day's <b>unique</b> 🏆 picks (tied-top races excluded), settled at SP — ROI% is the comparable figure, stakes are large by construction.</p>
   </div>
 
+  <!-- ============ EXPERIMENTS ============ -->
+  <div id="expView" hidden>
+    <div class="entity" style="margin-top:4px"><h2>Experiments</h2><div class="meta" id="expMeta"></div></div>
+    <div class="filters open" style="margin-top:10px">
+      <div class="fgrid">
+        <div class="fgroup"><label>Number A</label><input type="number" id="expA" min="1" max="40" inputmode="numeric" value="4"></div>
+        <div class="fgroup"><label>Number B</label><input type="number" id="expB" min="1" max="40" inputmode="numeric" value="7"></div>
+      </div>
+      <button class="fapply" id="expRun">Run experiment</button>
+    </div>
+    <div class="tilerow" id="expTiles" hidden>
+      <div class="tile" id="expT1" style="display:block"></div>
+      <div class="tile" id="expT2" style="display:block"></div>
+    </div>
+    <div id="expArea"></div>
+    <p class="note">Number-follows-number: when cloth #A wins, does #B win the <b>next race at the same meeting</b>? Expected % is field-size adjusted — the honest chance of #B winning the next race given it actually ran. Actual within a few points of expected = coincidence, not a signal. Window: 1st of last month → today, GB+IRE.</p>
+  </div>
+
   <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
 </div>
 
@@ -407,8 +426,8 @@
 
   // ---------- mode switch ----------
   function setMode(mode) {
-    const map = { analyse:'analyseView', today:'todayView', quirks:'quirksView', mthis:'monthView', mlast:'monthView' };
-    const btn = { analyse:'mAnalyse', today:'mToday', quirks:'mQuirks', mthis:'mThisM', mlast:'mLastM' };
+    const map = { analyse:'analyseView', today:'todayView', quirks:'quirksView', mthis:'monthView', mlast:'monthView', exp:'expView' };
+    const btn = { analyse:'mAnalyse', today:'mToday', quirks:'mQuirks', mthis:'mThisM', mlast:'mLastM', exp:'mExp' };
     const views = [...new Set(Object.values(map))];
     views.forEach(v => { $(v).hidden = map[mode] !== v; });
     Object.keys(btn).forEach(m => $(btn[m]).classList.toggle('on', m === mode));
@@ -422,6 +441,74 @@
   $('mQuirks').onclick = () => setMode('quirks');
   $('mThisM').onclick = () => setMode('mthis');
   $('mLastM').onclick = () => setMode('mlast');
+  $('mExp').onclick = () => { setMode('exp'); if (!EXP.loaded) runExperiment(); };
+
+  // ---------- experiments ----------
+  const EXP = { loaded: false };
+  $('expRun').onclick = () => runExperiment();
+  async function runExperiment() {
+    const a = parseInt($('expA').value, 10) || 4;
+    const b = parseInt($('expB').value, 10) || 7;
+    $('expTiles').hidden = true;
+    $('expArea').innerHTML = '<div class="state"><div class="spinner"></div>replaying two months of meetings — first run takes up to a minute…</div>';
+    try {
+      const r = await fetch('/api/experiment?a=' + a + '&b=' + b);
+      let d = null;
+      try { d = await r.json(); } catch {}
+      if (!r.ok || !d || !d.ok) {
+        const err = new Error((d && d.error) || ('HTTP ' + r.status));
+        err.status = r.status;
+        $('expArea').innerHTML = errBox(err);
+        return;
+      }
+      EXP.loaded = true;
+      $('expMeta').innerHTML = `<b>${d.races}</b> races · ${d.meetings} meetings · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''}`;
+      const card = (id, from, to, t) => {
+        const diff = (t['act_%'] || 0) - (t['exp_%'] || 0);
+        const verdict = t.trials < 20 ? 'sample too small'
+          : Math.abs(diff) < 3 ? 'no signal — matches chance'
+          : diff > 0 ? 'above chance +' + diff.toFixed(1) : 'below chance ' + diff.toFixed(1);
+        const vc = t.trials < 20 ? 'var(--faint)' : Math.abs(diff) < 3 ? 'var(--dim)' : diff > 0 ? 'var(--green)' : 'var(--red)';
+        $(id).innerHTML = `<span class="tl" style="display:block">#${from} wins ➜ #${to} next race</span>
+          <div class="npicks" style="margin-top:8px">
+            <span class="np">trials <b>${t.trials}</b></span>
+            <span class="np">#${to} ran <b>${t.targetRan}</b></span>
+            <span class="np">hits <b>${t.hits}</b></span>
+            <span class="np">actual <b>${(t['act_%'] || 0).toFixed(1)}%</b></span>
+            <span class="np">expected <b>${(t['exp_%'] || 0).toFixed(1)}%</b></span>
+          </div>
+          <div style="margin-top:8px;font-family:var(--mono);font-size:13px;font-weight:600;color:${vc}">${verdict}</div>`;
+      };
+      $('expTiles').hidden = false;
+      card('expT1', d.a, d.b, d.ab);
+      card('expT2', d.b, d.a, d.ba);
+      // number context table
+      const wrap = el('div','tablewrap');
+      wrap.style.maxHeight = '52vh';
+      const rows = d.numbers.filter(n => n.ran >= 30);
+      const maxW = Math.max(...rows.map(n => n['win_%'] || 0), 0.0001);
+      const table = el('table');
+      table.innerHTML = '<thead><tr><th>Cloth #</th><th>Ran</th><th>Wins</th><th>Win %</th></tr></thead>';
+      const tbody = el('tbody');
+      rows.forEach(n => {
+        const tr = el('tr');
+        tr.appendChild(el('td', null, String(n.num)));
+        tr.appendChild(el('td', null, String(n.ran)));
+        tr.appendChild(el('td', null, String(n.wins)));
+        const td = el('td');
+        const span = el('span','heat', (n['win_%'] || 0).toFixed(1));
+        span.style.background = `rgba(36,86,230,${((n['win_%'] / maxW) * 0.2).toFixed(2)})`;
+        td.appendChild(span);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      $('expArea').innerHTML = '';
+      $('expArea').appendChild(el('div','ftoggle','CONTEXT — HOW OFTEN EACH CLOTH NUMBER WINS'));
+      $('expArea').appendChild(wrap);
+    } catch (e) { $('expArea').innerHTML = errBox(e); }
+  }
 
   // ---------- monthly icon performance ----------
   const M = { cache: {}, shown: null };
