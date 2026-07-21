@@ -712,7 +712,7 @@
     courses.forEach(c => {
       const n = T.cards.filter(rc => rc.course === c).length;
       const b = el('button','pill'+(c===T.course?' on':''), esc(c)+`<span class="n">${n}</span>`);
-      b.onclick = () => { T.course = c; T.openRace = null; renderMeetings(courses); renderRaces(); };
+      b.onclick = () => { T.course = c; T.openRace = null; renderMeetings(courses); renderRaces(); renderTile(); };
       m.appendChild(b);
     });
   }
@@ -1024,7 +1024,7 @@
     const row = $('tilerow');
     if (T.day !== 'today' || !T.cards || !T.results) { row.hidden = true; return; }
     let fin = 0, hits = 0, hits3 = 0, staked = 0, staked3 = 0, pl = 0, pl3 = 0;
-    T.cards.forEach(rc => {
+    T.cards.filter(rc => rc.course === T.course).forEach(rc => {
       const res = T.results[rc.race_id];
       if (!res) return;
       const win = (res.runners || []).find(x => String(x.position) === '1');
