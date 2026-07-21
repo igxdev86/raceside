@@ -258,7 +258,8 @@
     </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
-    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample). Stats fill in progressively — first open at a course takes longest.</p>
+    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
+    <p class="note"><b>SCORE</b> (0–100, refines live as stats load): RPR 25 + TS 15 (relative to field) · trainer@course 12 + jockey@course 8 + trainer@distance 10 (by A/E) · sire 8 + damsire 7 (these conditions, by A/E) · recent form 8 + freshness 7. Small samples shrink toward neutral, missing data scores neutral-low, letter stat excluded. A ranking aid, not a probability.</p>
   </div>
 
   <!-- ============ QUIRKS ============ -->
@@ -697,7 +698,7 @@
   function runnersTable(rc) {
     const wrap = el('div','tablewrap');
     const table = el('table');
-    table.innerHTML = '<thead><tr><th>Horse</th><th>No(Dr)</th><th>Odds</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Horse</th><th>Score</th><th>No(Dr)</th><th>Odds</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
     const tbody = el('tbody');
     const items = [];
     const runners = rc.runners || [];
@@ -715,6 +716,10 @@
       tdH.appendChild(sub2);
       sub.parentSub2 = sub2;
       tr.appendChild(tdH);
+      const tdS = el('td');
+      const scoreEl = el('span','heat','…');
+      tdS.appendChild(scoreEl);
+      tr.appendChild(tdS);
       tr.appendChild(el('td',null, esc(String(r.number ?? '—')) + (r.draw ? ` (${esc(String(r.draw))})` : '')));
       const o = odds[i];
       const tdO = el('td',null, o ? esc(o.frac) : '—');
@@ -736,7 +741,7 @@
       tr.appendChild(tdJ);
       tr.appendChild(el('td',null, esc(String(r.last_run ?? '—'))));
       tbody.appendChild(tr);
-      items.push({ r, sub });
+      items.push({ r, sub, scoreEl, m: {} });
     });
     table.appendChild(tbody);
     wrap.appendChild(table);
@@ -812,13 +817,64 @@
     return AN2.maps[key];
   }
 
-  function fillDistStat(item, key, kind, id, filters, f) {
-    if (!id) { setSub(item, key, '—'); return; }
+  function fillDistStat(item, key, kind, id, filters, f, recompute) {
+    if (!id) { setSub(item, key, '—'); item.m[key] = { missing: true }; if (recompute) recompute(); return; }
     getDistRows(kind, id, filters).then(rows => {
       const row = matchDistRow(rows, f);
-      if (!row) { setSub(item, key, '—'); return; }
-      const runs = Number(row.runs ?? row.runners ?? 0);
-      setSub(item, key, pct(row['win_%']), Number(row['a/e']), runs > 0 && runs < 15);
+      if (!row) { setSub(item, key, '—'); item.m[key] = { missing: true }; }
+      else {
+        const runs = Number(row.runs ?? row.runners ?? 0);
+        const small = runs > 0 && runs < 15;
+        setSub(item, key, pct(row['win_%']), Number(row['a/e']), small);
+        item.m[key] = { ae: Number(row['a/e']) || 0, small };
+      }
+      if (recompute) recompute();
+    });
+  }
+
+  // ---------- SCORE: transparent 0–100 composite ----------
+  // Ratings rel-to-field: RPR 25 + TS 15 · Connections A/E: T@course 12, J@course 8, T@dist 10
+  // Breeding A/E (this class+code+dist): S 8, DS 7 · Form 8 + Freshness 7. Letter stat excluded.
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  function aeUnit(m) {
+    if (!m || m.missing || !(m.ae > 0)) return 0.35;              // unknown → neutral-low
+    let v = clamp01((m.ae - 0.6) / 0.8);                          // A/E 0.6→0 … 1.4→1
+    if (m.small) v = v * 0.5 + 0.175;                             // shrink small samples toward neutral
+    return v;
+  }
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;   // letters (P/F/U/R…) = 0
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function scoreAll(items) {
+    const rprs = items.map(it => Number(it.r.rpr));
+    const tss = items.map(it => Number(it.r.ts));
+    const scores = items.map(it =>
+      relUnit(Number(it.r.rpr), rprs) * 25 +
+      relUnit(Number(it.r.ts), tss) * 15 +
+      aeUnit(it.m.T) * 12 + aeUnit(it.m.J) * 8 + aeUnit(it.m.TD) * 10 +
+      aeUnit(it.m.S) * 8 + aeUnit(it.m.DS) * 7 +
+      formUnit(it.r.form) * 8 + freshUnit(it.r.last_run) * 7
+    );
+    const top = Math.max(...scores, 0.0001);
+    items.forEach((it, i) => {
+      it.scoreEl.textContent = String(Math.round(scores[i]));
+      it.scoreEl.style.background = `rgba(214,165,68,${((scores[i] / top) * 0.55).toFixed(2)})`;
+      it.scoreEl.style.fontWeight = scores[i] === Math.max(...scores) ? '600' : '400';
     });
   }
 
@@ -841,23 +897,29 @@
     if (cp) bloodFilters.race_class = [cp];
     const trainerFilters = {};                  // trainer: this code only (keep the sample)
     if (tp) trainerFilters.type = [tp];
+    const recompute = () => scoreAll(items);
+    scoreAll(items);                            // instant first pass from ratings + form + freshness
     // trainer & jockey at course + conditioned distance stats — queued, edge-cached 1h
     items.forEach(it => {
       if (it.r.trainer_id) {
         getCourseMap('trainers', it.r.trainer_id).then(rows => {
           const row = findCourseRow(rows, rc);
           setSub(it, 'T', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+          it.m.T = row ? { ae: Number(row['a/e']) || 0, small: Number(row.runners ?? row.runs ?? 0) < 15 } : { missing: true };
+          recompute();
         });
-      } else setSub(it, 'T', '—');
+      } else { setSub(it, 'T', '—'); it.m.T = { missing: true }; }
       if (it.r.jockey_id) {
         getCourseMap('jockeys', it.r.jockey_id).then(rows => {
           const row = findCourseRow(rows, rc);
           setSub(it, 'J', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+          it.m.J = row ? { ae: Number(row['a/e']) || 0, small: Number(row.runners ?? row.runs ?? 0) < 15 } : { missing: true };
+          recompute();
         });
-      } else setSub(it, 'J', '—');
-      fillDistStat(it, 'S',  'sires',    it.r.sire_id,    bloodFilters,   f);
-      fillDistStat(it, 'DS', 'damsires', it.r.damsire_id, bloodFilters,   f);
-      fillDistStat(it, 'TD', 'trainers', it.r.trainer_id, trainerFilters, f);
+      } else { setSub(it, 'J', '—'); it.m.J = { missing: true }; }
+      fillDistStat(it, 'S',  'sires',    it.r.sire_id,    bloodFilters,   f, recompute);
+      fillDistStat(it, 'DS', 'damsires', it.r.damsire_id, bloodFilters,   f, recompute);
+      fillDistStat(it, 'TD', 'trainers', it.r.trainer_id, trainerFilters, f, recompute);
     });
   }
 
