@@ -205,6 +205,8 @@
     <button class="mtab on" id="mAnalyse">Analyse</button>
     <button class="mtab" id="mToday">Today's cards</button>
     <button class="mtab" id="mQuirks">Quirks</button>
+    <button class="mtab" id="mThisM">This Month</button>
+    <button class="mtab" id="mLastM">Last Month</button>
   </nav>
 
   <!-- ============ ANALYSE ============ -->
@@ -324,6 +326,19 @@
     <p class="note">Wins by horse-name first letter (leading The/A/An ignored), cloth number and draw at this course over the last 12 months. Win% is heat-shaded. Novelty stats — small samples, treat accordingly.</p>
   </div>
 
+  <!-- ============ MONTH ============ -->
+  <div id="monthView" hidden>
+    <div id="mMeta" class="entity" style="margin-top:4px"></div>
+    <div class="tilerow" id="mTiles" hidden>
+      <div class="tile" id="mT1"></div>
+      <div class="tile" id="mT2"></div>
+      <div class="tile" id="mT3"></div>
+      <div class="tile" id="mT4"></div>
+    </div>
+    <div id="mArea"></div>
+    <p class="note">Grades the ratings core of SCORE (RPR 25 + TS 15, relative to field, same tie rules) across every GB &amp; IRE race in the period — historical results don't carry form strings or freshness, so connections/breeding/form aren't in this backtest. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank.</p>
+  </div>
+
   <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
 </div>
 
@@ -386,18 +401,85 @@
 
   // ---------- mode switch ----------
   function setMode(mode) {
-    const map = { analyse:'analyseView', today:'todayView', quirks:'quirksView' };
-    const btn = { analyse:'mAnalyse', today:'mToday', quirks:'mQuirks' };
-    for (const m of Object.keys(map)) {
-      $(map[m]).hidden = m !== mode;
-      $(btn[m]).classList.toggle('on', m === mode);
-    }
+    const map = { analyse:'analyseView', today:'todayView', quirks:'quirksView', mthis:'monthView', mlast:'monthView' };
+    const btn = { analyse:'mAnalyse', today:'mToday', quirks:'mQuirks', mthis:'mThisM', mlast:'mLastM' };
+    const views = [...new Set(Object.values(map))];
+    views.forEach(v => { $(v).hidden = map[mode] !== v; });
+    Object.keys(btn).forEach(m => $(btn[m]).classList.toggle('on', m === mode));
     if (mode === 'today' && T.loadedDay !== T.day) loadCards();
     if (mode === 'quirks' && !Q.courses) loadCourses();
+    if (mode === 'mthis') loadMonth('this');
+    if (mode === 'mlast') loadMonth('last');
   }
   $('mAnalyse').onclick = () => setMode('analyse');
   $('mToday').onclick = () => setMode('today');
   $('mQuirks').onclick = () => setMode('quirks');
+  $('mThisM').onclick = () => setMode('mthis');
+  $('mLastM').onclick = () => setMode('mlast');
+
+  // ---------- monthly icon performance ----------
+  const M = { cache: {}, shown: null };
+  async function loadMonth(which) {
+    if (M.shown === which && M.cache[which]) return;
+    if (M.cache[which]) { renderMonth(M.cache[which]); M.shown = which; return; }
+    $('mMeta').innerHTML = '';
+    $('mTiles').hidden = true;
+    $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
+    try {
+      const r = await fetch('/api/monthly?month=' + which);
+      let data = null;
+      try { data = await r.json(); } catch {}
+      if (!r.ok || !data || !data.ok) {
+        const err = new Error((data && data.error) || ('HTTP ' + r.status));
+        err.status = r.status;
+        $('mArea').innerHTML = errBox(err);
+        return;
+      }
+      M.cache[which] = data;
+      M.shown = which;
+      renderMonth(data);
+    } catch (e) { $('mArea').innerHTML = errBox(e); }
+  }
+
+  function renderMonth(d) {
+    const t = d.totals, fin = d.races || 1;
+    $('mMeta').innerHTML = `<h2>${d.month === 'this' ? 'This Month' : 'Last Month'}</h2>
+      <div class="meta"><b>${d.races}</b> races · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''} · GB+IRE</div>`;
+    $('mTiles').hidden = false;
+    $('mT1').innerHTML = `<span class="tl">🏆 winners</span>
+      <span class="tv">${t.cups}<span class="ts">/${d.races}</span><span class="tp">${Math.round(t.cups / fin * 100)}%</span></span>`;
+    $('mT2').innerHTML = `<span class="tl">🏆♦️🔹 winners</span>
+      <span class="tv">${t.top3}<span class="ts">/${d.races}</span><span class="tp">${Math.round(t.top3 / fin * 100)}%</span></span>`;
+    const c1 = t.pl > 0 ? 'var(--green)' : t.pl < 0 ? 'var(--red)' : 'var(--dim)';
+    const c3 = t.pl3 > 0 ? 'var(--green)' : t.pl3 < 0 ? 'var(--red)' : 'var(--dim)';
+    $('mT3').innerHTML = `<span class="tl">£1 on 🏆 · SP</span>
+      <span class="tv" style="color:${c1}">${(t.pl > 0 ? '+' : '') + t.pl.toFixed(2)}<span class="ts">/${t.staked} staked</span></span>`;
+    $('mT4').innerHTML = `<span class="tl">£1 on 🏆♦️🔹 · SP</span>
+      <span class="tv" style="color:${c3}">${(t.pl3 > 0 ? '+' : '') + t.pl3.toFixed(2)}<span class="ts">/${t.staked3} staked</span></span>`;
+    const wrap = el('div','tablewrap');
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>Date</th><th>Races</th><th>🏆</th><th>♦️</th><th>🔹</th><th>🏆♦️🔹 %</th><th>£1 🏆</th><th>£1 🏆♦️🔹</th></tr></thead>';
+    const tbody = el('tbody');
+    d.daily.forEach(row => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, esc(row.date)));
+      tr.appendChild(el('td', null, String(row.races)));
+      tr.appendChild(el('td', null, String(row.cups)));
+      tr.appendChild(el('td', null, String(row.gem2)));
+      tr.appendChild(el('td', null, String(row.gem3)));
+      tr.appendChild(el('td', null, Math.round(row.top3 / (row.races || 1) * 100) + '%'));
+      const p1 = el('td', row.pl > 0 ? 'pos' : row.pl < 0 ? 'neg' : null, (row.pl > 0 ? '+' : '') + row.pl.toFixed(2));
+      tr.appendChild(p1);
+      const p3 = el('td', row.pl3 > 0 ? 'pos' : row.pl3 < 0 ? 'neg' : null, (row.pl3 > 0 ? '+' : '') + row.pl3.toFixed(2));
+      tr.appendChild(p3);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    $('mArea').innerHTML = '';
+    $('mArea').appendChild(wrap);
+  }
+
 
   // ---------- pills ----------
   const pillsEl = $('pills');
