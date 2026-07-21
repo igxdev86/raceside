@@ -132,6 +132,7 @@
   .sub{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:3px;letter-spacing:.02em}
   .sub .v{color:var(--ink)}
   .sub .vg{color:var(--green)} .sub .vr{color:var(--red)}
+  .sub .vd{color:var(--faint)}
   .abandoned{opacity:.45}
 
   /* ---- states ---- */
@@ -257,7 +258,7 @@
     </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
-    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course (all-time), green/red by A/E. Stats fill in progressively — first open at a course takes longest.</p>
+    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample). Stats fill in progressively — first open at a course takes longest.</p>
   </div>
 
   <!-- ============ QUIRKS ============ -->
@@ -710,6 +711,9 @@
       tdH.appendChild(hLnk);
       const sub = el('span','sub','L <span class="v" data-k="L">…</span> · T <span class="v" data-k="T">…</span> · J <span class="v" data-k="J">…</span>');
       tdH.appendChild(sub);
+      const sub2 = el('span','sub','S <span class="v" data-k="S">…</span> · DS <span class="v" data-k="DS">…</span> · Td <span class="v" data-k="TD">…</span>');
+      tdH.appendChild(sub2);
+      sub.parentSub2 = sub2;
       tr.appendChild(tdH);
       tr.appendChild(el('td',null, esc(String(r.number ?? '—')) + (r.draw ? ` (${esc(String(r.draw))})` : '')));
       const o = odds[i];
@@ -750,11 +754,111 @@
   const pct = (v) => (Number(v)*100).toFixed(1);
   const normCourse = (s) => String(s||'').toLowerCase().replace(/\s*\(.*\)\s*/g,'').trim();
 
-  function setSub(item, k, text, aeVal) {
-    const span = item.sub.querySelector(`[data-k="${k}"]`);
+  function setSub(item, k, text, aeVal, smallSample) {
+    const span = item.sub.querySelector(`[data-k="${k}"]`) ||
+                 (item.sub.parentSub2 && item.sub.parentSub2.querySelector(`[data-k="${k}"]`));
     if (!span) return;
     span.textContent = text;
-    span.className = 'v' + (aeVal > 1 ? ' vg' : aeVal > 0 && aeVal < 1 ? ' vr' : '');
+    span.className = 'v' + (smallSample ? ' vd' : aeVal > 1 ? ' vg' : aeVal > 0 && aeVal < 1 ? ' vr' : '');
+    if (smallSample) span.title = 'small sample';
+  }
+
+  // race condition helpers
+  function typeParam(rc) {
+    const t = String(rc.type || '').toLowerCase();
+    if (t.includes('hurdle')) return 'hurdle';
+    if (t.includes('chase')) return 'chase';
+    if (t.includes('nh') || t.includes('bumper')) return 'nh_flat';
+    if (t.includes('flat')) return 'flat';
+    return null;
+  }
+  function classParam(rc) {
+    const m = String(rc.race_class || '').match(/(\d)/);
+    return m ? 'class_' + m[1] : null;
+  }
+  function raceDistF(rc) {
+    const f = parseFloat(rc.distance_f);
+    return isNaN(f) ? null : f;
+  }
+  function rowDistF(row) {
+    if (row.dist_f != null && !isNaN(parseFloat(row.dist_f))) return parseFloat(row.dist_f);
+    const m = String(row.dist || '').match(/^(\d+)(?:f)?/);
+    return m ? Number(m[1]) : null;
+  }
+  function matchDistRow(rows, f) {
+    if (!rows || !rows.length || f == null) return null;
+    let best = null, bd = Infinity;
+    for (const r of rows) {
+      const rf = rowDistF(r);
+      if (rf == null) continue;
+      const d = Math.abs(rf - f);
+      if (d < bd) { bd = d; best = r; }
+    }
+    return bd <= 1.01 ? best : null; // within a furlong or no claim
+  }
+
+  // distance analysis, conditioned by filters, cached per entity+filters
+  const AN2 = { maps: {} };
+  function getDistRows(kind, id, filters) {
+    const key = kind + '|' + id + '|' + JSON.stringify(filters);
+    if (!AN2.maps[key]) {
+      AN2.maps[key] = enqueue(async () => {
+        try {
+          const d = await api(`/v1/${kind}/${id}/analysis/distances`, filters);
+          return Object.entries(d).find(([k,v]) => Array.isArray(v) && k !== 'query')?.[1] || [];
+        } catch { return null; }
+      });
+    }
+    return AN2.maps[key];
+  }
+
+  function fillDistStat(item, key, kind, id, filters, f) {
+    if (!id) { setSub(item, key, '—'); return; }
+    getDistRows(kind, id, filters).then(rows => {
+      const row = matchDistRow(rows, f);
+      if (!row) { setSub(item, key, '—'); return; }
+      const runs = Number(row.runs ?? row.runners ?? 0);
+      setSub(item, key, pct(row['win_%']), Number(row['a/e']), runs > 0 && runs < 15);
+    });
+  }
+
+  function annotateRace(rc, items) {
+    // letters — one quirks call per course, server-cached daily
+    if (rc.course_id) {
+      getQuirksData(rc.course_id).then(q => {
+        items.forEach(it => {
+          const L = letterOf(it.r.horse);
+          const row = q && (q.letters || []).find(x => x.letter === L);
+          setSub(it, 'L', row ? pct(row['win_%']) : '—');
+        });
+      });
+    } else {
+      items.forEach(it => setSub(it, 'L', '—'));
+    }
+    const tp = typeParam(rc), cp = classParam(rc), f = raceDistF(rc);
+    const bloodFilters = {};                    // sire/damsire: this code + this class
+    if (tp) bloodFilters.type = [tp];
+    if (cp) bloodFilters.race_class = [cp];
+    const trainerFilters = {};                  // trainer: this code only (keep the sample)
+    if (tp) trainerFilters.type = [tp];
+    // trainer & jockey at course + conditioned distance stats — queued, edge-cached 1h
+    items.forEach(it => {
+      if (it.r.trainer_id) {
+        getCourseMap('trainers', it.r.trainer_id).then(rows => {
+          const row = findCourseRow(rows, rc);
+          setSub(it, 'T', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+        });
+      } else setSub(it, 'T', '—');
+      if (it.r.jockey_id) {
+        getCourseMap('jockeys', it.r.jockey_id).then(rows => {
+          const row = findCourseRow(rows, rc);
+          setSub(it, 'J', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+        });
+      } else setSub(it, 'J', '—');
+      fillDistStat(it, 'S',  'sires',    it.r.sire_id,    bloodFilters,   f);
+      fillDistStat(it, 'DS', 'damsires', it.r.damsire_id, bloodFilters,   f);
+      fillDistStat(it, 'TD', 'trainers', it.r.trainer_id, trainerFilters, f);
+    });
   }
 
   function getQuirksData(courseId) {
@@ -786,35 +890,6 @@
         || null;
   }
 
-  function annotateRace(rc, items) {
-    // letters — one quirks call per course, server-cached daily
-    if (rc.course_id) {
-      getQuirksData(rc.course_id).then(q => {
-        items.forEach(it => {
-          const L = letterOf(it.r.horse);
-          const row = q && (q.letters || []).find(x => x.letter === L);
-          setSub(it, 'L', row ? pct(row['win_%']) : '—');
-        });
-      });
-    } else {
-      items.forEach(it => setSub(it, 'L', '—'));
-    }
-    // trainer & jockey — one analysis call per unique person, queued, edge-cached 1h
-    items.forEach(it => {
-      if (it.r.trainer_id) {
-        getCourseMap('trainers', it.r.trainer_id).then(rows => {
-          const row = findCourseRow(rows, rc);
-          setSub(it, 'T', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
-        });
-      } else setSub(it, 'T', '—');
-      if (it.r.jockey_id) {
-        getCourseMap('jockeys', it.r.jockey_id).then(rows => {
-          const row = findCourseRow(rows, rc);
-          setSub(it, 'J', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
-        });
-      } else setSub(it, 'J', '—');
-    });
-  }
 
   // ---------- quirks ----------
   async function loadCourses() {
