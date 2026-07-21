@@ -272,6 +272,7 @@
     <div class="tilerow" id="tilerow" hidden>
       <div class="tile" id="scoreTile"></div>
       <div class="tile" id="score3Tile"></div>
+      <div class="tile" id="plTile"></div>
     </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
@@ -939,10 +940,22 @@
   }
   function staticTopHorse(rc) { return staticRank(rc)[0] || null; }
 
+  function spDec(run) {
+    const d = Number(run.sp_dec);
+    if (!isNaN(d) && d > 1) return d;
+    const s = String(run.sp || '').replace(/[^\d/.]/g, '');
+    if (s.includes('/')) {
+      const [a, b] = s.split('/').map(Number);
+      if (a > 0 && b > 0) return a / b + 1;
+    }
+    const n = Number(s);
+    return !isNaN(n) && n > 1 ? n : null;
+  }
+
   function renderTile() {
     const row = $('tilerow');
     if (T.day !== 'today' || !T.cards || !T.results) { row.hidden = true; return; }
-    let fin = 0, hits = 0, hits3 = 0;
+    let fin = 0, hits = 0, hits3 = 0, staked = 0, pl = 0;
     T.cards.forEach(rc => {
       const res = T.results[rc.race_id];
       if (!res) return;
@@ -954,6 +967,14 @@
       const idx = ranks.indexOf(win.horse_id);
       if (idx === 0) hits++;
       if (idx >= 0 && idx <= 2) hits3++;
+      // £1 level stake on the top score each race, settled at SP
+      staked++;
+      if (idx === 0) {
+        const d = spDec(win);
+        pl += d ? d - 1 : 0;   // won: SP return minus stake (0 if SP unknown — stake returned, no claim)
+      } else {
+        pl -= 1;
+      }
     });
     if (!fin) { row.hidden = true; return; }
     row.hidden = false;
@@ -961,6 +982,9 @@
       <span class="tv">${hits}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits / fin) * 100)}%</span></span>`;
     $('score3Tile').innerHTML = `<span class="tl">Top 3 score winners</span>
       <span class="tv">${hits3}<span class="ts">/${fin}</span><span class="tp">${Math.round((hits3 / fin) * 100)}%</span></span>`;
+    const plTxt = (pl > 0 ? '+' : '') + pl.toFixed(2);
+    $('plTile').innerHTML = `<span class="tl">£1 on top score · SP</span>
+      <span class="tv" style="color:${pl > 0 ? 'var(--green)' : pl < 0 ? 'var(--red)' : 'var(--dim)'}">${plTxt}<span class="ts">/${staked} staked</span></span>`;
   }
 
   function annotateRace(rc, items) {
