@@ -30,7 +30,13 @@ export default async function handler(req, res) {
     while (skip < total && pages < 24) {
       const url = `https://api.theracingapi.com/v1/results?course=${courseId}` +
         `&start_date=${fmt(start)}&end_date=${fmt(end)}&limit=50&skip=${skip}`;
-      const r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
+      let r, attempts = 0;
+      for (;;) {
+        r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
+        if (r.status !== 429 || attempts >= 4) break;
+        attempts++;
+        await new Promise((ok) => setTimeout(ok, 2000 * attempts)); // back off and retry
+      }
       if (!r.ok) {
         return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
       }
@@ -62,7 +68,7 @@ export default async function handler(req, res) {
         }
       }
       skip += 50; pages++;
-      if (skip < total) await new Promise((ok) => setTimeout(ok, 150)); // stay polite on rate limit
+      if (skip < total) await new Promise((ok) => setTimeout(ok, 700)); // ~1.4 req/s, under plan limit
     }
   } catch (e) {
     return res.status(502).json({ ok: false, error: 'upstream', detail: String(e) });
