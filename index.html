@@ -426,7 +426,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which);
+      const r = await fetch('/api/monthly?month=' + which + '&v=2');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
@@ -443,8 +443,17 @@
 
   function renderMonth(d) {
     const t = d.totals, fin = d.races || 1;
+    const basisTxt = d.basis ? ` · ${d.basis.rpr_ts} on RPR/TS, ${d.basis.ofr} on OFR` : '';
     $('mMeta').innerHTML = `<h2>${d.month === 'this' ? 'This Month' : 'Last Month'}</h2>
-      <div class="meta"><b>${d.races}</b> races graded${d.skipped ? ' · ' + d.skipped + ' skipped (unrated fields)' : ''} · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''} · GB+IRE</div>`;
+      <div class="meta"><b>${d.races}</b> races graded${d.skipped ? ' · ' + d.skipped + ' skipped' : ''}${basisTxt} · ${esc(d.from)} → ${esc(d.to)}${d.truncated ? ' · sample truncated' : ''} · GB+IRE</div>`;
+    if (!d.races) {
+      $('mTiles').hidden = true;
+      $('mArea').innerHTML = '<div class="state"><div class="big">Nothing gradeable</div>The results feed returned ' +
+        (d.upstreamTotal == null ? 'no data' : d.upstreamTotal + ' races') +
+        ' but none could be ranked. Raw sample of first runners:<br><br>' +
+        esc(JSON.stringify(d.diag || [])) + '</div>';
+      return;
+    }
     $('mTiles').hidden = false;
     $('mT1').innerHTML = `<span class="tl">🏆 winners</span>
       <span class="tv">${t.cups}<span class="ts">/${d.races}</span><span class="tp">${Math.round(t.cups / fin * 100)}%</span></span>`;
