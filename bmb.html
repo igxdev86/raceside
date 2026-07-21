@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMB — today's racing</title>
+<meta name="description" content="BMB. Today's UK & Irish racecards. Nothing else.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0B0D; --card:#141417; --card2:#1B1B20; --line:#26262C;
+    --ink:#F4F2EC; --dim:#8E8E98; --faint:#5A5A64;
+    --acc:#E8FF47; --acc-ink:#0B0B0D;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  ::selection{background:var(--acc);color:var(--acc-ink)}
+  .wrap{max-width:820px;margin:0 auto;padding:18px 14px 80px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:18px}
+  .logo{font-family:'Archivo Black',var(--sans);font-size:42px;letter-spacing:-.03em;line-height:1;color:var(--acc)}
+  .logo small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--dim);margin-top:6px;text-transform:uppercase}
+  .date{font-family:var(--mono);font-size:12px;color:var(--dim);text-align:right}
+
+  .meetings{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+  .meetings::-webkit-scrollbar{display:none}
+  .chip{flex:none;font-family:var(--sans);font-weight:700;font-size:13px;letter-spacing:.02em;text-transform:uppercase;
+    padding:9px 15px;border:1px solid var(--line);border-radius:999px;color:var(--dim);background:var(--card)}
+  .chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+  .chip .n{font-family:var(--mono);font-size:10.5px;opacity:.75;margin-left:4px}
+
+  .races{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .race{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .rhead{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px}
+  .rhead:active{background:var(--card2)}
+  .off{font-family:'Archivo Black',var(--sans);font-size:22px;color:var(--acc);flex:none;min-width:60px;letter-spacing:-.02em}
+  .rinfo{min-width:0;flex:1}
+  .rname{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rsub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:3px}
+  .chev{color:var(--faint);flex:none;transition:.15s}
+  .race.open .chev{transform:rotate(90deg)}
+  .field{display:none;border-top:1px solid var(--line)}
+  .race.open .field{display:block}
+  .runner{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .runner:last-child{border-bottom:0}
+  .num{font-family:var(--mono);font-size:12px;color:var(--dim);flex:none;min-width:44px}
+  .horse{font-weight:600;font-size:14.5px;flex:1;min-width:0}
+  .conn{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:2px;font-weight:400;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .price{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--acc);flex:none}
+
+  .state{margin-top:40px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{margin-top:44px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.08em;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">BMB<small>today's racing</small></div>
+    <div class="date" id="date"></div>
+  </header>
+  <nav class="meetings" id="meetings"></nav>
+  <div class="races" id="races"><div class="state"><div class="spinner"></div>loading the cards…</div></div>
+  <footer>BMB · GB &amp; IRE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  $('date').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  let cards = [], course = null;
+
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  async function load() {
+    let data = null;
+    for (const tier of ['standard','basic','free']) {
+      try { data = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+    }
+    if (!data || !(data.racecards || []).length) {
+      $('races').innerHTML = '<div class="state">No cards today.</div>';
+      return;
+    }
+    cards = data.racecards;
+    const courses = [...new Set(cards.map(rc => rc.course))];
+    course = courses[0];
+    drawMeetings(courses);
+    drawRaces();
+  }
+
+  function drawMeetings(courses) {
+    const m = $('meetings'); m.innerHTML = '';
+    courses.forEach(c => {
+      const n = cards.filter(rc => rc.course === c).length;
+      const b = el('button','chip' + (c === course ? ' on' : ''), esc(c) + '<span class="n">' + n + '</span>');
+      b.onclick = () => { course = c; drawMeetings(courses); drawRaces(); };
+      m.appendChild(b);
+    });
+  }
+
+  function drawRaces() {
+    const area = $('races'); area.innerHTML = '';
+    cards
+      .filter(rc => rc.course === course)
+      .sort((a, b) => String(a.off_time).localeCompare(String(b.off_time)))
+      .forEach(rc => {
+        const race = el('div','race');
+        const bits = [rc.race_class, rc.distance || (rc.distance_f ? rc.distance_f + 'f' : ''), rc.going, rc.field_size ? rc.field_size + ' run' : ''].filter(Boolean).join(' · ');
+        const head = el('button','rhead',
+          '<span class="off">' + esc(rc.off_time || '') + '</span>' +
+          '<span class="rinfo"><span class="rname">' + esc(rc.race_name || '') + '</span><span class="rsub">' + esc(bits) + '</span></span>' +
+          '<span class="chev">▸</span>');
+        const field = el('div','field');
+        head.onclick = () => {
+          const opening = !race.classList.contains('open');
+          area.querySelectorAll('.race.open').forEach(r => r.classList.remove('open'));
+          if (opening) {
+            race.classList.add('open');
+            if (!field.hasChildNodes()) {
+              (rc.runners || []).forEach(r => {
+                const o = bestOdds(r);
+                const row = el('div','runner',
+                  '<span class="num">' + esc(String(r.number ?? '')) + (r.draw ? ' (' + esc(String(r.draw)) + ')' : '') + '</span>' +
+                  '<span class="horse">' + esc(r.horse || '') +
+                  '<span class="conn">' + esc(r.jockey || '') + ' · ' + esc(r.trainer || '') + '</span></span>' +
+                  '<span class="price">' + (o ? esc(o.frac) : '—') + '</span>');
+                field.appendChild(row);
+              });
+            }
+          }
+        };
+        race.appendChild(head); race.appendChild(field);
+        area.appendChild(race);
+      });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
