@@ -42,9 +42,9 @@ export default async function handler(req, res) {
       },
     });
     const body = await upstream.text();
-    // Historical stats barely move — cache hard. Racecards change (NRs, odds) — cache light.
-    const isCards = path.startsWith('/v1/racecards');
-    res.setHeader('Cache-Control', isCards
+    // Historical stats barely move — cache hard. Racecards & today's results change — cache light.
+    const isLive = path.startsWith('/v1/racecards') || path === '/v1/results/today';
+    res.setHeader('Cache-Control', isLive
       ? 's-maxage=180, stale-while-revalidate=600'
       : 's-maxage=3600, stale-while-revalidate=86400');
     res.setHeader('Content-Type', 'application/json');
