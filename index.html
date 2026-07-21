@@ -342,7 +342,7 @@
     </div>
     <div class="tile" id="mIconBar" hidden style="display:block;margin:0 0 12px"></div>
     <div id="mArea"></div>
-    <p class="note">Grades the ratings core of SCORE (RPR 25 + TS 15, relative to field, same tie rules) across every GB &amp; IRE race in the period — historical results don't carry form strings or freshness, so connections/breeding/form aren't in this backtest. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank. Multiples: full-cover £1 doubles, trebles and 4-folds across each day's <b>unique</b> 🏆 picks (tied-top races excluded), settled at SP — ROI% is the comparable figure, stakes are large by construction.</p>
+    <p class="note">Grades the backtestable core of SCORE — RPR 22 + TS 13 relative to field, plus trainer 14-day form (5) reconstructed leak-free from a fortnight of lookback results before each race day — with the same tie rules as the live app. C&amp;D flags, form strings, freshness and connection A/E can't be rebuilt from historical results, so they're excluded rather than faked. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank. Multiples: full-cover £1 doubles, trebles and 4-folds across each day's <b>unique</b> 🏆 picks (tied-top races excluded), settled at SP — ROI% is the comparable figure, stakes are large by construction.</p>
   </div>
 
   <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
@@ -432,7 +432,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which + '&v=6');
+      const r = await fetch('/api/monthly?month=' + which + '&v=7');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
