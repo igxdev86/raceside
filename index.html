@@ -29,19 +29,26 @@
   .wrap{max-width:820px;margin:0 auto;padding:14px 14px 80px}
 
   /* ---- header: furlong-marker wordmark ---- */
-  header{display:flex;align-items:center;gap:12px;padding:6px 0 16px}
+  header{display:flex;align-items:center;gap:12px;padding:6px 0 14px}
   .marker{width:44px;height:44px;flex:none;border:2px solid var(--brass);border-radius:8px 8px 50% 50%/8px 8px 60% 60%;
     display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:21px;color:var(--brass);letter-spacing:.02em}
   .wordmark{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:.10em;line-height:1}
   .wordmark small{display:block;font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.22em;color:var(--dim);margin-top:4px;text-transform:uppercase}
 
-  /* ---- entity pills ---- */
+  /* ---- mode nav ---- */
+  .modenav{display:flex;gap:2px;border-bottom:1px solid var(--line2);margin-bottom:14px}
+  .mtab{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:.09em;text-transform:uppercase;
+    padding:9px 15px;color:var(--dim);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .mtab.on{color:var(--brass);border-bottom-color:var(--brass)}
+
+  /* ---- entity pills / chips ---- */
   .pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .pills::-webkit-scrollbar{display:none}
   .pill{flex:none;font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;
     padding:7px 14px;border:1px solid var(--line2);border-radius:999px;color:var(--dim);transition:.15s}
   .pill:hover{border-color:var(--brass);color:var(--ink)}
   .pill.on{background:var(--brass);border-color:var(--brass);color:var(--brass-ink)}
+  .pill .n{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:4px}
   .pill:focus-visible,.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
   /* ---- search ---- */
@@ -51,6 +58,7 @@
   .searchrow input::placeholder{color:var(--faint)}
   .searchrow .go{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:7px 12px;color:var(--brass);font-family:var(--disp);font-weight:600;letter-spacing:.08em;font-size:15px}
   .hits{margin-top:8px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel)}
+  .hits:empty{border:0}
   .hit{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;
     padding:12px 14px;border-bottom:1px solid var(--line);font-size:15px}
   .hit:last-child{border-bottom:0}
@@ -102,7 +110,26 @@
   tbody tr:hover td:first-child{background:var(--panel2)}
   .heat{border-radius:5px;padding:3px 7px;display:inline-block;min-width:52px;text-align:right;color:var(--ink)}
   .pos{color:var(--green)} .neg{color:var(--red)}
-  .totalrow td{border-top:1px solid var(--line2);color:var(--dim)}
+
+  /* ---- today's cards ---- */
+  .dayrow{margin-bottom:10px}
+  .racelist{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .race{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .racehead{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px}
+  .racehead:hover{background:var(--panel2)}
+  .off{font-family:var(--disp);font-weight:700;font-size:21px;color:var(--brass);flex:none;min-width:56px}
+  .rinfo{min-width:0;flex:1}
+  .rname{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rsub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
+  .rchev{color:var(--faint);flex:none;transition:.15s}
+  .race.open .rchev{transform:rotate(90deg)}
+  .runners{display:none;border-top:1px solid var(--line)}
+  .race.open .runners{display:block}
+  .runners .tablewrap{margin:0;border:0;border-radius:0;max-height:none}
+  .lnk{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--faint);cursor:pointer;font:inherit;padding:0;white-space:nowrap}
+  .lnk:hover{color:var(--brass);border-bottom-color:var(--brass)}
+  td .lnk{font-family:var(--mono);font-size:12px}
+  .abandoned{opacity:.45}
 
   /* ---- states ---- */
   .state{margin-top:26px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px;padding:30px 10px}
@@ -127,87 +154,106 @@
     <div class="wordmark">RACESIDE<small>historical form intelligence</small></div>
   </header>
 
-  <nav class="pills" id="pills" aria-label="Entity type"></nav>
+  <nav class="modenav" aria-label="Section">
+    <button class="mtab on" id="mAnalyse">Analyse</button>
+    <button class="mtab" id="mToday">Today's cards</button>
+  </nav>
 
-  <div class="searchrow">
-    <input id="q" type="search" autocomplete="off" placeholder="Search trainers…" aria-label="Search">
-    <button class="go" id="goBtn">FIND</button>
-  </div>
-  <div id="hits"></div>
+  <!-- ============ ANALYSE ============ -->
+  <div id="analyseView">
+    <nav class="pills" id="pills" aria-label="Entity type"></nav>
 
-  <div id="entityView" hidden>
-    <div class="entity">
-      <h2 id="entName"></h2>
-      <div class="meta" id="entMeta"></div>
+    <div class="searchrow">
+      <input id="q" type="search" autocomplete="off" placeholder="Search trainers…" aria-label="Search">
+      <button class="go" id="goBtn">FIND</button>
     </div>
-    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="hits" class="hits"></div>
 
-    <button class="ftoggle" id="ftoggle" aria-expanded="false">
-      <span class="chev">▸</span> FILTERS <span class="fcount" id="fcount"></span>
-    </button>
-    <div class="filters" id="filters">
-      <div class="fgrid">
-        <div class="fgroup" style="grid-column:1/-1">
-          <label>Period</label>
-          <div class="presets chks" id="presets">
-            <button class="chk on" data-months="0">ALL</button>
-            <button class="chk" data-months="12">12M</button>
-            <button class="chk" data-months="24">2Y</button>
-            <button class="chk" data-months="60">5Y</button>
-          </div>
-        </div>
-        <div class="fgroup"><label>From</label><input type="date" id="fStart"></div>
-        <div class="fgroup"><label>To</label><input type="date" id="fEnd"></div>
-        <div class="fgroup">
-          <label>Region</label>
-          <div class="chks" id="fRegion">
-            <button class="chk" data-v="gb">GB</button>
-            <button class="chk" data-v="ire">IRE</button>
-          </div>
-        </div>
-        <div class="fgroup">
-          <label>Code</label>
-          <div class="chks" id="fType">
-            <button class="chk" data-v="flat">FLAT</button>
-            <button class="chk" data-v="hurdle">HRD</button>
-            <button class="chk" data-v="chase">CHS</button>
-            <button class="chk" data-v="nh_flat">NHF</button>
-          </div>
-        </div>
-        <div class="fgroup">
-          <label>Class</label>
-          <select id="fClass" multiple>
-            <option value="class_1">Class 1</option><option value="class_2">Class 2</option>
-            <option value="class_3">Class 3</option><option value="class_4">Class 4</option>
-            <option value="class_5">Class 5</option><option value="class_6">Class 6</option>
-            <option value="class_7">Class 7</option>
-          </select>
-        </div>
-        <div class="fgroup">
-          <label>Going</label>
-          <select id="fGoing" multiple>
-            <option value="firm">Firm</option><option value="good_to_firm">Gd-Firm</option>
-            <option value="good">Good</option><option value="good_to_soft">Gd-Soft</option>
-            <option value="soft">Soft</option><option value="heavy">Heavy</option>
-            <option value="yielding">Yielding</option><option value="standard">Standard (AW)</option>
-            <option value="standard_to_slow">Std-Slow (AW)</option><option value="standard_to_fast">Std-Fast (AW)</option>
-          </select>
-        </div>
-        <div class="fgroup"><label>Min dist (f)</label><input type="number" id="fMinF" min="4" max="40" inputmode="numeric" placeholder="e.g. 5"></div>
-        <div class="fgroup"><label>Max dist (f)</label><input type="number" id="fMaxF" min="4" max="40" inputmode="numeric" placeholder="e.g. 12"></div>
-        <div class="fgroup"><label>Min runs (view)</label><input type="number" id="fMinRuns" min="0" inputmode="numeric" placeholder="0"></div>
+    <div id="entityView" hidden>
+      <div class="entity">
+        <h2 id="entName"></h2>
+        <div class="meta" id="entMeta"></div>
       </div>
-      <button class="fapply" id="fapply">Apply filters</button>
-      <button class="fclear" id="fclear">clear all</button>
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <button class="ftoggle" id="ftoggle" aria-expanded="false">
+        <span class="chev">▸</span> FILTERS <span class="fcount" id="fcount"></span>
+      </button>
+      <div class="filters" id="filters">
+        <div class="fgrid">
+          <div class="fgroup" style="grid-column:1/-1">
+            <label>Period</label>
+            <div class="presets chks" id="presets">
+              <button class="chk on" data-months="0">ALL</button>
+              <button class="chk" data-months="12">12M</button>
+              <button class="chk" data-months="24">2Y</button>
+              <button class="chk" data-months="60">5Y</button>
+            </div>
+          </div>
+          <div class="fgroup"><label>From</label><input type="date" id="fStart"></div>
+          <div class="fgroup"><label>To</label><input type="date" id="fEnd"></div>
+          <div class="fgroup">
+            <label>Region</label>
+            <div class="chks" id="fRegion">
+              <button class="chk" data-v="gb">GB</button>
+              <button class="chk" data-v="ire">IRE</button>
+            </div>
+          </div>
+          <div class="fgroup">
+            <label>Code</label>
+            <div class="chks" id="fType">
+              <button class="chk" data-v="flat">FLAT</button>
+              <button class="chk" data-v="hurdle">HRD</button>
+              <button class="chk" data-v="chase">CHS</button>
+              <button class="chk" data-v="nh_flat">NHF</button>
+            </div>
+          </div>
+          <div class="fgroup">
+            <label>Class</label>
+            <select id="fClass" multiple>
+              <option value="class_1">Class 1</option><option value="class_2">Class 2</option>
+              <option value="class_3">Class 3</option><option value="class_4">Class 4</option>
+              <option value="class_5">Class 5</option><option value="class_6">Class 6</option>
+              <option value="class_7">Class 7</option>
+            </select>
+          </div>
+          <div class="fgroup">
+            <label>Going</label>
+            <select id="fGoing" multiple>
+              <option value="firm">Firm</option><option value="good_to_firm">Gd-Firm</option>
+              <option value="good">Good</option><option value="good_to_soft">Gd-Soft</option>
+              <option value="soft">Soft</option><option value="heavy">Heavy</option>
+              <option value="yielding">Yielding</option><option value="standard">Standard (AW)</option>
+              <option value="standard_to_slow">Std-Slow (AW)</option><option value="standard_to_fast">Std-Fast (AW)</option>
+            </select>
+          </div>
+          <div class="fgroup"><label>Min dist (f)</label><input type="number" id="fMinF" min="4" max="40" inputmode="numeric" placeholder="e.g. 5"></div>
+          <div class="fgroup"><label>Max dist (f)</label><input type="number" id="fMaxF" min="4" max="40" inputmode="numeric" placeholder="e.g. 12"></div>
+          <div class="fgroup"><label>Min runs (view)</label><input type="number" id="fMinRuns" min="0" inputmode="numeric" placeholder="0"></div>
+        </div>
+        <button class="fapply" id="fapply">Apply filters</button>
+        <button class="fclear" id="fclear">clear all</button>
+      </div>
+
+      <div id="tableArea"></div>
+      <p class="note">WIN% = wins ÷ runs · A/E = actual wins ÷ market-expected wins (over 1.00 beats the market) · £1 P/L = level-stake profit at SP · stats aggregate results where SP is available.</p>
     </div>
 
-    <div id="tableArea"></div>
-    <p class="note">WIN% = wins ÷ runs · A/E = actual wins ÷ market-expected wins (over 1.00 beats the market) · £1 P/L = level-stake profit at SP · stats aggregate results where SP is available.</p>
+    <div class="state" id="idleState">
+      <div class="big">Pick a lane, name a name</div>
+      Trainer, jockey, owner or bloodline — search above to pull their full historical record: strike rates, A/E and level-stake P/L, sliced by course, distance, going, class and code.
+    </div>
   </div>
 
-  <div class="state" id="idleState">
-    <div class="big">Pick a lane, name a name</div>
-    Trainer, jockey, owner or bloodline — search above to pull their full historical record: strike rates, A/E and level-stake P/L, sliced by course, distance, going, class and code.
+  <!-- ============ TODAY ============ -->
+  <div id="todayView" hidden>
+    <div class="chks dayrow" id="dayrow">
+      <button class="chk on" data-day="today">TODAY</button>
+      <button class="chk" data-day="tomorrow">TOMORROW</button>
+    </div>
+    <nav class="pills" id="meetings" aria-label="Meetings"></nav>
+    <div id="races"></div>
+    <p class="note">Tap a race to open the field. Tap any horse, trainer or jockey to jump into their full historical record. FRM = recent form · OFR = official rating · RPR = Racing Post rating · TS = Topspeed.</p>
   </div>
 
   <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
@@ -239,12 +285,12 @@
   // ---------- state ----------
   const S = {
     type: TYPES[0],
-    entity: null,          // {id, name}
+    entity: null,
     tab: null,
     sortKey: 'runners', sortDir: -1,
     filters: { start:'', end:'', region:[], type:[], race_class:[], going:[], minF:'', maxF:'', minRuns:'' },
-    lastRows: null, lastMeta: null,
   };
+  const T = { day:'today', cards:null, course:null, loadedDay:null, openRace:null };
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, html) => { const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
@@ -269,21 +315,36 @@
     return data;
   }
 
+  // ---------- mode switch ----------
+  function setMode(mode) {
+    const today = mode === 'today';
+    $('mAnalyse').classList.toggle('on', !today);
+    $('mToday').classList.toggle('on', today);
+    $('analyseView').hidden = today;
+    $('todayView').hidden = !today;
+    if (today && T.loadedDay !== T.day) loadCards();
+  }
+  $('mAnalyse').onclick = () => setMode('analyse');
+  $('mToday').onclick = () => setMode('today');
+
   // ---------- pills ----------
   const pillsEl = $('pills');
-  TYPES.forEach((t,i) => {
-    const b = el('button','pill'+(i===0?' on':''), t.label.toUpperCase()+'S');
-    b.onclick = () => {
-      S.type = t;
-      [...pillsEl.children].forEach(c=>c.classList.remove('on'));
-      b.classList.add('on');
-      $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
-      $('hits').innerHTML = '';
-      $('q').value = '';
-      $('q').focus();
-    };
-    pillsEl.appendChild(b);
-  });
+  function drawPills() {
+    pillsEl.innerHTML = '';
+    TYPES.forEach((t) => {
+      const b = el('button','pill'+(t.key===S.type.key?' on':''), t.label.toUpperCase()+'S');
+      b.onclick = () => {
+        S.type = t;
+        drawPills();
+        $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
+        $('hits').innerHTML = '';
+        $('q').value = '';
+        $('q').focus();
+      };
+      pillsEl.appendChild(b);
+    });
+  }
+  drawPills();
 
   // ---------- search ----------
   let debTimer = null;
@@ -335,6 +396,18 @@
     renderTabs();
     loadTab();
     try { localStorage.setItem('raceside:last', JSON.stringify({t:S.type.key, id, name})); } catch {}
+  }
+
+  // jump from a racecard into analysis
+  function jumpTo(typeKey, id, name) {
+    const t = TYPES.find(x => x.key === typeKey);
+    if (!t || !id) return;
+    S.type = t;
+    drawPills();
+    $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
+    setMode('analyse');
+    selectEntity(id, name);
+    window.scrollTo({ top: 0 });
   }
 
   function renderTabs() {
@@ -407,7 +480,7 @@
     return p;
   }
 
-  // ---------- load + render ----------
+  // ---------- analysis load + render ----------
   let loadSeq = 0;
   async function loadTab() {
     const seq = ++loadSeq;
@@ -418,7 +491,6 @@
       if (seq !== loadSeq) return;
       const rowsKey = Object.keys(data).find(k => Array.isArray(data[k]) && k !== 'query');
       const rows = rowsKey ? data[rowsKey] : [];
-      S.lastRows = rows;
       $('entMeta').innerHTML = data.total_runners != null ? `<b>${Number(data.total_runners).toLocaleString()}</b> runs in sample` : '';
       if (!rows.length) { area.innerHTML = '<div class="state"><div class="big">No runs in this slice</div>Loosen the filters — this combination returns nothing.</div>'; return; }
       S.sortKey = 'runners' in rows[0] ? 'runners' : Object.keys(rows[0]).find(k=>typeof rows[0][k]==='number');
@@ -439,11 +511,9 @@
     const extras = Object.keys(sample).filter(k => !knownKeys.has(k) && !k.endsWith('_id') && k!=='id' && typeof sample[k]!=='object');
     const cols = [...known, ...extras.map(k => ({k, label:k.replace(/_/g,' ')}))];
 
-    // client-side min runs
     const minRuns = Number(S.filters.minRuns)||0;
     let view = minRuns ? rows.filter(r => Number(r.runners||0) >= minRuns) : rows.slice();
 
-    // sort
     view.sort((a,b) => {
       const va=a[S.sortKey], vb=b[S.sortKey];
       const na=Number(va), nb=Number(vb);
@@ -451,7 +521,6 @@
       return String(va??'').localeCompare(String(vb??''))*S.sortDir;
     });
 
-    // heat scales
     const maxWin = Math.max(...view.map(r=>Number(r['win_%'])||0), 0.0001);
 
     const wrap = el('div','tablewrap');
@@ -467,7 +536,6 @@
       };
       hr.appendChild(th);
     });
-    // make label col sortable too
     hr.firstChild.onclick = () => {
       if (S.sortKey===labelKey) S.sortDir*=-1; else { S.sortKey=labelKey; S.sortDir=1; }
       renderTable(rows);
@@ -504,7 +572,6 @@
     }
   }
 
-  // heat: win → brass scale by relative %, ae → red/green around 1.00
   function heatColor(kind, v, maxWin) {
     if (isNaN(v)) return 'transparent';
     if (kind==='win') {
@@ -517,6 +584,108 @@
       return `rgba(229,72,77,${Math.min(0.6, -d*1.2).toFixed(2)})`;
     }
     return 'transparent';
+  }
+
+  // ---------- today's cards ----------
+  $('dayrow').querySelectorAll('.chk').forEach(b => b.onclick = () => {
+    $('dayrow').querySelectorAll('.chk').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    T.day = b.dataset.day;
+    loadCards();
+  });
+
+  async function loadCards() {
+    const races = $('races');
+    $('meetings').innerHTML = '';
+    races.innerHTML = '<div class="state"><div class="spinner"></div>declaring the runners…</div>';
+    let data = null, lastErr = null;
+    for (const tier of ['standard','basic','free']) {
+      try { data = await api(`/v1/racecards/${tier}`, { day: T.day }); break; }
+      catch (e) { lastErr = e; if (e.status===401 || e.status===402 || e.status===403 || e.status===404) continue; races.innerHTML = errBox(e); return; }
+    }
+    if (!data) { races.innerHTML = errBox(lastErr || new Error('no data')); return; }
+    T.cards = (data.racecards || []).filter(rc => !rc.is_abandoned || true);
+    T.loadedDay = T.day;
+    if (!T.cards.length) { races.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing declared for ' + esc(T.day) + ' yet.</div>'; return; }
+    const courses = [...new Set(T.cards.map(rc => rc.course))];
+    if (!T.course || !courses.includes(T.course)) T.course = courses[0];
+    renderMeetings(courses);
+    renderRaces();
+  }
+
+  function renderMeetings(courses) {
+    const m = $('meetings'); m.innerHTML = '';
+    courses.forEach(c => {
+      const n = T.cards.filter(rc => rc.course === c).length;
+      const b = el('button','pill'+(c===T.course?' on':''), esc(c)+`<span class="n">${n}</span>`);
+      b.onclick = () => { T.course = c; T.openRace = null; renderMeetings(courses); renderRaces(); };
+      m.appendChild(b);
+    });
+  }
+
+  function renderRaces() {
+    const area = $('races');
+    const list = el('div','racelist');
+    const rcs = T.cards
+      .filter(rc => rc.course === T.course)
+      .sort((a,b) => String(a.off_time).localeCompare(String(b.off_time)));
+    rcs.forEach(rc => {
+      const race = el('div','race'+(rc.is_abandoned?' abandoned':''));
+      const bits = [rc.race_class, rc.distance || (rc.distance_f ? rc.distance_f+'f' : ''), rc.going, (rc.field_size ? rc.field_size+' run' : ''), rc.type].filter(Boolean).join(' · ');
+      const head = el('button','racehead',
+        `<span class="off">${esc(rc.off_time||'')}</span>
+         <span class="rinfo"><span class="rname">${esc(rc.race_name||'')}</span><span class="rsub">${esc(bits)}${rc.is_abandoned?' · ABANDONED':''}</span></span>
+         <span class="rchev">▸</span>`);
+      const runnersEl = el('div','runners');
+      head.onclick = () => {
+        const opening = !race.classList.contains('open');
+        list.querySelectorAll('.race.open').forEach(r => r.classList.remove('open'));
+        if (opening) {
+          race.classList.add('open');
+          if (!runnersEl.hasChildNodes()) runnersEl.appendChild(runnersTable(rc));
+          T.openRace = rc.race_id;
+        }
+      };
+      race.appendChild(head); race.appendChild(runnersEl);
+      list.appendChild(race);
+    });
+    area.innerHTML = '';
+    area.appendChild(list);
+  }
+
+  function runnersTable(rc) {
+    const wrap = el('div','tablewrap');
+    const table = el('table');
+    table.innerHTML = '<thead><tr><th>Horse</th><th>No(Dr)</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
+    const tbody = el('tbody');
+    (rc.runners || []).forEach(r => {
+      const tr = el('tr');
+      const tdH = el('td');
+      const hLnk = el('button','lnk', esc(r.horse || '—'));
+      hLnk.onclick = () => jumpTo('horses', r.horse_id, r.horse);
+      tdH.appendChild(hLnk);
+      tr.appendChild(tdH);
+      tr.appendChild(el('td',null, esc(String(r.number ?? '—')) + (r.draw ? ` (${esc(String(r.draw))})` : '')));
+      tr.appendChild(el('td',null, esc(r.form || '—')));
+      tr.appendChild(el('td',null, esc(String(r.ofr ?? '—'))));
+      tr.appendChild(el('td',null, esc(String(r.rpr ?? '—'))));
+      tr.appendChild(el('td',null, esc(String(r.ts ?? '—'))));
+      const tdT = el('td');
+      const tLnk = el('button','lnk', esc(r.trainer || '—'));
+      tLnk.onclick = () => jumpTo('trainers', r.trainer_id, r.trainer);
+      tdT.appendChild(tLnk);
+      tr.appendChild(tdT);
+      const tdJ = el('td');
+      const jLnk = el('button','lnk', esc(r.jockey || '—'));
+      jLnk.onclick = () => jumpTo('jockeys', r.jockey_id, r.jockey);
+      tdJ.appendChild(jLnk);
+      tr.appendChild(tdJ);
+      tr.appendChild(el('td',null, esc(String(r.last_run ?? '—'))));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
   }
 
   // ---------- misc ----------
@@ -538,7 +707,7 @@
       const t = TYPES.find(x=>x.key===last.t);
       if (t) {
         S.type = t;
-        [...pillsEl.children].forEach((c,i)=>c.classList.toggle('on', TYPES[i].key===t.key));
+        drawPills();
         $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
         selectEntity(last.id, last.name);
       }
