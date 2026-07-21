@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — historical form intelligence</title>
+<meta name="description" content="Historical strike rates, A/E and P/L for trainers, jockeys, owners and bloodlines. UK & Irish racing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1013; --panel:#151920; --panel2:#1b212b; --line:#262d38; --line2:#303948;
+    --ink:#e9e6df; --dim:#8a93a3; --faint:#5c6575;
+    --brass:#d6a544; --brass-ink:#0e1013;
+    --red:#e5484d; --green:#3fbf6f;
+    --radius:10px;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Barlow',system-ui,sans-serif;
+    --disp:'Barlow Condensed',var(--sans);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  input,select{font-family:inherit;color:var(--ink)}
+  ::selection{background:var(--brass);color:var(--brass-ink)}
+
+  .wrap{max-width:820px;margin:0 auto;padding:14px 14px 80px}
+
+  /* ---- header: furlong-marker wordmark ---- */
+  header{display:flex;align-items:center;gap:12px;padding:6px 0 16px}
+  .marker{width:44px;height:44px;flex:none;border:2px solid var(--brass);border-radius:8px 8px 50% 50%/8px 8px 60% 60%;
+    display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:21px;color:var(--brass);letter-spacing:.02em}
+  .wordmark{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:.10em;line-height:1}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.22em;color:var(--dim);margin-top:4px;text-transform:uppercase}
+
+  /* ---- entity pills ---- */
+  .pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .pills::-webkit-scrollbar{display:none}
+  .pill{flex:none;font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 14px;border:1px solid var(--line2);border-radius:999px;color:var(--dim);transition:.15s}
+  .pill:hover{border-color:var(--brass);color:var(--ink)}
+  .pill.on{background:var(--brass);border-color:var(--brass);color:var(--brass-ink)}
+  .pill:focus-visible,.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+  /* ---- search ---- */
+  .searchrow{position:relative;margin-top:10px}
+  .searchrow input{width:100%;background:var(--panel);border:1px solid var(--line2);border-radius:var(--radius);
+    padding:13px 44px 13px 14px;font-size:16px}
+  .searchrow input::placeholder{color:var(--faint)}
+  .searchrow .go{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:7px 12px;color:var(--brass);font-family:var(--disp);font-weight:600;letter-spacing:.08em;font-size:15px}
+  .hits{margin-top:8px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel)}
+  .hit{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;
+    padding:12px 14px;border-bottom:1px solid var(--line);font-size:15px}
+  .hit:last-child{border-bottom:0}
+  .hit:hover{background:var(--panel2)}
+  .hit .hid{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* ---- entity header ---- */
+  .entity{margin-top:20px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .entity h2{font-family:var(--disp);font-weight:700;font-size:27px;letter-spacing:.03em;text-transform:uppercase}
+  .entity .meta{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .entity .meta b{color:var(--brass);font-weight:600}
+
+  /* ---- tabs ---- */
+  .tabs{display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line2);overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none;font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;
+    padding:9px 13px;color:var(--dim);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.on{color:var(--brass);border-bottom-color:var(--brass)}
+
+  /* ---- filters ---- */
+  .ftoggle{margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.06em;display:inline-flex;gap:7px;align-items:center}
+  .ftoggle .chev{transition:.15s;display:inline-block}
+  .ftoggle.open .chev{transform:rotate(90deg)}
+  .ftoggle .fcount{color:var(--brass)}
+  .filters{display:none;margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .filters.open{display:block}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fgroup label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+  .fgroup input,.fgroup select{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:7px;padding:9px 10px;font-size:14px}
+  .fgroup select[multiple]{min-height:92px;font-family:var(--mono);font-size:12.5px}
+  .chks{display:flex;gap:6px;flex-wrap:wrap}
+  .chk{font-family:var(--mono);font-size:12px;padding:7px 11px;border:1px solid var(--line2);border-radius:7px;color:var(--dim)}
+  .chk.on{border-color:var(--brass);color:var(--brass)}
+  .presets{display:flex;gap:6px;flex-wrap:wrap}
+  .fapply{margin-top:14px;width:100%;background:var(--brass);color:var(--brass-ink);font-family:var(--disp);font-weight:700;
+    font-size:16px;letter-spacing:.1em;text-transform:uppercase;padding:11px;border-radius:8px}
+  .fclear{margin-top:8px;width:100%;font-family:var(--mono);font-size:12px;color:var(--dim);padding:6px}
+
+  /* ---- table ---- */
+  .tablewrap{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);overflow:auto;background:var(--panel);max-height:72vh}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+  thead th{position:sticky;top:0;z-index:3;background:var(--panel2);color:var(--dim);font-weight:500;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;padding:10px 10px;text-align:right;border-bottom:1px solid var(--line2);cursor:pointer;user-select:none}
+  thead th:first-child{text-align:left;left:0;z-index:4}
+  thead th.sorted{color:var(--brass)}
+  tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:2;font-family:var(--sans);font-weight:500;font-size:13.5px;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  tbody tr:hover td{background:var(--panel2)}
+  tbody tr:hover td:first-child{background:var(--panel2)}
+  .heat{border-radius:5px;padding:3px 7px;display:inline-block;min-width:52px;text-align:right;color:var(--ink)}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  .totalrow td{border-top:1px solid var(--line2);color:var(--dim)}
+
+  /* ---- states ---- */
+  .state{margin-top:26px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px;padding:30px 10px}
+  .state .big{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:.06em;color:var(--ink);text-transform:uppercase;margin-bottom:6px}
+  .spinner{width:26px;height:26px;margin:0 auto 12px;border:2px solid var(--line2);border-top-color:var(--brass);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spinner{animation:none;border-top-color:var(--line2)}}
+
+  .note{margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.6}
+  footer{margin-top:40px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
+  @media (min-width:640px){
+    .fgrid{grid-template-columns:1fr 1fr 1fr}
+    .wordmark{font-size:34px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="marker" aria-hidden="true">R</div>
+    <div class="wordmark">RACESIDE<small>historical form intelligence</small></div>
+  </header>
+
+  <nav class="pills" id="pills" aria-label="Entity type"></nav>
+
+  <div class="searchrow">
+    <input id="q" type="search" autocomplete="off" placeholder="Search trainers…" aria-label="Search">
+    <button class="go" id="goBtn">FIND</button>
+  </div>
+  <div id="hits"></div>
+
+  <div id="entityView" hidden>
+    <div class="entity">
+      <h2 id="entName"></h2>
+      <div class="meta" id="entMeta"></div>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <button class="ftoggle" id="ftoggle" aria-expanded="false">
+      <span class="chev">▸</span> FILTERS <span class="fcount" id="fcount"></span>
+    </button>
+    <div class="filters" id="filters">
+      <div class="fgrid">
+        <div class="fgroup" style="grid-column:1/-1">
+          <label>Period</label>
+          <div class="presets chks" id="presets">
+            <button class="chk on" data-months="0">ALL</button>
+            <button class="chk" data-months="12">12M</button>
+            <button class="chk" data-months="24">2Y</button>
+            <button class="chk" data-months="60">5Y</button>
+          </div>
+        </div>
+        <div class="fgroup"><label>From</label><input type="date" id="fStart"></div>
+        <div class="fgroup"><label>To</label><input type="date" id="fEnd"></div>
+        <div class="fgroup">
+          <label>Region</label>
+          <div class="chks" id="fRegion">
+            <button class="chk" data-v="gb">GB</button>
+            <button class="chk" data-v="ire">IRE</button>
+          </div>
+        </div>
+        <div class="fgroup">
+          <label>Code</label>
+          <div class="chks" id="fType">
+            <button class="chk" data-v="flat">FLAT</button>
+            <button class="chk" data-v="hurdle">HRD</button>
+            <button class="chk" data-v="chase">CHS</button>
+            <button class="chk" data-v="nh_flat">NHF</button>
+          </div>
+        </div>
+        <div class="fgroup">
+          <label>Class</label>
+          <select id="fClass" multiple>
+            <option value="class_1">Class 1</option><option value="class_2">Class 2</option>
+            <option value="class_3">Class 3</option><option value="class_4">Class 4</option>
+            <option value="class_5">Class 5</option><option value="class_6">Class 6</option>
+            <option value="class_7">Class 7</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label>Going</label>
+          <select id="fGoing" multiple>
+            <option value="firm">Firm</option><option value="good_to_firm">Gd-Firm</option>
+            <option value="good">Good</option><option value="good_to_soft">Gd-Soft</option>
+            <option value="soft">Soft</option><option value="heavy">Heavy</option>
+            <option value="yielding">Yielding</option><option value="standard">Standard (AW)</option>
+            <option value="standard_to_slow">Std-Slow (AW)</option><option value="standard_to_fast">Std-Fast (AW)</option>
+          </select>
+        </div>
+        <div class="fgroup"><label>Min dist (f)</label><input type="number" id="fMinF" min="4" max="40" inputmode="numeric" placeholder="e.g. 5"></div>
+        <div class="fgroup"><label>Max dist (f)</label><input type="number" id="fMaxF" min="4" max="40" inputmode="numeric" placeholder="e.g. 12"></div>
+        <div class="fgroup"><label>Min runs (view)</label><input type="number" id="fMinRuns" min="0" inputmode="numeric" placeholder="0"></div>
+      </div>
+      <button class="fapply" id="fapply">Apply filters</button>
+      <button class="fclear" id="fclear">clear all</button>
+    </div>
+
+    <div id="tableArea"></div>
+    <p class="note">WIN% = wins ÷ runs · A/E = actual wins ÷ market-expected wins (over 1.00 beats the market) · £1 P/L = level-stake profit at SP · stats aggregate results where SP is available.</p>
+  </div>
+
+  <div class="state" id="idleState">
+    <div class="big">Pick a lane, name a name</div>
+    Trainer, jockey, owner or bloodline — search above to pull their full historical record: strike rates, A/E and level-stake P/L, sliced by course, distance, going, class and code.
+  </div>
+
+  <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- config ----------
+  const TYPES = [
+    { key:'trainers', label:'Trainer',  tabs:['courses','distances','jockeys','owners','horse-age'] },
+    { key:'jockeys',  label:'Jockey',   tabs:['courses','distances','trainers','owners'] },
+    { key:'owners',   label:'Owner',    tabs:['courses','distances','jockeys','trainers'] },
+    { key:'sires',    label:'Sire',     tabs:['classes','distances'] },
+    { key:'dams',     label:'Dam',      tabs:['classes','distances'] },
+    { key:'damsires', label:'Damsire',  tabs:['classes','distances'] },
+    { key:'horses',   label:'Horse',    tabs:['distance-times'] },
+  ];
+  const TAB_LABEL = { courses:'By course', distances:'By distance', jockeys:'Jockeys', trainers:'Trainers', owners:'Owners', 'horse-age':'By age', classes:'By class', 'distance-times':'Times' };
+  const STAT_COLS = [
+    { k:'runners', label:'Runs' }, { k:'1st', label:'1st' }, { k:'2nd', label:'2nd' },
+    { k:'3rd', label:'3rd' }, { k:'4th', label:'4th' },
+    { k:'win_%', label:'Win%', fmt:v=>(v*100).toFixed(1), heat:'win' },
+    { k:'a/e', label:'A/E', fmt:v=>Number(v).toFixed(2), heat:'ae' },
+    { k:'1_pl', label:'£1 P/L', fmt:v=>{const n=Number(v);return (n>0?'+':'')+n.toFixed(2)}, heat:'pl' },
+  ];
+
+  // ---------- state ----------
+  const S = {
+    type: TYPES[0],
+    entity: null,          // {id, name}
+    tab: null,
+    sortKey: 'runners', sortDir: -1,
+    filters: { start:'', end:'', region:[], type:[], race_class:[], going:[], minF:'', maxF:'', minRuns:'' },
+    lastRows: null, lastMeta: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
+
+  // ---------- api ----------
+  async function api(path, params={}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k,v] of Object.entries(params)) {
+      if (v == null || v === '') continue;
+      if (Array.isArray(v)) v.forEach(x => qs.append(k,x));
+      else qs.append(k,v);
+    }
+    const r = await fetch('/api/tra?' + qs.toString());
+    let data = null;
+    try { data = await r.json(); } catch {}
+    if (!r.ok) {
+      const err = new Error((data && (data.error || data.detail)) || ('HTTP ' + r.status));
+      err.status = r.status;
+      throw err;
+    }
+    return data;
+  }
+
+  // ---------- pills ----------
+  const pillsEl = $('pills');
+  TYPES.forEach((t,i) => {
+    const b = el('button','pill'+(i===0?' on':''), t.label.toUpperCase()+'S');
+    b.onclick = () => {
+      S.type = t;
+      [...pillsEl.children].forEach(c=>c.classList.remove('on'));
+      b.classList.add('on');
+      $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
+      $('hits').innerHTML = '';
+      $('q').value = '';
+      $('q').focus();
+    };
+    pillsEl.appendChild(b);
+  });
+
+  // ---------- search ----------
+  let debTimer = null;
+  $('q').addEventListener('input', () => {
+    clearTimeout(debTimer);
+    const v = $('q').value.trim();
+    if (v.length < 3) { $('hits').innerHTML=''; return; }
+    debTimer = setTimeout(() => doSearch(v), 450);
+  });
+  $('q').addEventListener('keydown', e => { if (e.key==='Enter') { clearTimeout(debTimer); doSearch($('q').value.trim()); } });
+  $('goBtn').onclick = () => { clearTimeout(debTimer); doSearch($('q').value.trim()); };
+
+  async function doSearch(name) {
+    if (!name) return;
+    const hits = $('hits');
+    hits.innerHTML = '<div class="state"><div class="spinner"></div>searching…</div>';
+    try {
+      const data = await api(`/v1/${S.type.key}/search`, { name });
+      const arr = Object.values(data).find(v => Array.isArray(v)) || [];
+      if (!arr.length) { hits.innerHTML = '<div class="state">No ' + S.type.label.toLowerCase() + 's matching “' + esc(name) + '”.</div>'; return; }
+      hits.innerHTML = '';
+      arr.slice(0, 25).forEach(item => {
+        const id = item.id || Object.entries(item).find(([k]) => k.endsWith('_id'))?.[1];
+        const nm = pickName(item);
+        const b = el('button','hit', `<span>${esc(nm)}</span><span class="hid">${esc(id||'')}</span>`);
+        b.onclick = () => selectEntity(id, nm);
+        hits.appendChild(b);
+      });
+    } catch (e) { hits.innerHTML = errBox(e); }
+  }
+
+  function pickName(item) {
+    for (const [k,v] of Object.entries(item)) {
+      if (typeof v === 'string' && !k.endsWith('_id') && k !== 'id') return v;
+    }
+    return '(unnamed)';
+  }
+
+  // ---------- entity ----------
+  function selectEntity(id, name) {
+    if (!id) return;
+    S.entity = { id, name };
+    S.tab = S.type.tabs[0];
+    $('hits').innerHTML = '';
+    $('idleState').hidden = true;
+    $('entityView').hidden = false;
+    $('entName').textContent = name;
+    $('entMeta').textContent = '';
+    renderTabs();
+    loadTab();
+    try { localStorage.setItem('raceside:last', JSON.stringify({t:S.type.key, id, name})); } catch {}
+  }
+
+  function renderTabs() {
+    const tabs = $('tabs'); tabs.innerHTML = '';
+    S.type.tabs.forEach(tb => {
+      const b = el('button','tab'+(tb===S.tab?' on':''), TAB_LABEL[tb] || tb);
+      b.setAttribute('role','tab');
+      b.onclick = () => { S.tab = tb; renderTabs(); loadTab(); };
+      tabs.appendChild(b);
+    });
+  }
+
+  // ---------- filters ----------
+  $('ftoggle').onclick = () => {
+    const open = $('filters').classList.toggle('open');
+    $('ftoggle').classList.toggle('open', open);
+    $('ftoggle').setAttribute('aria-expanded', open);
+  };
+  const bindChks = (id, arrKey) => {
+    $(id).querySelectorAll('.chk').forEach(b => b.onclick = () => {
+      b.classList.toggle('on');
+      S.filters[arrKey] = [...$(id).querySelectorAll('.chk.on')].map(x => x.dataset.v);
+    });
+  };
+  bindChks('fRegion','region'); bindChks('fType','type');
+  $('presets').querySelectorAll('.chk').forEach(b => b.onclick = () => {
+    $('presets').querySelectorAll('.chk').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const m = Number(b.dataset.months);
+    if (!m) { $('fStart').value=''; $('fEnd').value=''; }
+    else {
+      const d = new Date(); $('fEnd').value = d.toISOString().slice(0,10);
+      d.setMonth(d.getMonth()-m); $('fStart').value = d.toISOString().slice(0,10);
+    }
+  });
+  $('fapply').onclick = () => {
+    S.filters.start = $('fStart').value; S.filters.end = $('fEnd').value;
+    S.filters.race_class = [...$('fClass').selectedOptions].map(o=>o.value);
+    S.filters.going = [...$('fGoing').selectedOptions].map(o=>o.value);
+    S.filters.minF = $('fMinF').value; S.filters.maxF = $('fMaxF').value;
+    S.filters.minRuns = $('fMinRuns').value;
+    updateFcount();
+    loadTab();
+  };
+  $('fclear').onclick = () => {
+    S.filters = { start:'', end:'', region:[], type:[], race_class:[], going:[], minF:'', maxF:'', minRuns:'' };
+    ['fStart','fEnd','fMinF','fMaxF','fMinRuns'].forEach(id=>$(id).value='');
+    ['fClass','fGoing'].forEach(id=>[...$(id).options].forEach(o=>o.selected=false));
+    ['fRegion','fType'].forEach(id=>$(id).querySelectorAll('.chk').forEach(b=>b.classList.remove('on')));
+    $('presets').querySelectorAll('.chk').forEach((x,i)=>x.classList.toggle('on', i===0));
+    updateFcount();
+    loadTab();
+  };
+  function updateFcount() {
+    const f = S.filters;
+    const n = [f.start||f.end, f.region.length, f.type.length, f.race_class.length, f.going.length, f.minF||f.maxF, f.minRuns].filter(Boolean).length;
+    $('fcount').textContent = n ? `(${n})` : '';
+  }
+
+  function filterParams() {
+    const f = S.filters, p = {};
+    if (f.start) p.start_date = f.start;
+    if (f.end) p.end_date = f.end;
+    if (f.region.length) p.region = f.region;
+    if (f.type.length) p.type = f.type;
+    if (f.race_class.length) p.race_class = f.race_class;
+    if (f.going.length) p.going = f.going;
+    if (f.minF) p.min_distance_y = Math.round(Number(f.minF)*220);
+    if (f.maxF) p.max_distance_y = Math.round(Number(f.maxF)*220);
+    return p;
+  }
+
+  // ---------- load + render ----------
+  let loadSeq = 0;
+  async function loadTab() {
+    const seq = ++loadSeq;
+    const area = $('tableArea');
+    area.innerHTML = '<div class="state"><div class="spinner"></div>pulling the record…</div>';
+    try {
+      const data = await api(`/v1/${S.type.key}/${S.entity.id}/analysis/${S.tab}`, filterParams());
+      if (seq !== loadSeq) return;
+      const rowsKey = Object.keys(data).find(k => Array.isArray(data[k]) && k !== 'query');
+      const rows = rowsKey ? data[rowsKey] : [];
+      S.lastRows = rows;
+      $('entMeta').innerHTML = data.total_runners != null ? `<b>${Number(data.total_runners).toLocaleString()}</b> runs in sample` : '';
+      if (!rows.length) { area.innerHTML = '<div class="state"><div class="big">No runs in this slice</div>Loosen the filters — this combination returns nothing.</div>'; return; }
+      S.sortKey = 'runners' in rows[0] ? 'runners' : Object.keys(rows[0]).find(k=>typeof rows[0][k]==='number');
+      S.sortDir = -1;
+      renderTable(rows);
+    } catch (e) {
+      if (seq !== loadSeq) return;
+      area.innerHTML = errBox(e);
+    }
+  }
+
+  function renderTable(rows) {
+    const area = $('tableArea');
+    const sample = rows[0];
+    const labelKey = Object.keys(sample).find(k => typeof sample[k]==='string' && !k.endsWith('_id') && k!=='id');
+    const known = STAT_COLS.filter(c => c.k in sample);
+    const knownKeys = new Set([labelKey, ...known.map(c=>c.k)]);
+    const extras = Object.keys(sample).filter(k => !knownKeys.has(k) && !k.endsWith('_id') && k!=='id' && typeof sample[k]!=='object');
+    const cols = [...known, ...extras.map(k => ({k, label:k.replace(/_/g,' ')}))];
+
+    // client-side min runs
+    const minRuns = Number(S.filters.minRuns)||0;
+    let view = minRuns ? rows.filter(r => Number(r.runners||0) >= minRuns) : rows.slice();
+
+    // sort
+    view.sort((a,b) => {
+      const va=a[S.sortKey], vb=b[S.sortKey];
+      const na=Number(va), nb=Number(vb);
+      if (!isNaN(na)&&!isNaN(nb)) return (na-nb)*S.sortDir;
+      return String(va??'').localeCompare(String(vb??''))*S.sortDir;
+    });
+
+    // heat scales
+    const maxWin = Math.max(...view.map(r=>Number(r['win_%'])||0), 0.0001);
+
+    const wrap = el('div','tablewrap');
+    const table = el('table');
+    const thead = el('thead');
+    const hr = el('tr');
+    hr.appendChild(el('th',null,labelKey ? esc(labelKey.replace(/_/g,' ')) : ''));
+    cols.forEach(c => {
+      const th = el('th', c.k===S.sortKey?'sorted':null, esc(c.label) + (c.k===S.sortKey ? (S.sortDir<0?' ↓':' ↑') : ''));
+      th.onclick = () => {
+        if (S.sortKey===c.k) S.sortDir*=-1; else { S.sortKey=c.k; S.sortDir=-1; }
+        renderTable(rows);
+      };
+      hr.appendChild(th);
+    });
+    // make label col sortable too
+    hr.firstChild.onclick = () => {
+      if (S.sortKey===labelKey) S.sortDir*=-1; else { S.sortKey=labelKey; S.sortDir=1; }
+      renderTable(rows);
+    };
+    thead.appendChild(hr); table.appendChild(thead);
+
+    const tbody = el('tbody');
+    view.forEach(r => {
+      const tr = el('tr');
+      tr.appendChild(el('td',null,esc(String(r[labelKey] ?? '—'))));
+      cols.forEach(c => {
+        const raw = r[c.k];
+        const td = el('td');
+        if (raw==null || raw==='') { td.textContent='—'; }
+        else if (c.heat) {
+          const num = Number(raw);
+          const span = el('span','heat', c.fmt ? c.fmt(raw) : String(raw));
+          span.style.background = heatColor(c.heat, num, maxWin);
+          if (c.heat==='pl') span.className = 'heat ' + (num>0?'pos':num<0?'neg':'');
+          td.appendChild(span);
+        } else {
+          td.textContent = c.fmt ? c.fmt(raw) : String(raw);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    area.innerHTML = '';
+    area.appendChild(wrap);
+    if (minRuns && view.length < rows.length) {
+      area.appendChild(el('p','note',`${rows.length-view.length} rows hidden below ${minRuns} runs (view filter).`));
+    }
+  }
+
+  // heat: win → brass scale by relative %, ae → red/green around 1.00
+  function heatColor(kind, v, maxWin) {
+    if (isNaN(v)) return 'transparent';
+    if (kind==='win') {
+      const t = Math.min(1, v / maxWin);
+      return `rgba(214,165,68,${(t*0.55).toFixed(2)})`;
+    }
+    if (kind==='ae') {
+      const d = v - 1;
+      if (d >= 0) return `rgba(63,191,111,${Math.min(0.6, d*1.2).toFixed(2)})`;
+      return `rgba(229,72,77,${Math.min(0.6, -d*1.2).toFixed(2)})`;
+    }
+    return 'transparent';
+  }
+
+  // ---------- misc ----------
+  function esc(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function errBox(e) {
+    let msg = 'Something went wrong — try again.';
+    if (e.status===401 || e.status===403) msg = 'The API rejected the credentials, or this endpoint isn’t on your plan. Check RACING_API_USERNAME / RACING_API_PASSWORD in Vercel, or your Racing API plan level.';
+    else if (e.status===404) msg = 'Nothing found for that ID.';
+    else if (e.status===429) msg = 'Rate limit hit — give it a few seconds and retry.';
+    else if (e.status===500 && /no-credentials/.test(e.message)) msg = 'Env vars missing: add RACING_API_USERNAME and RACING_API_PASSWORD in Vercel, then redeploy.';
+    else if (e.status===502) msg = 'Couldn’t reach The Racing API — retry shortly.';
+    return `<div class="state"><div class="big">Off the bridle</div>${esc(msg)}</div>`;
+  }
+
+  // restore last entity
+  try {
+    const last = JSON.parse(localStorage.getItem('raceside:last')||'null');
+    if (last && last.id) {
+      const t = TYPES.find(x=>x.key===last.t);
+      if (t) {
+        S.type = t;
+        [...pillsEl.children].forEach((c,i)=>c.classList.toggle('on', TYPES[i].key===t.key));
+        $('q').placeholder = 'Search ' + t.label.toLowerCase() + 's…';
+        selectEntity(last.id, last.name);
+      }
+    }
+  } catch {}
+})();
+</script>
+</body>
+</html>
