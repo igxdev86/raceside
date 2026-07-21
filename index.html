@@ -682,9 +682,9 @@
     const rc = upcoming[0].rc;
     const map = raceScoreMap(rc);
     const icons = ['🏆', '♦️', '🔹'];
-    const picks = Object.keys(map)
+    const { top3Set } = rankSets(map);
+    const picks = top3Set
       .sort((a, b) => map[b] - map[a])
-      .slice(0, 3)
       .map(id => {
         const r = (rc.runners || []).find(x => x.horse_id === id);
         if (!r) return '';
