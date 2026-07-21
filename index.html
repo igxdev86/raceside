@@ -129,6 +129,9 @@
   .lnk{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--faint);cursor:pointer;font:inherit;padding:0;white-space:nowrap}
   .lnk:hover{color:var(--brass);border-bottom-color:var(--brass)}
   td .lnk{font-family:var(--mono);font-size:12px}
+  .sub{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:3px;letter-spacing:.02em}
+  .sub .v{color:var(--ink)}
+  .sub .vg{color:var(--green)} .sub .vr{color:var(--red)}
   .abandoned{opacity:.45}
 
   /* ---- states ---- */
@@ -254,7 +257,7 @@
     </div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
-    <p class="note">Tap a race to open the field. Tap any horse, trainer or jockey to jump into their full historical record. FRM = recent form · OFR = official rating · RPR = Racing Post rating · TS = Topspeed.</p>
+    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course (all-time), green/red by A/E. Stats fill in progressively — first open at a course takes longest.</p>
   </div>
 
   <!-- ============ QUIRKS ============ -->
@@ -665,7 +668,11 @@
         list.querySelectorAll('.race.open').forEach(r => r.classList.remove('open'));
         if (opening) {
           race.classList.add('open');
-          if (!runnersEl.hasChildNodes()) runnersEl.appendChild(runnersTable(rc));
+          if (!runnersEl.hasChildNodes()) {
+            const built = runnersTable(rc);
+            runnersEl.appendChild(built.wrap);
+            annotateRace(rc, built.items);
+          }
           T.openRace = rc.race_id;
         }
       };
@@ -681,12 +688,15 @@
     const table = el('table');
     table.innerHTML = '<thead><tr><th>Horse</th><th>No(Dr)</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
     const tbody = el('tbody');
+    const items = [];
     (rc.runners || []).forEach(r => {
       const tr = el('tr');
       const tdH = el('td');
       const hLnk = el('button','lnk', esc(r.horse || '—'));
       hLnk.onclick = () => jumpTo('horses', r.horse_id, r.horse);
       tdH.appendChild(hLnk);
+      const sub = el('span','sub','L <span class="v" data-k="L">…</span> · T <span class="v" data-k="T">…</span> · J <span class="v" data-k="J">…</span>');
+      tdH.appendChild(sub);
       tr.appendChild(tdH);
       tr.appendChild(el('td',null, esc(String(r.number ?? '—')) + (r.draw ? ` (${esc(String(r.draw))})` : '')));
       tr.appendChild(el('td',null, esc(r.form || '—')));
@@ -705,10 +715,88 @@
       tr.appendChild(tdJ);
       tr.appendChild(el('td',null, esc(String(r.last_run ?? '—'))));
       tbody.appendChild(tr);
+      items.push({ r, sub });
     });
     table.appendChild(tbody);
     wrap.appendChild(table);
-    return wrap;
+    return { wrap, items };
+  }
+
+  // ---------- runner annotation (letter / trainer / jockey win rates at course) ----------
+  const AN = { quirks:{}, trainers:{}, jockeys:{}, chain:Promise.resolve() };
+  function enqueue(fn) {
+    const p = AN.chain.then(fn, fn);
+    AN.chain = p.then(() => new Promise(ok => setTimeout(ok, 700)), () => new Promise(ok => setTimeout(ok, 700)));
+    return p;
+  }
+  const letterOf = (name) => String(name||'').replace(/^(The |A |An )/i,'').trim().charAt(0).toUpperCase();
+  const pct = (v) => (Number(v)*100).toFixed(1);
+  const normCourse = (s) => String(s||'').toLowerCase().replace(/\s*\(.*\)\s*/g,'').trim();
+
+  function setSub(item, k, text, aeVal) {
+    const span = item.sub.querySelector(`[data-k="${k}"]`);
+    if (!span) return;
+    span.textContent = text;
+    span.className = 'v' + (aeVal > 1 ? ' vg' : aeVal > 0 && aeVal < 1 ? ' vr' : '');
+  }
+
+  function getQuirksData(courseId) {
+    if (!AN.quirks[courseId]) {
+      AN.quirks[courseId] = fetch('/api/quirks?course_id=' + encodeURIComponent(courseId))
+        .then(r => r.json()).then(d => d && d.ok ? d : null).catch(() => null);
+    }
+    return AN.quirks[courseId];
+  }
+
+  function getCourseMap(kind, id) {
+    const store = kind === 'trainers' ? AN.trainers : AN.jockeys;
+    if (!store[id]) {
+      store[id] = enqueue(async () => {
+        try {
+          const d = await api(`/v1/${kind}/${id}/analysis/courses`);
+          const rows = Object.entries(d).find(([k,v]) => Array.isArray(v) && k !== 'query')?.[1] || [];
+          return rows;
+        } catch { return null; }
+      });
+    }
+    return store[id];
+  }
+
+  function findCourseRow(rows, rc) {
+    if (!rows) return null;
+    return rows.find(x => x.course_id && x.course_id === rc.course_id)
+        || rows.find(x => normCourse(x.course) === normCourse(rc.course))
+        || null;
+  }
+
+  function annotateRace(rc, items) {
+    // letters — one quirks call per course, server-cached daily
+    if (rc.course_id) {
+      getQuirksData(rc.course_id).then(q => {
+        items.forEach(it => {
+          const L = letterOf(it.r.horse);
+          const row = q && (q.letters || []).find(x => x.letter === L);
+          setSub(it, 'L', row ? pct(row['win_%']) : '—');
+        });
+      });
+    } else {
+      items.forEach(it => setSub(it, 'L', '—'));
+    }
+    // trainer & jockey — one analysis call per unique person, queued, edge-cached 1h
+    items.forEach(it => {
+      if (it.r.trainer_id) {
+        getCourseMap('trainers', it.r.trainer_id).then(rows => {
+          const row = findCourseRow(rows, rc);
+          setSub(it, 'T', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+        });
+      } else setSub(it, 'T', '—');
+      if (it.r.jockey_id) {
+        getCourseMap('jockeys', it.r.jockey_id).then(rows => {
+          const row = findCourseRow(rows, rc);
+          setSub(it, 'J', row ? pct(row['win_%']) : '—', row ? Number(row['a/e']) : 0);
+        });
+      } else setSub(it, 'J', '—');
+    });
   }
 
   // ---------- quirks ----------
