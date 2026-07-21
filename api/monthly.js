@@ -66,6 +66,7 @@ export default async function handler(req, res) {
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
   const days = {};
+  const courses = {};
   const basis = { rpr_ts: 0, ofr: 0 };
   const diag = [];
   let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0, upstreamTotal = null;
@@ -123,6 +124,15 @@ export default async function handler(req, res) {
           if (wr === 0) { const dd = spDec(win); if (dd) day.winSPs.push(dd); }
         }
         races++; day.races++;
+        const cKey = race.course || 'Unknown';
+        const crs = (courses[cKey] ||= { races: 0, cups: 0, top3: 0, pl: 0, staked: 0, pl3: 0, staked3: 0 });
+        crs.races++;
+        if (wr === 0) crs.cups++;
+        if (wr >= 0 && wr <= 2) crs.top3++;
+        crs.staked += topSet.length;
+        crs.pl += wr === 0 ? ((d || 1) - 1) - (topSet.length - 1) : -topSet.length;
+        crs.staked3 += top3Set.length;
+        crs.pl3 += wr >= 0 && wr <= 2 ? ((d || 1) - 1) - (top3Set.length - 1) : -top3Set.length;
         if (wr === 0) day.cups++;
         if (wr === 1) day.gem2++;
         if (wr === 2) day.gem3++;
@@ -172,6 +182,12 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: which, from: fmt(start), to: fmt(end),
     races, skipped, basis, upstreamTotal, truncated: skip < total, diag,
+    byCourse: Object.entries(courses)
+      .map(([course, v]) => ({ course, ...v,
+        pl: Math.round(v.pl * 100) / 100, pl3: Math.round(v.pl3 * 100) / 100,
+        'cup_%': v.races ? Math.round((v.cups / v.races) * 1000) / 10 : 0,
+        'top3_%': v.races ? Math.round((v.top3 / v.races) * 1000) / 10 : 0 }))
+      .sort((a, b) => b.cups - a.cups),
     totals: {
       cups: sum('cups'), gem2: sum('gem2'), gem3: sum('gem3'), top3: sum('top3'),
       pl: Math.round(sum('pl') * 100) / 100, pl3: Math.round(sum('pl3') * 100) / 100,
