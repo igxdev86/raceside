@@ -68,6 +68,7 @@ export default async function handler(req, res) {
   const days = {};
   const courses = {};
   const drawCourses = {};
+  const iconDraw = { low: { runs: 0, wins: 0, pl: 0 }, mid: { runs: 0, wins: 0, pl: 0 }, high: { runs: 0, wins: 0, pl: 0 } };
   const basis = { rpr_ts: 0, ofr: 0 };
   const diag = [];
   let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0, upstreamTotal = null;
@@ -139,6 +140,27 @@ export default async function handler(req, res) {
         if (topSet.length === 1) {
           day.nSel++;
           if (wr === 0) { const dd = spDec(win); if (dd) day.winSPs.push(dd); }
+          // icon × draw interaction — flat, unique 🏆, banded by the top pick's own stall
+          if (String(race.type || '').trim().toLowerCase() === 'flat') {
+            const drawnAll = runners.map((x) => parseInt(x.draw, 10)).filter((n) => n >= 1).sort((a, b) => a - b);
+            const topRunner = runners.find((x) => x.horse_id === topSet[0]);
+            const td = topRunner ? parseInt(topRunner.draw, 10) : NaN;
+            if (drawnAll.length >= 6 && td >= 1) {
+              const ti = drawnAll.indexOf(td);
+              if (ti >= 0) {
+                const tf = drawnAll.length > 1 ? ti / (drawnAll.length - 1) : 0.5;
+                const tband = tf < 1 / 3 ? 'low' : tf <= 2 / 3 ? 'mid' : 'high';
+                iconDraw[tband].runs++;
+                if (wr === 0) {
+                  iconDraw[tband].wins++;
+                  const dd2 = spDec(win);
+                  iconDraw[tband].pl += dd2 ? dd2 - 1 : 0;
+                } else {
+                  iconDraw[tband].pl -= 1;
+                }
+              }
+            }
+          }
         }
         races++; day.races++;
         const cKey = race.course || 'Unknown';
@@ -199,6 +221,10 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: which, from: fmt(start), to: fmt(end),
     races, skipped, basis, upstreamTotal, truncated: skip < total, diag,
+    iconDraw: Object.fromEntries(Object.entries(iconDraw).map(([band, v]) => [band, {
+      runs: v.runs, wins: v.wins,
+      'win_%': v.runs ? Math.round((v.wins / v.runs) * 1000) / 10 : 0,
+      pl: Math.round(v.pl * 100) / 100 }])),
     byDraw: Object.entries(drawCourses)
       .map(([course, v]) => {
         const p = (n) => (v.races ? Math.round((n / v.races) * 1000) / 10 : 0);
