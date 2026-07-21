@@ -334,9 +334,12 @@
       <div class="tile" id="mT2"></div>
       <div class="tile" id="mT3"></div>
       <div class="tile" id="mT4"></div>
+      <div class="tile" id="mT5"></div>
+      <div class="tile" id="mT6"></div>
+      <div class="tile" id="mT7"></div>
     </div>
     <div id="mArea"></div>
-    <p class="note">Grades the ratings core of SCORE (RPR 25 + TS 15, relative to field, same tie rules) across every GB &amp; IRE race in the period — historical results don't carry form strings or freshness, so connections/breeding/form aren't in this backtest. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank.</p>
+    <p class="note">Grades the ratings core of SCORE (RPR 25 + TS 15, relative to field, same tie rules) across every GB &amp; IRE race in the period — historical results don't carry form strings or freshness, so connections/breeding/form aren't in this backtest. 🏆 = winner was (joint) top · ♦️/🔹 = 2nd/3rd rank. P/L is £1 level stakes at SP on every horse holding the rank. Multiples: full-cover £1 doubles, trebles and 4-folds across each day's <b>unique</b> 🏆 picks (tied-top races excluded), settled at SP — ROI% is the comparable figure, stakes are large by construction.</p>
   </div>
 
   <footer>RACESIDE · data: The Racing API · GB & IRE</footer>
@@ -426,7 +429,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which + '&v=2');
+      const r = await fetch('/api/monthly?month=' + which + '&v=3');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
@@ -465,9 +468,18 @@
       <span class="tv" style="color:${c1}">${(t.pl > 0 ? '+' : '') + t.pl.toFixed(2)}<span class="ts">/${t.staked} staked</span></span>`;
     $('mT4').innerHTML = `<span class="tl">£1 on 🏆♦️🔹 · SP</span>
       <span class="tv" style="color:${c3}">${(t.pl3 > 0 ? '+' : '') + t.pl3.toFixed(2)}<span class="ts">/${t.staked3} staked</span></span>`;
+    const multi = (id, label, pl, stake) => {
+      const roi = stake ? (pl / stake) * 100 : 0;
+      const c = pl > 0 ? 'var(--green)' : pl < 0 ? 'var(--red)' : 'var(--dim)';
+      $(id).innerHTML = `<span class="tl">${label}</span>
+        <span class="tv" style="color:${c}">${roi > 0 ? '+' : ''}${roi.toFixed(1)}%<span class="ts"> ROI · ${(pl > 0 ? '+' : '') + pl.toFixed(0)}/${stake}</span></span>`;
+    };
+    multi('mT5', '🏆 doubles · £1 cover', t.dbl || 0, t.dblStake || 0);
+    multi('mT6', '🏆 trebles · £1 cover', t.trb || 0, t.trbStake || 0);
+    multi('mT7', '🏆 4-folds · £1 cover', t.acc4 || 0, t.acc4Stake || 0);
     const wrap = el('div','tablewrap');
     const table = el('table');
-    table.innerHTML = '<thead><tr><th>Date</th><th>Races</th><th>🏆</th><th>♦️</th><th>🔹</th><th>🏆♦️🔹 %</th><th>£1 🏆</th><th>£1 🏆♦️🔹</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Date</th><th>Races</th><th>🏆</th><th>♦️</th><th>🔹</th><th>🏆♦️🔹 %</th><th>£1 🏆</th><th>£1 🏆♦️🔹</th><th>Dbls</th><th>Trbls</th><th>4-folds</th></tr></thead>';
     const tbody = el('tbody');
     d.daily.forEach(row => {
       const tr = el('tr');
@@ -481,6 +493,11 @@
       tr.appendChild(p1);
       const p3 = el('td', row.pl3 > 0 ? 'pos' : row.pl3 < 0 ? 'neg' : null, (row.pl3 > 0 ? '+' : '') + row.pl3.toFixed(2));
       tr.appendChild(p3);
+      [['dbl','dblStake'],['trb','trbStake'],['acc4','acc4Stake']].forEach(([k, sk]) => {
+        const v = row[k] || 0, s = row[sk] || 0;
+        const td = el('td', v > 0 ? 'pos' : v < 0 ? 'neg' : null, s ? (v > 0 ? '+' : '') + v.toFixed(2) : '—');
+        tr.appendChild(td);
+      });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
