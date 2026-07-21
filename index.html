@@ -781,25 +781,50 @@
     box.appendChild(el('div','ftoggle', title));
     const wrap = el('div','tablewrap');
     wrap.style.maxHeight = '52vh';
-    const table = el('table');
-    table.innerHTML = `<thead><tr><th>${esc(key)}</th><th>Wins</th><th>Runs</th><th>Win%</th></tr></thead>`;
-    const tbody = el('tbody');
-    const maxWin = Math.max(...rows.map(r => Number(r['win_%'])||0), 0.0001);
-    rows.forEach(r => {
-      const tr = el('tr');
-      tr.appendChild(el('td',null, esc(String(r[key]))));
-      tr.appendChild(el('td',null, String(r.wins)));
-      tr.appendChild(el('td',null, String(r.runs)));
-      const td = el('td');
-      const span = el('span','heat', (r['win_%']*100).toFixed(1));
-      span.style.background = heatColor('win', Number(r['win_%']), maxWin);
-      td.appendChild(span);
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    wrap.appendChild(table);
     box.appendChild(wrap);
+    const cols = [key, 'wins', 'runs', 'win_%'];
+    const labels = { [key]: key, wins:'Wins', runs:'Runs', 'win_%':'Win%' };
+    let sortKey = 'wins', sortDir = -1;
+
+    function draw() {
+      const view = rows.slice().sort((a,b) => {
+        const va=a[sortKey], vb=b[sortKey];
+        const na=Number(va), nb=Number(vb);
+        if (!isNaN(na)&&!isNaN(nb)) return (na-nb)*sortDir;
+        return String(va??'').localeCompare(String(vb??''))*sortDir;
+      });
+      const maxWin = Math.max(...rows.map(r => Number(r['win_%'])||0), 0.0001);
+      const table = el('table');
+      const thead = el('thead');
+      const hr = el('tr');
+      cols.forEach(c => {
+        const th = el('th', c===sortKey?'sorted':null, esc(labels[c]) + (c===sortKey ? (sortDir<0?' ↓':' ↑') : ''));
+        th.onclick = () => {
+          if (sortKey===c) sortDir*=-1;
+          else { sortKey=c; sortDir = (c===key) ? 1 : -1; }
+          draw();
+        };
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr); table.appendChild(thead);
+      const tbody = el('tbody');
+      view.forEach(r => {
+        const tr = el('tr');
+        tr.appendChild(el('td',null, esc(String(r[key]))));
+        tr.appendChild(el('td',null, String(r.wins)));
+        tr.appendChild(el('td',null, String(r.runs)));
+        const td = el('td');
+        const span = el('span','heat', (r['win_%']*100).toFixed(1));
+        span.style.background = heatColor('win', Number(r['win_%']), maxWin);
+        td.appendChild(span);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+    draw();
     return box;
   }
 
