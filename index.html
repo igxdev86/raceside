@@ -123,6 +123,8 @@
   tbody tr.winrow td{background:rgba(18,161,80,.08)}
   tbody tr.winrow td:first-child{background:rgba(18,161,80,.08)}
   tbody tr.winrow:hover td{background:rgba(18,161,80,.13)}
+  .badge{display:inline-block;font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--blue);background:var(--blue-soft);border:1px solid var(--blue);border-radius:5px;padding:0 4px;margin-left:6px;vertical-align:1px}
+  .badge.bf{color:var(--dim);background:var(--card2);border-color:var(--line2)}
   .posb{font-family:var(--mono);font-size:10px;color:var(--dim);margin-right:6px}
   .posb.w{color:var(--green);font-weight:600}
 
@@ -310,8 +312,8 @@
     <div class="nextrace" id="nextRace" hidden></div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
-    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
-    <p class="note"><b>SCORE</b> (0–100, refines live as stats load): RPR 25 + TS 15 (relative to field) · trainer@course 12 + jockey@course 8 + trainer@distance 10 (by A/E) · sire 8 + damsire 7 (these conditions, by A/E) · recent form 8 + freshness 7. Small samples shrink toward neutral, missing data scores neutral-low, letter stat excluded. A ranking aid, not a probability.</p>
+    <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code · <b>T14</b> = trainer strike rate last 14 days · <b>CD/C/D</b> badges = won at this course &amp; distance / course / distance · <b>BF</b> = beaten favourite last time. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
+    <p class="note"><b>SCORE</b> (0–100, refines live as stats load): RPR 22 + TS 13 (relative to field) · trainer@course 10 + jockey@course 7 + trainer@distance 8 (by A/E) · sire 7 + damsire 6 (these conditions, by A/E) · horse C&amp;D record 8 + trainer 14-day form 5 · recent form 8 + freshness 6. Small samples shrink toward neutral, missing data scores neutral-low, letter stat excluded. A ranking aid, not a probability.</p>
   </div>
 
   <!-- ============ QUIRKS ============ -->
@@ -1142,9 +1144,15 @@
       const hLnk = el('button','lnk', esc(r.horse || '—'));
       hLnk.onclick = () => jumpTo('horses', r.horse_id, r.horse);
       tdH.appendChild(hLnk);
+      const fl = cdFlag(r);
+      if (fl.cd) tdH.appendChild(el('span','badge','CD'));
+      else { if (fl.c) tdH.appendChild(el('span','badge','C')); if (fl.d) tdH.appendChild(el('span','badge','D')); }
+      if (fl.bf) tdH.appendChild(el('span','badge bf','BF'));
       const sub = el('span','sub','L <span class="v" data-k="L">…</span> · T <span class="v" data-k="T">…</span> · J <span class="v" data-k="J">…</span>');
       tdH.appendChild(sub);
-      const sub2 = el('span','sub','S <span class="v" data-k="S">…</span> · DS <span class="v" data-k="DS">…</span> · Td <span class="v" data-k="TD">…</span>');
+      const p14 = t14Pct(r);
+      const c14 = p14 == null ? '' : p14 >= 18 ? ' vg' : p14 <= 6 ? ' vr' : '';
+      const sub2 = el('span','sub','S <span class="v" data-k="S">…</span> · DS <span class="v" data-k="DS">…</span> · Td <span class="v" data-k="TD">…</span> · T14 <span class="v' + c14 + '">' + (p14 == null ? '—' : p14) + '</span>');
       tdH.appendChild(sub2);
       sub.parentSub2 = sub2;
       tr.appendChild(tdH);
@@ -1268,6 +1276,31 @@
   // Ratings rel-to-field: RPR 25 + TS 15 · Connections A/E: T@course 12, J@course 8, T@dist 10
   // Breeding A/E (this class+code+dist): S 8, DS 7 · Form 8 + Freshness 7. Letter stat excluded.
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  function cdFlag(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    const bf = fl.some(f => f === 'bf' || f.includes('beaten'));
+    return { cd, c, d, bf };
+  }
+  function cdUnit(r) {
+    const f = cdFlag(r);
+    return f.cd ? 1.0 : (f.c && f.d) ? 0.9 : f.c ? 0.65 : f.d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function t14Pct(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    return runs > 0 ? Math.round((wins / runs) * 100) : null;
+  }
   const parseRt = (v) => {
     const s = String(v ?? '').trim();
     if (!s || s === '-' || s === '\u2013') return NaN;
@@ -1302,11 +1335,12 @@
     const rprs = items.map(it => parseRt(it.r.rpr));
     const tss = items.map(it => parseRt(it.r.ts));
     const scores = items.map(it =>
-      relUnit(parseRt(it.r.rpr), rprs) * 25 +
-      relUnit(parseRt(it.r.ts), tss) * 15 +
-      aeUnit(it.m.T) * 12 + aeUnit(it.m.J) * 8 + aeUnit(it.m.TD) * 10 +
-      aeUnit(it.m.S) * 8 + aeUnit(it.m.DS) * 7 +
-      formUnit(it.r.form) * 8 + freshUnit(it.r.last_run) * 7
+      relUnit(parseRt(it.r.rpr), rprs) * 22 +
+      relUnit(parseRt(it.r.ts), tss) * 13 +
+      aeUnit(it.m.T) * 10 + aeUnit(it.m.J) * 7 + aeUnit(it.m.TD) * 8 +
+      aeUnit(it.m.S) * 7 + aeUnit(it.m.DS) * 6 +
+      cdUnit(it.r) * 8 + t14Unit(it.r) * 5 +
+      formUnit(it.r.form) * 8 + freshUnit(it.r.last_run) * 6
     );
     const top = Math.max(...scores, 0.0001);
     items.forEach((it, i) => {
@@ -1334,8 +1368,9 @@
     const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
     rs.forEach(r => {
       if (!r.horse_id) return;
-      const s = relUnit(parseRt(r.rpr), rprs) * 25 + relUnit(parseRt(r.ts), tss) * 15 +
-                formUnit(r.form) * 8 + freshUnit(r.last_run) * 7;
+      const s = relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+                cdUnit(r) * 8 + t14Unit(r) * 5 +
+                formUnit(r.form) * 8 + freshUnit(r.last_run) * 6;
       map[r.horse_id] = Math.round(s * 100) / 100;
     });
     return map;
