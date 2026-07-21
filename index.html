@@ -683,13 +683,26 @@
     area.appendChild(list);
   }
 
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+
   function runnersTable(rc) {
     const wrap = el('div','tablewrap');
     const table = el('table');
-    table.innerHTML = '<thead><tr><th>Horse</th><th>No(Dr)</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Horse</th><th>No(Dr)</th><th>Best</th><th>Frm</th><th>OFR</th><th>RPR</th><th>TS</th><th>Trainer</th><th>Jockey</th><th>Last</th></tr></thead>';
     const tbody = el('tbody');
     const items = [];
-    (rc.runners || []).forEach(r => {
+    const runners = rc.runners || [];
+    const odds = runners.map(bestOdds);
+    const favD = Math.min(...odds.filter(Boolean).map(o => o.d), Infinity);
+    runners.forEach((r, i) => {
       const tr = el('tr');
       const tdH = el('td');
       const hLnk = el('button','lnk', esc(r.horse || '—'));
@@ -699,6 +712,10 @@
       tdH.appendChild(sub);
       tr.appendChild(tdH);
       tr.appendChild(el('td',null, esc(String(r.number ?? '—')) + (r.draw ? ` (${esc(String(r.draw))})` : '')));
+      const o = odds[i];
+      const tdO = el('td',null, o ? esc(o.frac) : '—');
+      if (o && o.d === favD) { tdO.style.color = 'var(--brass)'; tdO.style.fontWeight = '600'; }
+      tr.appendChild(tdO);
       tr.appendChild(el('td',null, esc(r.form || '—')));
       tr.appendChild(el('td',null, esc(String(r.ofr ?? '—'))));
       tr.appendChild(el('td',null, esc(String(r.rpr ?? '—'))));
