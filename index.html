@@ -320,7 +320,7 @@
     sortKey: 'runners', sortDir: -1,
     filters: { start:'', end:'', region:[], type:[], race_class:[], going:[], minF:'', maxF:'', minRuns:'' },
   };
-  const T = { day:'today', cards:null, course:null, loadedDay:null, openRace:null, results:{}, raceTop:{} };
+  const T = { day:'today', cards:null, course:null, loadedDay:null, openRace:null, results:{}, raceTop:{}, raceRank:{} };
   const Q = { courses:null, courseId:null, data:null };
 
   const $ = (id) => document.getElementById(id);
@@ -643,6 +643,7 @@
     T.loadedDay = T.day;
     T.results = {};
     T.raceTop = {};
+    T.raceRank = {};
     const resData = await resP;
     ((resData && resData.results) || []).forEach(r => { if (r.race_id) T.results[r.race_id] = r; });
     if (!T.cards.length) { races.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing declared for ' + esc(T.day) + ' yet.</div>'; renderTile(); return; }
@@ -679,10 +680,11 @@
       const race = el('div','race'+(rc.is_abandoned?' abandoned':''));
       const res = T.results && T.results[rc.race_id];
       const win = res && (res.runners || []).find(x => String(x.position) === '1');
-      const topHorse = win ? (T.raceTop[rc.race_id] || staticTopHorse(rc)) : null;
-      const cup = win && topHorse && topHorse === win.horse_id;
+      const ranks = win ? (T.raceRank[rc.race_id] || staticRank(rc)) : [];
+      const wr = win ? ranks.indexOf(win.horse_id) : -1;
+      const mark = wr === 0 ? '🏆 ' : wr === 1 ? '♦️ ' : wr === 2 ? '🔹 ' : '✓ ';
       const bits = [rc.race_class, rc.distance || (rc.distance_f ? rc.distance_f+'f' : ''), rc.going, (rc.field_size ? rc.field_size+' run' : ''), rc.type].filter(Boolean).join(' · ');
-      const winHtml = win ? ` · <span class="wintag">${cup ? '🏆 ' : '✓ '}${esc(win.horse || '')}${win.sp ? ' ' + esc(String(win.sp)) : ''}</span>` : '';
+      const winHtml = win ? ` · <span class="wintag">${mark}${esc(win.horse || '')}${win.sp ? ' ' + esc(String(win.sp)) : ''}</span>` : '';
       const head = el('button','racehead',
         `<span class="off">${esc(rc.off_time||'')}</span>
          <span class="rinfo"><span class="rname">${esc(rc.race_name||'')}</span><span class="rsub">${esc(bits)}${rc.is_abandoned?' · ABANDONED':''}${winHtml}</span></span>
@@ -912,24 +914,25 @@
       it.scoreEl.style.fontWeight = isTop ? '600' : '400';
     });
     if (rc && rc.race_id && topIdx >= 0) {
-      T.raceTop[rc.race_id] = items[topIdx].r.horse_id || null;
+      const order = scores.map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]).map(x => items[x[1]].r.horse_id || null);
+      T.raceRank[rc.race_id] = order.slice(0, 3);
+      T.raceTop[rc.race_id] = order[0] || null;
       renderTile();
     }
   }
 
-  // base score (ratings + form + freshness only) — used for the tile on races not yet opened
-  function staticTopHorse(rc) {
+  // base score ranking (ratings + form + freshness only) — for races not yet opened
+  function staticRank(rc) {
     const rs = rc.runners || [];
-    if (!rs.length) return null;
+    if (!rs.length) return [];
     const rprs = rs.map(r => Number(r.rpr)), tss = rs.map(r => Number(r.ts));
-    let bi = -1, bs = -1;
-    rs.forEach((r, i) => {
+    return rs.map((r, i) => {
       const s = relUnit(Number(r.rpr), rprs) * 25 + relUnit(Number(r.ts), tss) * 15 +
                 formUnit(r.form) * 8 + freshUnit(r.last_run) * 7;
-      if (s > bs) { bs = s; bi = i; }
-    });
-    return bi >= 0 ? (rs[bi].horse_id || null) : null;
+      return [s, r.horse_id || null];
+    }).sort((a, b) => b[0] - a[0]).map(x => x[1]).slice(0, 3);
   }
+  function staticTopHorse(rc) { return staticRank(rc)[0] || null; }
 
   function renderTile() {
     const tile = $('scoreTile');
