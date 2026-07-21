@@ -430,7 +430,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which + '&v=4');
+      const r = await fetch('/api/monthly?month=' + which + '&v=5');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
@@ -524,6 +524,72 @@
       $('mArea').appendChild(el('div','ftoggle','BY COURSE — WHERE THE ICONS LAND'));
       $('mArea').appendChild(monthCourseTable(d.byCourse));
     }
+    const drawRows = (d.byDraw || []).filter(r => r.races >= 8);
+    if (drawRows.length) {
+      $('mArea').appendChild(el('div','ftoggle','DRAW SIGNAL — FLAT · winner\'s stall by third of field · 33% each = no bias'));
+      $('mArea').appendChild(drawTable(drawRows));
+      const hidden = (d.byDraw || []).length - drawRows.length;
+      if (hidden) $('mArea').appendChild(el('p','note', hidden + ' courses hidden under 8 flat races — samples too small to call a bias.'));
+    }
+  }
+
+  function drawTable(rows) {
+    const wrap = el('div','tablewrap');
+    wrap.style.maxHeight = '60vh';
+    const cols = [
+      { k:'course', label:'Course' }, { k:'races', label:'Races' },
+      { k:'low_%', label:'Low %', band:true }, { k:'mid_%', label:'Mid %', band:true },
+      { k:'high_%', label:'High %', band:true }, { k:'biasMag', label:'Bias' },
+    ];
+    let sortKey = 'biasMag', sortDir = -1;
+    function draw() {
+      const view = rows.slice().sort((a, b) => {
+        const va = a[sortKey], vb = b[sortKey];
+        const na = Number(va), nb = Number(vb);
+        if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+        return String(va ?? '').localeCompare(String(vb ?? '')) * sortDir;
+      });
+      const table = el('table');
+      const thead = el('thead');
+      const hr = el('tr');
+      cols.forEach(c => {
+        const th = el('th', c.k === sortKey ? 'sorted' : null, esc(c.label) + (c.k === sortKey ? (sortDir < 0 ? ' ↓' : ' ↑') : ''));
+        th.onclick = () => {
+          if (sortKey === c.k) sortDir *= -1;
+          else { sortKey = c.k; sortDir = c.k === 'course' ? 1 : -1; }
+          draw();
+        };
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr); table.appendChild(thead);
+      const tbody = el('tbody');
+      view.forEach(r => {
+        const tr = el('tr');
+        cols.forEach(c => {
+          if (c.k === 'course') { tr.appendChild(el('td', null, esc(String(r.course)))); return; }
+          if (c.k === 'biasMag') { tr.appendChild(el('td', r.biasMag >= 10 ? 'pos' : null, esc(r.bias))); return; }
+          if (c.band) {
+            const v = Number(r[c.k]) || 0;
+            const dev = v - 33.3;
+            const td = el('td');
+            const span = el('span','heat', v.toFixed(1));
+            span.style.background = dev >= 0
+              ? `rgba(18,161,80,${Math.min(0.35, dev / 60).toFixed(2)})`
+              : `rgba(215,38,61,${Math.min(0.35, -dev / 60).toFixed(2)})`;
+            td.appendChild(span);
+            tr.appendChild(td);
+            return;
+          }
+          tr.appendChild(el('td', null, String(r[c.k])));
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+    draw();
+    return wrap;
   }
 
   function monthCourseTable(rows) {
