@@ -30,6 +30,8 @@ export default async function handler(req, res) {
 
   const meetings = {}; // course|date → [{off, winNum, nums:Set-as-array, field}]
   const numbers = {};  // n → {ran, wins}
+  const clothBand = (n) => (n <= 3 ? 'c1_3' : n <= 6 ? 'c4_6' : n <= 9 ? 'c7_9' : 'c10p');
+  const grid = {};     // clothBand|drawBand -> {runs, wins, expected}
   let races = 0, skip = 0, total = Infinity, pages = 0;
 
   try {
@@ -56,6 +58,25 @@ export default async function handler(req, res) {
         const winNum = win ? parseInt(win.number, 10) : NaN;
         if (!nums.length || !(winNum >= 1)) continue;
         races++;
+        // cloth x draw matrix - flat, 6+ drawn runners
+        if (String(race.type || '').trim().toLowerCase() === 'flat') {
+          const drawn = runners
+            .map((x) => ({ num: parseInt(x.number, 10), draw: parseInt(x.draw, 10), win: String(x.position) === '1' }))
+            .filter((x) => x.num >= 1 && x.draw >= 1);
+          if (drawn.length >= 6) {
+            const sortedDraws = drawn.map((x) => x.draw).sort((p, q) => p - q);
+            for (const x of drawn) {
+              const di = sortedDraws.indexOf(x.draw);
+              const frac = sortedDraws.length > 1 ? di / (sortedDraws.length - 1) : 0.5;
+              const dband = frac < 1 / 3 ? 'low' : frac <= 2 / 3 ? 'mid' : 'high';
+              const cKey = clothBand(x.num) + '|' + dband;
+              const cell = (grid[cKey] ||= { runs: 0, wins: 0, expected: 0 });
+              cell.runs++;
+              cell.expected += 1 / drawn.length;
+              if (x.win) cell.wins++;
+            }
+          }
+        }
         const key = (race.course || '?') + '|' + (race.date || '?');
         (meetings[key] ||= []).push({ off: spOff(race.off), winNum, nums, field: nums.length });
         for (const n of new Set(nums)) {
@@ -107,5 +128,9 @@ export default async function handler(req, res) {
     ab: test(a, b),
     ba: test(b, a),
     numbers: numberTable,
+    grid: Object.fromEntries(Object.entries(grid).map(([k, v]) => [k, {
+      runs: v.runs, wins: v.wins,
+      expected: Math.round(v.expected * 10) / 10,
+      ae: v.expected > 0 ? Math.round((v.wins / v.expected) * 100) / 100 : 0 }])),
   });
 }
