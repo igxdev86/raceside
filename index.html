@@ -430,7 +430,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which + '&v=5');
+      const r = await fetch('/api/monthly?month=' + which + '&v=6');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
@@ -530,6 +530,40 @@
       $('mArea').appendChild(drawTable(drawRows));
       const hidden = (d.byDraw || []).length - drawRows.length;
       if (hidden) $('mArea').appendChild(el('p','note', hidden + ' courses hidden under 8 flat races — samples too small to call a bias.'));
+    }
+    if (d.iconDraw) {
+      const id2 = d.iconDraw;
+      const totRuns = ['low','mid','high'].reduce((a, b) => a + (id2[b].runs || 0), 0);
+      if (totRuns >= 30) {
+        $('mArea').appendChild(el('div','ftoggle','🏆 × DRAW — FLAT · does the top pick win more from the right stalls?'));
+        const wrap = el('div','tablewrap');
+        const avg = totRuns ? ['low','mid','high'].reduce((a, b) => a + id2[b].wins, 0) / totRuns * 100 : 0;
+        const table = el('table');
+        table.innerHTML = '<thead><tr><th>🏆 drawn</th><th>Runs</th><th>Wins</th><th>Win %</th><th>vs avg</th><th>£1 P/L · SP</th></tr></thead>';
+        const tbody = el('tbody');
+        [['low','Low third'],['mid','Mid third'],['high','High third']].forEach(([k, label]) => {
+          const v = id2[k];
+          const tr = el('tr');
+          tr.appendChild(el('td', null, label));
+          tr.appendChild(el('td', null, String(v.runs)));
+          tr.appendChild(el('td', null, String(v.wins)));
+          const dev = (v['win_%'] || 0) - avg;
+          const td = el('td');
+          const span = el('span','heat', (v['win_%'] || 0).toFixed(1));
+          span.style.background = dev >= 0
+            ? `rgba(18,161,80,${Math.min(0.35, dev / 25).toFixed(2)})`
+            : `rgba(215,38,61,${Math.min(0.35, -dev / 25).toFixed(2)})`;
+          td.appendChild(span);
+          tr.appendChild(td);
+          tr.appendChild(el('td', dev > 0 ? 'pos' : dev < 0 ? 'neg' : null, (dev > 0 ? '+' : '') + dev.toFixed(1)));
+          tr.appendChild(el('td', v.pl > 0 ? 'pos' : v.pl < 0 ? 'neg' : null, (v.pl > 0 ? '+' : '') + v.pl.toFixed(2)));
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        $('mArea').appendChild(wrap);
+        $('mArea').appendChild(el('p','note','Flat races with a unique 🏆 and 6+ drawn runners. Bands are thirds of the field the top pick itself was drawn in. A gap between bands = draw is moving your pick\'s chances — filter live attention accordingly.'));
+      }
     }
   }
 
