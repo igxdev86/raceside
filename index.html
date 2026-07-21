@@ -429,7 +429,7 @@
     $('mTiles').hidden = true;
     $('mArea').innerHTML = '<div class="state"><div class="spinner"></div>grading the month — first load takes up to a minute…</div>';
     try {
-      const r = await fetch('/api/monthly?month=' + which + '&v=3');
+      const r = await fetch('/api/monthly?month=' + which + '&v=4');
       let data = null;
       try { data = await r.json(); } catch {}
       if (!r.ok || !data || !data.ok) {
@@ -504,6 +504,72 @@
     wrap.appendChild(table);
     $('mArea').innerHTML = '';
     $('mArea').appendChild(wrap);
+    if (d.byCourse && d.byCourse.length) {
+      $('mArea').appendChild(el('div','ftoggle','BY COURSE — WHERE THE ICONS LAND'));
+      $('mArea').appendChild(monthCourseTable(d.byCourse));
+    }
+  }
+
+  function monthCourseTable(rows) {
+    const wrap = el('div','tablewrap');
+    wrap.style.maxHeight = '60vh';
+    const cols = [
+      { k:'course', label:'Course' }, { k:'races', label:'Races' },
+      { k:'cups', label:'🏆' }, { k:'cup_%', label:'🏆 %', pct:true },
+      { k:'top3_%', label:'🏆♦️🔹 %', pct:true },
+      { k:'pl', label:'£1 🏆', pl:true }, { k:'pl3', label:'£1 🏆♦️🔹', pl:true },
+    ];
+    let sortKey = 'cups', sortDir = -1;
+    function draw() {
+      const view = rows.slice().sort((a, b) => {
+        const va = a[sortKey], vb = b[sortKey];
+        const na = Number(va), nb = Number(vb);
+        if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+        return String(va ?? '').localeCompare(String(vb ?? '')) * sortDir;
+      });
+      const maxCup = Math.max(...rows.map(r => Number(r['cup_%']) || 0), 0.0001);
+      const table = el('table');
+      const thead = el('thead');
+      const hr = el('tr');
+      cols.forEach(c => {
+        const th = el('th', c.k === sortKey ? 'sorted' : null, esc(c.label) + (c.k === sortKey ? (sortDir < 0 ? ' ↓' : ' ↑') : ''));
+        th.onclick = () => {
+          if (sortKey === c.k) sortDir *= -1;
+          else { sortKey = c.k; sortDir = c.k === 'course' ? 1 : -1; }
+          draw();
+        };
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr); table.appendChild(thead);
+      const tbody = el('tbody');
+      view.forEach(r => {
+        const tr = el('tr');
+        cols.forEach(c => {
+          const v = r[c.k];
+          if (c.k === 'course') { tr.appendChild(el('td', null, esc(String(v)))); return; }
+          if (c.pl) {
+            const n = Number(v) || 0;
+            tr.appendChild(el('td', n > 0 ? 'pos' : n < 0 ? 'neg' : null, (n > 0 ? '+' : '') + n.toFixed(2)));
+            return;
+          }
+          if (c.pct) {
+            const td = el('td');
+            const span = el('span','heat', Number(v).toFixed(1));
+            if (c.k === 'cup_%') span.style.background = `rgba(36,86,230,${Math.min(0.2, (Number(v) / maxCup) * 0.2).toFixed(2)})`;
+            td.appendChild(span);
+            tr.appendChild(td);
+            return;
+          }
+          tr.appendChild(el('td', null, String(v)));
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+    draw();
+    return wrap;
   }
 
 
