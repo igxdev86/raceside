@@ -67,6 +67,7 @@ export default async function handler(req, res) {
 
   const days = {};
   const courses = {};
+  const drawCourses = {};
   const basis = { rpr_ts: 0, ofr: 0 };
   const diag = [];
   let races = 0, skipped = 0, skip = 0, total = Infinity, pages = 0, upstreamTotal = null;
@@ -98,6 +99,22 @@ export default async function handler(req, res) {
         if (runners.length < 2) { skipped++; continue; }
         const win = runners.find((x) => String(x.position) === '1');
         if (!win || !win.horse_id) { skipped++; continue; }
+
+        // draw signal — flat only, winner's stall banded into thirds of the actual field
+        if (String(race.type || '').trim().toLowerCase() === 'flat') {
+          const drawn = runners.map((x) => parseInt(x.draw, 10)).filter((n) => n >= 1);
+          const wd = parseInt(win.draw, 10);
+          if (drawn.length >= 6 && wd >= 1) {
+            const sorted = [...drawn].sort((a, b) => a - b);
+            const idx = sorted.indexOf(wd);
+            if (idx >= 0) {
+              const frac = sorted.length > 1 ? idx / (sorted.length - 1) : 0.5;
+              const band = frac < 1 / 3 ? 'low' : frac <= 2 / 3 ? 'mid' : 'high';
+              const dc = (drawCourses[race.course || 'Unknown'] ||= { races: 0, low: 0, mid: 0, high: 0 });
+              dc.races++; dc[band]++;
+            }
+          }
+        }
 
         let map = buildMap(runners, 'rpr_ts');
         let vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
@@ -182,6 +199,16 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: which, from: fmt(start), to: fmt(end),
     races, skipped, basis, upstreamTotal, truncated: skip < total, diag,
+    byDraw: Object.entries(drawCourses)
+      .map(([course, v]) => {
+        const p = (n) => (v.races ? Math.round((n / v.races) * 1000) / 10 : 0);
+        const bands = [['LOW', p(v.low)], ['MID', p(v.mid)], ['HIGH', p(v.high)]];
+        bands.sort((a, b) => b[1] - a[1]);
+        return { course, races: v.races, 'low_%': p(v.low), 'mid_%': p(v.mid), 'high_%': p(v.high),
+          bias: bands[0][0] + ' +' + Math.round(bands[0][1] - 33.3),
+          biasMag: Math.round((bands[0][1] - 33.3) * 10) / 10 };
+      })
+      .sort((a, b) => b.biasMag - a.biasMag),
     byCourse: Object.entries(courses)
       .map(([course, v]) => ({ course, ...v,
         pl: Math.round(v.pl * 100) / 100, pl3: Math.round(v.pl3 * 100) / 100,
