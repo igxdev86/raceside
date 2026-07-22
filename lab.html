@@ -145,6 +145,8 @@
   .npicks{display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-family:var(--mono);font-size:13px}
   .np{white-space:nowrap}
   .np .no{color:var(--blue);margin-left:4px;font-weight:600}
+  .pkb{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;color:#fff;background:var(--blue);border-radius:4px;padding:0 3.5px;margin-left:4px;vertical-align:1px}
+  .pkb.j{background:var(--green)}
   .no{color:var(--blue);font-weight:600}
 
   /* ---- today's cards ---- */
@@ -311,6 +313,7 @@
       <div class="tile" id="pl3Tile"></div>
     </div>
     <div class="nextrace" id="nextRace" hidden></div>
+    <div class="nextrace" id="multiPanel" hidden style="background:var(--card);border-color:var(--line2)"></div>
     <nav class="pills" id="meetings" aria-label="Meetings"></nav>
     <div id="races"></div>
     <p class="note">Tap a race to open the field; tap any horse, trainer or jockey to jump into their full record. Line 1 under each horse: <b>L</b> = win% of that first letter at this course (12m) · <b>T</b>/<b>J</b> = trainer/jockey win% at this course. Line 2: <b>S</b>/<b>DS</b> = sire/damsire offspring win% at this distance in this class &amp; code · <b>Td</b> = trainer win% at this distance in this code · <b>T14</b> = trainer strike rate last 14 days · <b>CD/C/D</b> badges = won at this course &amp; distance / course / distance · <b>BF</b> = beaten favourite last time. Green/red = A/E above/below 1.00 · faint = under 15 runs (small sample).</p>
@@ -1108,6 +1111,7 @@
     renderRaces();
     renderTile();
     nextRaceStrip();
+    suggestMultis();
   }
 
   function nextRaceStrip() {
@@ -1131,7 +1135,7 @@
         if (!r) return '';
         const rk = denseRank(map, id);
         const o = bestOdds(r);
-        return `<span class="np">${icons[Math.min(rk, 2)]} ${esc(r.horse || '')}${o ? `<span class="no">${esc(o.frac)}</span>` : ''}</span>`;
+        return `<span class="np" data-h="${esc(id)}">${icons[Math.min(rk, 2)]} ${esc(r.horse || '')}${o ? `<span class="no">${esc(o.frac)}</span>` : ''}</span>`;
       })
       .join('');
     box.hidden = false;
@@ -1150,8 +1154,18 @@
     };
     // top trainer & jockey at this course among today's field — fills as course records load
     const seq = ++nextSeq;
+    const markPicks = (kind, entId) => {
+      document.querySelectorAll('#nextRace .np[data-h]').forEach(spn => {
+        const r = (rc.runners || []).find(x => x.horse_id === spn.dataset.h);
+        const match = r && (kind === 'trainers' ? r.trainer_id === entId : r.jockey_id === entId);
+        const cls = kind === 'trainers' ? 'pkb t' : 'pkb j';
+        const existing = spn.querySelector(kind === 'trainers' ? '.pkb.t' : '.pkb.j');
+        if (match && !existing) spn.appendChild(el('span', cls, kind === 'trainers' ? 'T' : 'J'));
+        if (!match && existing) existing.remove();
+      });
+    };
     const fill = (kind, idKey, nameKey, spanId) => {
-      const best = { pct: -1, name: null, solid: false };
+      const best = { pct: -1, name: null, solid: false, id: null };
       const seen = new Set();
       (rc.runners || []).forEach(r => {
         const id = r[idKey];
@@ -1166,9 +1180,10 @@
           const solid = runs >= 10;
           // prefer solid samples; among equals, higher win%
           if ((solid && !best.solid) || (solid === best.solid && p > best.pct)) {
-            best.pct = p; best.name = r[nameKey]; best.solid = solid;
+            best.pct = p; best.name = r[nameKey]; best.solid = solid; best.id = id;
             const span = document.getElementById(spanId);
             if (span) span.textContent = `${best.name} ${(p * 100).toFixed(1)}%${solid ? '' : '*'}`;
+            markPicks(kind, id);
           }
         });
       });
@@ -1177,6 +1192,41 @@
     fill('jockeys', 'jockey_id', 'jockey', 'ntJ');
   }
   let nextSeq = 0;
+
+  function suggestMultis() {
+    const box = $('multiPanel');
+    if (!box) return;
+    if (T.day !== 'today' || !T.cards) { box.hidden = true; return; }
+    const now = Date.now();
+    const picks = [];
+    T.cards.filter(rc => !rc.is_abandoned).forEach(rc => {
+      const t = Date.parse(rc.off_dt || '');
+      if (isNaN(t) || t <= now) return;
+      const map = raceScoreMap(rc);
+      const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+      if (vals.length < 2) return;
+      const tops = Object.keys(map).filter(id => map[id] === vals[0]);
+      if (tops.length !== 1) return;
+      const r = (rc.runners || []).find(x => x.horse_id === tops[0]);
+      if (!r) return;
+      const o = bestOdds(r);
+      if (!o) return;
+      picks.push({ rc, r, o, margin: vals[0] - vals[1] });
+    });
+    picks.sort((a, b) => b.margin - a.margin);
+    if (picks.length < 2) { box.hidden = true; return; }
+    const line = (label, n) => {
+      if (picks.length < n) return '';
+      const ls = picks.slice(0, n);
+      const prod = ls.reduce((a, x) => a * x.o.d, 1);
+      const body = ls.map(x => `<span class="np">${esc(x.rc.off_time || '')} ${esc(x.r.horse || '')}<span class="no">${esc(x.o.frac)}</span></span>`).join('<span style="color:var(--faint)">×</span>');
+      return `<div class="npicks" style="margin-top:8px"><span class="np" style="font-weight:700">${label}</span>${body}<span class="np" style="color:var(--dim)">£1 → £${prod.toFixed(2)}</span></div>`;
+    };
+    box.hidden = false;
+    box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · strongest 🏆 margins · best price</span>`
+      + line('DOUBLE', 2) + line('TREBLE', 3) + line('4-FOLD', 4)
+      + `<p class="note" style="margin-top:8px">Legs = upcoming races where the 🏆 clears the field's 2nd score by the widest margins. Opened races use full live scores, unopened use base. Prices are current best and will move.</p>`;
+  }
 
   function renderMeetings(courses) {
     const m = $('meetings'); m.innerHTML = '';
@@ -1483,6 +1533,7 @@
       T.raceScores[rc.race_id] = map;
       renderTile();
       nextRaceStrip();
+      suggestMultis();
     }
   }
 
