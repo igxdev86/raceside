@@ -148,9 +148,11 @@ export default async function handler(req, res) {
       if (vals.length < 2) skipped++;
       else {
         const cut3 = vals[Math.min(2, vals.length - 1)];
-        const iconWin = map[win.horse_id] != null && map[win.horse_id] >= cut3;
+        const wv = map[win.horse_id];
+        const wr = wv == null ? -1 : vals.filter((v) => v > wv).length;
+        const iconWin = wv != null && wv >= cut3;
         races++;
-        (byDay[race.date] ||= []).push({ off: race.off, iconWin });
+        (byDay[race.date] ||= []).push({ off: race.off, iconWin, wr });
       }
     }
     for (const x of runners) {
@@ -158,6 +160,39 @@ export default async function handler(req, res) {
       (trainerLog[x.trainer_id] ||= []).push({ d: race.date, win: String(x.position) === '1' });
     }
   }
+
+  const iconStream = (hitRank, poolCap) => {
+    const hz = {};
+    let hits = 0, cases = 0;
+    const rec = { len: 0, date: null, brokeByIcon: false };
+    for (const day of Object.keys(byDay)) {
+      const seq = byDay[day].sort((a, b) => a.off - b.off);
+      let gap = 0, dayMax = 0, dayMaxBroke = false;
+      for (const r of seq) {
+        const g = Math.min(gap, poolCap);
+        const h = (hz[g] ||= { cases: 0, iconWins: 0 });
+        h.cases++; cases++;
+        if (r.wr === hitRank) {
+          h.iconWins++; hits++;
+          if (gap === dayMax && gap > 0) dayMaxBroke = true;
+          gap = 0;
+        } else {
+          gap++;
+          if (gap > dayMax) { dayMax = gap; dayMaxBroke = false; }
+        }
+      }
+      if (dayMax > rec.len) { rec.len = dayMax; rec.date = day; rec.brokeByIcon = dayMaxBroke; }
+    }
+    return {
+      poolCap,
+      base: cases ? Math.round((hits / cases) * 1000) / 10 : 0,
+      hazard: Object.entries(hz)
+        .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
+          pct: v.cases ? Math.round((v.iconWins / v.cases) * 1000) / 10 : 0 }))
+        .sort((a, b) => a.gap - b.gap),
+      extremes: { drought: rec },
+    };
+  };
 
   const hazard = {};
   let iconTotal = 0, caseTotal = 0;
@@ -193,6 +228,7 @@ export default async function handler(req, res) {
     ok: true, month: m || null, from: periodStart, to: fmt(analysisEnd),
     races, skipped, truncated: skip < total, source,
     extremes: { drought: maxDrought, streak: maxStreak },
+    perIcon: { cup: iconStream(0, 12), red: iconStream(1, 18), blue: iconStream(2, 24) },
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
