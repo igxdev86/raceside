@@ -73,6 +73,13 @@
   .settleui .sok{background:var(--green);color:#fff}
   .settleui .scancel{color:var(--dim);border:1px solid var(--line)}
   .settleui .sopen{color:var(--blue);font-weight:600;padding:2px 0}
+  .xtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .xtile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .xl{display:block;font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim)}
+  .xv{display:block;font-family:var(--mono);font-size:24px;font-weight:600;color:var(--ink);margin-top:3px}
+  .xtile:first-child .xv{color:var(--green)}
+  .xtile:last-child .xv{color:var(--red)}
+  .xs{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
   .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
   .btn{background:transparent;border:1px solid #3A5490;color:#B9C8E8;font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:999px}
   .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
@@ -96,6 +103,11 @@
       <div class="mbarwrap"><div class="mbar" id="mBar" style="width:0%"></div></div>
     </div>
     <div class="msub" id="mSub"></div>
+  </div>
+
+  <div class="xtiles" id="xtiles" hidden>
+    <div class="xtile"><span class="xl">METER HIGH</span><span class="xv" id="xHi">—</span><span class="xs" id="xHiSub"></span></div>
+    <div class="xtile"><span class="xl">METER LOW</span><span class="xv" id="xLo">—</span><span class="xs" id="xLoSub"></span></div>
   </div>
 
   <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
@@ -364,6 +376,7 @@
     const pct = usable ? row.pct : hazardData.base;
     $('mPct').textContent = pct.toFixed(1) + '%';
     $('mBar').style.width = Math.min(100, pct) + '%';
+    trackExtremes(pct, drought);
     const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 12)) + '</span>' : '';
     const dutchLine = dutchRaces
       ? `<br>Dutch record today (£10 per race): <b style="color:${dutchTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${dutchTotal >= 0 ? '+' : '−'}£${Math.abs(dutchTotal).toFixed(2)}</b> across ${dutchRaces} settled races (current card prices, not prices at the off).`
@@ -488,6 +501,36 @@
     box.appendChild(sui);
     return box;
   }
+
+  const XLS = 'raceside:meterextremes';
+  function trackExtremes(pct, drought) {
+    // only record readings from a fully built 12-month history — partial builds would pollute the record
+    if (!hazardData || hazardData.building || !hazardData.ok) { renderExtremes(); return; }
+    let x;
+    try { x = JSON.parse(localStorage.getItem(XLS) || 'null'); } catch { x = null; }
+    const today = new Date().toISOString().slice(0, 10);
+    const entry = { pct, drought, at: today };
+    let changed = false;
+    if (!x) { x = { hi: entry, lo: entry }; changed = true; }
+    else {
+      if (pct > x.hi.pct) { x.hi = entry; changed = true; }
+      if (pct < x.lo.pct) { x.lo = entry; changed = true; }
+    }
+    if (changed) { try { localStorage.setItem(XLS, JSON.stringify(x)); } catch {} }
+    renderExtremes();
+  }
+  function renderExtremes() {
+    let x;
+    try { x = JSON.parse(localStorage.getItem(XLS) || 'null'); } catch { x = null; }
+    if (!x) return;
+    $('xtiles').hidden = false;
+    const d = (s) => { const [, mm, dd] = s.at.split('-'); return dd + '/' + mm; };
+    $('xHi').textContent = x.hi.pct.toFixed(1) + '%';
+    $('xHiSub').textContent = 'drought ' + x.hi.drought + ' · ' + d(x.hi);
+    $('xLo').textContent = x.lo.pct.toFixed(1) + '%';
+    $('xLoSub').textContent = 'drought ' + x.lo.drought + ' · ' + d(x.lo);
+  }
+  renderExtremes();
 
   $('refresh').onclick = load;
   load();
