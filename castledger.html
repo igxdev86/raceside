@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE CAST LEDGER</title>
+<meta name="description" content="Day-by-day trading record of the £10 icon combination forecast and tricast across 12 months.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF; --line2:#D3DAE4;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:860px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#6FB2FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .mchip{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .mchip.done{border-color:var(--green);color:#7BE0A8}
+  .mchip.busy{border-color:#6FB2FF;color:#6FB2FF}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .tl{display:block;font-family:var(--sans);font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+  .tv{display:block;font-family:var(--mono);font-size:20px;font-weight:600;margin-top:3px}
+  .ts{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;max-height:70vh}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-family:var(--mono);font-size:12px;min-width:560px}
+  th{position:sticky;top:0;background:var(--card2);color:var(--dim);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;text-align:right;border-bottom:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+  th:first-child{text-align:left}
+  th.sorted{color:var(--blue)}
+  td{padding:7px 12px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td:first-child{text-align:left;font-weight:600}
+  .pos{color:var(--green);font-weight:600}
+  .neg{color:var(--red);font-weight:600}
+  tr.best td{background:rgba(18,161,80,.08)}
+  tr.worst td{background:rgba(215,38,61,.07)}
+  .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">RACE<b>SIDE</b> CAST LEDGER<small>day-by-day · £10 combination per race · SP</small></div>
+    <a class="back" href="/strikecasts.html">← strike casts</a>
+  </header>
+
+  <div class="progress" id="progress"></div>
+  <div class="tiles" id="tiles" hidden>
+    <div class="tile"><span class="tl">CF · 12 MO</span><span class="tv" id="tCF">—</span><span class="ts" id="tCFSub"></span></div>
+    <div class="tile"><span class="tl">CT · 12 MO</span><span class="tv" id="tCT">—</span><span class="ts" id="tCTSub"></span></div>
+    <div class="tile"><span class="tl">CF UP-DAYS</span><span class="tv" id="tCFUp">—</span><span class="ts">days in profit</span></div>
+    <div class="tile"><span class="tl">CT UP-DAYS</span><span class="tv" id="tCTUp">—</span><span class="ts">days in profit</span></div>
+  </div>
+  <div id="area"><div class="state"><div class="spinner"></div>opening the books — months load one by one…</div></div>
+
+  <p class="note">Every racing day for 12 months, graded as if you'd placed a <b>£10 combination forecast</b> (all icon 1-2 permutations) and a <b>£10 combination tricast</b> (all icon 1-2-3 permutations) on every GB &amp; IRE race with priced unique icon picks, settled at SP. Winning frames pay the winning line's stake × the SP product — a proxy; real CSF/tricast dividends differ and usually pay less. Cum columns run oldest → newest regardless of sort. Best and worst days tinted. Tap headers to sort.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+
+  function months12() {
+    const now = new Date();
+    const out = [];
+    const cur = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1));
+    while (cur.getUTCFullYear() < now.getUTCFullYear() ||
+           (cur.getUTCFullYear() === now.getUTCFullYear() && cur.getUTCMonth() <= now.getUTCMonth())) {
+      out.push(cur.toISOString().slice(0, 7));
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
+  const days = [];
+  const prog = $('progress');
+  const chips = {};
+  const ms = months12();
+  ms.forEach(m => { const c = el('span','mchip', m.slice(2)); chips[m] = c; prog.appendChild(c); });
+
+  function render() {
+    if (!days.length) return;
+    const sorted = days.slice().sort((a, b) => a.date.localeCompare(b.date));
+    let cumCF = 0, cumCT = 0;
+    sorted.forEach(d => {
+      if (d.cf != null) cumCF += d.cf;
+      if (d.ct != null) cumCT += d.ct;
+      d.cumCF = Math.round(cumCF * 100) / 100;
+      d.cumCT = Math.round(cumCT * 100) / 100;
+    });
+    const cfDays = sorted.filter(d => d.cf != null);
+    const ctDays = sorted.filter(d => d.ct != null);
+    const cfTot = cfDays.reduce((a, d) => a + d.cf, 0);
+    const ctTot = ctDays.reduce((a, d) => a + d.ct, 0);
+    $('tiles').hidden = false;
+    const set = (id, v, sub, subId) => {
+      $(id).textContent = money(v);
+      $(id).style.color = v >= 0 ? 'var(--green)' : 'var(--red)';
+      if (subId) $(subId).textContent = sub;
+    };
+    set('tCF', cfTot, cfDays.length + ' trading days', 'tCFSub');
+    set('tCT', ctTot, ctDays.length + ' trading days', 'tCTSub');
+    $('tCFUp').textContent = cfDays.length ? Math.round(cfDays.filter(d => d.cf > 0).length / cfDays.length * 100) + '%' : '\u2014';
+    $('tCTUp').textContent = ctDays.length ? Math.round(ctDays.filter(d => d.ct > 0).length / ctDays.length * 100) + '%' : '\u2014';
+
+    const bestCF = cfDays.length ? cfDays.reduce((a, d) => d.cf > a.cf ? d : a) : null;
+    const worstCF = cfDays.length ? cfDays.reduce((a, d) => d.cf < a.cf ? d : a) : null;
+
+    drawTable(sorted, bestCF, worstCF);
+  }
+
+  let sortKey = 'date', sortDir = -1;
+  function drawTable(sorted, bestCF, worstCF) {
+    const cols = [
+      { k:'date', label:'Date' }, { k:'races', label:'Races' },
+      { k:'cf', label:'CF P/L' }, { k:'cumCF', label:'CF cum' },
+      { k:'ct', label:'CT P/L' }, { k:'cumCT', label:'CT cum' },
+    ];
+    const view = sorted.slice().sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey];
+      if (sortKey === 'date') return String(va).localeCompare(String(vb)) * sortDir;
+      return ((Number(va) || 0) - (Number(vb) || 0)) * sortDir;
+    });
+    const wrap = el('div','tablewrap');
+    const table = el('table');
+    const thead = el('thead');
+    const hr = el('tr');
+    cols.forEach(c => {
+      const th = el('th', c.k === sortKey ? 'sorted' : null, esc(c.label) + (c.k === sortKey ? (sortDir < 0 ? ' \u2193' : ' \u2191') : ''));
+      th.onclick = () => {
+        if (sortKey === c.k) sortDir *= -1;
+        else { sortKey = c.k; sortDir = -1; }
+        drawInto(wrap, sorted, bestCF, worstCF);
+      };
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr); table.appendChild(thead);
+    const tbody = el('tbody');
+    view.forEach(d => {
+      const tr = el('tr');
+      if (bestCF && d.date === bestCF.date) tr.className = 'best';
+      if (worstCF && d.date === worstCF.date) tr.className = 'worst';
+      const [, mm, dd] = d.date.split('-');
+      tr.appendChild(el('td', null, dd + '/' + mm + '/' + d.date.slice(2, 4)));
+      tr.appendChild(el('td', null, String(d.races)));
+      const cell = (v) => {
+        if (v == null) { tr.appendChild(el('td', null, '\u2014')); return; }
+        tr.appendChild(el('td', v > 0 ? 'pos' : v < 0 ? 'neg' : null, money(v)));
+      };
+      cell(d.cf);
+      tr.appendChild(el('td', d.cumCF >= 0 ? 'pos' : 'neg', money(d.cumCF)));
+      cell(d.ct);
+      tr.appendChild(el('td', d.cumCT >= 0 ? 'pos' : 'neg', money(d.cumCT)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    $('area').innerHTML = '';
+    $('area').appendChild(wrap);
+  }
+  function drawInto(_, sorted, bestCF, worstCF) { drawTable(sorted, bestCF, worstCF); }
+
+  (async () => {
+    for (const m of ms) {
+      chips[m].classList.add('busy');
+      try {
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=3');
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          (d.daily || []).forEach(row => days.push(row));
+          chips[m].classList.remove('busy');
+          chips[m].classList.add('done');
+          render();
+        } else {
+          chips[m].classList.remove('busy');
+          chips[m].textContent = m.slice(2) + ' \u2717';
+        }
+      } catch {
+        chips[m].classList.remove('busy');
+        chips[m].textContent = m.slice(2) + ' \u2717';
+      }
+    }
+    if (!days.length) $('area').innerHTML = '<div class="state">No data came back \u2014 retry in a minute.</div>';
+  })();
+})();
+</script>
+</body>
+</html>
