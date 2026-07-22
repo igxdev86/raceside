@@ -277,7 +277,7 @@
     let races = 0, loaded = 0;
     for (const m of months) {
       try {
-        const r = await fetch('/api/strikecasts?month=' + m + '&v=4');
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=5');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
