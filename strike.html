@@ -116,6 +116,7 @@
   <div class="xtiles" id="xtilesAll" hidden>
     <div class="xtile"><span class="xl">LONGEST DROUGHT · 12 MO</span><span class="xv" id="xAllHi" style="color:var(--red)">—</span><span class="xs" id="xAllHiSub"></span></div>
     <div class="xtile"><span class="xl">LONGEST ICON STREAK · 12 MO</span><span class="xv" id="xAllLo" style="color:var(--green)">—</span><span class="xs" id="xAllLoSub"></span></div>
+    <div class="xtile" style="grid-column:1/-1"><span class="xl">METER CEILING · 12 MO</span><span class="xv" id="xCeil" style="color:var(--blue)">—</span><span class="xs" id="xCeilSub"></span></div>
   </div>
   <div class="meter" id="nextTile" hidden style="cursor:pointer">
     <div class="mtl">Next race</div>
@@ -244,7 +245,7 @@
     let races = 0, loaded = 0;
     for (const m of months) {
       try {
-        const r = await fetch('/api/strike?month=' + m + '&v=2');
+        const r = await fetch('/api/strike?month=' + m + '&v=3');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
@@ -567,6 +568,14 @@
     $('xAllHiSub').textContent = 'no icons in a row · ' + dmy(rec.drought.date);
     $('xAllLo').textContent = rec.streak.len + ' races';
     $('xAllLoSub').textContent = 'icons back-to-back · ' + dmy(rec.streak.date);
+    // meter ceiling: what the meter read at the deepest drought ever, and how it resolved
+    const gc = Math.min(rec.drought.len, 10);
+    const crow = (hazardData.hazard || []).find(x => x.gap === gc);
+    if (crow) {
+      $('xCeil').textContent = crow.pct.toFixed(1) + '%';
+      $('xCeilSub').textContent = 'highest the meter has ever read · at drought ' + rec.drought.len +
+        (rec.drought.brokeByIcon ? ' · the icon won next ✓' : " · the day's card ended there");
+    }
   }
 
   function renderExtremes() {
