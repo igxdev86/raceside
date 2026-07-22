@@ -145,7 +145,7 @@
   <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
   <div class="timeline" id="timeline"><div class="state"><div class="spinner"></div>loading the day…</div></div>
 
-  <p class="note">Every GB &amp; IRE race today in time order. Settled races: <span class="badge tc">TC</span> = 1st, 2nd &amp; 3rd all icon horses · <span class="badge fc">FC</span> = 1st &amp; 2nd both icons · <span style="color:#FF8A93">✗</span> = frame not all-icon · ○ = unrankable field or no 2nd finisher. Icons = a race's top-3 base-score picks, ties included. Meters are <b>empirical</b>: measured from up to 12 months of real sequences using the closest reconstructable icon definition (RPR + TS + trainer 14-day form). If racing has no memory the meters stay near their base rates at every drought — this page shows whatever the data says. Not advice; an experiment in public.</p>
+  <p class="note">Every GB &amp; IRE race today in time order. Settled races: <span class="badge tc">TC</span> = 1st, 2nd &amp; 3rd all icon horses · <span class="badge fc">FC</span> = 1st &amp; 2nd both icons · <span style="color:#FF8A93">✗</span> = frame not all-icon · ○ = unrankable field or no 2nd finisher. Tricasts only count in races of <b>8+ runners</b> — the minimum for a tricast market to exist; smaller fields are FC-only. Icons = a race's top-3 base-score picks, ties included. Meters are <b>empirical</b>: measured from up to 12 months of real sequences using the closest reconstructable icon definition (RPR + TS + trainer 14-day form). If racing has no memory the meters stay near their base rates at every drought — this page shows whatever the data says. Not advice; an experiment in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -277,7 +277,7 @@
     let races = 0, loaded = 0;
     for (const m of months) {
       try {
-        const r = await fetch('/api/strikecasts?month=' + m + '&v=2');
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=4');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
@@ -355,14 +355,17 @@
         const x = (race.runners || []).find(r => String(r.position) === p);
         return x && x.horse_id ? { id: x.horse_id, name: x.horse || '' } : null;
       };
-      const f = { p1: at('1'), p2: at('2'), p3: at('3') };
+      const f = { p1: at('1'), p2: at('2'), p3: at('3'), n: (race.runners || []).length };
       if (f.p1) frames[race.race_id] = f;
     });
     const manual = loadManual();
     let manualChanged = false;
     for (const [rid, mf] of Object.entries(manual)) {
       if (frames[rid]) { delete manual[rid]; manualChanged = true; }
-      else frames[rid] = { p1: mf.p1, p2: mf.p2, p3: mf.p3 || null, manual: true };
+      else {
+        const crc = cards.find(c => c.race_id === rid);
+        frames[rid] = { p1: mf.p1, p2: mf.p2, p3: mf.p3 || null, n: crc ? (crc.runners || []).length : 0, manual: true };
+      }
     }
     if (manualChanged) saveManual(manual);
 
@@ -382,11 +385,12 @@
           icHtml = '<span class="badge pend" title="ratings could not separate this field">\u25cb</span>';
         } else {
           const inSet = (x) => x && si.set.has(x.id);
+          const tricastable = f.p3 && f.n >= 8;
           const fcHit = inSet(f.p1) && inSet(f.p2);
-          const tcHit = fcHit && f.p3 && inSet(f.p3);
+          const tcHit = fcHit && tricastable && inSet(f.p3);
           if (tcHit) { icHtml = '<span class="badge tc">TC</span>'; fcDrought = 0; tcDrought = 0; }
-          else if (fcHit) { icHtml = '<span class="badge fc">FC</span>'; fcDrought = 0; if (f.p3) tcDrought++; }
-          else { icHtml = '<span class="badge miss">\u2717</span>'; fcDrought++; if (f.p3) tcDrought++; }
+          else if (fcHit) { icHtml = '<span class="badge fc">FC</span>'; fcDrought = 0; if (tricastable) tcDrought++; }
+          else { icHtml = '<span class="badge miss">✗</span>'; fcDrought++; if (tricastable) tcDrought++; }
           const mk = (x, label) => x ? `${label} <b class="${inSet(x) ? 'hit' : ''}">${esc(x.name)}</b>` : '';
           const mtag = f.manual ? ` <span class="mantag">MANUAL</span><button class="manundo" data-undo="${esc(rc.race_id)}">\u00d7</button>` : '';
           const oc = castOutcome(rc, f);
@@ -580,7 +584,7 @@
       const d1 = oddsOf[f.p1.id], d2 = oddsOf[f.p2.id];
       out.cf = (d1 && d2) ? { pl: line * d1 * d2 - 10, hit: true } : { pl: -10, hit: false };
     }
-    if (picks.length >= 3 && f && f.p1 && f.p2 && f.p3) {
+    if (picks.length >= 3 && f && f.p1 && f.p2 && f.p3 && (f.n || 0) >= 8 && (rc.runners || []).length >= 8) {
       const nPerm3 = picks.length * (picks.length - 1) * (picks.length - 2);
       const line = 10 / nPerm3;
       const d1 = oddsOf[f.p1.id], d2 = oddsOf[f.p2.id], d3 = oddsOf[f.p3.id];
@@ -605,14 +609,15 @@
       const line2 = 10 / nPerm2;
       const lo2 = line2 * ds[0] * ds[1], hi2 = line2 * ds[ds.length - 1] * ds[ds.length - 2];
       let html = `\u00a310 combination forecast \u2192 ${nPerm2} lines \u00d7 \u00a3${line2.toFixed(2)} \u00b7 returns <b>\u00a3${lo2.toFixed(2)}\u2013\u00a3${hi2.toFixed(2)}</b> if icons fill 1-2`;
-      if (priced.length >= 3) {
+      if (priced.length >= 3 && (rc.runners || []).length >= 8) {
         const nPerm3 = priced.length * (priced.length - 1) * (priced.length - 2);
         const line3 = 10 / nPerm3;
         const lo3 = line3 * ds[0] * ds[1] * ds[2];
         const hi3 = line3 * ds[ds.length - 1] * ds[ds.length - 2] * ds[ds.length - 3];
         html += `<br>\u00a310 combination tricast \u2192 ${nPerm3} lines \u00d7 \u00a3${line3.toFixed(2)} \u00b7 returns <b>\u00a3${lo3.toFixed(2)}\u2013\u00a3${hi3.toFixed(2)}</b> if icons fill 1-2-3`;
       }
-      html += ' <span style="color:var(--faint)">\u00b7 card-price proxy, real CSF/tricast dividends differ</span>';
+      if ((rc.runners || []).length < 8) html += '<br><span style="color:var(--faint)">no tricast market — under 8 runners</span>';
+      html += ' <span style="color:var(--faint)">· card-price proxy, real CSF/tricast dividends differ</span>';
       box.appendChild(el('div','covers', html));
     }
 
