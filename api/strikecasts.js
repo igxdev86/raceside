@@ -227,6 +227,16 @@ export default async function handler(req, res) {
     };
   };
 
+  const dailySeries = () => {
+    const dates = [...new Set([...Object.keys(dayCF), ...Object.keys(dayCT), ...Object.keys(byDay)])].sort();
+    return dates.map((date) => ({
+      date,
+      races: (byDay[date] || []).length,
+      cf: dayCF[date] != null ? Math.round(dayCF[date] * 100) / 100 : null,
+      ct: dayCT[date] != null ? Math.round(dayCT[date] * 100) / 100 : null,
+    }));
+  };
+
   const dayExtremes = (days) => {
     let best = null, worst = null;
     for (const [date, pl] of Object.entries(days)) {
@@ -243,6 +253,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: m, from: periodStart, to: fmt(analysisEnd),
     races, skipped, source,
+    daily: dailySeries(),
     fc: { ...buildStream((r) => r.fc, () => true, 12), days: dayExtremes(dayCF) },
     tc: { ...buildStream((r) => r.tc, (r) => r.hasThird, 24), days: dayExtremes(dayCT) },
   });
