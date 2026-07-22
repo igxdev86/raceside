@@ -32,6 +32,7 @@ export default async function handler(req, res) {
     const n2 = Number(s);
     return !isNaN(n2) && n2 > 1 ? n2 : null;
   };
+  const byCourse = {}; // course → {forecasts, tricasts, castable}
   let races = 0, castable = 0, skip = 0, total = Infinity, pages = 0;
 
   try {
@@ -59,18 +60,24 @@ export default async function handler(req, res) {
         const n1 = n(at('1')), n2 = n(at('2')), n3 = n(at('3'));
         if (n1 == null || n2 == null) continue;
         castable++;
+        const crs = (byCourse[race.course || 'Unknown'] ||= { forecasts: {}, tricasts: {}, castable: 0 });
+        crs.castable++;
         const r1 = at('1'), r2 = at('2'), r3 = at('3');
         const sp1 = spOf(r1), sp2 = spOf(r2), sp3 = spOf(r3);
         const fKey = n1 + '-' + n2;
-        const f = (forecasts[fKey] ||= { n: 0, c: 0, s1: 0, s2: 0, p: 0 });
-        f.n++;
-        if (sp1 && sp2) { f.c++; f.s1 += sp1; f.s2 += sp2; f.p += sp1 * sp2; }
-        if (n3 != null) {
-          const tKey = n1 + '-' + n2 + '-' + n3;
-          const t = (tricasts[tKey] ||= { n: 0, c: 0, s1: 0, s2: 0, s3: 0, p: 0 });
-          t.n++;
-          if (sp1 && sp2 && sp3) { t.c++; t.s1 += sp1; t.s2 += sp2; t.s3 += sp3; t.p += sp1 * sp2 * sp3; }
-        }
+        const bump = (store) => {
+          const f = (store.forecasts[fKey] ||= { n: 0, c: 0, s1: 0, s2: 0, p: 0 });
+          f.n++;
+          if (sp1 && sp2) { f.c++; f.s1 += sp1; f.s2 += sp2; f.p += sp1 * sp2; }
+          if (n3 != null) {
+            const tKey = fKey + '-' + n3;
+            const t = (store.tricasts[tKey] ||= { n: 0, c: 0, s1: 0, s2: 0, s3: 0, p: 0 });
+            t.n++;
+            if (sp1 && sp2 && sp3) { t.c++; t.s1 += sp1; t.s2 += sp2; t.s3 += sp3; t.p += sp1 * sp2 * sp3; }
+          }
+        };
+        bump({ forecasts, tricasts });
+        bump(crs);
       }
       skip += 50; pages++;
       if (skip < total) await new Promise((ok) => setTimeout(ok, 650));
@@ -85,6 +92,6 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: m, from: fmt(start), to: fmt(end),
     races, castable, truncated: skip < total, complete: isComplete,
-    forecasts, tricasts,
+    forecasts, tricasts, byCourse,
   });
 }
