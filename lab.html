@@ -1242,7 +1242,7 @@
     const group = (pool, icon) =>
       line(pool, icon + ' DOUBLE', 2) + line(pool, icon + ' TREBLE', 3) + line(pool, icon + ' 4-FOLD', 4);
     box.hidden = false;
-    box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · random daily grouping · GB+IRE</span>`
+    box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · random daily grouping · GB+IRE · <a href="/multis.html" style="color:var(--blue)">full board →</a></span>`
       + group(picks, '🏆') + group(picksR, '♦️') + group(picksB, '🔹')
       + `<p class="note" style="margin-top:8px">GB &amp; IRE only. Legs are the day's upcoming unique 🏆 picks grouped at random (stable for the day) — no odds or margin ranking. Opened races use full live scores, unopened use base. Prices shown are current best and will move.</p>`;
   }
