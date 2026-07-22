@@ -161,15 +161,23 @@ export default async function handler(req, res) {
 
   const hazard = {};
   let iconTotal = 0, caseTotal = 0;
+  const maxDrought = { len: 0, date: null };
+  const maxStreak = { len: 0, date: null };
   for (const day of Object.keys(byDay)) {
     const seq = byDay[day].sort((a, b) => a.off - b.off);
-    let gap = 0;
+    let gap = 0, streak = 0;
     for (const r of seq) {
       const g = Math.min(gap, 10);
       const h = (hazard[g] ||= { cases: 0, iconWins: 0 });
       h.cases++; caseTotal++;
-      if (r.iconWin) { h.iconWins++; iconTotal++; gap = 0; }
-      else gap++;
+      if (r.iconWin) {
+        h.iconWins++; iconTotal++; gap = 0;
+        streak++;
+        if (streak > maxStreak.len) { maxStreak.len = streak; maxStreak.date = day; }
+      } else {
+        gap++; streak = 0;
+        if (gap > maxDrought.len) { maxDrought.len = gap; maxDrought.date = day; }
+      }
     }
   }
 
@@ -179,6 +187,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true, month: m || null, from: periodStart, to: fmt(analysisEnd),
     races, skipped, truncated: skip < total, source,
+    extremes: { drought: maxDrought, streak: maxStreak },
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
