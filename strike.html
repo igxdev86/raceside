@@ -92,7 +92,7 @@
   <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
   <div class="timeline" id="timeline"><div class="state"><div class="spinner"></div>loading the day…</div></div>
 
-  <p class="note">Every GB &amp; IRE race today in time order. Settled races: 🏆♦️🔹 = winner held that base-score rank · <span style="color:#FF8A93">✗</span> = winner outside the top three · ○ = ratings couldn't separate the field (doesn't count either way). The meter is <b>empirical</b>: the chance the next race is icon-won given the current drought, measured from 45 days of real sequences using the closest reconstructable icon definition (RPR + TS + trainer 14-day form; the live card also knows C&amp;D, form and freshness, so the two rulers are close but not identical). Pending results (photos, stewards) can revise the drought when they land. If racing has no memory the meter stays near the base rate at every drought — and this page will honestly show that. Not advice; an experiment in public.</p>
+  <p class="note">Every GB &amp; IRE race today in time order. Settled races: 🏆♦️🔹 = winner held that base-score rank · <span style="color:#FF8A93">✗</span> = winner outside the top three · ○ = ratings couldn't separate the field (doesn't count either way). The meter is <b>empirical</b>: the chance the next race is icon-won given the current drought, measured from up to 12 months of real sequences (the deepest the data plan reaches — full 2025 is outside the 12-month results window) using the closest reconstructable icon definition (RPR + TS + trainer 14-day form; the live card also knows C&amp;D, form and freshness, so the two rulers are close but not identical). Pending results (photos, stewards) can revise the drought when they land. If racing has no memory the meter stays near the base rate at every drought — and this page will honestly show that. Not advice; an experiment in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -184,18 +184,67 @@
   }
 
   let hazardData = null;
+  let hazardBuild = null;
+
+  function hazardMonths() {
+    // deepest window the API plan allows: ~12 months back, from the 1st of that month
+    const now = new Date();
+    const months = [];
+    const start = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1));
+    const cur = new Date(start);
+    while (cur.getUTCFullYear() < now.getUTCFullYear() ||
+           (cur.getUTCFullYear() === now.getUTCFullYear() && cur.getUTCMonth() <= now.getUTCMonth())) {
+      months.push(cur.toISOString().slice(0, 7));
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return months;
+  }
+
+  async function buildHazard(onProgress) {
+    const months = hazardMonths();
+    const tally = {}; // gap → {cases, iconWins}
+    let races = 0, loaded = 0;
+    for (const m of months) {
+      try {
+        const r = await fetch('/api/strike?month=' + m);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          races += d.races || 0;
+          (d.hazard || []).forEach(row => {
+            const t = (tally[row.gap] ||= { cases: 0, iconWins: 0 });
+            t.cases += row.cases || 0;
+            t.iconWins += row.iconWins || 0;
+          });
+        }
+      } catch {}
+      loaded++;
+      const caseTotal = Object.values(tally).reduce((a, v) => a + v.cases, 0);
+      const iconTotal = Object.values(tally).reduce((a, v) => a + v.iconWins, 0);
+      hazardData = {
+        ok: caseTotal > 0, races,
+        monthsLoaded: loaded, monthsTotal: months.length,
+        base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
+        hazard: Object.entries(tally)
+          .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
+            pct: v.cases ? Math.round((v.iconWins / v.cases) * 1000) / 10 : 0 }))
+          .sort((a, b) => a.gap - b.gap),
+      };
+      if (onProgress) onProgress();
+    }
+    return hazardData;
+  }
 
   async function load() {
     const tl = $('timeline');
     tl.innerHTML = '<div class="state"><div class="spinner"></div>loading the day…</div>';
     let cardsRes = null, resultsRes = null;
-    const hazardP = hazardData ? Promise.resolve(hazardData)
-      : fetch('/api/strike').then(r => r.json()).catch(() => null);
+    if (!hazardBuild) hazardBuild = buildHazard(() => { if (typeof refreshMeter === 'function') refreshMeter(); });
+    const hazardP = hazardData ? Promise.resolve(hazardData) : hazardBuild;
     for (const tier of ['standard','basic','free']) {
       try { cardsRes = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
     }
     try { resultsRes = await api('/v1/results/today'); } catch {}
-    hazardData = await hazardP;
+    if (!hazardData) { try { await Promise.race([hazardP, new Promise(ok => setTimeout(ok, 4000))]); } catch {} }
 
     const cards = ((cardsRes && cardsRes.racecards) || [])
       .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
@@ -257,6 +306,14 @@
     });
 
     // meter
+    meterState = { drought, anySettled, dutchTotal, dutchRaces };
+    refreshMeter();
+  }
+
+  let meterState = null;
+  function refreshMeter() {
+    if (!meterState) return;
+    const { drought, anySettled, dutchTotal, dutchRaces } = meterState;
     const meter = $('meter');
     if (!hazardData || !hazardData.ok) { meter.hidden = true; return; }
     meter.hidden = false;
@@ -273,8 +330,11 @@
     $('mSub').innerHTML =
       `Current drought: <b>${anySettled ? drought : 0}</b> race${drought === 1 ? '' : 's'} without an icon win${dots}${dutchLine}<br>` +
       (usable
-        ? `History says: after a drought of ${g}${drought > 10 ? '+' : ''}, the next race was icon-won <b>${row.pct}%</b> of the time (${row.iconWins}/${row.cases} cases, last 2 months). Base rate <b>${hazardData.base}%</b>.`
-        : `Thin sample at this drought length — showing the base rate: <b>${hazardData.base}%</b> of races are icon-won (last 2 months).`);
+        ? `History says: after a drought of ${g}${drought > 10 ? '+' : ''}, the next race was icon-won <b>${row.pct}%</b> of the time (${row.iconWins}/${row.cases} cases over ${(hazardData.races || 0).toLocaleString()} races).`
+        : `Thin sample at this drought length — showing the base rate: <b>${hazardData.base}%</b> of races are icon-won.`) +
+      (hazardData.monthsTotal && hazardData.monthsLoaded < hazardData.monthsTotal
+        ? ` <span style="color:var(--faint)">building history… ${hazardData.monthsLoaded}/${hazardData.monthsTotal} months</span>`
+        : ` Base rate <b>${hazardData.base}%</b> · ${hazardData.monthsTotal || 12} months of history.`);
   }
 
   function iconPicks(rc) {
