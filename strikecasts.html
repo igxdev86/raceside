@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE STRIKE CASTS</title>
+<meta name="description" content="Icon forecasts and tricasts: today's UK & Irish races in time order, with the empirical chance the next frame is all icons.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --blue-soft:#EAF0FF; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#6FB2FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+
+  .modes{display:flex;gap:6px;margin-bottom:10px}
+  .mode{font-family:var(--sans);font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:9px 16px;border:1px solid #3A5490;border-radius:999px;color:#8FA3C8}
+  .mode.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  .meter{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px}
+  .mtl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue)}
+  .mrow{display:flex;align-items:center;gap:14px;margin-top:10px}
+  .mpct{font-family:var(--mono);font-size:34px;font-weight:600;color:var(--ink);flex:none}
+  .mbarwrap{flex:1;height:14px;background:var(--card2);border-radius:7px;overflow:hidden}
+  .mbar{height:100%;background:linear-gradient(90deg,var(--blue),#6FB2FF);border-radius:7px;transition:width .4s}
+  .mchain{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .mchain span{font-family:var(--mono);font-size:11.5px;color:var(--dim);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  .mchain b{color:var(--green);font-weight:600}
+  .msub{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:9px;line-height:1.6}
+  .msub b{color:var(--ink)}
+  .drought{display:inline-flex;gap:3px;vertical-align:middle;margin-left:4px}
+  .drought span{width:8px;height:8px;border-radius:2px;background:var(--red);opacity:.7;display:inline-block}
+
+  .xtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .xtile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .xl{display:block;font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim)}
+  .xv{display:block;font-family:var(--mono);font-size:24px;font-weight:600;margin-top:3px}
+  .xs{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
+
+  .nt-head{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink)}
+  .nt-head b{color:var(--blue)}
+  .nt-picks{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;font-family:var(--mono);font-size:12.5px}
+  .nt-picks .o{color:var(--blue);font-weight:600;margin-left:4px}
+
+  .timeline{display:flex;flex-direction:column;gap:6px}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);
+    display:flex;align-items:center;gap:12px;padding:10px 14px;flex-wrap:wrap}
+  .row.next{border-color:var(--blue);background:var(--blue-soft)}
+  .row.past{opacity:.92}
+  .row.upcoming{cursor:pointer}
+  .r-ic{flex:none;width:34px;text-align:center}
+  .badge{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px}
+  .badge.fc{color:#fff;background:var(--green)}
+  .badge.tc{color:#fff;background:var(--gold)}
+  .badge.miss{color:var(--red);background:transparent;font-size:13px}
+  .badge.pend{color:var(--faint);background:transparent}
+  .r-off{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--blue);flex:none;min-width:44px}
+  .r-course{font-weight:700;font-size:13.5px;flex:none;min-width:88px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-name{font-size:12px;color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-frame{width:100%;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:4px}
+  .r-frame b{color:var(--ink);font-weight:600}
+  .r-frame .hit{color:var(--green);font-weight:600}
+  .mantag{font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;background:var(--faint);border-radius:4px;padding:1px 4px;margin-left:5px}
+  .manundo{font-family:var(--mono);font-size:11px;color:var(--red);margin-left:6px;font-weight:700}
+
+  .picks{display:none;width:100%;border-top:1px solid var(--line);margin-top:9px;padding-top:4px}
+  .row.open .picks{display:block}
+  .pline{display:flex;align-items:center;gap:10px;padding:6px 0;font-family:var(--mono);font-size:12px}
+  .pline .pic{flex:none;width:20px;text-align:center}
+  .pline .ph{font-family:var(--sans);font-weight:600;font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pline .po{color:var(--blue);font-weight:600;flex:none;min-width:44px;text-align:right}
+  .covers{font-family:var(--mono);font-size:11.5px;color:var(--dim);padding:7px 0 3px;line-height:1.5}
+  .settleui{border-top:1px dashed var(--line);margin-top:6px;padding-top:8px;font-family:var(--mono);font-size:12px}
+  .settleui select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:var(--sans);font-size:14px;background:var(--card2);color:var(--ink);margin:5px 0}
+  .settleui .sbtns{display:flex;gap:8px}
+  .settleui button{font-family:var(--mono);font-size:11.5px;font-weight:600;padding:8px 14px;border-radius:8px}
+  .settleui .sok{background:var(--green);color:#fff}
+  .settleui .scancel{color:var(--dim);border:1px solid var(--line)}
+  .settleui .sopen{color:var(--blue);font-weight:600;padding:2px 0}
+
+  .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .btn{background:transparent;border:1px solid #3A5490;color:#B9C8E8;font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:999px}
+  .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">RACE<b>SIDE</b> STRIKE CASTS<small id="hdate"></small></div>
+    <a class="back" href="/strike.html">← strike cards</a>
+  </header>
+
+  <div class="modes">
+    <button class="mode on" data-mode="fc">Forecast · 1-2 icons</button>
+    <button class="mode" data-mode="tc">Tricast · 1-2-3 icons</button>
+  </div>
+
+  <div class="meter" id="meter" hidden>
+    <div class="mtl" id="mTitle">Next forecast meter</div>
+    <div class="mrow">
+      <span class="mpct" id="mPct">—</span>
+      <div class="mbarwrap"><div class="mbar" id="mBar" style="width:0%"></div></div>
+    </div>
+    <div class="mchain" id="mChain"></div>
+    <div class="msub" id="mSub"></div>
+  </div>
+
+  <div class="xtiles" id="xtilesAll" hidden>
+    <div class="xtile"><span class="xl" id="xDrL">LONGEST DROUGHT · 12 MO</span><span class="xv" id="xDr" style="color:var(--red)">—</span><span class="xs" id="xDrSub"></span></div>
+    <div class="xtile"><span class="xl" id="xStL">LONGEST HIT STREAK · 12 MO</span><span class="xv" id="xSt" style="color:var(--green)">—</span><span class="xs" id="xStSub"></span></div>
+    <div class="xtile" style="grid-column:1/-1"><span class="xl">METER CEILING · 12 MO</span><span class="xv" id="xCeil" style="color:var(--blue)">—</span><span class="xs" id="xCeilSub"></span></div>
+  </div>
+
+  <div class="meter" id="nextTile" hidden style="cursor:pointer">
+    <div class="mtl">Next race</div>
+    <div id="ntBody" style="margin-top:8px"></div>
+  </div>
+
+  <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
+  <div class="timeline" id="timeline"><div class="state"><div class="spinner"></div>loading the day…</div></div>
+
+  <p class="note">Every GB &amp; IRE race today in time order. Settled races: <span class="badge tc">TC</span> = 1st, 2nd &amp; 3rd all icon horses · <span class="badge fc">FC</span> = 1st &amp; 2nd both icons · <span style="color:#FF8A93">✗</span> = frame not all-icon · ○ = unrankable field or no 2nd finisher. Icons = a race's top-3 base-score picks, ties included. Meters are <b>empirical</b>: measured from up to 12 months of real sequences using the closest reconstructable icon definition (RPR + TS + trainer 14-day form). If racing has no memory the meters stay near their base rates at every drought — this page shows whatever the data says. Not advice; an experiment in public.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  $('hdate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  // ---- base scoring (mirrors the lab's static score) ----
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function cdUnit(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    return cd ? 1.0 : (c && d) ? 0.9 : c ? 0.65 : d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function scoreInfo(rc) {
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+        cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    if (vals.length < 2) return { unrankable: true, set: new Set(), map, vals };
+    const cut3 = vals[Math.min(2, vals.length - 1)];
+    return { unrankable: false, set: new Set(Object.keys(map).filter(id => map[id] >= cut3)), map, vals };
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+  function iconPicks(rc) {
+    const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
+    const si = scoreInfo(rc);
+    const picks = [];
+    for (let rank = 0; rank < 3 && rank < si.vals.length; rank++) {
+      const ids = Object.keys(si.map).filter(id => si.map[id] === si.vals[rank]);
+      if (ids.length !== 1) continue;
+      const r = (rc.runners || []).find(x => x.horse_id === ids[0]);
+      if (!r) continue;
+      picks.push({ icon: icons[rank], r, o: bestOdds(r) });
+    }
+    return picks;
+  }
+
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // ---- mode ----
+  let mode = 'fc';
+  document.querySelectorAll('.mode').forEach(b => b.onclick = () => {
+    if (b.dataset.mode === mode) return;
+    mode = b.dataset.mode;
+    document.querySelectorAll('.mode').forEach(x => x.classList.toggle('on', x.dataset.mode === mode));
+    refreshMeter();
+  });
+
+  // ---- 12-month hazard build (both streams at once) ----
+  let hazardData = null;
+  let hazardBuild = null;
+
+  function hazardMonths() {
+    const now = new Date();
+    const months = [];
+    const start = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1));
+    const cur = new Date(start);
+    while (cur.getUTCFullYear() < now.getUTCFullYear() ||
+           (cur.getUTCFullYear() === now.getUTCFullYear() && cur.getUTCMonth() <= now.getUTCMonth())) {
+      months.push(cur.toISOString().slice(0, 7));
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return months;
+  }
+
+  async function buildHazard(onProgress) {
+    const months = hazardMonths().reverse();
+    const mkStream = () => ({ tally: {}, rec: { drought: { len: 0, date: null, brokeByHit: false }, streak: { len: 0, date: null } } });
+    const streams = { fc: mkStream(), tc: mkStream() };
+    let races = 0, loaded = 0;
+    for (const m of months) {
+      try {
+        const r = await fetch('/api/strikecasts?month=' + m);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          races += d.races || 0;
+          for (const key of ['fc','tc']) {
+            const st = streams[key], src = d[key] || {};
+            (src.hazard || []).forEach(row => {
+              const t = (st.tally[row.gap] ||= { cases: 0, hits: 0 });
+              t.cases += row.cases || 0;
+              t.hits += row.hits || 0;
+            });
+            const ex = src.extremes || {};
+            if (ex.drought && ex.drought.len > st.rec.drought.len) st.rec.drought = ex.drought;
+            if (ex.streak && ex.streak.len > st.rec.streak.len) st.rec.streak = ex.streak;
+          }
+        }
+      } catch {}
+      loaded++;
+      const pack = (key, poolCap) => {
+        const st = streams[key];
+        const caseTotal = Object.values(st.tally).reduce((a, v) => a + v.cases, 0);
+        const hitTotal = Object.values(st.tally).reduce((a, v) => a + v.hits, 0);
+        return {
+          poolCap,
+          base: caseTotal ? Math.round((hitTotal / caseTotal) * 1000) / 10 : 0,
+          caseTotal,
+          hazard: Object.entries(st.tally)
+            .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, hits: v.hits,
+              pct: v.cases ? Math.round((v.hits / v.cases) * 1000) / 10 : 0 }))
+            .sort((a, b) => a.gap - b.gap),
+          extremes: st.rec,
+        };
+      };
+      hazardData = {
+        ok: (streams.fc.tally[0] || {}).cases > 0,
+        building: loaded < months.length,
+        races, monthsLoaded: loaded, monthsTotal: months.length,
+        fc: pack('fc', 12), tc: pack('tc', 24),
+      };
+      if (onProgress) onProgress();
+    }
+    return hazardData;
+  }
+
+  // ---- manual results ----
+  const MLS = 'raceside:manualcasts';
+  const loadManual = () => { try { return JSON.parse(localStorage.getItem(MLS) || '{}'); } catch { return {}; } };
+  const saveManual = (m) => { try { localStorage.setItem(MLS, JSON.stringify(m)); } catch {} };
+
+  let meterState = null;
+
+  async function load() {
+    const tl = $('timeline');
+    tl.innerHTML = '<div class="state"><div class="spinner"></div>loading the day\u2026</div>';
+    let cardsRes = null, resultsRes = null;
+    if (!hazardBuild) hazardBuild = buildHazard(() => refreshMeter());
+    for (const tier of ['standard','basic','free']) {
+      try { cardsRes = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+    }
+    try { resultsRes = await api('/v1/results/today'); } catch {}
+    if (!hazardData) { try { await Promise.race([hazardBuild, new Promise(ok => setTimeout(ok, 4000))]); } catch {} }
+
+    const cards = ((cardsRes && cardsRes.racecards) || [])
+      .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
+      .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
+    if (!cards.length) { tl.innerHTML = '<div class="state">No GB/IRE racing today.</div>'; return; }
+
+    // frames: race_id → {p1,p2,p3: {id,name}} from official results, manual overlay beneath
+    const frames = {};
+    (((resultsRes && resultsRes.results) || [])).forEach(race => {
+      if (!race.race_id) return;
+      const at = (p) => {
+        const x = (race.runners || []).find(r => String(r.position) === p);
+        return x && x.horse_id ? { id: x.horse_id, name: x.horse || '' } : null;
+      };
+      const f = { p1: at('1'), p2: at('2'), p3: at('3') };
+      if (f.p1) frames[race.race_id] = f;
+    });
+    const manual = loadManual();
+    let manualChanged = false;
+    for (const [rid, mf] of Object.entries(manual)) {
+      if (frames[rid]) { delete manual[rid]; manualChanged = true; }
+      else frames[rid] = { p1: mf.p1, p2: mf.p2, p3: mf.p3 || null, manual: true };
+    }
+    if (manualChanged) saveManual(manual);
+
+    tl.innerHTML = '';
+    let fcDrought = 0, tcDrought = 0, anySettled = false, nextMarked = false;
+    let nextInfo = null;
+    const now = Date.now();
+    cards.forEach(rc => {
+      const f = frames[rc.race_id];
+      const row = el('div','row');
+      let icHtml = '<span class="badge pend">\u00b7</span>', frameHtml = '';
+      if (f && f.p1 && f.p2) {
+        anySettled = true;
+        const si = scoreInfo(rc);
+        if (si.unrankable) {
+          icHtml = '<span class="badge pend" title="ratings could not separate this field">\u25cb</span>';
+        } else {
+          const inSet = (x) => x && si.set.has(x.id);
+          const fcHit = inSet(f.p1) && inSet(f.p2);
+          const tcHit = fcHit && f.p3 && inSet(f.p3);
+          if (tcHit) { icHtml = '<span class="badge tc">TC</span>'; fcDrought = 0; tcDrought = 0; }
+          else if (fcHit) { icHtml = '<span class="badge fc">FC</span>'; fcDrought = 0; if (f.p3) tcDrought++; }
+          else { icHtml = '<span class="badge miss">\u2717</span>'; fcDrought++; if (f.p3) tcDrought++; }
+          const mk = (x, label) => x ? `${label} <b class="${inSet(x) ? 'hit' : ''}">${esc(x.name)}</b>` : '';
+          const mtag = f.manual ? ` <span class="mantag">MANUAL</span><button class="manundo" data-undo="${esc(rc.race_id)}">\u00d7</button>` : '';
+          frameHtml = `<span class="r-frame">${[mk(f.p1,'1st'), mk(f.p2,'2nd'), mk(f.p3,'3rd')].filter(Boolean).join(' \u00b7 ')}${mtag}</span>`;
+        }
+        row.classList.add('past');
+      } else if (f && f.p1 && !f.p2) {
+        icHtml = '<span class="badge pend" title="no 2nd finisher">\u25cb</span>';
+        row.classList.add('past');
+      } else {
+        row.classList.add('upcoming');
+        if (!nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
+          row.classList.add('next', 'open');
+          nextMarked = true;
+          nextInfo = { rc, rowEl: row };
+        }
+      }
+      row.appendChild(el('span','r-ic', icHtml));
+      row.appendChild(el('span','r-off', esc(rc.off_time || '')));
+      row.appendChild(el('span','r-course', esc(rc.course || '')));
+      row.appendChild(el('span','r-name', esc(rc.race_name || '')));
+      if (frameHtml) row.insertAdjacentHTML('beforeend', frameHtml);
+      if (!f) {
+        row.appendChild(buildPicks(rc));
+        row.onclick = (ev) => {
+          if (ev.target.closest('.settleui')) return;
+          row.classList.toggle('open');
+        };
+      } else if (f.manual) {
+        const undo = row.querySelector('[data-undo]');
+        if (undo) undo.onclick = (ev) => {
+          ev.stopPropagation();
+          const man = loadManual();
+          delete man[rc.race_id];
+          saveManual(man);
+          load();
+        };
+      }
+      tl.appendChild(row);
+    });
+
+    renderNextTile(nextInfo);
+    meterState = { fcDrought, tcDrought, anySettled };
+    refreshMeter();
+  }
+
+  function refreshMeter() {
+    if (!meterState) return;
+    const meter = $('meter');
+    meter.hidden = false;
+    $('mTitle').textContent = mode === 'fc' ? 'Next forecast meter \u00b7 1st & 2nd both icons' : 'Next tricast meter \u00b7 1-2-3 all icons';
+    const stream = hazardData && hazardData[mode];
+    if (!hazardData || !hazardData.ok || !stream || !stream.caseTotal) {
+      const done = hazardData && !hazardData.building;
+      $('mPct').textContent = '\u2026';
+      $('mBar').style.width = '0%';
+      $('mChain').innerHTML = '';
+      $('mSub').innerHTML = done
+        ? 'History build failed \u2014 tap \u27f3 refresh to retry.'
+        : `Building 12 months of history\u2026 ${hazardData ? hazardData.monthsLoaded + '/' + hazardData.monthsTotal + ' months in' : 'starting up'} \u00b7 fast off the warehouse.`;
+      renderAllTime();
+      return;
+    }
+    const drought = mode === 'fc' ? meterState.fcDrought : meterState.tcDrought;
+    const cap = stream.poolCap;
+    const hz = (gap) => {
+      const rr = (stream.hazard || []).find(x => x.gap === Math.min(gap, cap));
+      return (rr && rr.cases >= 30 ? rr.pct : stream.base) / 100;
+    };
+    const g = Math.min(drought, cap);
+    const rowH = (stream.hazard || []).find(x => x.gap === g);
+    const usable = rowH && rowH.cases >= 30;
+    const pct = (usable ? rowH.pct : stream.base);
+    $('mPct').textContent = pct.toFixed(1) + '%';
+    $('mBar').style.width = Math.min(100, pct) + '%';
+    let miss = 1;
+    const chain = [];
+    for (let k = 1; k <= 6; k++) {
+      miss *= (1 - hz(drought + k - 1));
+      chain.push({ k, p: (1 - miss) * 100 });
+    }
+    $('mChain').innerHTML = chain.filter(c => c.k >= 2).map(c =>
+      `<span>within next ${c.k}: <b>${c.p.toFixed(1)}%</b></span>`).join('');
+    const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 16)) + '</span>' : '';
+    $('mSub').innerHTML =
+      `Current ${mode === 'fc' ? 'forecast' : 'tricast'} drought: <b>${meterState.anySettled ? drought : 0}</b> race${drought === 1 ? '' : 's'} without a hit${dots}<br>` +
+      (usable
+        ? `History says: after a drought of ${g}${drought > cap ? '+' : ''}, the next race hit <b>${rowH.pct}%</b> of the time (${rowH.hits}/${rowH.cases} cases over ${(hazardData.races || 0).toLocaleString()} races).`
+        : `Thin sample at this drought \u2014 showing the base rate: <b>${stream.base}%</b>.`) +
+      (hazardData.building ? ` <span style="color:var(--faint)">building\u2026 ${hazardData.monthsLoaded}/${hazardData.monthsTotal}</span>` : ` Base rate <b>${stream.base}%</b>.`);
+    renderAllTime();
+  }
+
+  function renderAllTime() {
+    const stream = hazardData && hazardData[mode];
+    if (!hazardData || hazardData.building || !stream || !stream.extremes || !stream.extremes.drought.len) return;
+    const rec = stream.extremes;
+    const label = mode === 'fc' ? 'FORECAST' : 'TRICAST';
+    const dmy = (s) => { if (!s) return ''; const [, mm, dd] = s.split('-'); return dd + '/' + mm; };
+    $('xtilesAll').hidden = false;
+    $('xDrL').textContent = 'LONGEST ' + label + ' DROUGHT \u00b7 12 MO';
+    $('xStL').textContent = 'LONGEST ' + label + ' STREAK \u00b7 12 MO';
+    $('xDr').textContent = rec.drought.len + ' races';
+    $('xDr').style.color = 'var(--red)';
+    $('xDrSub').textContent = 'no hits in a row \u00b7 ' + dmy(rec.drought.date);
+    $('xSt').textContent = rec.streak.len + ' races';
+    $('xSt').style.color = 'var(--green)';
+    $('xStSub').textContent = 'hits back-to-back \u00b7 ' + dmy(rec.streak.date);
+    const gc = Math.min(rec.drought.len, stream.poolCap);
+    const crow = (stream.hazard || []).find(x => x.gap === gc);
+    if (crow) {
+      $('xCeil').textContent = crow.pct.toFixed(1) + '%';
+      $('xCeilSub').textContent = 'highest the meter has ever read \u00b7 at drought ' + rec.drought.len +
+        (rec.drought.brokeByHit ? ' \u00b7 the ' + label.toLowerCase() + ' hit next \u2713' : " \u00b7 the day's card ended there");
+    }
+  }
+
+  function renderNextTile(info) {
+    const tile = $('nextTile');
+    if (!info) { tile.hidden = true; return; }
+    const { rc, rowEl } = info;
+    const picks = iconPicks(rc);
+    const pickHtml = picks.length
+      ? '<div class="nt-picks">' + picks.map(p =>
+          `<span>${p.icon} ${esc(p.r.horse || '')}<span class="o">${p.o ? esc(p.o.frac) : '\u2014'}</span></span>`).join('') + '</div>'
+      : '<div class="nt-picks" style="color:var(--faint)">No unique icon picks in this field.</div>';
+    tile.hidden = false;
+    $('ntBody').innerHTML =
+      `<div class="nt-head"><b>${esc(rc.off_time || '')}</b> ${esc(rc.course || '')} \u00b7 <span style="color:var(--dim);font-weight:400">${esc(rc.race_name || '')}</span></div>` +
+      pickHtml;
+    tile.onclick = () => { if (rowEl && rowEl.scrollIntoView) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  }
+
+  function buildPicks(rc) {
+    const box = el('div','picks');
+    const picks = iconPicks(rc);
+    if (!picks.length) { box.innerHTML = '<div class="covers">No unique icon picks in this field.</div>'; return box; }
+    picks.forEach(p => {
+      box.appendChild(el('div','pline',
+        `<span class="pic">${p.icon}</span><span class="ph">${esc(p.r.horse || '')}</span>` +
+        `<span class="po">${p.o ? esc(p.o.frac) : '\u2014'}</span>`));
+    });
+    if (picks.length >= 2) {
+      const nPerm2 = picks.length * (picks.length - 1);
+      const nPerm3 = picks.length >= 3 ? picks.length * (picks.length - 1) * (picks.length - 2) : 0;
+      box.appendChild(el('div','covers',
+        `Combination forecast on the icons: <b>${nPerm2} \u00d7 \u00a31</b> covers every icon 1-2.` +
+        (nPerm3 ? ` Combination tricast: <b>${nPerm3} \u00d7 \u00a31</b> covers every icon 1-2-3.` : '')));
+    }
+
+    const sui = el('div','settleui');
+    const opener = el('button','sopen','\u2713 settle manually \u2014 frame in before the feed?');
+    opener.onclick = (ev) => {
+      ev.stopPropagation();
+      opener.style.display = 'none';
+      const mkSel = (label) => {
+        const sel = document.createElement('select');
+        sel.appendChild(new Option(label, ''));
+        (rc.runners || []).slice().sort((a, b) => (parseInt(a.number,10)||99) - (parseInt(b.number,10)||99)).forEach(r => {
+          if (r.horse_id) sel.appendChild(new Option((r.number ? r.number + '. ' : '') + (r.horse || ''), r.horse_id));
+        });
+        return sel;
+      };
+      const s1 = mkSel('1st \u2014 who won?'), s2 = mkSel('2nd?'), s3 = mkSel('3rd? (optional)');
+      const ok = el('button','sok','Settle');
+      const cancel = el('button','scancel','Cancel');
+      const btns = el('div','sbtns');
+      btns.appendChild(ok); btns.appendChild(cancel);
+      sui.appendChild(s1); sui.appendChild(s2); sui.appendChild(s3); sui.appendChild(btns);
+      const pick = (sel) => {
+        if (!sel.value) return null;
+        const r = (rc.runners || []).find(x => x.horse_id === sel.value);
+        return { id: sel.value, name: (r && r.horse) || '' };
+      };
+      ok.onclick = (e2) => {
+        e2.stopPropagation();
+        const p1 = pick(s1), p2 = pick(s2), p3 = pick(s3);
+        if (!p1 || !p2 || p1.id === p2.id || (p3 && (p3.id === p1.id || p3.id === p2.id))) return;
+        const man = loadManual();
+        man[rc.race_id] = { p1, p2, p3, at: Date.now() };
+        saveManual(man);
+        load();
+      };
+      cancel.onclick = (e2) => {
+        e2.stopPropagation();
+        s1.remove(); s2.remove(); s3.remove(); btns.remove();
+        opener.style.display = '';
+      };
+    };
+    sui.appendChild(opener);
+    box.appendChild(sui);
+    return box;
+  }
+
+  $('refresh').onclick = load;
+  load();
+})();
+</script>
+</body>
+</html>
