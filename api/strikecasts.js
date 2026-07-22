@@ -153,8 +153,10 @@ export default async function handler(req, res) {
         const cut3 = vals[Math.min(2, vals.length - 1)];
         const inSet = (id) => map[id] != null && map[id] >= cut3;
         const fc = inSet(p1.horse_id) && inSet(p2.horse_id);
-        const hasThird = !!(p3 && p3.horse_id);
-        const tc = fc && hasThird && inSet(p3.horse_id);
+        // tricasts only exist as bets in races of 8+ runners
+        const tricastable = !!(p3 && p3.horse_id) && runners.length >= 8;
+        const hasThird = tricastable;
+        const tc = fc && tricastable && inSet(p3.horse_id);
         races++;
         (byDay[race.date] ||= []).push({ off: race.off, fc, tc, hasThird });
         // £10 combination CF/CT on the unique-rank picks, settled at SP
@@ -173,7 +175,7 @@ export default async function handler(req, res) {
           const pl = (d1 && d2) ? line * d1 * d2 - 10 : -10;
           dayCF[race.date] = (dayCF[race.date] || 0) + pl;
         }
-        if (picks.length >= 3 && hasThird) {
+        if (picks.length >= 3 && tricastable) {
           const line = 10 / (picks.length * (picks.length - 1) * (picks.length - 2));
           const d1 = oddsOf[p1.horse_id], d2 = oddsOf[p2.horse_id], d3 = oddsOf[p3.horse_id];
           const pl = (d1 && d2 && d3) ? line * d1 * d2 * d3 - 10 : -10;
