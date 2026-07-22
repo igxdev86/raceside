@@ -172,14 +172,16 @@ export default async function handler(req, res) {
         if (picks.length >= 2) {
           const line = 10 / (picks.length * (picks.length - 1));
           const d1 = oddsOf[p1.horse_id], d2 = oddsOf[p2.horse_id];
-          const pl = (d1 && d2) ? line * d1 * d2 - 10 : -10;
-          dayCF[race.date] = (dayCF[race.date] || 0) + pl;
+          const cell = (dayCF[race.date] ||= { ret: 0, staked: 0 });
+          cell.staked += 10;
+          if (d1 && d2) cell.ret += line * d1 * d2;
         }
         if (picks.length >= 3 && tricastable) {
           const line = 10 / (picks.length * (picks.length - 1) * (picks.length - 2));
           const d1 = oddsOf[p1.horse_id], d2 = oddsOf[p2.horse_id], d3 = oddsOf[p3.horse_id];
-          const pl = (d1 && d2 && d3) ? line * d1 * d2 * d3 - 10 : -10;
-          dayCT[race.date] = (dayCT[race.date] || 0) + pl;
+          const cell = (dayCT[race.date] ||= { ret: 0, staked: 0 });
+          cell.staked += 10;
+          if (d1 && d2 && d3) cell.ret += line * d1 * d2 * d3;
         }
       }
     }
@@ -229,20 +231,24 @@ export default async function handler(req, res) {
     };
   };
 
+  const r2 = (v) => Math.round(v * 100) / 100;
   const dailySeries = () => {
     const dates = [...new Set([...Object.keys(dayCF), ...Object.keys(dayCT), ...Object.keys(byDay)])].sort();
-    return dates.map((date) => ({
-      date,
-      races: (byDay[date] || []).length,
-      cf: dayCF[date] != null ? Math.round(dayCF[date] * 100) / 100 : null,
-      ct: dayCT[date] != null ? Math.round(dayCT[date] * 100) / 100 : null,
-    }));
+    return dates.map((date) => {
+      const f = dayCF[date], t = dayCT[date];
+      return {
+        date,
+        races: (byDay[date] || []).length,
+        cf: f ? r2(f.ret - f.staked) : null, cfRet: f ? r2(f.ret) : null, cfStaked: f ? f.staked : null,
+        ct: t ? r2(t.ret - t.staked) : null, ctRet: t ? r2(t.ret) : null, ctStaked: t ? t.staked : null,
+      };
+    });
   };
 
   const dayExtremes = (days) => {
     let best = null, worst = null;
-    for (const [date, pl] of Object.entries(days)) {
-      const v = Math.round(pl * 100) / 100;
+    for (const [date, cell] of Object.entries(days)) {
+      const v = Math.round((cell.ret - cell.staked) * 100) / 100;
       if (!best || v > best.pl) best = { date, pl: v };
       if (!worst || v < worst.pl) worst = { date, pl: v };
     }
