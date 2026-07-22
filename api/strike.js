@@ -1,9 +1,10 @@
-// RACESIDE — strike engine v2
-// Empirical icon-win hazard by drought length, from ~45 days of GB+IRE results
-// replayed chronologically per day. Icon definition: winner in top-3 tie-aware ranks of
-// RPR 22 + TS 13 + trainer-14-day-form 5 (T14 reconstructed leak-free from a 14-day
-// lookback window — same method as the monthly grader). Races whose ratings cannot
-// separate the field are SKIPPED, never counted as misses.
+// RACESIDE — strike engine v3
+// Empirical icon-win hazard by drought length. Callable two ways:
+//   ?month=YYYY-MM  → hazard tallies for that calendar month (complete months cache 30d)
+//   (no param)      → last 45 days (legacy behaviour, cache 12h)
+// Monthly chunks merge cleanly client-side because streaks reset daily.
+// Icon: winner in top-3 tie-aware ranks of RPR 22 + TS 13 + T14 5 (T14 reconstructed
+// leak-free from a 14-day lookback before each race day). Unrankable races are skipped.
 
 export const config = { maxDuration: 60 };
 
@@ -40,19 +41,31 @@ export default async function handler(req, res) {
   if (!user || !pass) return res.status(500).json({ ok: false, error: 'no-credentials' });
 
   const now = new Date();
-  const analysisStart = new Date(now.getTime() - 45 * 86400000);
-  const lookbackStart = new Date(analysisStart.getTime() - 14 * 86400000);
   const fmt = (d) => d.toISOString().slice(0, 10);
+  let analysisStart, analysisEnd, isCompleteMonth = false;
+  const m = String(req.query.month || '');
+  if (/^\d{4}-\d{2}$/.test(m)) {
+    const [yy, mm] = m.split('-').map(Number);
+    analysisStart = new Date(Date.UTC(yy, mm - 1, 1));
+    const monthEnd = new Date(Date.UTC(yy, mm, 0));
+    analysisEnd = monthEnd < now ? monthEnd : now;
+    isCompleteMonth = monthEnd < now;
+    if (analysisStart > now) return res.status(400).json({ ok: false, error: 'future-month' });
+  } else {
+    analysisStart = new Date(now.getTime() - 45 * 86400000);
+    analysisEnd = now;
+  }
+  const lookbackStart = new Date(analysisStart.getTime() - 14 * 86400000);
   const periodStart = fmt(analysisStart);
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
-  // pass 1: fetch everything, minimal fields
+  // pass 1: fetch lookback + period
   const all = [];
   let skip = 0, total = Infinity, pages = 0;
   try {
     while (skip < total && pages < 40) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire` +
-        `&start_date=${fmt(lookbackStart)}&end_date=${fmt(now)}&limit=50&skip=${skip}`;
+        `&start_date=${fmt(lookbackStart)}&end_date=${fmt(analysisEnd)}&limit=50&skip=${skip}`;
       let r, attempts = 0;
       for (;;) {
         r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
@@ -96,7 +109,7 @@ export default async function handler(req, res) {
     return t14UnitFrom(runs, wins);
   };
 
-  const byDay = {}; // date → [{off, iconWin}]
+  const byDay = {};
   let races = 0, skipped = 0;
   for (const race of all) {
     const runners = race.runners;
@@ -126,7 +139,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // hazard by drought length, streaks reset daily; skipped races never break or extend a streak
   const hazard = {};
   let iconTotal = 0, caseTotal = 0;
   for (const day of Object.keys(byDay)) {
@@ -141,9 +153,12 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=86400');
+  res.setHeader('Cache-Control', isCompleteMonth
+    ? 's-maxage=2592000, stale-while-revalidate=5184000'
+    : 's-maxage=43200, stale-while-revalidate=86400');
   return res.status(200).json({
-    ok: true, from: periodStart, to: fmt(now), races, skipped,
+    ok: true, month: m || null, from: periodStart, to: fmt(analysisEnd),
+    races, skipped, truncated: skip < total,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
