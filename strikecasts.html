@@ -359,6 +359,7 @@
 
     tl.innerHTML = '';
     let fcDrought = 0, tcDrought = 0, anySettled = false, nextMarked = false;
+    let cfTotal = 0, cfRaces = 0, ctTotal = 0, ctRaces = 0;
     let nextInfo = null;
     const now = Date.now();
     cards.forEach(rc => {
@@ -379,7 +380,15 @@
           else { icHtml = '<span class="badge miss">\u2717</span>'; fcDrought++; if (f.p3) tcDrought++; }
           const mk = (x, label) => x ? `${label} <b class="${inSet(x) ? 'hit' : ''}">${esc(x.name)}</b>` : '';
           const mtag = f.manual ? ` <span class="mantag">MANUAL</span><button class="manundo" data-undo="${esc(rc.race_id)}">\u00d7</button>` : '';
-          frameHtml = `<span class="r-frame">${[mk(f.p1,'1st'), mk(f.p2,'2nd'), mk(f.p3,'3rd')].filter(Boolean).join(' \u00b7 ')}${mtag}</span>`;
+          const oc = castOutcome(rc, f);
+          const tag = (o, label) => {
+            if (!o) return '';
+            const c = o.pl > 0 ? 'var(--green)' : 'var(--red)';
+            return ` <span style="color:${c};font-weight:600">${label} ${o.pl > 0 ? '+' : '\u2212'}\u00a3${Math.abs(o.pl).toFixed(2)}</span>`;
+          };
+          if (oc.cf) { cfTotal += oc.cf.pl; cfRaces++; }
+          if (oc.ct) { ctTotal += oc.ct.pl; ctRaces++; }
+          frameHtml = `<span class="r-frame">${[mk(f.p1,'1st'), mk(f.p2,'2nd'), mk(f.p3,'3rd')].filter(Boolean).join(' \u00b7 ')}${tag(oc.cf,'CF')}${tag(oc.ct,'CT')}${mtag}</span>`;
         }
         row.classList.add('past');
       } else if (f && f.p1 && !f.p2) {
@@ -418,7 +427,7 @@
     });
 
     renderNextTile(nextInfo);
-    meterState = { fcDrought, tcDrought, anySettled };
+    meterState = { fcDrought, tcDrought, anySettled, cfTotal, cfRaces, ctTotal, ctRaces };
     refreshMeter();
   }
 
@@ -465,7 +474,14 @@
       (usable
         ? `History says: after a drought of ${g}${drought > cap ? '+' : ''}, the next race hit <b>${rowH.pct}%</b> of the time (${rowH.hits}/${rowH.cases} cases over ${(hazardData.races || 0).toLocaleString()} races).`
         : `Thin sample at this drought \u2014 showing the base rate: <b>${stream.base}%</b>.`) +
-      (hazardData.building ? ` <span style="color:var(--faint)">building\u2026 ${hazardData.monthsLoaded}/${hazardData.monthsTotal}</span>` : ` Base rate <b>${stream.base}%</b>.`);
+      (hazardData.building ? ` <span style="color:var(--faint)">building\u2026 ${hazardData.monthsLoaded}/${hazardData.monthsTotal}</span>` : ` Base rate <b>${stream.base}%</b>.`) +
+      (() => {
+        const tot = mode === 'fc' ? meterState.cfTotal : meterState.ctTotal;
+        const n = mode === 'fc' ? meterState.cfRaces : meterState.ctRaces;
+        if (!n) return '';
+        const lbl = mode === 'fc' ? 'CF' : 'CT';
+        return `<br>${lbl} record today (\u00a310 combination per race): <b style="color:${tot >= 0 ? 'var(--green)' : 'var(--red)'}">${tot >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(tot).toFixed(2)}</b> across ${n} settled races (card-price proxy, real dividends differ).`;
+      })();
     renderAllTime();
   }
 
@@ -509,6 +525,27 @@
     tile.onclick = () => { if (rowEl && rowEl.scrollIntoView) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
+  function castOutcome(rc, f) {
+    // grades a £10 combination forecast (and tricast) on the priced icon PICKS at card odds.
+    const picks = iconPicks(rc).filter(p => p.o);
+    const out = { cf: null, ct: null };
+    const oddsOf = {};
+    picks.forEach(p => { oddsOf[p.r.horse_id] = p.o.d; });
+    if (picks.length >= 2 && f && f.p1 && f.p2) {
+      const nPerm2 = picks.length * (picks.length - 1);
+      const line = 10 / nPerm2;
+      const d1 = oddsOf[f.p1.id], d2 = oddsOf[f.p2.id];
+      out.cf = (d1 && d2) ? { pl: line * d1 * d2 - 10, hit: true } : { pl: -10, hit: false };
+    }
+    if (picks.length >= 3 && f && f.p1 && f.p2 && f.p3) {
+      const nPerm3 = picks.length * (picks.length - 1) * (picks.length - 2);
+      const line = 10 / nPerm3;
+      const d1 = oddsOf[f.p1.id], d2 = oddsOf[f.p2.id], d3 = oddsOf[f.p3.id];
+      out.ct = (d1 && d2 && d3) ? { pl: line * d1 * d2 * d3 - 10, hit: true } : { pl: -10, hit: false };
+    }
+    return out;
+  }
+
   function buildPicks(rc) {
     const box = el('div','picks');
     const picks = iconPicks(rc);
@@ -518,12 +555,22 @@
         `<span class="pic">${p.icon}</span><span class="ph">${esc(p.r.horse || '')}</span>` +
         `<span class="po">${p.o ? esc(p.o.frac) : '\u2014'}</span>`));
     });
-    if (picks.length >= 2) {
-      const nPerm2 = picks.length * (picks.length - 1);
-      const nPerm3 = picks.length >= 3 ? picks.length * (picks.length - 1) * (picks.length - 2) : 0;
-      box.appendChild(el('div','covers',
-        `Combination forecast on the icons: <b>${nPerm2} \u00d7 \u00a31</b> covers every icon 1-2.` +
-        (nPerm3 ? ` Combination tricast: <b>${nPerm3} \u00d7 \u00a31</b> covers every icon 1-2-3.` : '')));
+    const priced = picks.filter(p => p.o);
+    if (priced.length >= 2) {
+      const ds = priced.map(p => p.o.d).sort((a, b) => a - b);
+      const nPerm2 = priced.length * (priced.length - 1);
+      const line2 = 10 / nPerm2;
+      const lo2 = line2 * ds[0] * ds[1], hi2 = line2 * ds[ds.length - 1] * ds[ds.length - 2];
+      let html = `\u00a310 combination forecast \u2192 ${nPerm2} lines \u00d7 \u00a3${line2.toFixed(2)} \u00b7 returns <b>\u00a3${lo2.toFixed(2)}\u2013\u00a3${hi2.toFixed(2)}</b> if icons fill 1-2`;
+      if (priced.length >= 3) {
+        const nPerm3 = priced.length * (priced.length - 1) * (priced.length - 2);
+        const line3 = 10 / nPerm3;
+        const lo3 = line3 * ds[0] * ds[1] * ds[2];
+        const hi3 = line3 * ds[ds.length - 1] * ds[ds.length - 2] * ds[ds.length - 3];
+        html += `<br>\u00a310 combination tricast \u2192 ${nPerm3} lines \u00d7 \u00a3${line3.toFixed(2)} \u00b7 returns <b>\u00a3${lo3.toFixed(2)}\u2013\u00a3${hi3.toFixed(2)}</b> if icons fill 1-2-3`;
+      }
+      html += ' <span style="color:var(--faint)">\u00b7 card-price proxy, real CSF/tricast dividends differ</span>';
+      box.appendChild(el('div','covers', html));
     }
 
     const sui = el('div','settleui');
