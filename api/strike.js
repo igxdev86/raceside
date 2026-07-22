@@ -161,23 +161,28 @@ export default async function handler(req, res) {
 
   const hazard = {};
   let iconTotal = 0, caseTotal = 0;
-  const maxDrought = { len: 0, date: null };
+  const maxDrought = { len: 0, date: null, brokeByIcon: false };
   const maxStreak = { len: 0, date: null };
   for (const day of Object.keys(byDay)) {
     const seq = byDay[day].sort((a, b) => a.off - b.off);
-    let gap = 0, streak = 0;
+    let gap = 0, streak = 0, dayMax = 0, dayMaxBroke = false;
     for (const r of seq) {
       const g = Math.min(gap, 10);
       const h = (hazard[g] ||= { cases: 0, iconWins: 0 });
       h.cases++; caseTotal++;
       if (r.iconWin) {
-        h.iconWins++; iconTotal++; gap = 0;
+        h.iconWins++; iconTotal++;
+        if (gap === dayMax && gap > 0) dayMaxBroke = true; // the day's deepest drought just broke on an icon
+        gap = 0;
         streak++;
         if (streak > maxStreak.len) { maxStreak.len = streak; maxStreak.date = day; }
       } else {
         gap++; streak = 0;
-        if (gap > maxDrought.len) { maxDrought.len = gap; maxDrought.date = day; }
+        if (gap > dayMax) { dayMax = gap; dayMaxBroke = false; }
       }
+    }
+    if (dayMax > maxDrought.len) {
+      maxDrought.len = dayMax; maxDrought.date = day; maxDrought.brokeByIcon = dayMaxBroke;
     }
   }
 
