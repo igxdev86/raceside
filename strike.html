@@ -51,6 +51,19 @@
   .r-course{font-weight:700;font-size:13.5px;flex:none;min-width:88px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .r-name{font-size:12px;color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .r-win{font-family:var(--mono);font-size:11.5px;color:var(--green);flex:none;max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row{flex-wrap:wrap}
+  .picks{display:none;width:100%;border-top:1px solid var(--line);margin-top:9px;padding-top:4px}
+  .row.open .picks{display:block}
+  .row.upcoming{cursor:pointer}
+  .pline{display:flex;align-items:center;gap:10px;padding:6px 0;font-family:var(--mono);font-size:12px}
+  .pline .pic{flex:none;width:20px;text-align:center}
+  .pline .ph{font-family:var(--sans);font-weight:600;font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pline .po{color:var(--blue);font-weight:600;flex:none;min-width:44px;text-align:right}
+  .pline .ps{color:var(--ink);flex:none;min-width:56px;text-align:right}
+  .dutch{font-family:var(--mono);font-size:11.5px;padding:7px 0 3px;line-height:1.5}
+  .dutch.lock{color:var(--green)}
+  .dutch.nolock{color:var(--red)}
+  .dutch b{font-weight:600}
   .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
   .btn{background:transparent;border:1px solid #3A5490;color:#B9C8E8;font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:999px}
   .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
@@ -150,6 +163,16 @@
     };
   }
 
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+
   async function api(path, params = {}) {
     const qs = new URLSearchParams();
     qs.set('path', path);
@@ -203,8 +226,9 @@
         row.classList.add('past');
       } else {
         icHtml = '<span class="pend">·</span>';
+        row.classList.add('upcoming');
         if (!nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
-          row.classList.add('next');
+          row.classList.add('next', 'open');
           nextMarked = true;
         }
       }
@@ -213,6 +237,10 @@
       row.appendChild(el('span','r-course', esc(rc.course || '')));
       row.appendChild(el('span','r-name', esc(rc.race_name || '')));
       if (winHtml) row.insertAdjacentHTML('beforeend', winHtml);
+      if (!w) {
+        row.appendChild(buildPicks(rc));
+        row.onclick = () => row.classList.toggle('open');
+      }
       tl.appendChild(row);
     });
 
@@ -232,6 +260,51 @@
       (usable
         ? `History says: after a drought of ${g}${drought > 10 ? '+' : ''}, the next race was icon-won <b>${row.pct}%</b> of the time (${row.iconWins}/${row.cases} cases, last 2 months). Base rate <b>${hazardData.base}%</b>.`
         : `Thin sample at this drought length — showing the base rate: <b>${hazardData.base}%</b> of races are icon-won (last 2 months).`);
+  }
+
+  function buildPicks(rc) {
+    const box = el('div','picks');
+    const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+        cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    const picks = [];
+    for (let rank = 0; rank < 3 && rank < vals.length; rank++) {
+      const ids = Object.keys(map).filter(id => map[id] === vals[rank]);
+      if (ids.length !== 1) continue;
+      const r = rs.find(x => x.horse_id === ids[0]);
+      if (!r) continue;
+      picks.push({ icon: icons[rank], r, o: bestOdds(r) });
+    }
+    if (!picks.length) { box.innerHTML = '<div class="dutch">No unique icon picks in this field.</div>'; return box; }
+    const priced = picks.filter(p => p.o);
+    const sumInv = priced.reduce((a, p) => a + 1 / p.o.d, 0);
+    const TOTAL = 10;
+    const ret = sumInv > 0 ? TOTAL / sumInv : 0;
+    picks.forEach(p => {
+      const stake = p.o && sumInv > 0 ? (TOTAL * (1 / p.o.d) / sumInv) : null;
+      box.appendChild(el('div','pline',
+        `<span class="pic">${p.icon}</span><span class="ph">${esc(p.r.horse || '')}</span>` +
+        `<span class="po">${p.o ? esc(p.o.frac) : '\u2014'}</span>` +
+        `<span class="ps">${stake != null ? '\u00a3' + stake.toFixed(2) : 'no price'}</span>`));
+    });
+    if (priced.length >= 2 && sumInv > 0) {
+      const profit = ret - TOTAL;
+      const cls = profit > 0 ? 'lock' : 'nolock';
+      const msg = profit > 0
+        ? `\u00a3${TOTAL} dutched \u2192 returns <b>\u00a3${ret.toFixed(2)}</b> if any icon wins \u00b7 locked profit <b>+\u00a3${profit.toFixed(2)}</b> \u00b7 all lost if none win`
+        : `No profit lock at these prices: \u00a3${TOTAL} dutched returns <b>\u00a3${ret.toFixed(2)}</b> even when one wins (<b>\u2212\u00a3${(-profit).toFixed(2)}</b>) \u00b7 combined book over 100%`;
+      box.appendChild(el('div','dutch ' + cls, msg));
+    } else if (priced.length === 1) {
+      box.appendChild(el('div','dutch','Only one pick priced \u2014 nothing to dutch.'));
+    }
+    return box;
   }
 
   $('refresh').onclick = load;
