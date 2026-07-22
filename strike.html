@@ -34,6 +34,9 @@
   .mpct{font-family:var(--mono);font-size:34px;font-weight:600;color:var(--ink);flex:none}
   .mbarwrap{flex:1;height:14px;background:var(--card2);border-radius:7px;overflow:hidden}
   .mbar{height:100%;background:linear-gradient(90deg,var(--blue),#6FB2FF);border-radius:7px;transition:width .4s}
+  .mchain{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .mchain span{font-family:var(--mono);font-size:11.5px;color:var(--dim);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  .mchain b{color:var(--green);font-weight:600}
   .msub{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:9px;line-height:1.6}
   .msub b{color:var(--ink)}
   .drought{display:inline-flex;gap:3px;vertical-align:middle;margin-left:4px}
@@ -106,6 +109,7 @@
       <span class="mpct" id="mPct">—</span>
       <div class="mbarwrap"><div class="mbar" id="mBar" style="width:0%"></div></div>
     </div>
+    <div class="mchain" id="mChain"></div>
     <div class="msub" id="mSub"></div>
   </div>
 
@@ -403,6 +407,7 @@
       const done = hazardData && !hazardData.building;
       $('mPct').textContent = '…';
       $('mBar').style.width = '0%';
+      $('mChain').innerHTML = '';
       $('mSub').innerHTML = done
         ? 'History build failed — the results endpoints returned nothing. Tap ⟳ refresh to retry.'
         : `Building 12 months of history… ${hazardData ? hazardData.monthsLoaded + '/' + hazardData.monthsTotal + ' months in' : 'starting up'} · first build takes a few minutes, then it’s cached.`;
@@ -414,6 +419,19 @@
     const pct = usable ? row.pct : hazardData.base;
     $('mPct').textContent = pct.toFixed(1) + '%';
     $('mBar').style.width = Math.min(100, pct) + '%';
+    // compound: chance of at least one icon within the next N races, walked along the hazard chain
+    const hz = (gap) => {
+      const rr = (hazardData.hazard || []).find(x => x.gap === Math.min(gap, 10));
+      return (rr && rr.cases >= 30 ? rr.pct : hazardData.base) / 100;
+    };
+    let miss = 1;
+    const chain = [];
+    for (let k = 1; k <= 4; k++) {
+      miss *= (1 - hz(drought + k - 1));
+      chain.push({ k, p: (1 - miss) * 100 });
+    }
+    $('mChain').innerHTML = chain.slice(1).map(c =>
+      `<span>within next ${c.k}: <b>${c.p.toFixed(1)}%</b></span>`).join('');
     trackExtremes(pct, drought);
     renderAllTime();
     const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 12)) + '</span>' : '';
