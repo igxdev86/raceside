@@ -210,7 +210,7 @@
     // build timeline + current drought
     const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
     tl.innerHTML = '';
-    let drought = 0, anySettled = false, nextMarked = false;
+    let drought = 0, anySettled = false, nextMarked = false, dutchTotal = 0, dutchRaces = 0;
     const now = Date.now();
     cards.forEach(rc => {
       const w = winners[rc.race_id];
@@ -222,7 +222,14 @@
         const rk = t3.rank(w.id);
         if (rk >= 0 && rk <= 2) { icHtml = icons[rk]; drought = 0; }
         else { icHtml = '<span class="miss">✗</span>'; drought++; }
-        winHtml = `<span class="r-win">${esc(w.name)}${w.sp ? ' ' + esc(String(w.sp)) : ''}</span>`;
+        const dch = dutchOutcome(rc, w.id);
+        let dtag = '';
+        if (dch) {
+          dutchTotal += dch.pl; dutchRaces++;
+          const c = dch.pl > 0 ? 'var(--green)' : 'var(--red)';
+          dtag = ` <span style="color:${c};font-weight:600">D ${dch.pl > 0 ? '+' : '−'}£${Math.abs(dch.pl).toFixed(2)}</span>`;
+        }
+        winHtml = `<span class="r-win">${esc(w.name)}${w.sp ? ' ' + esc(String(w.sp)) : ''}${dtag}</span>`;
         row.classList.add('past');
       } else {
         icHtml = '<span class="pend">·</span>';
@@ -255,11 +262,46 @@
     $('mPct').textContent = pct.toFixed(1) + '%';
     $('mBar').style.width = Math.min(100, pct) + '%';
     const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 12)) + '</span>' : '';
+    const dutchLine = dutchRaces
+      ? `<br>Dutch record today (£10 per race): <b style="color:${dutchTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${dutchTotal >= 0 ? '+' : '−'}£${Math.abs(dutchTotal).toFixed(2)}</b> across ${dutchRaces} settled races (current card prices, not prices at the off).`
+      : '';
     $('mSub').innerHTML =
-      `Current drought: <b>${anySettled ? drought : 0}</b> race${drought === 1 ? '' : 's'} without an icon win${dots}<br>` +
+      `Current drought: <b>${anySettled ? drought : 0}</b> race${drought === 1 ? '' : 's'} without an icon win${dots}${dutchLine}<br>` +
       (usable
         ? `History says: after a drought of ${g}${drought > 10 ? '+' : ''}, the next race was icon-won <b>${row.pct}%</b> of the time (${row.iconWins}/${row.cases} cases, last 2 months). Base rate <b>${hazardData.base}%</b>.`
         : `Thin sample at this drought length — showing the base rate: <b>${hazardData.base}%</b> of races are icon-won (last 2 months).`);
+  }
+
+  function iconPicks(rc) {
+    const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+        cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    const picks = [];
+    for (let rank = 0; rank < 3 && rank < vals.length; rank++) {
+      const ids = Object.keys(map).filter(id => map[id] === vals[rank]);
+      if (ids.length !== 1) continue;
+      const r = rs.find(x => x.horse_id === ids[0]);
+      if (!r) continue;
+      picks.push({ icon: icons[rank], r, o: bestOdds(r) });
+    }
+    return picks;
+  }
+
+  function dutchOutcome(rc, winnerId) {
+    const priced = iconPicks(rc).filter(p => p.o);
+    if (priced.length < 2) return null;
+    const sumInv = priced.reduce((a, p) => a + 1 / p.o.d, 0);
+    if (!(sumInv > 0)) return null;
+    const ret = 10 / sumInv;
+    const won = priced.some(p => p.r.horse_id === winnerId);
+    return { pl: won ? ret - 10 : -10, won };
   }
 
   function buildPicks(rc) {
