@@ -60,6 +60,7 @@
 
   <div class="progress" id="progress"></div>
   <div class="meta" id="meta"></div>
+  <div class="progress" id="courseRow" style="margin-bottom:14px"></div>
   <div class="cols" id="cols" hidden>
     <div class="panel">
       <div class="ptitle">Top forecasts · 1st → 2nd</div>
@@ -88,7 +89,8 @@
     months.push('2026-' + String(mo + 1).padStart(2, '0'));
   }
 
-  const agg = { forecasts: {}, tricasts: {}, races: 0, castable: 0, truncated: false };
+  const agg = { forecasts: {}, tricasts: {}, races: 0, castable: 0, truncated: false, byCourse: {} };
+  let courseSel = 'ALL';
 
   const prog = $('progress');
   const chips = {};
@@ -112,13 +114,35 @@
     };
     mergeMap(agg.forecasts, d.forecasts);
     mergeMap(agg.tricasts, d.tricasts);
+    for (const [course, v] of Object.entries(d.byCourse || {})) {
+      const c = (agg.byCourse[course] ||= { forecasts: {}, tricasts: {}, castable: 0 });
+      c.castable += v.castable || 0;
+      mergeMap(c.forecasts, v.forecasts);
+      mergeMap(c.tricasts, v.tricasts);
+    }
+  }
+
+  function drawCourses() {
+    const row = $('courseRow');
+    row.innerHTML = '';
+    const courses = Object.entries(agg.byCourse).sort((a, b) => b[1].castable - a[1].castable);
+    const mk = (label, key, count) => {
+      const c = el('button','mchip' + (courseSel === key ? ' done' : ''), esc(label) + (count != null ? ' · ' + count : ''));
+      c.onclick = () => { courseSel = key; drawCourses(); render(); };
+      row.appendChild(c);
+    };
+    mk('ALL', 'ALL', agg.castable);
+    courses.forEach(([course, v]) => mk(course, course, v.castable));
   }
 
   function render() {
     $('cols').hidden = false;
-    $('meta').innerHTML = `<b>${agg.castable.toLocaleString()}</b> castable races of <b>${agg.races.toLocaleString()}</b> total${agg.truncated ? ' · some months truncated' : ''}`;
+    const src = courseSel === 'ALL' ? agg : (agg.byCourse[courseSel] || agg);
+    const denom = courseSel === 'ALL' ? agg.castable : (src.castable || 0);
+    $('meta').innerHTML = `<b>${agg.castable.toLocaleString()}</b> castable races of <b>${agg.races.toLocaleString()}</b> total${agg.truncated ? ' · some months truncated' : ''}${courseSel !== 'ALL' ? ' · showing <b>' + esc(courseSel) + '</b> (' + denom + ' races)' : ''}`;
     const fill = (obj, bodyId, fmtKey, triple) => {
       const rows = Object.entries(obj).sort((a, b) => (b[1].n || 0) - (a[1].n || 0)).slice(0, 20);
+      const denom2 = courseSel === 'ALL' ? agg.castable : ((agg.byCourse[courseSel] || {}).castable || 0);
       const max = rows.length ? rows[0][1].n : 1;
       const body = $(bodyId);
       body.innerHTML = '';
@@ -126,7 +150,7 @@
         const tr = el('tr');
         tr.appendChild(el('td', null, `<span class="cast">${fmtKey(k)}</span>`));
         tr.appendChild(el('td', null, `<span class="bar" style="width:${Math.max(6, Math.round(v.n / max * 46))}px"></span>${v.n}`));
-        tr.appendChild(el('td', null, agg.castable ? (v.n / agg.castable * 100).toFixed(2) + '%' : '—'));
+        tr.appendChild(el('td', null, denom2 ? (v.n / denom2 * 100).toFixed(2) + '%' : '—'));
         const avg = (s) => v.c ? (s / v.c).toFixed(1) : null;
         const sps = v.c
           ? (triple ? `${avg(v.s1)} / ${avg(v.s2)} / ${avg(v.s3)}` : `${avg(v.s1)} / ${avg(v.s2)}`)
@@ -136,20 +160,21 @@
         body.appendChild(tr);
       });
     };
-    fill(agg.forecasts, 'fBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), false);
-    fill(agg.tricasts, 'tBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), true);
+    fill(src.forecasts, 'fBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), false);
+    fill(src.tricasts, 'tBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), true);
   }
 
   (async () => {
     for (const m of months) {
       chips[m].classList.add('busy');
       try {
-        const r = await fetch('/api/casting?month=' + m + '&v=2');
+        const r = await fetch('/api/casting?month=' + m + '&v=3');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           merge(d);
           chips[m].classList.remove('busy');
           chips[m].classList.add('done');
+          drawCourses();
           render();
         } else {
           chips[m].classList.remove('busy');
