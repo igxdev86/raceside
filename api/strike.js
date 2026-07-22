@@ -6,6 +6,8 @@
 // Icon: winner in top-3 tie-aware ranks of RPR 22 + TS 13 + T14 5 (T14 reconstructed
 // leak-free from a 14-day lookback before each race day). Unrankable races are skipped.
 
+import { fetchResultsRange } from '../lib/db.js';
+
 export const config = { maxDuration: 60 };
 
 const numRt = (v) => {
@@ -65,6 +67,21 @@ export default async function handler(req, res) {
   // pass 1: fetch lookback + period
   const all = [];
   let skip = 0, total = Infinity, pages = 0;
+  let source = 'api';
+  const wh = await fetchResultsRange(fmt(lookbackStart), fmt(analysisEnd));
+  if (wh) {
+    source = 'warehouse';
+    total = 0;
+    for (const race of wh) {
+      all.push({
+        date: race.date || '', off: offMin(race.off),
+        runners: (race.runners || []).map((x) => ({
+          horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
+          rpr: x.rpr, tsr: x.tsr,
+        })),
+      });
+    }
+  }
   try {
     while (skip < total && pages < 40) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire` +
@@ -161,7 +178,7 @@ export default async function handler(req, res) {
     : 's-maxage=43200, stale-while-revalidate=86400');
   return res.status(200).json({
     ok: true, month: m || null, from: periodStart, to: fmt(analysisEnd),
-    races, skipped, truncated: skip < total,
+    races, skipped, truncated: skip < total, source,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
