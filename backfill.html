@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — warehouse backfill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0E1D3D;--card:#fff;--line:#E4E8EF;--ink:#101418;--dim:#5B6675;
+    --blue:#2456E6;--green:#12A150;--red:#D7263D;
+    --mono:'IBM Plex Mono',monospace;--sans:'Archivo',system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:#fff;font-family:var(--sans);font-size:15px;min-height:100vh}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 14px 80px}
+  h1{font-weight:800;font-size:24px;letter-spacing:-.02em}
+  h1 b{color:#6FB2FF}
+  .sub{font-family:var(--mono);font-size:11px;color:#8FA3C8;margin:4px 0 18px;text-transform:uppercase;letter-spacing:.15em}
+  .btn{display:block;width:100%;background:var(--blue);color:#fff;border:0;border-radius:12px;
+    font-family:var(--sans);font-weight:800;font-size:15px;letter-spacing:.04em;text-transform:uppercase;
+    padding:15px;margin-bottom:10px;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid #3A5490;color:#B9C8E8}
+  .btn:disabled{opacity:.5}
+  .log{background:var(--card);color:var(--ink);border-radius:12px;padding:12px 14px;margin-top:14px;
+    font-family:var(--mono);font-size:12px;line-height:1.8;min-height:60px}
+  .log .ok{color:var(--green);font-weight:600}
+  .log .err{color:var(--red);font-weight:600}
+  .log .busy{color:var(--blue)}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  a{color:#8FA3C8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RACE<b>SIDE</b> warehouse</h1>
+  <div class="sub">supabase backfill &amp; top-up</div>
+
+  <button class="btn" id="backfill">1 · Backfill 12 months (run once)</button>
+  <button class="btn ghost" id="topup">2 · Top up — last 3 days (tap daily-ish)</button>
+
+  <div class="log" id="log">Ready. Press backfill to pour a year of results into your database. Takes a few minutes — keep this page open.</div>
+
+  <p class="note">Backfill pulls each month from The Racing API once and stores it in your Supabase <b>results</b> table. Re-running is safe (already-stored races are updated, not duplicated). After backfilling, the lab's month views, Casting and the Strike meter read from the warehouse and load in about a second. The top-up button keeps the last few days fresh — tap it when today's/yesterday's results matter. <a href="/lab.html">← back to lab</a></p>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const log = (html, append) => { $('log').innerHTML = append ? $('log').innerHTML + html : html; };
+
+  function months12() {
+    const now = new Date();
+    const out = [];
+    const cur = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1));
+    while (cur.getUTCFullYear() < now.getUTCFullYear() ||
+           (cur.getUTCFullYear() === now.getUTCFullYear() && cur.getUTCMonth() <= now.getUTCMonth())) {
+      out.push(cur.toISOString().slice(0, 7));
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return out;
+  }
+
+  async function run(url, label) {
+    log(`<span class="busy">${label}\u2026</span><br>`, true);
+    try {
+      const r = await fetch(url);
+      const d = await r.json();
+      if (r.ok && d && d.ok) {
+        log(`<span class="ok">\u2713 ${label}: ${d.written} races stored (${d.from} \u2192 ${d.to})${d.truncated ? ' \u00b7 truncated, run again' : ''}</span><br>`, true);
+        return true;
+      }
+      log(`<span class="err">\u2717 ${label}: ${(d && (d.error + (d.detail ? ' \u2014 ' + d.detail : ''))) || 'HTTP ' + r.status}</span><br>`, true);
+      return false;
+    } catch (e) {
+      log(`<span class="err">\u2717 ${label}: ${e.message}</span><br>`, true);
+      return false;
+    }
+  }
+
+  $('backfill').onclick = async () => {
+    $('backfill').disabled = true; $('topup').disabled = true;
+    const ms = months12();
+    log(`Backfilling ${ms.length} months, newest first. Keep this page open.<br>`);
+    let done = 0;
+    for (const m of ms.slice().reverse()) {
+      if (await run('/api/ingest?month=' + m, m)) done++;
+    }
+    log(`<b>Finished: ${done}/${ms.length} months stored.</b> The fast pages are live \u2014 open the <a href="/lab.html">lab</a> and try Last Month.<br>`, true);
+    $('backfill').disabled = false; $('topup').disabled = false;
+  };
+
+  $('topup').onclick = async () => {
+    $('topup').disabled = true;
+    await run('/api/ingest?recent=3', 'Top-up (last 3 days)');
+    $('topup').disabled = false;
+  };
+})();
+</script>
+</body>
+</html>
