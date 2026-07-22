@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE MULTIS — today's board</title>
+<meta name="description" content="A board of mixed-icon doubles, trebles and 4-folds from today's UK & Irish racing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF; --line2:#D3DAE4;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --blue-soft:#EAF0FF; --green:#12A150; --red:#D7263D;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:920px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:14px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#6FB2FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .board{display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:680px){.board{grid-template-columns:1fr 1fr}}
+  .multi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow)}
+  .mtitle{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:9px}
+  .mkind{font-family:var(--sans);font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue)}
+  .mret{font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+  .mret b{color:var(--green);font-weight:600}
+  .leg{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line)}
+  .leg .ic{flex:none;width:20px;text-align:center}
+  .leg .off{font-family:var(--mono);font-size:11.5px;color:var(--dim);flex:none;min-width:78px}
+  .leg .h{font-weight:600;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .leg .o{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--blue);flex:none}
+  .state{margin-top:40px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .state .big{font-family:var(--sans);font-weight:800;font-size:18px;color:#fff;text-transform:uppercase;margin-bottom:6px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">RACE<b>SIDE</b> MULTIS<small id="hdate">today's board</small></div>
+    <a class="back" href="/lab.html">← lab</a>
+  </header>
+  <div id="board"><div class="state"><div class="spinner"></div>building the board…</div></div>
+  <p class="note">Mixed-icon multis from today's upcoming GB &amp; IRE races: 🏆 = top base score in its race · ♦️ = 2nd · 🔹 = 3rd (ties skipped). Legs grouped at random — stable for the day, no odds or form ranking — one leg per race per multi. Base score = RPR + TS relative to field, C&amp;D record, trainer 14-day form, recent form, freshness. Prices are current best and will move. A board of experiments, not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  $('hdate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  // ---- scoring (base components, mirrors the lab) ----
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function cdUnit(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    return cd ? 1.0 : (c && d) ? 0.9 : c ? 0.65 : d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function scoreMap(rc) {
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      const s = relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+                cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6;
+      map[r.horse_id] = Math.round(s * 100) / 100;
+    });
+    return map;
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+
+  // ---- daily-seeded rng ----
+  let seed = 0;
+  for (const ch of new Date().toISOString().slice(0, 10)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  async function build() {
+    let data = null;
+    for (const tier of ['standard','basic','free']) {
+      try { data = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+    }
+    const board = $('board');
+    const cards = ((data && data.racecards) || [])
+      .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()));
+    if (!cards.length) { board.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing running today.</div>'; return; }
+
+    // pool: one pick per race per icon rank, unique ranks only, upcoming, priced
+    const now = Date.now();
+    const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
+    const pool = [];
+    cards.forEach(rc => {
+      const t = Date.parse(rc.off_dt || '');
+      if (isNaN(t) || t <= now) return;
+      const map = scoreMap(rc);
+      const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+      for (let rank = 0; rank < 3 && rank < vals.length; rank++) {
+        const ids = Object.keys(map).filter(id => map[id] === vals[rank]);
+        if (ids.length !== 1) continue;
+        const r = (rc.runners || []).find(x => x.horse_id === ids[0]);
+        if (!r) continue;
+        const o = bestOdds(r);
+        if (!o) continue;
+        pool.push({ raceId: rc.race_id, off: rc.off_time || '', course: rc.course || '', horse: r.horse || '', icon: icons[rank], o, t });
+      }
+    });
+    if (pool.length < 2) { board.innerHTML = '<div class="state"><div class="big">Board closed</div>Not enough upcoming races left today.</div>'; return; }
+
+    shuffle(pool);
+
+    // sample a multi of n legs from the pool, distinct races, mixed icons welcome
+    const sample = (n) => {
+      const legs = [], used = new Set();
+      const order = shuffle(pool.slice());
+      for (const p of order) {
+        if (used.has(p.raceId)) continue;
+        legs.push(p); used.add(p.raceId);
+        if (legs.length === n) break;
+      }
+      return legs.length === n ? legs.sort((a, b) => a.t - b.t) : null;
+    };
+
+    const races = new Set(pool.map(p => p.raceId)).size;
+    const counts = [
+      ['DOUBLE', 2, Math.min(6, Math.floor(races / 2) * 2)],
+      ['TREBLE', 3, races >= 3 ? 4 : 0],
+      ['4-FOLD', 4, races >= 4 ? 3 : 0],
+    ];
+
+    board.innerHTML = '';
+    const grid = el('div','board');
+    counts.forEach(([kind, n, howMany]) => {
+      for (let i = 0; i < howMany; i++) {
+        const legs = sample(n);
+        if (!legs) return;
+        const prod = legs.reduce((a, x) => a * x.o.d, 1);
+        const card = el('div','multi');
+        card.appendChild(el('div','mtitle',
+          `<span class="mkind">${kind} #${i + 1}</span><span class="mret">\u00a31 \u2192 <b>\u00a3${prod.toFixed(2)}</b></span>`));
+        legs.forEach(l => {
+          card.appendChild(el('div','leg',
+            `<span class="ic">${l.icon}</span><span class="off">${esc(l.off)} ${esc(l.course.slice(0, 5))}</span><span class="h">${esc(l.horse)}</span><span class="o">${esc(l.o.frac)}</span>`));
+        });
+        grid.appendChild(card);
+      }
+    });
+    board.appendChild(grid);
+  }
+
+  build();
+})();
+</script>
+</body>
+</html>
