@@ -131,6 +131,12 @@
     <div class="xtile" style="grid-column:1/-1"><span class="xl">METER CEILING · 12 MO</span><span class="xv" id="xCeil" style="color:var(--blue)">—</span><span class="xs" id="xCeilSub"></span></div>
   </div>
 
+  <div class="xtiles" id="pnlTiles" hidden>
+    <div class="xtile" style="grid-column:1/-1"><span class="xl">TODAY'S P&amp;L \u00b7 \u00a310 COMBINATION PER RACE</span><span class="xv" id="pToday">\u2014</span><span class="xs" id="pTodaySub"></span></div>
+    <div class="xtile"><span class="xl" id="pBestL">BEST DAY \u00b7 12 MO</span><span class="xv" id="pBest" style="color:var(--green)">\u2014</span><span class="xs" id="pBestSub"></span></div>
+    <div class="xtile"><span class="xl" id="pWorstL">WORST DAY \u00b7 12 MO</span><span class="xv" id="pWorst" style="color:var(--red)">\u2014</span><span class="xs" id="pWorstSub"></span></div>
+  </div>
+
   <div class="meter" id="nextTile" hidden style="cursor:pointer">
     <div class="mtl">Next race</div>
     <div id="ntBody" style="margin-top:8px"></div>
@@ -266,12 +272,12 @@
 
   async function buildHazard(onProgress) {
     const months = hazardMonths().reverse();
-    const mkStream = () => ({ tally: {}, rec: { drought: { len: 0, date: null, brokeByHit: false }, streak: { len: 0, date: null } } });
+    const mkStream = () => ({ tally: {}, rec: { drought: { len: 0, date: null, brokeByHit: false }, streak: { len: 0, date: null }, bestDay: null, worstDay: null } });
     const streams = { fc: mkStream(), tc: mkStream() };
     let races = 0, loaded = 0;
     for (const m of months) {
       try {
-        const r = await fetch('/api/strikecasts?month=' + m);
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=2');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
@@ -285,6 +291,9 @@
             const ex = src.extremes || {};
             if (ex.drought && ex.drought.len > st.rec.drought.len) st.rec.drought = ex.drought;
             if (ex.streak && ex.streak.len > st.rec.streak.len) st.rec.streak = ex.streak;
+            const dy = src.days || {};
+            if (dy.best && (!st.rec.bestDay || dy.best.pl > st.rec.bestDay.pl)) st.rec.bestDay = dy.best;
+            if (dy.worst && (!st.rec.worstDay || dy.worst.pl < st.rec.worstDay.pl)) st.rec.worstDay = dy.worst;
           }
         }
       } catch {}
@@ -483,6 +492,39 @@
         return `<br>${lbl} record today (\u00a310 combination per race): <b style="color:${tot >= 0 ? 'var(--green)' : 'var(--red)'}">${tot >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(tot).toFixed(2)}</b> across ${n} settled races (card-price proxy, real dividends differ).`;
       })();
     renderAllTime();
+    renderPnl();
+  }
+
+  function renderPnl() {
+    if (!meterState) return;
+    const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+    const anyToday = meterState.cfRaces || meterState.ctRaces;
+    const stream = hazardData && hazardData[mode];
+    const rec = stream && stream.extremes;
+    if (!anyToday && !(rec && rec.bestDay)) return;
+    $('pnlTiles').hidden = false;
+    if (anyToday) {
+      const bits = [];
+      if (meterState.cfRaces) bits.push(`CF <b style="color:${meterState.cfTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${money(meterState.cfTotal)}</b> (${meterState.cfRaces})`);
+      if (meterState.ctRaces) bits.push(`CT <b style="color:${meterState.ctTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${money(meterState.ctTotal)}</b> (${meterState.ctRaces})`);
+      $('pToday').innerHTML = bits.join(' \u00b7 ');
+      $('pTodaySub').textContent = 'settled races so far \u00b7 card-price proxy';
+    } else {
+      $('pToday').textContent = '\u2014';
+      $('pTodaySub').textContent = 'no settled races yet today';
+    }
+    const label = mode === 'fc' ? 'CF' : 'CT';
+    $('pBestL').textContent = label + ' BEST DAY \u00b7 12 MO';
+    $('pWorstL').textContent = label + ' WORST DAY \u00b7 12 MO';
+    const dmy = (s) => { if (!s) return ''; const [, mm, dd] = s.split('-'); return dd + '/' + mm; };
+    if (rec && rec.bestDay) {
+      $('pBest').textContent = money(rec.bestDay.pl);
+      $('pBestSub').textContent = dmy(rec.bestDay.date) + ' \u00b7 \u00a310/race at SP';
+    }
+    if (rec && rec.worstDay) {
+      $('pWorst').textContent = money(rec.worstDay.pl);
+      $('pWorstSub').textContent = dmy(rec.worstDay.date) + ' \u00b7 \u00a310/race at SP';
+    }
   }
 
   function renderAllTime() {
