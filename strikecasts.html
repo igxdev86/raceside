@@ -132,9 +132,9 @@
   </div>
 
   <div class="xtiles" id="pnlTiles" hidden>
-    <div class="xtile" style="grid-column:1/-1"><span class="xl">TODAY'S P&amp;L \u00b7 \u00a310 COMBINATION PER RACE</span><span class="xv" id="pToday">\u2014</span><span class="xs" id="pTodaySub"></span></div>
-    <div class="xtile"><span class="xl" id="pBestL">BEST DAY \u00b7 12 MO</span><span class="xv" id="pBest" style="color:var(--green)">\u2014</span><span class="xs" id="pBestSub"></span></div>
-    <div class="xtile"><span class="xl" id="pWorstL">WORST DAY \u00b7 12 MO</span><span class="xv" id="pWorst" style="color:var(--red)">\u2014</span><span class="xs" id="pWorstSub"></span></div>
+    <div class="xtile" style="grid-column:1/-1"><span class="xl">TODAY'S P&amp;L · £10 COMBINATION PER RACE</span><span class="xv" id="pToday">—</span><span class="xs" id="pTodaySub"></span></div>
+    <div class="xtile"><span class="xl" id="pBestL">BEST DAY · 12 MO</span><span class="xv" id="pBest" style="color:var(--green)">—</span><span class="xs" id="pBestSub"></span></div>
+    <div class="xtile"><span class="xl" id="pWorstL">WORST DAY · 12 MO</span><span class="xv" id="pWorst" style="color:var(--red)">—</span><span class="xs" id="pWorstSub"></span></div>
   </div>
 
   <div class="meter" id="nextTile" hidden style="cursor:pointer">
@@ -455,6 +455,7 @@
         ? 'History build failed \u2014 tap \u27f3 refresh to retry.'
         : `Building 12 months of history\u2026 ${hazardData ? hazardData.monthsLoaded + '/' + hazardData.monthsTotal + ' months in' : 'starting up'} \u00b7 fast off the warehouse.`;
       renderAllTime();
+      renderPnl();
       return;
     }
     const drought = mode === 'fc' ? meterState.fcDrought : meterState.tcDrought;
