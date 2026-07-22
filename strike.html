@@ -64,6 +64,15 @@
   .dutch.lock{color:var(--green)}
   .dutch.nolock{color:var(--red)}
   .dutch b{font-weight:600}
+  .mantag{font-family:var(--mono);font-size:9.5px;font-weight:700;color:#fff;background:var(--faint);border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:1px}
+  .manundo{font-family:var(--mono);font-size:11px;color:var(--red);margin-left:6px;font-weight:700}
+  .settleui{border-top:1px dashed var(--line);margin-top:6px;padding-top:8px;font-family:var(--mono);font-size:12px}
+  .settleui select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-family:var(--sans);font-size:14px;background:var(--card2);color:var(--ink);margin:6px 0}
+  .settleui .sbtns{display:flex;gap:8px}
+  .settleui button{font-family:var(--mono);font-size:11.5px;font-weight:600;padding:8px 14px;border-radius:8px}
+  .settleui .sok{background:var(--green);color:#fff}
+  .settleui .scancel{color:var(--dim);border:1px solid var(--line)}
+  .settleui .sopen{color:var(--blue);font-weight:600;padding:2px 0}
   .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px}
   .btn{background:transparent;border:1px solid #3A5490;color:#B9C8E8;font-family:var(--mono);font-size:11.5px;padding:8px 14px;border-radius:999px}
   .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
@@ -186,6 +195,10 @@
   let hazardData = null;
   let hazardBuild = null;
 
+  const MLS = 'raceside:manualresults';
+  const loadManual = () => { try { return JSON.parse(localStorage.getItem(MLS) || '{}'); } catch { return {}; } };
+  const saveManual = (m) => { try { localStorage.setItem(MLS, JSON.stringify(m)); } catch {} };
+
   function hazardMonths() {
     // deepest window the API plan allows: ~12 months back, from the 1st of that month
     const now = new Date();
@@ -256,6 +269,13 @@
       const w = (race.runners || []).find(x => String(x.position) === '1');
       if (race.race_id && w && w.horse_id) winners[race.race_id] = { id: w.horse_id, name: w.horse || '', sp: w.sp || '' };
     });
+    const manual = loadManual();
+    let manualChanged = false;
+    for (const [rid, mres] of Object.entries(manual)) {
+      if (winners[rid]) { delete manual[rid]; manualChanged = true; }   // official arrived — it wins
+      else winners[rid] = { id: mres.horseId, name: mres.name || '', sp: '', manual: true };
+    }
+    if (manualChanged) saveManual(manual);
 
     // build timeline + current drought
     const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
@@ -283,7 +303,8 @@
           const c = dch.pl > 0 ? 'var(--green)' : 'var(--red)';
           dtag = ` <span style="color:${c};font-weight:600">D ${dch.pl > 0 ? '+' : '−'}£${Math.abs(dch.pl).toFixed(2)}</span>`;
         }
-        winHtml = `<span class="r-win">${esc(w.name)}${w.sp ? ' ' + esc(String(w.sp)) : ''}${dtag}</span>`;
+        const mtag = w.manual ? ` <span class="mantag">MANUAL</span><button class="manundo" data-undo="${esc(rc.race_id)}">×</button>` : '';
+        winHtml = `<span class="r-win">${esc(w.name)}${w.sp ? ' ' + esc(String(w.sp)) : ''}${dtag}${mtag}</span>`;
         row.classList.add('past');
       } else {
         icHtml = '<span class="pend">·</span>';
@@ -300,7 +321,19 @@
       if (winHtml) row.insertAdjacentHTML('beforeend', winHtml);
       if (!w) {
         row.appendChild(buildPicks(rc));
-        row.onclick = () => row.classList.toggle('open');
+        row.onclick = (ev) => {
+          if (ev.target.closest('.settleui')) return;
+          row.classList.toggle('open');
+        };
+      } else if (w.manual) {
+        const undo = row.querySelector('[data-undo]');
+        if (undo) undo.onclick = (ev) => {
+          ev.stopPropagation();
+          const man = loadManual();
+          delete man[rc.race_id];
+          saveManual(man);
+          load();
+        };
       }
       tl.appendChild(row);
     });
@@ -409,8 +442,42 @@
         : `No profit lock at these prices: \u00a3${TOTAL} dutched returns <b>\u00a3${ret.toFixed(2)}</b> even when one wins (<b>\u2212\u00a3${(-profit).toFixed(2)}</b>) \u00b7 combined book over 100%`;
       box.appendChild(el('div','dutch ' + cls, msg));
     } else if (priced.length === 1) {
-      box.appendChild(el('div','dutch','Only one pick priced \u2014 nothing to dutch.'));
+      box.appendChild(el('div','dutch','Only one pick priced — nothing to dutch.'));
     }
+
+    // manual settlement
+    const sui = el('div','settleui');
+    const opener = el('button','sopen','✓ settle manually — result in before the feed?');
+    opener.onclick = (ev) => {
+      ev.stopPropagation();
+      opener.style.display = 'none';
+      const sel = document.createElement('select');
+      sel.appendChild(new Option('Who won?', ''));
+      (rc.runners || []).slice().sort((a, b) => (parseInt(a.number,10)||99) - (parseInt(b.number,10)||99)).forEach(r => {
+        if (r.horse_id) sel.appendChild(new Option((r.number ? r.number + '. ' : '') + (r.horse || ''), r.horse_id));
+      });
+      const ok = el('button','sok','Settle');
+      const cancel = el('button','scancel','Cancel');
+      const btns = el('div','sbtns');
+      btns.appendChild(ok); btns.appendChild(cancel);
+      sui.appendChild(sel); sui.appendChild(btns);
+      ok.onclick = (e2) => {
+        e2.stopPropagation();
+        if (!sel.value) return;
+        const r = (rc.runners || []).find(x => x.horse_id === sel.value);
+        const man = loadManual();
+        man[rc.race_id] = { horseId: sel.value, name: (r && r.horse) || '', at: Date.now() };
+        saveManual(man);
+        load();
+      };
+      cancel.onclick = (e2) => {
+        e2.stopPropagation();
+        sel.remove(); btns.remove();
+        opener.style.display = '';
+      };
+    };
+    sui.appendChild(opener);
+    box.appendChild(sui);
     return box;
   }
 
