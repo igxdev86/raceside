@@ -4,6 +4,8 @@
 // Basis per race: rpr_ts (RPR 22 + TS 13 + T14 5) → ofr (OFR 35 + T14 5) → skip.
 // C&D flags are NOT reconstructible from one month of results and are excluded by design.
 
+import { fetchResultsRange } from '../lib/db.js';
+
 export const config = { maxDuration: 60 };
 
 const numRt = (v) => {
@@ -61,6 +63,20 @@ export default async function handler(req, res) {
   const all = [];
   const diag = [];
   let skip = 0, total = Infinity, pages = 0, upstreamTotal = null;
+  let source = 'api';
+  const wh = await fetchResultsRange(fmt(lookbackStart), fmt(end));
+  if (wh) {
+    source = 'warehouse';
+    upstreamTotal = wh.length;
+    total = 0; // warehouse hit: skip the legacy loop entirely
+    for (const race of wh) {
+      if (diag.length < 3 && (race.runners || [])[0]) {
+        const f = race.runners[0];
+        diag.push({ date: race.date, rpr: f.rpr ?? null, tsr: f.tsr ?? null, or: f.or ?? null, sp_dec: f.sp_dec ?? null, src: 'warehouse' });
+      }
+      all.push({ date: race.date || '', course: race.course || 'Unknown', type: race.type || '', runners: race.runners || [] });
+    }
+  }
   try {
     while (skip < total && pages < 36) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire` +
@@ -243,7 +259,7 @@ export default async function handler(req, res) {
     : 's-maxage=3600, stale-while-revalidate=21600');
   return res.status(200).json({
     ok: true, month: which, from: periodStart, to: fmt(end), lookbackFrom: fmt(lookbackStart),
-    races, skipped, basis, upstreamTotal, truncated: skip < total, diag,
+    races, skipped, basis, upstreamTotal, truncated: skip < total, source, diag,
     iconDraw: Object.fromEntries(Object.entries(iconDraw).map(([band, v]) => [band, {
       runs: v.runs, wins: v.wins,
       'win_%': v.runs ? Math.round((v.wins / v.runs) * 1000) / 10 : 0,
