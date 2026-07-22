@@ -28,6 +28,14 @@ function t14UnitFrom(runs, wins) {
   if (runs < 3) v = v * 0.5 + 0.2;
   return v;
 }
+function spDec(run) {
+  const d = Number(run && run.sp_dec);
+  if (!isNaN(d) && d > 1) return d;
+  const s = String((run && run.sp) || '').replace(/[^\d/.]/g, '');
+  if (s.includes('/')) { const [a, b] = s.split('/').map(Number); if (a > 0 && b > 0) return a / b + 1; }
+  const n = Number(s);
+  return !isNaN(n) && n > 1 ? n : null;
+}
 function offMin(off) {
   const m = String(off || '').match(/(\d{1,2}):(\d{2})/);
   if (!m) return 9999;
@@ -69,7 +77,7 @@ export default async function handler(req, res) {
         date: race.date || '', off: offMin(race.off),
         runners: (race.runners || []).map((x) => ({
           horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-          rpr: x.rpr, tsr: x.tsr,
+          rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
         })),
       });
     }
@@ -93,7 +101,7 @@ export default async function handler(req, res) {
           date: race.date || '', off: offMin(race.off),
           runners: (race.runners || []).map((x) => ({
             horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-            rpr: x.rpr, tsr: x.tsr,
+            rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
           })),
         });
       }
@@ -122,6 +130,7 @@ export default async function handler(req, res) {
   };
 
   const byDay = {}; // date → [{off, fc, tc, hasThird}]
+  const dayCF = {}, dayCT = {}; // date → £10-combination P&L at SP
   let races = 0, skipped = 0;
   for (const race of all) {
     const runners = race.runners;
@@ -148,6 +157,28 @@ export default async function handler(req, res) {
         const tc = fc && hasThird && inSet(p3.horse_id);
         races++;
         (byDay[race.date] ||= []).push({ off: race.off, fc, tc, hasThird });
+        // £10 combination CF/CT on the unique-rank picks, settled at SP
+        const picks = [];
+        for (let rank = 0; rank < 3 && rank < vals.length; rank++) {
+          const ids = Object.keys(map).filter((id) => map[id] === vals[rank]);
+          if (ids.length !== 1) continue;
+          const r = runners.find((x) => x.horse_id === ids[0]);
+          const d = r ? spDec(r) : null;
+          if (d) picks.push({ id: ids[0], d });
+        }
+        const oddsOf = Object.fromEntries(picks.map((p) => [p.id, p.d]));
+        if (picks.length >= 2) {
+          const line = 10 / (picks.length * (picks.length - 1));
+          const d1 = oddsOf[p1.horse_id], d2 = oddsOf[p2.horse_id];
+          const pl = (d1 && d2) ? line * d1 * d2 - 10 : -10;
+          dayCF[race.date] = (dayCF[race.date] || 0) + pl;
+        }
+        if (picks.length >= 3 && hasThird) {
+          const line = 10 / (picks.length * (picks.length - 1) * (picks.length - 2));
+          const d1 = oddsOf[p1.horse_id], d2 = oddsOf[p2.horse_id], d3 = oddsOf[p3.horse_id];
+          const pl = (d1 && d2 && d3) ? line * d1 * d2 * d3 - 10 : -10;
+          dayCT[race.date] = (dayCT[race.date] || 0) + pl;
+        }
       }
     }
     for (const x of runners) {
@@ -196,13 +227,23 @@ export default async function handler(req, res) {
     };
   };
 
+  const dayExtremes = (days) => {
+    let best = null, worst = null;
+    for (const [date, pl] of Object.entries(days)) {
+      const v = Math.round(pl * 100) / 100;
+      if (!best || v > best.pl) best = { date, pl: v };
+      if (!worst || v < worst.pl) worst = { date, pl: v };
+    }
+    return { best, worst };
+  };
+
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
   return res.status(200).json({
     ok: true, month: m, from: periodStart, to: fmt(analysisEnd),
     races, skipped, source,
-    fc: buildStream((r) => r.fc, () => true, 12),
-    tc: buildStream((r) => r.tc, (r) => r.hasThird, 24),
+    fc: { ...buildStream((r) => r.fc, () => true, 12), days: dayExtremes(dayCF) },
+    tc: { ...buildStream((r) => r.tc, (r) => r.hasThird, 24), days: dayExtremes(dayCT) },
   });
 }
