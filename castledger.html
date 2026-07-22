@@ -71,7 +71,7 @@
   </div>
   <div id="area"><div class="state"><div class="spinner"></div>opening the books — months load one by one…</div></div>
 
-  <p class="note">Every racing day for 12 months, graded as if you'd placed a <b>£10 combination forecast</b> (all icon 1-2 permutations) and a <b>£10 combination tricast</b> (all icon 1-2-3 permutations) on every GB &amp; IRE race with priced unique icon picks, settled at SP. Winning frames pay the winning line's stake × the SP product — a proxy; real CSF/tricast dividends differ and usually pay less. Cum columns run oldest → newest regardless of sort. Best and worst days tinted. Tap headers to sort.</p>
+  <p class="note">Every racing day for 12 months, graded as if you'd placed a <b>£10 combination forecast</b> (all icon 1-2 permutations) and a <b>£10 combination tricast</b> (all icon 1-2-3 permutations) on every GB &amp; IRE race with priced unique icon picks, settled at SP. CT is only struck in races of 8+ runners — the minimum for a tricast market to exist. Winning frames pay the winning line's stake × the SP product — a proxy; real CSF/tricast dividends differ and usually pay less. Cum columns run oldest → newest regardless of sort. Best and worst days tinted. Tap headers to sort.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -186,7 +186,7 @@
     for (const m of ms) {
       chips[m].classList.add('busy');
       try {
-        const r = await fetch('/api/strikecasts?month=' + m + '&v=3');
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=4');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           (d.daily || []).forEach(row => days.push(row));
