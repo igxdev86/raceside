@@ -82,6 +82,9 @@
 
   <div id="savedWrap"></div>
 
+  <div class="sect">Next off</div>
+  <div id="nextBoard"></div>
+
   <div class="sect">Today's board</div>
   <div id="board"><div class="state"><div class="spinner"></div>building the board…</div></div>
 
@@ -225,6 +228,28 @@
     return legs.length === n ? legs.sort((a, b) => a.t - b.t) : null;
   }
 
+  function drawNextBoard() {
+    const nb = $('nextBoard');
+    nb.innerHTML = '';
+    // group pool by race, order races by off time
+    const byRace = {};
+    pool.forEach(p => (byRace[p.raceId] ||= []).push(p));
+    const raceOrder = Object.values(byRace)
+      .map(picks => ({ t: picks[0].t, picks }))
+      .sort((a, b) => a.t - b.t);
+    if (raceOrder.length < 2) { nb.innerHTML = '<div class="state">Fewer than two races left today.</div>'; return; }
+    const legFrom = (entry) => entry.picks[Math.floor(rand() * entry.picks.length)];
+    const grid = el('div','board');
+    const make = (kind, n) => {
+      if (raceOrder.length < n) return;
+      const legs = raceOrder.slice(0, n).map(legFrom).sort((a, b) => a.t - b.t);
+      grid.appendChild(multiCard({ kind: kind, legs }, { saveable: true }));
+    };
+    make('NEXT 2 · DOUBLE', 2);
+    make('NEXT 3 · TREBLE', 3);
+    nb.appendChild(grid);
+  }
+
   function drawBoard() {
     const board = $('board');
     if (pool.length < 2) {
@@ -355,11 +380,13 @@
 
   $('genBtn').onclick = () => {
     seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    drawNextBoard();
     drawBoard();
   };
 
   (async () => {
     await loadPool();
+    drawNextBoard();
     drawBoard();
     drawSaved();
     settle(); // auto-settle anything outstanding on load
