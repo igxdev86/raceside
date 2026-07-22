@@ -1,8 +1,9 @@
-// RACESIDE — strike engine
-// From ~2 months of GB+IRE results, replayed chronologically per day:
-// how often is a race icon-won (winner in top-3 ratings-core ranks, tie-aware),
-// conditioned on the current drought — the number of consecutive non-icon results
-// immediately before it? Returns the empirical hazard table + base rate.
+// RACESIDE — strike engine v2
+// Empirical icon-win hazard by drought length, from ~45 days of GB+IRE results
+// replayed chronologically per day. Icon definition: winner in top-3 tie-aware ranks of
+// RPR 22 + TS 13 + trainer-14-day-form 5 (T14 reconstructed leak-free from a 14-day
+// lookback window — same method as the monthly grader). Races whose ratings cannot
+// separate the field are SKIPPED, never counted as misses.
 
 export const config = { maxDuration: 60 };
 
@@ -12,11 +13,18 @@ const numRt = (v) => {
   const n = Number(s);
   return n > 0 ? n : NaN;
 };
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 function relUnit(v, arr) {
   const ns = arr.filter((x) => !isNaN(x));
   if (isNaN(v) || ns.length < 2) return 0.4;
   const mn = Math.min(...ns), mx = Math.max(...ns);
   return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+}
+function t14UnitFrom(runs, wins) {
+  if (!(runs > 0)) return 0.4;
+  let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+  if (runs < 3) v = v * 0.5 + 0.2;
+  return v;
 }
 function offMin(off) {
   const m = String(off || '').match(/(\d{1,2}):(\d{2})/);
@@ -32,17 +40,19 @@ export default async function handler(req, res) {
   if (!user || !pass) return res.status(500).json({ ok: false, error: 'no-credentials' });
 
   const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, now.getUTCDate()));
+  const analysisStart = new Date(now.getTime() - 45 * 86400000);
+  const lookbackStart = new Date(analysisStart.getTime() - 14 * 86400000);
   const fmt = (d) => d.toISOString().slice(0, 10);
+  const periodStart = fmt(analysisStart);
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
-  const byDay = {}; // date → [{off, iconWin}]
-  let races = 0, skip = 0, total = Infinity, pages = 0;
-
+  // pass 1: fetch everything, minimal fields
+  const all = [];
+  let skip = 0, total = Infinity, pages = 0;
   try {
-    while (skip < total && pages < 36) {
+    while (skip < total && pages < 40) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire` +
-        `&start_date=${fmt(start)}&end_date=${fmt(now)}&limit=50&skip=${skip}`;
+        `&start_date=${fmt(lookbackStart)}&end_date=${fmt(now)}&limit=50&skip=${skip}`;
       let r, attempts = 0;
       for (;;) {
         r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
@@ -54,47 +64,76 @@ export default async function handler(req, res) {
       const page = await r.json();
       total = Number(page.total) || 0;
       for (const race of page.results || []) {
-        const runners = race.runners || [];
-        if (runners.length < 2) continue;
-        const win = runners.find((x) => String(x.position) === '1');
-        if (!win || !win.horse_id) continue;
-        // ratings-core map (rpr+tsr, ofr fallback), tie-aware dense ranks
-        const build = (mode) => {
-          const map = {};
-          if (mode === 'rpr_ts') {
-            const rprs = runners.map((x) => numRt(x.rpr));
-            const tss = runners.map((x) => numRt(x.tsr));
-            runners.forEach((x, i) => { if (x.horse_id) map[x.horse_id] = Math.round((relUnit(rprs[i], rprs) * 22 + relUnit(tss[i], tss) * 13) * 100) / 100; });
-          } else {
-            const ors = runners.map((x) => numRt(x.or));
-            runners.forEach((x, i) => { if (x.horse_id) map[x.horse_id] = Math.round(relUnit(ors[i], ors) * 35 * 100) / 100; });
-          }
-          return map;
-        };
-        let map = build('rpr_ts');
-        let vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
-        if (vals.length < 2) { map = build('ofr'); vals = [...new Set(Object.values(map))].sort((a, b) => b - a); }
-        if (vals.length < 2) continue;
-        const cut3 = vals[Math.min(2, vals.length - 1)];
-        const iconWin = map[win.horse_id] != null && map[win.horse_id] >= cut3;
-        races++;
-        (byDay[race.date || '?'] ||= []).push({ off: offMin(race.off), iconWin });
+        all.push({
+          date: race.date || '', off: offMin(race.off),
+          runners: (race.runners || []).map((x) => ({
+            horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
+            rpr: x.rpr, tsr: x.tsr,
+          })),
+        });
       }
       skip += 50; pages++;
-      if (skip < total) await new Promise((ok) => setTimeout(ok, 650));
+      if (skip < total) await new Promise((ok) => setTimeout(ok, 620));
     }
   } catch (e) {
     return res.status(502).json({ ok: false, error: 'upstream', detail: String(e) });
   }
 
-  // hazard by drought length, streaks reset daily
-  const hazard = {}; // gap → {cases, iconWins}
+  // pass 2: chronological replay with rolling trainer form
+  all.sort((a, b) => a.date.localeCompare(b.date) || a.off - b.off);
+  const trainerLog = {};
+  const t14At = (tid, raceDate) => {
+    const log = trainerLog[tid];
+    if (!log || !log.length) return 0.4;
+    const from = fmt(new Date(Date.parse(raceDate) - 14 * 86400000));
+    let runs = 0, wins = 0;
+    for (let i = log.length - 1; i >= 0; i--) {
+      const e = log[i];
+      if (e.d >= raceDate) continue;
+      if (e.d < from) break;
+      runs++; if (e.win) wins++;
+    }
+    return t14UnitFrom(runs, wins);
+  };
+
+  const byDay = {}; // date → [{off, iconWin}]
+  let races = 0, skipped = 0;
+  for (const race of all) {
+    const runners = race.runners;
+    const inPeriod = race.date >= periodStart;
+    const win = runners.find((x) => String(x.position) === '1');
+    if (inPeriod && runners.length >= 2 && win && win.horse_id) {
+      const rprs = runners.map((x) => numRt(x.rpr));
+      const tss = runners.map((x) => numRt(x.tsr));
+      const map = {};
+      runners.forEach((x, i) => {
+        if (!x.horse_id) return;
+        const t14 = x.trainer_id ? t14At(x.trainer_id, race.date) : 0.4;
+        map[x.horse_id] = Math.round((relUnit(rprs[i], rprs) * 22 + relUnit(tss[i], tss) * 13 + t14 * 5) * 100) / 100;
+      });
+      const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+      if (vals.length < 2) skipped++;
+      else {
+        const cut3 = vals[Math.min(2, vals.length - 1)];
+        const iconWin = map[win.horse_id] != null && map[win.horse_id] >= cut3;
+        races++;
+        (byDay[race.date] ||= []).push({ off: race.off, iconWin });
+      }
+    }
+    for (const x of runners) {
+      if (!x.trainer_id) continue;
+      (trainerLog[x.trainer_id] ||= []).push({ d: race.date, win: String(x.position) === '1' });
+    }
+  }
+
+  // hazard by drought length, streaks reset daily; skipped races never break or extend a streak
+  const hazard = {};
   let iconTotal = 0, caseTotal = 0;
   for (const day of Object.keys(byDay)) {
     const seq = byDay[day].sort((a, b) => a.off - b.off);
     let gap = 0;
     for (const r of seq) {
-      const g = Math.min(gap, 10); // pool 10+
+      const g = Math.min(gap, 10);
       const h = (hazard[g] ||= { cases: 0, iconWins: 0 });
       h.cases++; caseTotal++;
       if (r.iconWin) { h.iconWins++; iconTotal++; gap = 0; }
@@ -104,7 +143,7 @@ export default async function handler(req, res) {
 
   res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate=86400');
   return res.status(200).json({
-    ok: true, from: fmt(start), to: fmt(now), races,
+    ok: true, from: periodStart, to: fmt(now), races, skipped,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
