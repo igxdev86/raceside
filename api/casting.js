@@ -22,8 +22,16 @@ export default async function handler(req, res) {
   const fmt = (d) => d.toISOString().slice(0, 10);
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
-  const forecasts = {}; // "a-b" → count
-  const tricasts = {};  // "a-b-c" → count
+  const forecasts = {}; // "a-b" → {n, c, s1, s2, p}
+  const tricasts = {};  // "a-b-c" → {n, c, s1, s2, s3, p}
+  const spOf = (run) => {
+    const d = Number(run && run.sp_dec);
+    if (!isNaN(d) && d > 1) return d;
+    const s = String((run && run.sp) || '').replace(/[^\d/.]/g, '');
+    if (s.includes('/')) { const [a, b] = s.split('/').map(Number); if (a > 0 && b > 0) return a / b + 1; }
+    const n2 = Number(s);
+    return !isNaN(n2) && n2 > 1 ? n2 : null;
+  };
   let races = 0, castable = 0, skip = 0, total = Infinity, pages = 0;
 
   try {
@@ -51,11 +59,17 @@ export default async function handler(req, res) {
         const n1 = n(at('1')), n2 = n(at('2')), n3 = n(at('3'));
         if (n1 == null || n2 == null) continue;
         castable++;
+        const r1 = at('1'), r2 = at('2'), r3 = at('3');
+        const sp1 = spOf(r1), sp2 = spOf(r2), sp3 = spOf(r3);
         const fKey = n1 + '-' + n2;
-        forecasts[fKey] = (forecasts[fKey] || 0) + 1;
+        const f = (forecasts[fKey] ||= { n: 0, c: 0, s1: 0, s2: 0, p: 0 });
+        f.n++;
+        if (sp1 && sp2) { f.c++; f.s1 += sp1; f.s2 += sp2; f.p += sp1 * sp2; }
         if (n3 != null) {
           const tKey = n1 + '-' + n2 + '-' + n3;
-          tricasts[tKey] = (tricasts[tKey] || 0) + 1;
+          const t = (tricasts[tKey] ||= { n: 0, c: 0, s1: 0, s2: 0, s3: 0, p: 0 });
+          t.n++;
+          if (sp1 && sp2 && sp3) { t.c++; t.s1 += sp1; t.s2 += sp2; t.s3 += sp3; t.p += sp1 * sp2 * sp3; }
         }
       }
       skip += 50; pages++;
