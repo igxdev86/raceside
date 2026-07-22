@@ -1198,41 +1198,52 @@
     if (!box) return;
     if (T.day !== 'today' || !T.cards) { box.hidden = true; return; }
     const now = Date.now();
-    const picks = [];
+    const picks = [], picksR = [], picksB = [];
     T.cards.filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase())).forEach(rc => {
       const t = Date.parse(rc.off_dt || '');
       if (isNaN(t) || t <= now) return;
       const map = raceScoreMap(rc);
       const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
       if (vals.length < 2) return;
-      const tops = Object.keys(map).filter(id => map[id] === vals[0]);
-      if (tops.length !== 1) return;
-      const r = (rc.runners || []).find(x => x.horse_id === tops[0]);
-      if (!r) return;
-      const o = bestOdds(r);
-      if (!o) return;
-      picks.push({ rc, r, o, margin: vals[0] - vals[1] });
+      const pickAt = (rank) => {
+        if (vals.length <= rank) return null;
+        const ids = Object.keys(map).filter(id => map[id] === vals[rank]);
+        if (ids.length !== 1) return null;
+        const r = (rc.runners || []).find(x => x.horse_id === ids[0]);
+        if (!r) return null;
+        const o = bestOdds(r);
+        return o ? { rc, r, o } : null;
+      };
+      const p0 = pickAt(0), p1 = pickAt(1), p2 = pickAt(2);
+      if (p0) picks.push(p0);
+      if (p1) picksR.push(p1);
+      if (p2) picksB.push(p2);
     });
     // random grouping, seeded by today's date so the slate stays stable through the day
     let seed = 0;
     const dstr = new Date().toISOString().slice(0, 10);
     for (const ch of dstr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
     const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    for (let i = picks.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [picks[i], picks[j]] = [picks[j], picks[i]];
-    }
-    if (picks.length < 2) { box.hidden = true; return; }
-    const line = (label, n) => {
-      if (picks.length < n) return '';
-      const ls = picks.slice(0, n);
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    };
+    shuffle(picks); shuffle(picksR); shuffle(picksB);
+    if (picks.length < 2 && picksR.length < 2 && picksB.length < 2) { box.hidden = true; return; }
+    const line = (pool, label, n) => {
+      if (pool.length < n) return '';
+      const ls = pool.slice(0, n);
       const prod = ls.reduce((a, x) => a * x.o.d, 1);
       const body = ls.map(x => `<span class="np">${esc(x.rc.off_time || '')} ${esc(x.r.horse || '')}<span class="no">${esc(x.o.frac)}</span></span>`).join('<span style="color:var(--faint)">×</span>');
       return `<div class="npicks" style="margin-top:8px"><span class="np" style="font-weight:700">${label}</span>${body}<span class="np" style="color:var(--dim)">£1 → £${prod.toFixed(2)}</span></div>`;
     };
+    const group = (pool, icon) =>
+      line(pool, icon + ' DOUBLE', 2) + line(pool, icon + ' TREBLE', 3) + line(pool, icon + ' 4-FOLD', 4);
     box.hidden = false;
-    box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · strongest 🏆 margins · best price</span>`
-      + line('DOUBLE', 2) + line('TREBLE', 3) + line('4-FOLD', 4)
+    box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · random daily grouping · GB+IRE</span>`
+      + group(picks, '🏆') + group(picksR, '♦️') + group(picksB, '🔹')
       + `<p class="note" style="margin-top:8px">GB &amp; IRE only. Legs are the day's upcoming unique 🏆 picks grouped at random (stable for the day) — no odds or margin ranking. Opened races use full live scores, unopened use base. Prices shown are current best and will move.</p>`;
   }
 
