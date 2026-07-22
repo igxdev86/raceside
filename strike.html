@@ -73,6 +73,10 @@
   .settleui .sok{background:var(--green);color:#fff}
   .settleui .scancel{color:var(--dim);border:1px solid var(--line)}
   .settleui .sopen{color:var(--blue);font-weight:600;padding:2px 0}
+  .nt-head{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink)}
+  .nt-head b{color:var(--blue)}
+  .nt-picks{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;font-family:var(--mono);font-size:12.5px}
+  .nt-picks .o{color:var(--blue);font-weight:600;margin-left:4px}
   .xtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   .xtile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
   .xl{display:block;font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim)}
@@ -106,8 +110,16 @@
   </div>
 
   <div class="xtiles" id="xtiles" hidden>
-    <div class="xtile"><span class="xl">METER HIGH</span><span class="xv" id="xHi">—</span><span class="xs" id="xHiSub"></span></div>
-    <div class="xtile"><span class="xl">METER LOW</span><span class="xv" id="xLo">—</span><span class="xs" id="xLoSub"></span></div>
+    <div class="xtile"><span class="xl">WATCHED HIGH</span><span class="xv" id="xHi">—</span><span class="xs" id="xHiSub"></span></div>
+    <div class="xtile"><span class="xl">WATCHED LOW</span><span class="xv" id="xLo">—</span><span class="xs" id="xLoSub"></span></div>
+  </div>
+  <div class="xtiles" id="xtilesAll" hidden>
+    <div class="xtile"><span class="xl">ALL-TIME HIGH · 12 MO</span><span class="xv" id="xAllHi">—</span><span class="xs" id="xAllHiSub"></span></div>
+    <div class="xtile"><span class="xl">ALL-TIME LOW · 12 MO</span><span class="xv" id="xAllLo">—</span><span class="xs" id="xAllLoSub"></span></div>
+  </div>
+  <div class="meter" id="nextTile" hidden style="cursor:pointer">
+    <div class="mtl">Next race</div>
+    <div id="ntBody" style="margin-top:8px"></div>
   </div>
 
   <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
@@ -293,6 +305,7 @@
     const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
     tl.innerHTML = '';
     let drought = 0, anySettled = false, nextMarked = false, dutchTotal = 0, dutchRaces = 0;
+    let nextInfo = null;
     const now = Date.now();
     cards.forEach(rc => {
       const w = winners[rc.race_id];
@@ -324,6 +337,7 @@
         if (!nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
           row.classList.add('next', 'open');
           nextMarked = true;
+          nextInfo = { rc, rowEl: row };
         }
       }
       row.appendChild(el('span','r-ic', icHtml));
@@ -350,9 +364,27 @@
       tl.appendChild(row);
     });
 
+    renderNextTile(nextInfo);
+
     // meter
     meterState = { drought, anySettled, dutchTotal, dutchRaces };
     refreshMeter();
+  }
+
+  function renderNextTile(info) {
+    const tile = $('nextTile');
+    if (!info) { tile.hidden = true; return; }
+    const { rc, rowEl } = info;
+    const picks = iconPicks(rc);
+    const pickHtml = picks.length
+      ? '<div class="nt-picks">' + picks.map(p =>
+          `<span>${p.icon} ${esc(p.r.horse || '')}<span class="o">${p.o ? esc(p.o.frac) : '—'}</span></span>`).join('') + '</div>'
+      : '<div class="nt-picks" style="color:var(--faint)">No unique icon picks in this field.</div>';
+    tile.hidden = false;
+    $('ntBody').innerHTML =
+      `<div class="nt-head"><b>${esc(rc.off_time || '')}</b> ${esc(rc.course || '')} · <span style="color:var(--dim);font-weight:400">${esc(rc.race_name || '')}</span></div>` +
+      pickHtml;
+    tile.onclick = () => { if (rowEl && rowEl.scrollIntoView) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
   let meterState = null;
@@ -377,6 +409,7 @@
     $('mPct').textContent = pct.toFixed(1) + '%';
     $('mBar').style.width = Math.min(100, pct) + '%';
     trackExtremes(pct, drought);
+    renderAllTime();
     const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 12)) + '</span>' : '';
     const dutchLine = dutchRaces
       ? `<br>Dutch record today (£10 per race): <b style="color:${dutchTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${dutchTotal >= 0 ? '+' : '−'}£${Math.abs(dutchTotal).toFixed(2)}</b> across ${dutchRaces} settled races (current card prices, not prices at the off).`
@@ -519,6 +552,19 @@
     if (changed) { try { localStorage.setItem(XLS, JSON.stringify(x)); } catch {} }
     renderExtremes();
   }
+  function renderAllTime() {
+    if (!hazardData || !hazardData.ok || hazardData.building) return;
+    const rows = (hazardData.hazard || []).filter(r => r.cases >= 30);
+    if (!rows.length) return;
+    let hi = rows[0], lo = rows[0];
+    rows.forEach(r => { if (r.pct > hi.pct) hi = r; if (r.pct < lo.pct) lo = r; });
+    $('xtilesAll').hidden = false;
+    $('xAllHi').textContent = hi.pct.toFixed(1) + '%';
+    $('xAllHiSub').textContent = 'at drought ' + hi.gap + (hi.gap >= 10 ? '+' : '') + ' · ' + hi.cases + ' cases';
+    $('xAllLo').textContent = lo.pct.toFixed(1) + '%';
+    $('xAllLoSub').textContent = 'at drought ' + lo.gap + (lo.gap >= 10 ? '+' : '') + ' · ' + lo.cases + ' cases';
+  }
+
   function renderExtremes() {
     let x;
     try { x = JSON.parse(localStorage.getItem(XLS) || 'null'); } catch { x = null; }
