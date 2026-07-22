@@ -214,7 +214,7 @@
   }
 
   async function buildHazard(onProgress) {
-    const months = hazardMonths();
+    const months = hazardMonths().reverse(); // newest first: usable meter fastest
     const tally = {}; // gap → {cases, iconWins}
     let races = 0, loaded = 0;
     for (const m of months) {
@@ -234,7 +234,7 @@
       const caseTotal = Object.values(tally).reduce((a, v) => a + v.cases, 0);
       const iconTotal = Object.values(tally).reduce((a, v) => a + v.iconWins, 0);
       hazardData = {
-        ok: caseTotal > 0, races,
+        ok: caseTotal > 0, building: loaded < months.length, races,
         monthsLoaded: loaded, monthsTotal: months.length,
         base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
         hazard: Object.entries(tally)
@@ -348,8 +348,16 @@
     if (!meterState) return;
     const { drought, anySettled, dutchTotal, dutchRaces } = meterState;
     const meter = $('meter');
-    if (!hazardData || !hazardData.ok) { meter.hidden = true; return; }
     meter.hidden = false;
+    if (!hazardData || !hazardData.ok) {
+      const done = hazardData && !hazardData.building;
+      $('mPct').textContent = '…';
+      $('mBar').style.width = '0%';
+      $('mSub').innerHTML = done
+        ? 'History build failed — the results endpoints returned nothing. Tap ⟳ refresh to retry.'
+        : `Building 12 months of history… ${hazardData ? hazardData.monthsLoaded + '/' + hazardData.monthsTotal + ' months in' : 'starting up'} · first build takes a few minutes, then it’s cached.`;
+      return;
+    }
     const g = Math.min(drought, 10);
     const row = (hazardData.hazard || []).find(x => x.gap === g);
     const usable = row && row.cases >= 30;
