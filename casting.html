@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE CASTING — forecast & tricast numbers since Jan 2026</title>
+<meta name="description" content="Which cloth-number combinations fill the forecast and tricast most often. GB & Irish racing since 1 January 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF; --line2:#D3DAE4;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --blue-soft:#EAF0FF; --green:#12A150; --red:#D7263D;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:920px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#6FB2FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .mchip{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .mchip.done{border-color:var(--green);color:#7BE0A8}
+  .mchip.busy{border-color:#6FB2FF;color:#6FB2FF}
+  .meta{font-family:var(--mono);font-size:12px;color:#8FA3C8;margin-bottom:14px}
+  .meta b{color:#fff}
+  .cols{display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width:700px){.cols{grid-template-columns:1fr 1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .ptitle{font-family:var(--sans);font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);padding:12px 15px;border-bottom:1px solid var(--line)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-family:var(--mono);font-size:12.5px}
+  th{background:var(--card2);color:var(--dim);font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:9px 12px;text-align:right;border-bottom:1px solid var(--line2)}
+  th:first-child{text-align:left}
+  td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  td:first-child{text-align:left;font-weight:600;font-family:var(--sans);font-size:13.5px}
+  .cast{font-family:var(--mono);font-weight:600;letter-spacing:.02em}
+  .cast b{color:var(--blue)}
+  .bar{display:inline-block;height:10px;border-radius:3px;background:var(--blue);opacity:.85;vertical-align:middle;margin-right:8px}
+  .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">RACE<b>SIDE</b> CASTING<small>forecast &amp; tricast numbers · since 1 jan 2026</small></div>
+    <a class="back" href="/lab.html">← lab</a>
+  </header>
+
+  <div class="progress" id="progress"></div>
+  <div class="meta" id="meta"></div>
+  <div class="cols" id="cols" hidden>
+    <div class="panel">
+      <div class="ptitle">Top forecasts · 1st → 2nd</div>
+      <table><thead><tr><th>Numbers</th><th>Times</th><th>% of races</th></tr></thead><tbody id="fBody"></tbody></table>
+    </div>
+    <div class="panel">
+      <div class="ptitle">Top tricasts · 1st → 2nd → 3rd</div>
+      <table><thead><tr><th>Numbers</th><th>Times</th><th>% of races</th></tr></thead><tbody id="tBody"></tbody></table>
+    </div>
+  </div>
+  <div class="state" id="loading"><div class="spinner"></div>casting the year — months load one by one…</div>
+
+  <p class="note">Ordered combinations of saddle-cloth numbers filling the first two (forecast) and first three (tricast) places, GB &amp; IRE, from 1 January 2026. Low numbers will dominate — in handicaps cloth 1 is the top-rated horse, so 1→2 leading the board is the ratings system talking, not magic numbers. The interesting rows are the ones that punch above what the numbers' individual win rates predict. Races without valid cloth numbers in the frame are excluded.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  const months = [];
+  const now = new Date();
+  for (let mo = 0; mo <= now.getUTCMonth(); mo++) {
+    months.push('2026-' + String(mo + 1).padStart(2, '0'));
+  }
+
+  const agg = { forecasts: {}, tricasts: {}, races: 0, castable: 0, truncated: false };
+
+  const prog = $('progress');
+  const chips = {};
+  months.forEach(m => {
+    const c = el('span','mchip', m.slice(5));
+    chips[m] = c;
+    prog.appendChild(c);
+  });
+
+  function merge(d) {
+    agg.races += d.races || 0;
+    agg.castable += d.castable || 0;
+    if (d.truncated) agg.truncated = true;
+    for (const [k, v] of Object.entries(d.forecasts || {})) agg.forecasts[k] = (agg.forecasts[k] || 0) + v;
+    for (const [k, v] of Object.entries(d.tricasts || {})) agg.tricasts[k] = (agg.tricasts[k] || 0) + v;
+  }
+
+  function render() {
+    $('cols').hidden = false;
+    $('meta').innerHTML = `<b>${agg.castable.toLocaleString()}</b> castable races of <b>${agg.races.toLocaleString()}</b> total${agg.truncated ? ' · some months truncated' : ''}`;
+    const fill = (obj, bodyId, fmtKey) => {
+      const rows = Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 20);
+      const max = rows.length ? rows[0][1] : 1;
+      const body = $(bodyId);
+      body.innerHTML = '';
+      rows.forEach(([k, v]) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', null, `<span class="cast">${fmtKey(k)}</span>`));
+        tr.appendChild(el('td', null, `<span class="bar" style="width:${Math.max(6, Math.round(v / max * 70))}px"></span>${v}`));
+        tr.appendChild(el('td', null, agg.castable ? (v / agg.castable * 100).toFixed(2) + '%' : '—'));
+        body.appendChild(tr);
+      });
+    };
+    fill(agg.forecasts, 'fBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '));
+    fill(agg.tricasts, 'tBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '));
+  }
+
+  (async () => {
+    for (const m of months) {
+      chips[m].classList.add('busy');
+      try {
+        const r = await fetch('/api/casting?month=' + m);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          merge(d);
+          chips[m].classList.remove('busy');
+          chips[m].classList.add('done');
+          render();
+        } else {
+          chips[m].classList.remove('busy');
+          chips[m].textContent = m.slice(5) + ' ✗';
+        }
+      } catch {
+        chips[m].classList.remove('busy');
+        chips[m].textContent = m.slice(5) + ' ✗';
+      }
+    }
+    $('loading').style.display = 'none';
+    if (!agg.castable) {
+      $('loading').style.display = '';
+      $('loading').innerHTML = '<div class="spinner" style="display:none"></div>No data came back — check the lab is working, then retry.';
+    }
+  })();
+})();
+</script>
+</body>
+</html>
