@@ -125,6 +125,35 @@
     $('tCFUp').textContent = cfDays.length ? Math.round(cfDays.filter(d => d.cf > 0).length / cfDays.length * 100) + '%' : '\u2014';
     $('tCTUp').textContent = ctDays.length ? Math.round(ctDays.filter(d => d.ct > 0).length / ctDays.length * 100) + '%' : '\u2014';
 
+    // ---- stress + concentration ----
+    const stress = (daysArr, retK, stakedK) => {
+      const ret = daysArr.reduce((a, d) => a + (d[retK] || 0), 0);
+      const staked = daysArr.reduce((a, d) => a + (d[stakedK] || 0), 0);
+      return { at: (f) => ret * f - staked, ret, staked };
+    };
+    const sCF = stress(cfDays, 'cfRet', 'cfStaked');
+    const sCT = stress(ctDays, 'ctRet', 'ctStaked');
+    const topShare = (daysArr, retK) => {
+      const rets = daysArr.map(d => d[retK] || 0).sort((a, b) => b - a);
+      const tot = rets.reduce((a, v) => a + v, 0);
+      if (!tot) return null;
+      return Math.round(rets.slice(0, 5).reduce((a, v) => a + v, 0) / tot * 100);
+    };
+    const sm = (v) => `<b style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'}">${money(v)}</b>`;
+    let stressBox = document.getElementById('stressBox');
+    if (!stressBox) {
+      stressBox = el('div', 'tile', '');
+      stressBox.id = 'stressBox';
+      stressBox.style.gridColumn = '1/-1';
+      $('tiles').appendChild(stressBox);
+    }
+    stressBox.innerHTML = `<span class="tl">DIVIDEND STRESS TEST · does the profit survive real payouts?</span>
+      <span class="ts" style="margin-top:6px;font-size:11.5px;line-height:1.7">
+      CF at full SP-product ${sm(sCF.at(1))} · at 85% ${sm(sCF.at(0.85))} · at 70% ${sm(sCF.at(0.70))}<br>
+      CT at full ${sm(sCT.at(1))} · at 85% ${sm(sCT.at(0.85))} · at 70% ${sm(sCT.at(0.70))}<br>
+      Concentration: top 5 days hold ${topShare(cfDays,'cfRet') ?? '—'}% of all CF returns · ${topShare(ctDays,'ctRet') ?? '—'}% of CT returns.
+      Real CSF/tricast dividends pay below the SP product — if profit dies by the 85% row, it was the proxy, not an edge.</span>`;
+
     const bestCF = cfDays.length ? cfDays.reduce((a, d) => d.cf > a.cf ? d : a) : null;
     const worstCF = cfDays.length ? cfDays.reduce((a, d) => d.cf < a.cf ? d : a) : null;
 
@@ -186,7 +215,7 @@
     for (const m of ms) {
       chips[m].classList.add('busy');
       try {
-        const r = await fetch('/api/strikecasts?month=' + m + '&v=4');
+        const r = await fetch('/api/strikecasts?month=' + m + '&v=5');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           (d.daily || []).forEach(row => days.push(row));
