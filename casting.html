@@ -63,16 +63,16 @@
   <div class="cols" id="cols" hidden>
     <div class="panel">
       <div class="ptitle">Top forecasts · 1st → 2nd</div>
-      <table><thead><tr><th>Numbers</th><th>Times</th><th>% of races</th></tr></thead><tbody id="fBody"></tbody></table>
+      <table><thead><tr><th>Numbers</th><th>Times</th><th>%</th><th>Avg SP</th><th>SP×</th></tr></thead><tbody id="fBody"></tbody></table>
     </div>
     <div class="panel">
       <div class="ptitle">Top tricasts · 1st → 2nd → 3rd</div>
-      <table><thead><tr><th>Numbers</th><th>Times</th><th>% of races</th></tr></thead><tbody id="tBody"></tbody></table>
+      <table><thead><tr><th>Numbers</th><th>Times</th><th>%</th><th>Avg SP</th><th>SP×</th></tr></thead><tbody id="tBody"></tbody></table>
     </div>
   </div>
   <div class="state" id="loading"><div class="spinner"></div>casting the year — months load one by one…</div>
 
-  <p class="note">Ordered combinations of saddle-cloth numbers filling the first two (forecast) and first three (tricast) places, GB &amp; IRE, from 1 January 2026. Low numbers will dominate — in handicaps cloth 1 is the top-rated horse, so 1→2 leading the board is the ratings system talking, not magic numbers. The interesting rows are the ones that punch above what the numbers' individual win rates predict. Races without valid cloth numbers in the frame are excluded.</p>
+  <p class="note">Ordered combinations of saddle-cloth numbers filling the first two (forecast) and first three (tricast) places, GB &amp; IRE, from 1 January 2026. Low numbers will dominate — in handicaps cloth 1 is the top-rated horse, so 1→2 leading the board is the ratings system talking, not magic numbers. The interesting rows are the ones that punch above what the numbers' individual win rates predict. Races without valid cloth numbers in the frame are excluded. <b>Avg SP</b> = mean decimal SP of each finisher in that combination · <b>SP×</b> = mean product of those SPs, a rough what-it-paid proxy (real CSF/tricast dividends use their own formulas and typically pay less).</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -102,35 +102,49 @@
     agg.races += d.races || 0;
     agg.castable += d.castable || 0;
     if (d.truncated) agg.truncated = true;
-    for (const [k, v] of Object.entries(d.forecasts || {})) agg.forecasts[k] = (agg.forecasts[k] || 0) + v;
-    for (const [k, v] of Object.entries(d.tricasts || {})) agg.tricasts[k] = (agg.tricasts[k] || 0) + v;
+    const mergeMap = (dst, src) => {
+      for (const [k, v] of Object.entries(src || {})) {
+        const o = (dst[k] ||= { n: 0, c: 0, s1: 0, s2: 0, s3: 0, p: 0 });
+        if (typeof v === 'number') { o.n += v; continue; } // tolerate old cached shape
+        o.n += v.n || 0; o.c += v.c || 0;
+        o.s1 += v.s1 || 0; o.s2 += v.s2 || 0; o.s3 += v.s3 || 0; o.p += v.p || 0;
+      }
+    };
+    mergeMap(agg.forecasts, d.forecasts);
+    mergeMap(agg.tricasts, d.tricasts);
   }
 
   function render() {
     $('cols').hidden = false;
     $('meta').innerHTML = `<b>${agg.castable.toLocaleString()}</b> castable races of <b>${agg.races.toLocaleString()}</b> total${agg.truncated ? ' · some months truncated' : ''}`;
-    const fill = (obj, bodyId, fmtKey) => {
-      const rows = Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 20);
-      const max = rows.length ? rows[0][1] : 1;
+    const fill = (obj, bodyId, fmtKey, triple) => {
+      const rows = Object.entries(obj).sort((a, b) => (b[1].n || 0) - (a[1].n || 0)).slice(0, 20);
+      const max = rows.length ? rows[0][1].n : 1;
       const body = $(bodyId);
       body.innerHTML = '';
       rows.forEach(([k, v]) => {
         const tr = el('tr');
         tr.appendChild(el('td', null, `<span class="cast">${fmtKey(k)}</span>`));
-        tr.appendChild(el('td', null, `<span class="bar" style="width:${Math.max(6, Math.round(v / max * 70))}px"></span>${v}`));
-        tr.appendChild(el('td', null, agg.castable ? (v / agg.castable * 100).toFixed(2) + '%' : '—'));
+        tr.appendChild(el('td', null, `<span class="bar" style="width:${Math.max(6, Math.round(v.n / max * 46))}px"></span>${v.n}`));
+        tr.appendChild(el('td', null, agg.castable ? (v.n / agg.castable * 100).toFixed(2) + '%' : '—'));
+        const avg = (s) => v.c ? (s / v.c).toFixed(1) : null;
+        const sps = v.c
+          ? (triple ? `${avg(v.s1)} / ${avg(v.s2)} / ${avg(v.s3)}` : `${avg(v.s1)} / ${avg(v.s2)}`)
+          : '—';
+        tr.appendChild(el('td', null, sps));
+        tr.appendChild(el('td', null, v.c ? '×' + (v.p / v.c).toFixed(0) : '—'));
         body.appendChild(tr);
       });
     };
-    fill(agg.forecasts, 'fBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '));
-    fill(agg.tricasts, 'tBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '));
+    fill(agg.forecasts, 'fBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), false);
+    fill(agg.tricasts, 'tBody', k => k.split('-').map((n, i) => i === 0 ? '<b>' + esc(n) + '</b>' : esc(n)).join(' → '), true);
   }
 
   (async () => {
     for (const m of months) {
       chips[m].classList.add('busy');
       try {
-        const r = await fetch('/api/casting?month=' + m);
+        const r = await fetch('/api/casting?month=' + m + '&v=2');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           merge(d);
