@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RACESIDE MULTIS — today's board</title>
-<meta name="description" content="A board of mixed-icon doubles, trebles and 4-folds from today's UK & Irish racing.">
+<meta name="description" content="A board of mixed-icon doubles, trebles and 4-folds from today's UK & Irish racing. Save slips, settle after racing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -20,12 +20,17 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
   a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
   .wrap{max-width:920px;margin:0 auto;padding:16px 14px 80px}
-  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:14px;color:#fff}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
   .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
   .wordmark b{color:#6FB2FF}
   .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
   .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .btn{background:var(--blue);color:#fff;font-family:var(--sans);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:10px 16px;border-radius:10px}
+  .btn.ghost{background:transparent;border:1px solid #3A5490;color:#B9C8E8}
+  .sect{font-family:var(--sans);font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C8;margin:20px 0 10px}
   .board{display:grid;grid-template-columns:1fr;gap:10px}
   @media (min-width:680px){.board{grid-template-columns:1fr 1fr}}
   .multi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow)}
@@ -38,7 +43,24 @@
   .leg .off{font-family:var(--mono);font-size:11.5px;color:var(--dim);flex:none;min-width:78px}
   .leg .h{font-weight:600;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .leg .o{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--blue);flex:none}
-  .state{margin-top:40px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .leg .res{flex:none;width:16px;text-align:center;font-family:var(--mono);font-size:12px}
+  .res.w{color:var(--green);font-weight:700}
+  .res.l{color:var(--red);font-weight:700}
+  .res.p{color:var(--faint)}
+  .mact{margin-top:9px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:9px}
+  .save{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--blue);letter-spacing:.06em}
+  .save.done{color:var(--green)}
+  .del{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .status{font-family:var(--sans);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .status.landed{color:var(--green)}
+  .status.bust{color:var(--red)}
+  .status.pending{color:var(--faint)}
+  .record{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);
+    display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-bottom:12px}
+  .record b{color:var(--ink)}
+  .record .g{color:var(--green);font-weight:600}
+  .record .r{color:var(--red);font-weight:600}
+  .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
   .state .big{font-family:var(--sans);font-weight:800;font-size:18px;color:#fff;text-transform:uppercase;margin-bottom:6px}
   .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -52,8 +74,18 @@
     <div class="wordmark">RACE<b>SIDE</b> MULTIS<small id="hdate">today's board</small></div>
     <a class="back" href="/lab.html">← lab</a>
   </header>
+
+  <div class="toolbar">
+    <button class="btn" id="genBtn">⟳ Generate new board</button>
+    <button class="btn ghost" id="settleBtn">Settle saved slips</button>
+  </div>
+
+  <div id="savedWrap"></div>
+
+  <div class="sect">Today's board</div>
   <div id="board"><div class="state"><div class="spinner"></div>building the board…</div></div>
-  <p class="note">Mixed-icon multis from today's upcoming GB &amp; IRE races: 🏆 = top base score in its race · ♦️ = 2nd · 🔹 = 3rd (ties skipped). Legs grouped at random — stable for the day, no odds or form ranking — one leg per race per multi. Base score = RPR + TS relative to field, C&amp;D record, trainer 14-day form, recent form, freshness. Prices are current best and will move. A board of experiments, not advice.</p>
+
+  <p class="note">Mixed-icon multis from today's upcoming GB &amp; IRE races: 🏆 = top base score in its race · ♦️ = 2nd · 🔹 = 3rd (ties skipped). Random grouping, one leg per race per multi, no odds or form ranking. SAVE a slip to record it — prices are locked at the moment you save. Settlement checks official results; slips stay on this device. A board of experiments, not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -128,7 +160,7 @@
     return best;
   }
 
-  // ---- daily-seeded rng ----
+  // ---- rng: daily seed for first board, fresh entropy on Generate ----
   let seed = 0;
   for (const ch of new Date().toISOString().slice(0, 10)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -137,26 +169,32 @@
   async function api(path, params = {}) {
     const qs = new URLSearchParams();
     qs.set('path', path);
-    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
+      else qs.append(k, v);
+    }
     const r = await fetch('/api/tra?' + qs.toString());
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }
 
-  async function build() {
+  // ---- saved slips (localStorage) ----
+  const LS = 'raceside:multislips';
+  const loadSlips = () => { try { return JSON.parse(localStorage.getItem(LS) || '[]'); } catch { return []; } };
+  const saveSlips = (s) => { try { localStorage.setItem(LS, JSON.stringify(s)); } catch {} };
+
+  // ---- board ----
+  let pool = [];
+  async function loadPool() {
     let data = null;
     for (const tier of ['standard','basic','free']) {
       try { data = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
     }
-    const board = $('board');
     const cards = ((data && data.racecards) || [])
       .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()));
-    if (!cards.length) { board.innerHTML = '<div class="state"><div class="big">No cards</div>Nothing running today.</div>'; return; }
-
-    // pool: one pick per race per icon rank, unique ranks only, upcoming, priced
     const now = Date.now();
     const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
-    const pool = [];
+    pool = [];
     cards.forEach(rc => {
       const t = Date.parse(rc.off_dt || '');
       if (isNaN(t) || t <= now) return;
@@ -169,53 +207,163 @@
         if (!r) continue;
         const o = bestOdds(r);
         if (!o) continue;
-        pool.push({ raceId: rc.race_id, off: rc.off_time || '', course: rc.course || '', horse: r.horse || '', icon: icons[rank], o, t });
+        pool.push({ raceId: rc.race_id, date: rc.date || new Date().toISOString().slice(0, 10),
+          off: rc.off_time || '', course: rc.course || '', horse: r.horse || '', horseId: r.horse_id,
+          icon: icons[rank], frac: o.frac, dec: o.d, t });
       }
     });
-    if (pool.length < 2) { board.innerHTML = '<div class="state"><div class="big">Board closed</div>Not enough upcoming races left today.</div>'; return; }
+  }
 
-    shuffle(pool);
+  function sampleMulti(n) {
+    const legs = [], used = new Set();
+    const order = shuffle(pool.slice());
+    for (const p of order) {
+      if (used.has(p.raceId)) continue;
+      legs.push(p); used.add(p.raceId);
+      if (legs.length === n) break;
+    }
+    return legs.length === n ? legs.sort((a, b) => a.t - b.t) : null;
+  }
 
-    // sample a multi of n legs from the pool, distinct races, mixed icons welcome
-    const sample = (n) => {
-      const legs = [], used = new Set();
-      const order = shuffle(pool.slice());
-      for (const p of order) {
-        if (used.has(p.raceId)) continue;
-        legs.push(p); used.add(p.raceId);
-        if (legs.length === n) break;
-      }
-      return legs.length === n ? legs.sort((a, b) => a.t - b.t) : null;
-    };
-
+  function drawBoard() {
+    const board = $('board');
+    if (pool.length < 2) {
+      board.innerHTML = '<div class="state"><div class="big">Board closed</div>Not enough upcoming GB/IRE races left today.</div>';
+      return;
+    }
     const races = new Set(pool.map(p => p.raceId)).size;
-    const counts = [
-      ['DOUBLE', 2, Math.min(6, Math.floor(races / 2) * 2)],
+    const plan = [
+      ['DOUBLE', 2, Math.min(6, races >= 2 ? 6 : 0)],
       ['TREBLE', 3, races >= 3 ? 4 : 0],
       ['4-FOLD', 4, races >= 4 ? 3 : 0],
     ];
-
     board.innerHTML = '';
     const grid = el('div','board');
-    counts.forEach(([kind, n, howMany]) => {
+    plan.forEach(([kind, n, howMany]) => {
       for (let i = 0; i < howMany; i++) {
-        const legs = sample(n);
+        const legs = sampleMulti(n);
         if (!legs) return;
-        const prod = legs.reduce((a, x) => a * x.o.d, 1);
-        const card = el('div','multi');
-        card.appendChild(el('div','mtitle',
-          `<span class="mkind">${kind} #${i + 1}</span><span class="mret">\u00a31 \u2192 <b>\u00a3${prod.toFixed(2)}</b></span>`));
-        legs.forEach(l => {
-          card.appendChild(el('div','leg',
-            `<span class="ic">${l.icon}</span><span class="off">${esc(l.off)} ${esc(l.course.slice(0, 5))}</span><span class="h">${esc(l.horse)}</span><span class="o">${esc(l.o.frac)}</span>`));
-        });
-        grid.appendChild(card);
+        grid.appendChild(multiCard({ kind: kind, legs }, { saveable: true }));
       }
     });
     board.appendChild(grid);
   }
 
-  build();
+  function multiCard(slip, opts) {
+    const prod = slip.legs.reduce((a, x) => a * x.dec, 1);
+    const card = el('div','multi');
+    const status = slip.status;
+    const statusHtml = status
+      ? `<span class="status ${status}">${status === 'landed' ? '✓ LANDED £' + prod.toFixed(2) : status === 'bust' ? '✗ BUST' : '… PENDING'}</span>`
+      : `<span class="mret">£1 → <b>£${prod.toFixed(2)}</b></span>`;
+    card.appendChild(el('div','mtitle', `<span class="mkind">${esc(slip.kind)}</span>${statusHtml}`));
+    slip.legs.forEach(l => {
+      const res = l.res === 'w' ? '<span class="res w">✓</span>' : l.res === 'l' ? '<span class="res l">✗</span>' : (status ? '<span class="res p">·</span>' : '');
+      card.appendChild(el('div','leg',
+        `<span class="ic">${l.icon}</span><span class="off">${esc(l.off)} ${esc(String(l.course).slice(0, 5))}</span><span class="h">${esc(l.horse)}</span><span class="o">${esc(l.frac)}</span>${res}`));
+    });
+    const act = el('div','mact');
+    if (opts && opts.saveable) {
+      const btn = el('button','save','＋ SAVE SLIP');
+      btn.onclick = () => {
+        const slips = loadSlips();
+        slips.unshift({ id: Date.now() + '-' + Math.floor(Math.random() * 1e6), kind: slip.kind,
+          legs: slip.legs.map(l => ({ ...l })), saved: new Date().toISOString(), status: 'pending' });
+        saveSlips(slips);
+        btn.textContent = '✓ SAVED';
+        btn.classList.add('done');
+        btn.onclick = null;
+        drawSaved();
+      };
+      act.appendChild(el('span','mret', ''));
+      act.appendChild(btn);
+    } else {
+      const del = el('button','del','remove');
+      del.onclick = () => {
+        saveSlips(loadSlips().filter(s => s.id !== slip.id));
+        drawSaved();
+      };
+      act.appendChild(el('span','mret','saved ' + esc(String(slip.saved || '').slice(0, 10))));
+      act.appendChild(del);
+    }
+    card.appendChild(act);
+    return card;
+  }
+
+  // ---- saved section + settlement ----
+  function drawSaved() {
+    const wrap = $('savedWrap');
+    const slips = loadSlips();
+    wrap.innerHTML = '';
+    if (!slips.length) return;
+    let landed = 0, bust = 0, pending = 0, ret = 0;
+    slips.forEach(s => {
+      if (s.status === 'landed') { landed++; ret += s.legs.reduce((a, x) => a * x.dec, 1); }
+      else if (s.status === 'bust') bust++;
+      else pending++;
+    });
+    const staked = slips.length;
+    const pl = ret - (landed + bust); // pending stakes not yet settled
+    wrap.appendChild(el('div','sect','Saved slips'));
+    wrap.appendChild(el('div','record',
+      `<span><b>${staked}</b> saved</span>
+       <span class="g">${landed} landed</span>
+       <span class="r">${bust} bust</span>
+       <span>${pending} pending</span>
+       <span>settled P/L <b class="${pl >= 0 ? 'g' : 'r'}">${(pl >= 0 ? '+' : '') + pl.toFixed(2)}</b> (£1 stakes)</span>`));
+    const grid = el('div','board');
+    slips.forEach(s => grid.appendChild(multiCard(s, { saveable: false })));
+    wrap.appendChild(grid);
+  }
+
+  async function settle() {
+    const slips = loadSlips();
+    const pendingDates = [...new Set(slips.filter(s => s.status === 'pending').flatMap(s => s.legs.map(l => l.date)))];
+    if (!pendingDates.length) return;
+    $('settleBtn').textContent = 'Settling…';
+    const winners = {}; // raceId → winner horseId
+    for (const date of pendingDates) {
+      try {
+        for (let skip = 0; skip < 150; skip += 50) {
+          const page = await api('/v1/results', { start_date: date, end_date: date, region: ['gb','ire'], limit: 50, skip });
+          (page.results || []).forEach(race => {
+            const w = (race.runners || []).find(x => String(x.position) === '1');
+            if (race.race_id && w && w.horse_id) winners[race.race_id] = w.horse_id;
+          });
+          if (skip + 50 >= (Number(page.total) || 0)) break;
+          await new Promise(ok => setTimeout(ok, 700));
+        }
+      } catch {}
+    }
+    slips.forEach(s => {
+      if (s.status !== 'pending') return;
+      let allSettled = true, allWon = true;
+      s.legs.forEach(l => {
+        const w = winners[l.raceId];
+        if (!w) { l.res = ''; allSettled = false; return; }
+        l.res = w === l.horseId ? 'w' : 'l';
+        if (l.res === 'l') allWon = false;
+      });
+      if (s.legs.some(l => l.res === 'l')) s.status = 'bust';
+      else if (allSettled && allWon) s.status = 'landed';
+    });
+    saveSlips(slips);
+    $('settleBtn').textContent = 'Settle saved slips';
+    drawSaved();
+  }
+  $('settleBtn').onclick = settle;
+
+  $('genBtn').onclick = () => {
+    seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    drawBoard();
+  };
+
+  (async () => {
+    await loadPool();
+    drawBoard();
+    drawSaved();
+    settle(); // auto-settle anything outstanding on load
+  })();
 })();
 </script>
 </body>
