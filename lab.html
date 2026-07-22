@@ -1199,7 +1199,7 @@
     if (T.day !== 'today' || !T.cards) { box.hidden = true; return; }
     const now = Date.now();
     const picks = [];
-    T.cards.filter(rc => !rc.is_abandoned).forEach(rc => {
+    T.cards.filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase())).forEach(rc => {
       const t = Date.parse(rc.off_dt || '');
       if (isNaN(t) || t <= now) return;
       const map = raceScoreMap(rc);
@@ -1213,7 +1213,15 @@
       if (!o) return;
       picks.push({ rc, r, o, margin: vals[0] - vals[1] });
     });
-    picks.sort((a, b) => b.margin - a.margin);
+    // random grouping, seeded by today's date so the slate stays stable through the day
+    let seed = 0;
+    const dstr = new Date().toISOString().slice(0, 10);
+    for (const ch of dstr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = picks.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [picks[i], picks[j]] = [picks[j], picks[i]];
+    }
     if (picks.length < 2) { box.hidden = true; return; }
     const line = (label, n) => {
       if (picks.length < n) return '';
@@ -1225,7 +1233,7 @@
     box.hidden = false;
     box.innerHTML = `<span class="tl" style="color:var(--ink)">Suggested multis · strongest 🏆 margins · best price</span>`
       + line('DOUBLE', 2) + line('TREBLE', 3) + line('4-FOLD', 4)
-      + `<p class="note" style="margin-top:8px">Legs = upcoming races where the 🏆 clears the field's 2nd score by the widest margins. Opened races use full live scores, unopened use base. Prices are current best and will move.</p>`;
+      + `<p class="note" style="margin-top:8px">GB &amp; IRE only. Legs are the day's upcoming unique 🏆 picks grouped at random (stable for the day) — no odds or margin ranking. Opened races use full live scores, unopened use base. Prices shown are current best and will move.</p>`;
   }
 
   function renderMeetings(courses) {
