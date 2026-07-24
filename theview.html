@@ -47,6 +47,7 @@
   .pl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12px;padding:3.5px 0}
   .pl .ic{flex:none;width:18px;text-align:center}
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl .wp{color:var(--green);font-weight:600;flex:none;font-size:11px}
   .pl .od{color:var(--blue);font-weight:600;flex:none}
   .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
   .win{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-family:var(--mono);font-size:12px}
@@ -211,21 +212,26 @@
         `<span class="off">${esc(rc.off_time || '')}</span><span class="crs">${esc(rc.course || '')}</span>` +
         `<span class="meta">${esc(bits.join(' \u00b7 '))}</span>`));
       tile.appendChild(el('div','rname', esc(rc.race_name || '')));
+      // market book: implied probabilities, overround-normalised
+      let bookTot = 0, bookPriced = 0;
+      rs.forEach(r => {
+        if (!r.horse_id) return;
+        const o = bestOdds(r);
+        if (o) { bookTot += 1 / o.d; bookPriced++; }
+      });
+      const winP = (o) => (o && bookTot > 0 && bookPriced >= 2) ? Math.round((1 / o.d) / bookTot * 100) : null;
       // market-implied chance that one of the icon horses wins this race
       if (!si.unrankable) {
-        let tot = 0, iconP = 0, priced = 0;
+        let tot = bookTot, iconP = 0;
         rs.forEach(r => {
           if (!r.horse_id) return;
           const o = bestOdds(r);
           if (!o) return;
-          priced++;
-          const p = 1 / o.d;
-          tot += p;
           const sc = si.map[r.horse_id];
           const rk = sc != null ? si.vals.filter(v => v > sc).length : 99;
-          if (rk <= 2) iconP += p;
+          if (rk <= 2) iconP += 1 / o.d;
         });
-        if (tot > 0 && priced >= 2 && iconP > 0) {
+        if (tot > 0 && bookPriced >= 2 && iconP > 0) {
           const pc = Math.round(iconP / tot * 100);
           tile.appendChild(el('div','ipct',
             `icon win chance <b>${pc}%</b><span class="ibar"><span style="width:${Math.min(100, pc)}%"></span></span>`));
@@ -256,8 +262,10 @@
         const o = bestOdds(r);
         const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
         const dimStyle = ic ? '' : ' style="color:var(--dim);font-weight:500"';
+        const wp = ic ? winP(o) : null;
         tile.appendChild(el('div','pl',
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${favTag}</span>` +
+          `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>`));
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
