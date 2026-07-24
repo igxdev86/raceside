@@ -50,6 +50,9 @@
   .pl .wp{color:var(--green);font-weight:600;flex:none;font-size:11px}
   .pl .od{color:var(--blue);font-weight:600;flex:none}
   .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
+  .pl .pr{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right;font-style:italic}
+  .pl .pr.up{color:var(--green);font-weight:600}
+  .pl .pr.down{color:var(--red);font-weight:600}
   .win{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-family:var(--mono);font-size:12px}
   .win .lbl{color:var(--faint);font-size:9.5px;letter-spacing:.1em}
   .win .who{font-family:var(--sans);font-weight:700;font-size:13px}
@@ -73,7 +76,7 @@
   </header>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -265,6 +268,15 @@
       const mktRank = {};
       rs.filter(r => r.horse_id && bestOdds(r)).sort((a, b) => bestOdds(a).d - bestOdds(b).d)
         .forEach((r, i) => { mktRank[r.horse_id] = i; });
+      // parity: the score each horse WOULD have if the score agreed with the market order —
+      // the field's actual scores, sorted best-first, dealt out in market rank order
+      const scoresDesc = rs.filter(r => r.horse_id && si.map[r.horse_id] != null)
+        .map(r => si.map[r.horse_id]).sort((a, b) => b - a);
+      const parityOf = (id) => {
+        const mr = mktRank[id];
+        if (mr == null || !scoresDesc.length) return null;
+        return scoresDesc[Math.min(mr, scoresDesc.length - 1)];
+      };
       // order: icons (score desc) → rest by odds → unpriced (non-runners) at the bottom
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
@@ -300,10 +312,17 @@
         const isNR = !o;
         const dimStyle = isNR ? ' style="color:var(--faint);font-weight:500;text-decoration:line-through"' : ic ? '' : ' style="color:var(--dim);font-weight:500"';
         const wp = ic ? winP(o) : null;
+        const par = isNR ? null : parityOf(r.horse_id);
+        let prHtml = '<span class="pr"></span>';
+        if (par != null && sc != null) {
+          const diff = sc - par;
+          const cls = diff >= 4 ? 'pr up' : diff <= -4 ? 'pr down' : 'pr';
+          prHtml = `<span class="${cls}" title="parity: the score this price implies · gap ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}">${par.toFixed(1)}</span>`;
+        }
         tile.appendChild(el('div','pl',
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
-          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>`));
+          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}`));
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
 
