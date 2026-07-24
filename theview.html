@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE VIEW</title>
+<meta name="description" content="Today's racing as a wall of micro racecards: picks, prices, scores and results at a glance.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --blue-soft:#EAF0FF; --green:#12A150; --red:#D7263D; --gold:#B8860B; --purple:#7C3AED;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:1040px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#6FB2FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:560px){.grid{grid-template-columns:1fr 1fr}}
+  @media (min-width:880px){.grid{grid-template-columns:1fr 1fr 1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 13px}
+  .tile.next{border-color:var(--blue);background:var(--blue-soft)}
+  .tile.done{opacity:.93}
+  .th{display:flex;align-items:baseline;gap:8px}
+  .th .off{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--blue)}
+  .th .crs{font-weight:800;font-size:13.5px;letter-spacing:.01em;text-transform:uppercase}
+  .th .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap}
+  .rname{font-size:11px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12px;padding:3.5px 0}
+  .pl .ic{flex:none;width:18px;text-align:center}
+  .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl .od{color:var(--blue);font-weight:600;flex:none}
+  .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
+  .win{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-family:var(--mono);font-size:12px}
+  .win .lbl{color:var(--faint);font-size:9.5px;letter-spacing:.1em}
+  .win .who{font-family:var(--sans);font-weight:700;font-size:13px}
+  .badge{font-family:var(--mono);font-weight:700}
+  .miss{color:var(--red)}
+  .z{color:var(--purple);font-family:var(--mono);font-weight:700}
+  .fav{color:var(--blue);font-family:var(--mono);font-weight:700}
+  .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>VIEW</b><small id="hdate"></small></div>
+    <a class="back" href="/strike.html">strike cards →</a>
+  </header>
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, <span class="fav">F</span> marking the market favourite. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  $('hdate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function cdUnit(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    return cd ? 1.0 : (c && d) ? 0.9 : c ? 0.65 : d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function scoreMap(rc) {
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+        cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    return { map, vals, unrankable: vals.length < 2 };
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  let courseFilter = '';
+  let cardsCache = null, winnersCache = null;
+
+  async function load() {
+    const grid = $('grid');
+    grid.innerHTML = '<div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall\u2026</div>';
+    let cardsRes = null, resultsRes = null;
+    for (const tier of ['standard','basic','free']) {
+      try { cardsRes = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+    }
+    try { resultsRes = await api('/v1/results/today'); } catch {}
+    const cards = ((cardsRes && cardsRes.racecards) || [])
+      .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
+      .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
+    const winners = {};
+    (((resultsRes && resultsRes.results) || [])).forEach(race => {
+      const w = (race.runners || []).find(r => String(r.position) === '1');
+      if (race.race_id && w && w.horse_id) winners[race.race_id] = { id: w.horse_id, name: w.horse || '', sp: w.sp || '' };
+    });
+    cardsCache = cards; winnersCache = winners;
+    renderChips(cards);
+    render();
+  }
+
+  function renderChips(cards) {
+    const chips = $('chips');
+    const courses = [...new Set(cards.map(rc => rc.course || ''))].filter(Boolean).sort();
+    chips.innerHTML = '';
+    const mk = (label, val) => {
+      const c = el('button','chip' + ((courseFilter === val) ? ' on' : ''), esc(label));
+      c.onclick = () => { courseFilter = val; renderChips(cardsCache); render(); };
+      chips.appendChild(c);
+    };
+    mk('All', '');
+    courses.forEach(c => mk(c, c));
+  }
+
+  function render() {
+    const grid = $('grid');
+    const cards = (cardsCache || []).filter(rc => !courseFilter || rc.course === courseFilter);
+    if (!cards.length) { grid.innerHTML = '<div class="state" style="grid-column:1/-1">No GB/IRE racing today.</div>'; return; }
+    grid.innerHTML = '';
+    const now = Date.now();
+    let nextMarked = false;
+    const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
+    cards.forEach(rc => {
+      const w = winnersCache[rc.race_id];
+      const si = scoreMap(rc);
+      const rs = rc.runners || [];
+      const tile = el('div','tile');
+      const bits = [];
+      if (rc.race_class) bits.push(String(rc.race_class).replace(/class\s*/i,'Cls '));
+      if (rc.distance) bits.push(rc.distance);
+      bits.push(rs.length + ' ran');
+      tile.appendChild(el('div','th',
+        `<span class="off">${esc(rc.off_time || '')}</span><span class="crs">${esc(rc.course || '')}</span>` +
+        `<span class="meta">${esc(bits.join(' \u00b7 '))}</span>`));
+      tile.appendChild(el('div','rname', esc(rc.race_name || '')));
+
+      // favourite
+      let fav = null;
+      rs.forEach(r => {
+        const o = bestOdds(r);
+        if (o && (!fav || o.d < fav.o.d)) fav = { r, o };
+      });
+
+      if (!si.unrankable) {
+        const shown = new Set();
+        for (let rank = 0; rank < 3 && rank < si.vals.length; rank++) {
+          const ids = Object.keys(si.map).filter(id => si.map[id] === si.vals[rank]);
+          if (ids.length !== 1) continue;
+          const r = rs.find(x => x.horse_id === ids[0]);
+          if (!r) continue;
+          shown.add(r.horse_id);
+          const o = bestOdds(r);
+          const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
+          tile.appendChild(el('div','pl',
+            `<span class="ic">${icons[rank]}</span><span class="nm">${esc(r.horse || '')}${favTag}</span>` +
+            `<span class="od">${o ? esc(o.frac) : '\u2014'}</span><span class="sc">${si.vals[rank].toFixed(1)}</span>`));
+        }
+        if (fav && !shown.has(fav.r.horse_id)) {
+          const fs = si.map[fav.r.horse_id];
+          tile.appendChild(el('div','pl',
+            `<span class="ic"><span class="fav">F</span></span><span class="nm">${esc(fav.r.horse || '')}</span>` +
+            `<span class="od">${esc(fav.o.frac)}</span><span class="sc">${fs != null ? fs.toFixed(1) : ''}</span>`));
+        }
+      } else {
+        tile.appendChild(el('div','pl','<span class="ic">\u25cb</span><span class="nm" style="color:var(--faint)">unrankable field</span>'));
+      }
+
+      if (w) {
+        tile.classList.add('done');
+        let badge = '<span class="badge miss">\u2717</span>', z = '';
+        if (!si.unrankable && si.map[w.id] != null) {
+          const wv = si.map[w.id];
+          const rk = si.vals.filter(v => v > wv).length;
+          if (rk >= 0 && rk <= 2) badge = '<span class="badge">' + icons[rk] + '</span>';
+          if (rk === 0) z = ' <span class="z" title="top-scored horse won">Z</span>';
+        } else if (si.unrankable) badge = '<span style="color:var(--faint)">\u25cb</span>';
+        tile.appendChild(el('div','win',
+          `<span class="lbl">WINNER </span><span class="who">${esc(w.name)}</span>` +
+          `${w.sp ? ' <span style="color:var(--dim)">' + esc(String(w.sp)) + '</span>' : ''} ${badge}${z}`));
+      } else if (!nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
+        tile.classList.add('next');
+        nextMarked = true;
+      }
+      grid.appendChild(tile);
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
