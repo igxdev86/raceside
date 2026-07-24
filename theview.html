@@ -265,15 +265,24 @@
       const mktRank = {};
       rs.filter(r => r.horse_id && bestOdds(r)).sort((a, b) => bestOdds(a).d - bestOdds(b).d)
         .forEach((r, i) => { mktRank[r.horse_id] = i; });
-      // every runner, best score first
+      // order: icons (score desc) → rest by odds → unpriced (non-runners) at the bottom
+      const rkOf = {};
+      if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
+      const grp = (r) => {
+        if (!bestOdds(r)) return 2;
+        const rk = rkOf[r.horse_id];
+        return (rk != null && rk <= 2) ? 0 : 1;
+      };
       const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
-        const sa = si.map[a.horse_id], sbv = si.map[b.horse_id];
-        if (sa == null && sbv == null) return 0;
-        if (sa == null) return 1;
-        if (sbv == null) return -1;
-        if (sbv !== sa) return sbv - sa;
-        const oa = bestOdds(a), ob = bestOdds(b);
-        return (oa ? oa.d : 999) - (ob ? ob.d : 999);
+        const ga = grp(a), gb = grp(b);
+        if (ga !== gb) return ga - gb;
+        if (ga === 0) {
+          const sa = si.map[a.horse_id] ?? -1, sbv = si.map[b.horse_id] ?? -1;
+          if (sbv !== sa) return sbv - sa;
+          return bestOdds(a).d - bestOdds(b).d;
+        }
+        if (ga === 1) return bestOdds(a).d - bestOdds(b).d;
+        return String(a.horse || '').localeCompare(String(b.horse || ''));
       });
       sorted.forEach(r => {
         const sc = si.map[r.horse_id];
@@ -288,7 +297,8 @@
         const ghostU = nonIcon && oddsLikeIcon && trulyFancied && scoreLow;
         const unTag = ghostU ? ' <span class="un" title="the market prices this like an icon but the score doesn\u2019t rate it — a ghost in the race">U</span>' : '';
         const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
-        const dimStyle = ic ? '' : ' style="color:var(--dim);font-weight:500"';
+        const isNR = !o;
+        const dimStyle = isNR ? ' style="color:var(--faint);font-weight:500;text-decoration:line-through"' : ic ? '' : ' style="color:var(--dim);font-weight:500"';
         const wp = ic ? winP(o) : null;
         tile.appendChild(el('div','pl',
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${unTag}${favTag}</span>` +
