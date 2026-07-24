@@ -118,6 +118,10 @@
 
   <div class="xtiles" id="iconStrip" hidden style="grid-template-columns:repeat(3,1fr)"></div>
   <div class="xtiles" id="iconDelta" hidden style="grid-template-columns:repeat(3,1fr)"></div>
+  <div class="meter" id="spBandBox" hidden>
+    <div class="mtl">Winning price ranges · 12 mo</div>
+    <div id="spBandBody" style="margin-top:8px;overflow-x:auto"></div>
+  </div>
 
   <div class="xtiles" id="xtiles" hidden>
     <div class="xtile"><span class="xl">WATCHED HIGH</span><span class="xv" id="xHi">—</span><span class="xs" id="xHiSub"></span></div>
@@ -253,10 +257,11 @@
     const tally = {}; // gap → {cases, iconWins}
     const rec = { drought: { len: 0, date: null }, streak: { len: 0, date: null } };
     let races = 0, loaded = 0;
+    const spB = {};
     const iconT = { cup: { tally: {}, rec: { len: 0, date: null } }, red: { tally: {}, rec: { len: 0, date: null } }, blue: { tally: {}, rec: { len: 0, date: null } } };
     for (const m of months) {
       try {
-        const r = await fetch('/api/strike?month=' + m + '&v=4');
+        const r = await fetch('/api/strike?month=' + m + '&v=5');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
@@ -268,6 +273,10 @@
           const ex = d.extremes || {};
           if (ex.drought && ex.drought.len > rec.drought.len) rec.drought = ex.drought;
           if (ex.streak && ex.streak.len > rec.streak.len) rec.streak = ex.streak;
+          for (const [ik, bands] of Object.entries(d.spBands || {})) {
+            const t = (spB[ik] ||= {});
+            for (const [b, n] of Object.entries(bands)) t[b] = (t[b] || 0) + n;
+          }
           for (const key of ['cup','red','blue']) {
             const src = (d.perIcon || {})[key];
             if (!src) continue;
@@ -303,6 +312,7 @@
         ok: caseTotal > 0, building: loaded < months.length, races,
         extremes: rec,
         perIcon: { cup: packIcon('cup', 12), red: packIcon('red', 18), blue: packIcon('blue', 24) },
+        spBands: spB,
         monthsLoaded: loaded, monthsTotal: months.length,
         base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
         hazard: Object.entries(tally)
@@ -472,6 +482,7 @@
       `<span>within next ${c.k}: <b>${c.p.toFixed(1)}%</b></span>`).join('');
     trackExtremes(pct, drought);
     renderIconStrip();
+    renderSpBands();
     renderAllTime();
     const dots = drought ? '<span class="drought">' + '<span></span>'.repeat(Math.min(drought, 12)) + '</span>' : '';
     const dutchLine = dutchRaces
@@ -641,6 +652,38 @@
         `<span class="xs">next race \u00b7 \u00d7${x.ratio.toFixed(1)} of typical wait${x.usable ? '' : ' \u00b7 base rate (thin sample)'}${x.rec && x.rec.len ? ' \u00b7 record ' + x.rec.len : ''}</span>`;
       strip.appendChild(tile);
     });
+  }
+
+  function renderSpBands() {
+    const sb = hazardData && hazardData.spBands;
+    if (!sb || !Object.keys(sb).length) return;
+    const bands = [
+      ['odds_on','Odds-on'], ['ev_2','Evs\u20132/1'], ['f2_4','2/1\u20134/1'],
+      ['f4_8','4/1\u20138/1'], ['f8_16','8/1\u201316/1'], ['f16p','16/1+'],
+    ];
+    const cols = [['cup','\uD83C\uDFC6'], ['red','\u2666\uFE0F'], ['blue','\uD83D\uDD39']];
+    const tot = {};
+    cols.forEach(([k]) => { tot[k] = bands.reduce((a, [b]) => a + ((sb[k] || {})[b] || 0), 0); });
+    const top = {};
+    cols.forEach(([k]) => {
+      let best = null;
+      bands.forEach(([b]) => { const n = (sb[k] || {})[b] || 0; if (!best || n > best.n) best = { b, n }; });
+      top[k] = best ? best.b : null;
+    });
+    let html = '<table style="border-collapse:collapse;font-family:var(--mono);font-size:12px;width:100%;min-width:340px">';
+    html += '<tr><td style="padding:4px 8px;color:var(--dim)"></td>' + cols.map(([,ic]) => `<td style="padding:4px 8px;text-align:right">${ic}</td>`).join('') + '</tr>';
+    bands.forEach(([b, label]) => {
+      html += `<tr><td style="padding:4px 8px;color:var(--dim);white-space:nowrap">${label}</td>` +
+        cols.map(([k]) => {
+          const n = (sb[k] || {})[b] || 0;
+          const p = tot[k] ? Math.round(n / tot[k] * 100) : 0;
+          const hot = top[k] === b;
+          return `<td style="padding:4px 8px;text-align:right;${hot ? 'font-weight:700;color:var(--blue)' : 'color:var(--ink)'}">${p}%<span style="color:var(--faint);font-weight:400"> \u00b7${n}</span></td>`;
+        }).join('') + '</tr>';
+    });
+    html += '</table>';
+    $('spBandBox').hidden = false;
+    $('spBandBody').innerHTML = html;
   }
 
   const XLS = 'raceside:meterextremes';
