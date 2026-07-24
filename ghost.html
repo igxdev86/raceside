@@ -78,7 +78,7 @@
     <div class="tile"><span class="tl">EXPOSED GHOSTS</span><span class="tv" id="vEx">—</span><span class="ts" id="vExSub"></span></div>
   </div>
 
-  <p class="note">A <b>ghost</b> is a horse in the market's top two while the score puts it in the bottom half of the field — or can't rate it at all (no RPR and no Topspeed: unexposed). The score is structurally blind to what moves these markets: stable confidence, breeding, first-time tactics. So the test isn't "are ghosts good bets" — it's <b>calibration</b>: A/E is actual ghost wins ÷ market-expected wins (overround-normalised). A/E ≈ 1.0 means the market prices them correctly and the score is simply missing information; the practical use is the icon split — how much a ghost's presence in a race degrades the icons. History graded at SP with the leak-free engine score (RPR+TS+T14); today's list uses card prices and the full static score, so the rulers are close cousins. Not advice.</p>
+  <p class="note">A <b>ghost</b> is a horse in the market's top three while the score puts it in the bottom half of the field — or can't rate it at all (no RPR and no Topspeed: unexposed). The score is structurally blind to what moves these markets: stable confidence, breeding, first-time tactics. So the test isn't "are ghosts good bets" — it's <b>calibration</b>: A/E is actual ghost wins ÷ market-expected wins (overround-normalised). A/E ≈ 1.0 means the market prices them correctly and the score is simply missing information; the practical use is the icon split — how much a ghost's presence in a race degrades the icons. History graded at SP with the leak-free engine score (RPR+TS+T14); today's list uses card prices and the full static score, so the rulers are close cousins. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -173,14 +173,15 @@
       const priced = rs.filter(r => bestOdds(r));
       if (priced.length < Math.min(5, rs.length)) return;
       const bySp = priced.slice().sort((a, b) => bestOdds(a).d - bestOdds(b).d);
-      const scoreSorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+      const valsAll = [...new Set(Object.values(map))].sort((a, b) => b - a);
       const scoreRank = {};
-      scoreSorted.forEach((id, i) => { scoreRank[id] = i; });
-      const half = Math.ceil(rs.length / 2);
-      bySp.slice(0, 2).forEach(r => {
+      Object.keys(map).forEach(id => { scoreRank[id] = valsAll.filter(v => v > map[id]).length; });
+      const half = Math.ceil(valsAll.length / 2);
+      bySp.slice(0, 3).forEach(r => {
         const un = noRt[r.horse_id];
+        const vlow = map[r.horse_id] != null && map[r.horse_id] < 12;
         const low = scoreRank[r.horse_id] >= half;
-        if (!un && !low) return;
+        if (!un && !low && !vlow) return;
         found++;
         const o = bestOdds(r);
         const sc = map[r.horse_id];
@@ -189,8 +190,8 @@
           `<span class="nm">${esc(r.horse || '')} <span class="gtag ${un ? 'un' : 'ex'}">${un ? 'UNEXPOSED' : 'EXPOSED'}</span></span>` +
           `<span class="od">${esc(o.frac)}</span>` +
           `<span class="why">${un
-            ? 'no RPR or Topspeed — the score cannot see this horse; the market can (score ' + (sc != null ? sc.toFixed(2) : '?') + ', rank ' + (scoreRank[r.horse_id] + 1) + '/' + rs.length + ')'
-            : 'score rank ' + (scoreRank[r.horse_id] + 1) + '/' + rs.length + ' (score ' + sc.toFixed(2) + ') yet top-two in the market — the market knows something the ratings don\\u2019t show'}</span>`));
+            ? 'no RPR or Topspeed — the score cannot see this horse; the market can (score ' + (sc != null ? sc.toFixed(2) : '?') + ', rank ' + (scoreRank[r.horse_id] + 1) + '/' + valsAll.length + ')'
+            : 'score rank ' + (scoreRank[r.horse_id] + 1) + '/' + valsAll.length + ' (score ' + sc.toFixed(2) + ') yet prominent in the market — the market knows something the ratings don\\u2019t show'}</span>`));
       });
     });
     if (!found) box.innerHTML = '<div class="state" style="margin:8px 0">No ghosts on today\\u2019s cards \\u2014 market and score agree everywhere.</div>';
@@ -251,7 +252,7 @@
     for (const m of ms) {
       chips[m].classList.add('busy');
       try {
-        const r = await fetch('/api/ghost?month=' + m);
+        const r = await fetch('/api/ghost?month=' + m + '&v=2');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           ['races','ghostRaces','ghosts','ghostWins','ghostExp','unexposed','unexposedWins','unexposedExp','exposed','exposedWins','exposedExp'].forEach(k => { agg[k] += d[k] || 0; });
