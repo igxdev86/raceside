@@ -29,6 +29,23 @@ function t14UnitFrom(runs, wins) {
   if (runs < 3) v = v * 0.5 + 0.2;
   return v;
 }
+function spDec2(run) {
+  const d = Number(run && run.sp_dec);
+  if (!isNaN(d) && d > 1) return d;
+  const s = String((run && run.sp) || '').replace(/[^\d/.]/g, '');
+  if (s.includes('/')) { const [a, b] = s.split('/').map(Number); if (a > 0 && b > 0) return a / b + 1; }
+  const n = Number(s);
+  return !isNaN(n) && n > 1 ? n : null;
+}
+function spBand(d) {
+  if (d == null) return 'unk';
+  if (d < 2) return 'odds_on';
+  if (d < 3) return 'ev_2';
+  if (d < 5) return 'f2_4';
+  if (d < 9) return 'f4_8';
+  if (d < 17) return 'f8_16';
+  return 'f16p';
+}
 function offMin(off) {
   const m = String(off || '').match(/(\d{1,2}):(\d{2})/);
   if (!m) return 9999;
@@ -77,7 +94,7 @@ export default async function handler(req, res) {
         date: race.date || '', off: offMin(race.off),
         runners: (race.runners || []).map((x) => ({
           horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-          rpr: x.rpr, tsr: x.tsr,
+          rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
         })),
       });
     }
@@ -101,7 +118,7 @@ export default async function handler(req, res) {
           date: race.date || '', off: offMin(race.off),
           runners: (race.runners || []).map((x) => ({
             horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-            rpr: x.rpr, tsr: x.tsr,
+            rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
           })),
         });
       }
@@ -130,6 +147,7 @@ export default async function handler(req, res) {
   };
 
   const byDay = {};
+  const spBands = {};
   let races = 0, skipped = 0;
   for (const race of all) {
     const runners = race.runners;
@@ -153,6 +171,11 @@ export default async function handler(req, res) {
         const iconWin = wv != null && wv >= cut3;
         races++;
         (byDay[race.date] ||= []).push({ off: race.off, iconWin, wr });
+        if (wr >= 0 && wr <= 2) {
+          const band = spBand(spDec2(win));
+          const key = ['cup','red','blue'][wr];
+          ((spBands[key] ||= {})[band] = (spBands[key][band] || 0) + 1);
+        }
       }
     }
     for (const x of runners) {
@@ -229,6 +252,7 @@ export default async function handler(req, res) {
     races, skipped, truncated: skip < total, source,
     extremes: { drought: maxDrought, streak: maxStreak },
     perIcon: { cup: iconStream(0, 12), red: iconStream(1, 18), blue: iconStream(2, 24) },
+    spBands,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
