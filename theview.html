@@ -293,7 +293,11 @@
           if (sbv !== sa) return sbv - sa;
           return bestOdds(a).d - bestOdds(b).d;
         }
-        if (ga === 1) return bestOdds(a).d - bestOdds(b).d;
+        if (ga === 1) {
+          const pa = parityOf(a.horse_id), pb = parityOf(b.horse_id);
+          if (pa != null && pb != null && pb !== pa) return pb - pa;   // parity high → low
+          return bestOdds(a).d - bestOdds(b).d;
+        }
         return String(a.horse || '').localeCompare(String(b.horse || ''));
       });
       sorted.forEach(r => {
