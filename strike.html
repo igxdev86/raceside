@@ -258,10 +258,11 @@
     const rec = { drought: { len: 0, date: null }, streak: { len: 0, date: null } };
     let races = 0, loaded = 0;
     const spB = {};
+    const rateB = {};
     const iconT = { cup: { tally: {}, rec: { len: 0, date: null } }, red: { tally: {}, rec: { len: 0, date: null } }, blue: { tally: {}, rec: { len: 0, date: null } } };
     for (const m of months) {
       try {
-        const r = await fetch('/api/strike?month=' + m + '&v=5');
+        const r = await fetch('/api/strike?month=' + m + '&v=6');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           races += d.races || 0;
@@ -276,6 +277,14 @@
           for (const [ik, bands] of Object.entries(d.spBands || {})) {
             const t = (spB[ik] ||= {});
             for (const [b, n] of Object.entries(bands)) t[b] = (t[b] || 0) + n;
+          }
+          for (const [ik, bands] of Object.entries(d.rateBands || {})) {
+            const t = (rateB[ik] ||= {});
+            for (const [b, c] of Object.entries(bands)) {
+              const cell = (t[b] ||= { runs: 0, wins: 0 });
+              cell.runs += c.runs || 0;
+              cell.wins += c.wins || 0;
+            }
           }
           for (const key of ['cup','red','blue']) {
             const src = (d.perIcon || {})[key];
@@ -313,6 +322,7 @@
         extremes: rec,
         perIcon: { cup: packIcon('cup', 12), red: packIcon('red', 18), blue: packIcon('blue', 24) },
         spBands: spB,
+        rateBands: rateB,
         monthsLoaded: loaded, monthsTotal: months.length,
         base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
         hazard: Object.entries(tally)
@@ -434,9 +444,12 @@
     if (!info) { tile.hidden = true; return; }
     const { rc, rowEl } = info;
     const picks = iconPicks(rc);
+    const ctx = raceContext(rc);
     const pickHtml = picks.length
-      ? '<div class="nt-picks">' + picks.map(p =>
-          `<span>${p.icon} ${esc(p.r.horse || '')}<span class="o">${p.o ? esc(p.o.frac) : '—'}</span></span>`).join('') + '</div>'
+      ? '<div class="nt-picks">' + picks.map((p, i) => {
+          const rt = p.o ? rateAt(i, p.o.d) : null;
+          return `<span>${p.icon} ${esc(p.r.horse || '')}${pickBadges(ctx, p.r.horse_id)}<span class="o">${p.o ? esc(p.o.frac) : '—'}</span>${rt ? `<span style="color:var(--faint);font-size:10.5px"> ${rt.pct}%</span>` : ''}</span>`;
+        }).join('') + '</div>'
       : '<div class="nt-picks" style="color:var(--faint)">No unique icon picks in this field.</div>';
     tile.hidden = false;
     $('ntBody').innerHTML =
@@ -530,6 +543,63 @@
     return { pl: won ? ret - 10 : -10, won };
   }
 
+  function bandOfDec(d) {
+    if (d == null) return 'unk';
+    if (d < 2) return 'odds_on';
+    if (d < 3) return 'ev_2';
+    if (d < 5) return 'f2_4';
+    if (d < 9) return 'f4_8';
+    if (d < 17) return 'f8_16';
+    return 'f16p';
+  }
+  function rateAt(iconIdx, dec) {
+    const rb = hazardData && hazardData.rateBands;
+    if (!rb || dec == null) return null;
+    const key = ['cup','red','blue'][iconIdx];
+    const cell = (rb[key] || {})[bandOfDec(dec)];
+    if (!cell || cell.runs < 30) return null;
+    return { pct: Math.round(cell.wins / cell.runs * 1000) / 10, n: cell.runs };
+  }
+  function raceContext(rc) {
+    const rs = rc.runners || [];
+    // favourite: shortest current best odds
+    let fav = null;
+    rs.forEach(r => {
+      const o = bestOdds(r);
+      if (o && (!fav || o.d < fav.d)) fav = { id: r.horse_id, d: o.d };
+    });
+    // top trainer by 14-day win% (min 3 runs)
+    let topT = null;
+    rs.forEach(r => {
+      const t = r.trainer_14_days || {};
+      const runs = Number(t.runs), wins = Number(t.wins);
+      if (runs >= 3) {
+        const pct = wins / runs;
+        if (!topT || pct > topT.pct) topT = { pct, ids: [r.horse_id] };
+        else if (pct === topT.pct) topT.ids.push(r.horse_id);
+      }
+    });
+    // top jockey by 14-day win% if the card carries it (some tiers do)
+    let topJ = null;
+    rs.forEach(r => {
+      const jd = r.jockey_14_days || {};
+      const runs = Number(jd.runs), wins = Number(jd.wins);
+      if (runs >= 3) {
+        const pct = wins / runs;
+        if (!topJ || pct > topJ.pct) topJ = { pct, ids: [r.horse_id] };
+        else if (pct === topJ.pct) topJ.ids.push(r.horse_id);
+      }
+    });
+    return { fav, topT, topJ };
+  }
+  function pickBadges(ctx, horseId) {
+    let b = '';
+    if (ctx.topT && ctx.topT.ids.includes(horseId)) b += '<b style="color:var(--green)" title="top trainer form in this race">T</b>';
+    if (ctx.topJ && ctx.topJ.ids.includes(horseId)) b += '<b style="color:var(--green)" title="top jockey form in this race">J</b>';
+    if (ctx.fav && ctx.fav.id === horseId) b += '<b style="color:var(--blue)" title="market favourite">F</b>';
+    return b ? ` <span style="letter-spacing:.15em">${b}</span>` : '';
+  }
+
   function buildPicks(rc) {
     const box = el('div','picks');
     const icons = ['\uD83C\uDFC6', '\u2666\uFE0F', '\uD83D\uDD39'];
@@ -548,20 +618,36 @@
       if (ids.length !== 1) continue;
       const r = rs.find(x => x.horse_id === ids[0]);
       if (!r) continue;
-      picks.push({ icon: icons[rank], r, o: bestOdds(r) });
+      picks.push({ icon: icons[rank], rank, score: vals[rank], r, o: bestOdds(r) });
     }
     if (!picks.length) { box.innerHTML = '<div class="dutch">No unique icon picks in this field.</div>'; return box; }
+    const ctx = raceContext(rc);
     const priced = picks.filter(p => p.o);
     const sumInv = priced.reduce((a, p) => a + 1 / p.o.d, 0);
     const TOTAL = 10;
     const ret = sumInv > 0 ? TOTAL / sumInv : 0;
     picks.forEach(p => {
       const stake = p.o && sumInv > 0 ? (TOTAL * (1 / p.o.d) / sumInv) : null;
+      const rt = p.o ? rateAt(p.rank, p.o.d) : null;
+      const sub = `<span style="color:var(--faint);font-size:10.5px">score ${p.score.toFixed(1)}${rt ? ' \u00b7 wins ' + rt.pct + '% at this price' : ''}</span>`;
       box.appendChild(el('div','pline',
-        `<span class="pic">${p.icon}</span><span class="ph">${esc(p.r.horse || '')}</span>` +
+        `<span class="pic">${p.icon}</span>` +
+        `<span class="ph">${esc(p.r.horse || '')}${pickBadges(ctx, p.r.horse_id)}<br>${sub}</span>` +
         `<span class="po">${p.o ? esc(p.o.frac) : '\u2014'}</span>` +
         `<span class="ps">${stake != null ? '\u00a3' + stake.toFixed(2) : 'no price'}</span>`));
     });
+    if (ctx.fav && !picks.some(p => p.r.horse_id === ctx.fav.id)) {
+      const fr = rs.find(x => x.horse_id === ctx.fav.id);
+      if (fr) {
+        const fo = bestOdds(fr);
+        const fs = map[fr.horse_id];
+        box.appendChild(el('div','pline',
+          `<span class="pic"><b style="color:var(--blue)">F</b></span>` +
+          `<span class="ph">${esc(fr.horse || '')}${pickBadges(ctx, fr.horse_id)}<br><span style="color:var(--faint);font-size:10.5px">favourite, not an icon pick${fs != null ? ' \u00b7 score ' + fs.toFixed(1) : ''}</span></span>` +
+          `<span class="po">${fo ? esc(fo.frac) : '\u2014'}</span>` +
+          `<span class="ps"></span>`));
+      }
+    }
     if (priced.length >= 2 && sumInv > 0) {
       const profit = ret - TOTAL;
       const cls = profit > 0 ? 'lock' : 'nolock';
