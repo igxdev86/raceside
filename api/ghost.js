@@ -155,15 +155,17 @@ export default async function handler(req, res) {
           const bySp = priced.slice().sort((a, b) => spDec(a) - spDec(b));
           const spRank = {};
           bySp.forEach((x, i) => { spRank[x.horse_id] = i; });
-          const scoreSorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+          // dense, tie-aware score ranks
           const scoreRank = {};
-          scoreSorted.forEach((id, i) => { scoreRank[id] = i; });
-          const half = Math.ceil(runners.length / 2);
+          Object.keys(map).forEach((id) => { scoreRank[id] = vals.filter((v) => v > map[id]).length; });
+          const nRanks = vals.length;
+          const half = Math.ceil(nRanks / 2);
 
           const ghosts = priced.filter((x) => {
-            if (spRank[x.horse_id] > 1) return false;                 // top-2 of market only
+            if (spRank[x.horse_id] > 2) return false;                 // top-3 of market
             if (noRt[x.horse_id]) return true;                        // unexposed: no RPR & no TS
-            return scoreRank[x.horse_id] >= half;                     // exposed but score bottom-half
+            if (map[x.horse_id] != null && map[x.horse_id] < 12) return true;  // pathologically low score
+            return scoreRank[x.horse_id] >= half;                     // rated but bottom-half by dense rank
           });
 
           G.races++;
