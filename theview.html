@@ -74,6 +74,10 @@
     <div class="wordmark">THE <b>VIEW</b><small id="hdate"></small></div>
     <a class="back" href="/strike.html">strike cards →</a>
   </header>
+  <div class="chips" id="daychips">
+    <button class="chip on" data-day="today">Today</button>
+    <button class="chip" data-day="tomorrow">Tomorrow</button>
+  </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
   <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
@@ -86,7 +90,11 @@
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
-  $('hdate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  function setHdate() {
+    const d = new Date();
+    if (day === 'tomorrow') d.setDate(d.getDate() + 1);
+    $('hdate').textContent = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  }
 
   const parseRt = (v) => {
     const s = String(v ?? '').trim();
@@ -159,16 +167,25 @@
   }
 
   let courseFilter = '';
+  let day = 'today';
   let cardsCache = null, winnersCache = null;
+  document.querySelectorAll('#daychips .chip').forEach(b => b.onclick = () => {
+    if (b.dataset.day === day) return;
+    day = b.dataset.day;
+    courseFilter = '';
+    document.querySelectorAll('#daychips .chip').forEach(x => x.classList.toggle('on', x.dataset.day === day));
+    load();
+  });
 
   async function load() {
+    setHdate();
     const grid = $('grid');
     grid.innerHTML = '<div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall\u2026</div>';
     let cardsRes = null, resultsRes = null;
     for (const tier of ['standard','basic','free']) {
-      try { cardsRes = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+      try { cardsRes = await api('/v1/racecards/' + tier, { day }); break; } catch {}
     }
-    try { resultsRes = await api('/v1/results/today'); } catch {}
+    if (day === 'today') { try { resultsRes = await api('/v1/results/today'); } catch {} }
     const cards = ((cardsRes && cardsRes.racecards) || [])
       .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
       .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
@@ -280,25 +297,14 @@
       // order: icons (score desc) → rest by odds → unpriced (non-runners) at the bottom
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
-      const grp = (r) => {
-        if (!bestOdds(r)) return 2;
-        const rk = rkOf[r.horse_id];
-        return (rk != null && rk <= 2) ? 0 : 1;
-      };
       const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
-        const ga = grp(a), gb = grp(b);
-        if (ga !== gb) return ga - gb;
-        if (ga === 0) {
-          const sa = si.map[a.horse_id] ?? -1, sbv = si.map[b.horse_id] ?? -1;
-          if (sbv !== sa) return sbv - sa;
-          return bestOdds(a).d - bestOdds(b).d;
-        }
-        if (ga === 1) {
-          const pa = parityOf(a.horse_id), pb = parityOf(b.horse_id);
-          if (pa != null && pb != null && pb !== pa) return pb - pa;   // parity high → low
-          return bestOdds(a).d - bestOdds(b).d;
-        }
-        return String(a.horse || '').localeCompare(String(b.horse || ''));
+        const oa = bestOdds(a), ob = bestOdds(b);
+        if (!oa && !ob) return String(a.horse || '').localeCompare(String(b.horse || ''));
+        if (!oa) return 1;   // non-runners last
+        if (!ob) return -1;
+        const pa = parityOf(a.horse_id), pb = parityOf(b.horse_id);
+        if (pa != null && pb != null && pb !== pa) return pb - pa;   // parity high → low
+        return oa.d - ob.d;
       });
       sorted.forEach(r => {
         const sc = si.map[r.horse_id];
