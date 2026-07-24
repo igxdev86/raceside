@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE GHOST</title>
+<meta name="description" content="Horses the market loves but the score can't see — detected live, validated over 12 months.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --blue-soft:#EAF0FF; --green:#12A150; --red:#D7263D; --purple:#7C3AED;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#B79CFF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .progress{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+  .mchip{font-family:var(--mono);font-size:10.5px;padding:5px 9px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .mchip.done{border-color:var(--green);color:#7BE0A8}
+  .mchip.busy{border-color:#B79CFF;color:#B79CFF}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .tile.wide{grid-column:1/-1}
+  .tl{display:block;font-family:var(--sans);font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+  .tv{display:block;font-family:var(--mono);font-size:22px;font-weight:600;margin-top:3px}
+  .ts{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px;line-height:1.55}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--purple)}
+  .grow{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+  .grow:last-child{border-bottom:0}
+  .grow .off{color:var(--blue);font-weight:600;flex:none;min-width:42px}
+  .grow .crs{font-family:var(--sans);font-weight:700;font-size:12.5px;flex:none;min-width:80px}
+  .grow .nm{font-family:var(--sans);font-weight:700;font-size:13.5px;flex:1;min-width:0}
+  .grow .od{color:var(--blue);font-weight:600;flex:none}
+  .grow .why{width:100%;font-size:10.5px;color:var(--dim);margin-top:2px}
+  .gtag{font-family:var(--mono);font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 6px;color:#fff}
+  .gtag.un{background:var(--purple)}
+  .gtag.ex{background:#5B6675}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#B79CFF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">RACE<b>SIDE</b> GHOST<small id="hdate"></small></div>
+    <a class="back" href="/theview.html">the view →</a>
+  </header>
+
+  <div class="sect">
+    <div class="stl">Today's ghosts</div>
+    <div id="today"><div class="state"><div class="spinner"></div>scanning the day…</div></div>
+  </div>
+
+  <div class="progress" id="progress"></div>
+  <div class="tiles" id="tiles" hidden>
+    <div class="tile wide"><span class="tl">THE VERDICT · 12 MO</span><span class="tv" id="vMain">—</span><span class="ts" id="vMainSub"></span></div>
+    <div class="tile"><span class="tl">GHOST A/E</span><span class="tv" id="vAE">—</span><span class="ts" id="vAESub"></span></div>
+    <div class="tile"><span class="tl">GHOST FREQUENCY</span><span class="tv" id="vFreq">—</span><span class="ts" id="vFreqSub"></span></div>
+    <div class="tile"><span class="tl">ICONS · GHOST IN RACE</span><span class="tv" id="vIconG">—</span><span class="ts" id="vIconGSub"></span></div>
+    <div class="tile"><span class="tl">ICONS · NO GHOST</span><span class="tv" id="vIconN">—</span><span class="ts" id="vIconNSub"></span></div>
+    <div class="tile"><span class="tl">UNEXPOSED GHOSTS</span><span class="tv" id="vUn">—</span><span class="ts" id="vUnSub"></span></div>
+    <div class="tile"><span class="tl">EXPOSED GHOSTS</span><span class="tv" id="vEx">—</span><span class="ts" id="vExSub"></span></div>
+  </div>
+
+  <p class="note">A <b>ghost</b> is a horse in the market's top two while the score puts it in the bottom half of the field — or can't rate it at all (no RPR and no Topspeed: unexposed). The score is structurally blind to what moves these markets: stable confidence, breeding, first-time tactics. So the test isn't "are ghosts good bets" — it's <b>calibration</b>: A/E is actual ghost wins ÷ market-expected wins (overround-normalised). A/E ≈ 1.0 means the market prices them correctly and the score is simply missing information; the practical use is the icon split — how much a ghost's presence in a race degrades the icons. History graded at SP with the leak-free engine score (RPR+TS+T14); today's list uses card prices and the full static score, so the rulers are close cousins. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  $('hdate').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  // ---- static score (same as the other pages) ----
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function cdUnit(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    return cd ? 1.0 : (c && d) ? 0.9 : c ? 0.65 : d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // ---- today's ghosts ----
+  async function loadToday() {
+    let cardsRes = null;
+    for (const tier of ['standard','basic','free']) {
+      try { cardsRes = await api('/v1/racecards/' + tier, { day: 'today' }); break; } catch {}
+    }
+    const cards = ((cardsRes && cardsRes.racecards) || [])
+      .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
+      .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
+    const box = $('today');
+    box.innerHTML = '';
+    let found = 0;
+    cards.forEach(rc => {
+      const rs = (rc.runners || []).filter(r => r.horse_id);
+      if (rs.length < 5) return;
+      const map = {}, noRt = {};
+      const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+      rs.forEach((r, i) => {
+        map[r.horse_id] = Math.round((relUnit(rprs[i], rprs) * 22 + relUnit(tss[i], tss) * 13 +
+          cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+        noRt[r.horse_id] = isNaN(rprs[i]) && isNaN(tss[i]);
+      });
+      const priced = rs.filter(r => bestOdds(r));
+      if (priced.length < Math.min(5, rs.length)) return;
+      const bySp = priced.slice().sort((a, b) => bestOdds(a).d - bestOdds(b).d);
+      const scoreSorted = Object.entries(map).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+      const scoreRank = {};
+      scoreSorted.forEach((id, i) => { scoreRank[id] = i; });
+      const half = Math.ceil(rs.length / 2);
+      bySp.slice(0, 2).forEach(r => {
+        const un = noRt[r.horse_id];
+        const low = scoreRank[r.horse_id] >= half;
+        if (!un && !low) return;
+        found++;
+        const o = bestOdds(r);
+        const sc = map[r.horse_id];
+        box.appendChild(el('div','grow',
+          `<span class="off">${esc(rc.off_time || '')}</span><span class="crs">${esc(rc.course || '')}</span>` +
+          `<span class="nm">${esc(r.horse || '')} <span class="gtag ${un ? 'un' : 'ex'}">${un ? 'UNEXPOSED' : 'EXPOSED'}</span></span>` +
+          `<span class="od">${esc(o.frac)}</span>` +
+          `<span class="why">${un
+            ? 'no RPR or Topspeed — the score cannot see this horse; the market can (score ' + (sc != null ? sc.toFixed(2) : '?') + ', rank ' + (scoreRank[r.horse_id] + 1) + '/' + rs.length + ')'
+            : 'score rank ' + (scoreRank[r.horse_id] + 1) + '/' + rs.length + ' (score ' + sc.toFixed(2) + ') yet top-two in the market — the market knows something the ratings don\\u2019t show'}</span>`));
+      });
+    });
+    if (!found) box.innerHTML = '<div class="state" style="margin:8px 0">No ghosts on today\\u2019s cards \\u2014 market and score agree everywhere.</div>';
+  }
+
+  // ---- 12-month verdict ----
+  function months12() {
+    const now = new Date();
+    const out = [];
+    const cur = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1));
+    while (cur.getUTCFullYear() < now.getUTCFullYear() ||
+           (cur.getUTCFullYear() === now.getUTCFullYear() && cur.getUTCMonth() <= now.getUTCMonth())) {
+      out.push(cur.toISOString().slice(0, 7));
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return out;
+  }
+  const agg = { races:0, ghostRaces:0, ghosts:0, ghostWins:0, ghostExp:0,
+    unexposed:0, unexposedWins:0, unexposedExp:0, exposed:0, exposedWins:0, exposedExp:0,
+    iconWithGhost:{races:0,wins:0}, iconNoGhost:{races:0,wins:0} };
+
+  function renderVerdict() {
+    if (!agg.ghosts) return;
+    $('tiles').hidden = false;
+    const pct = (a, b) => b ? (a / b * 100) : 0;
+    const ae = agg.ghostExp > 0 ? agg.ghostWins / agg.ghostExp : 0;
+    $('vAE').textContent = ae.toFixed(2);
+    $('vAE').style.color = ae > 1.05 ? 'var(--green)' : ae < 0.95 ? 'var(--red)' : 'var(--ink)';
+    $('vAESub').textContent = agg.ghostWins + ' wins vs ' + agg.ghostExp.toFixed(1) + ' market-expected';
+    $('vFreq').textContent = pct(agg.ghostRaces, agg.races).toFixed(1) + '%';
+    $('vFreqSub').textContent = agg.ghostRaces.toLocaleString() + ' of ' + agg.races.toLocaleString() + ' races had a ghost';
+    const ig = pct(agg.iconWithGhost.wins, agg.iconWithGhost.races);
+    const inn = pct(agg.iconNoGhost.wins, agg.iconNoGhost.races);
+    $('vIconG').textContent = ig.toFixed(1) + '%';
+    $('vIconG').style.color = 'var(--red)';
+    $('vIconGSub').textContent = 'icon win rate across ' + agg.iconWithGhost.races.toLocaleString() + ' ghost races';
+    $('vIconN').textContent = inn.toFixed(1) + '%';
+    $('vIconN').style.color = 'var(--green)';
+    $('vIconNSub').textContent = 'icon win rate across ' + agg.iconNoGhost.races.toLocaleString() + ' clean races';
+    const aeU = agg.unexposedExp > 0 ? agg.unexposedWins / agg.unexposedExp : 0;
+    const aeE = agg.exposedExp > 0 ? agg.exposedWins / agg.exposedExp : 0;
+    $('vUn').textContent = aeU ? aeU.toFixed(2) : '\u2014';
+    $('vUnSub').textContent = agg.unexposed.toLocaleString() + ' unexposed ghosts (no ratings) \u00b7 A/E';
+    $('vEx').textContent = aeE ? aeE.toFixed(2) : '\u2014';
+    $('vExSub').textContent = agg.exposed.toLocaleString() + ' exposed ghosts (rated, bottom-half score) \u00b7 A/E';
+    const drop = inn - ig;
+    $('vMain').textContent = drop > 0 ? '\u2212' + drop.toFixed(1) + 'pts' : '+' + (-drop).toFixed(1) + 'pts';
+    $('vMain').style.color = drop > 2 ? 'var(--red)' : 'var(--ink)';
+    $('vMainSub').textContent = 'what a ghost in the race does to the icons\\u2019 win rate \u00b7 the ghost detector is a warning light, not a tip sheet';
+  }
+
+  (async () => {
+    loadToday();
+    const ms = months12().reverse();
+    const prog = $('progress');
+    const chips = {};
+    ms.forEach(m => { const c = el('span','mchip', m.slice(2)); chips[m] = c; prog.appendChild(c); });
+    for (const m of ms) {
+      chips[m].classList.add('busy');
+      try {
+        const r = await fetch('/api/ghost?month=' + m);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          ['races','ghostRaces','ghosts','ghostWins','ghostExp','unexposed','unexposedWins','unexposedExp','exposed','exposedWins','exposedExp'].forEach(k => { agg[k] += d[k] || 0; });
+          ['iconWithGhost','iconNoGhost'].forEach(k => {
+            agg[k].races += (d[k] || {}).races || 0;
+            agg[k].wins += (d[k] || {}).wins || 0;
+          });
+          chips[m].classList.remove('busy');
+          chips[m].classList.add('done');
+          renderVerdict();
+        } else { chips[m].classList.remove('busy'); chips[m].textContent = m.slice(2) + ' \u2717'; }
+      } catch { chips[m].classList.remove('busy'); chips[m].textContent = m.slice(2) + ' \u2717'; }
+    }
+  })();
+})();
+</script>
+</body>
+</html>
