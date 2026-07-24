@@ -1384,12 +1384,26 @@
   }
 
   // ---------- runner annotation (letter / trainer / jockey win rates at course) ----------
-  const AN = { quirks:{}, trainers:{}, jockeys:{}, chain:Promise.resolve() };
+  const AN = { quirks:{}, trainers:{}, jockeys:{} };
+  // two parallel lanes, 700ms spacing per lane (~2 req/s aggregate, the API's ceiling)
+  const POOL = { lanes: [Promise.resolve(), Promise.resolve()], i: 0 };
   function enqueue(fn) {
-    const p = AN.chain.then(fn, fn);
-    AN.chain = p.then(() => new Promise(ok => setTimeout(ok, 700)), () => new Promise(ok => setTimeout(ok, 700)));
+    const lane = POOL.i++ % POOL.lanes.length;
+    const p = POOL.lanes[lane].then(fn, fn);
+    POOL.lanes[lane] = p.then(() => new Promise(ok => setTimeout(ok, 700)), () => new Promise(ok => setTimeout(ok, 700)));
     return p;
   }
+  // entity stats barely move day to day: cache them locally for 24h
+  const LS_TTL = 86400000;
+  function lsGet(k) {
+    try {
+      const x = JSON.parse(localStorage.getItem(k));
+      if (x && Date.now() - x.t < LS_TTL) return x.v;
+      if (x) localStorage.removeItem(k);
+    } catch {}
+    return undefined;
+  }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify({ t: Date.now(), v })); } catch {} }
   const letterOf = (name) => String(name||'').replace(/^(The |A |An )/i,'').trim().charAt(0).toUpperCase();
   const pct = (v) => (Number(v)*100).toFixed(1);
   const normCourse = (s) => String(s||'').toLowerCase().replace(/\s*\(.*\)\s*/g,'').trim();
@@ -1442,10 +1456,14 @@
   function getDistRows(kind, id, filters) {
     const key = kind + '|' + id + '|' + JSON.stringify(filters);
     if (!AN2.maps[key]) {
-      AN2.maps[key] = enqueue(async () => {
+      const hit = lsGet('rsan:d:' + key);
+      if (hit !== undefined) AN2.maps[key] = Promise.resolve(hit);
+      else AN2.maps[key] = enqueue(async () => {
         try {
           const d = await api(`/v1/${kind}/${id}/analysis/distances`, filters);
-          return Object.entries(d).find(([k,v]) => Array.isArray(v) && k !== 'query')?.[1] || [];
+          const rows = Object.entries(d).find(([k,v]) => Array.isArray(v) && k !== 'query')?.[1] || [];
+          lsSet('rsan:d:' + key, rows);
+          return rows;
         } catch { return null; }
       });
     }
@@ -1703,10 +1721,13 @@
   function getCourseMap(kind, id) {
     const store = kind === 'trainers' ? AN.trainers : AN.jockeys;
     if (!store[id]) {
-      store[id] = enqueue(async () => {
+      const hit = lsGet('rsan:c:' + kind + ':' + id);
+      if (hit !== undefined) store[id] = Promise.resolve(hit);
+      else store[id] = enqueue(async () => {
         try {
           const d = await api(`/v1/${kind}/${id}/analysis/courses`);
           const rows = Object.entries(d).find(([k,v]) => Array.isArray(v) && k !== 'query')?.[1] || [];
+          lsSet('rsan:c:' + kind + ':' + id, rows);
           return rows;
         } catch { return null; }
       });
