@@ -57,6 +57,7 @@
   .miss{color:var(--red)}
   .z{color:var(--purple);font-family:var(--mono);font-weight:700}
   .fav{color:var(--blue);font-family:var(--mono);font-weight:700}
+  .un{color:#7C3AED;font-family:var(--mono);font-weight:700}
   .state{margin-top:30px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
   .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#6FB2FF;border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -72,7 +73,7 @@
   </header>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking unexposed horses (no RPR or Topspeed — the score is blind to them; watch for a U near the head of the market: that's a ghost). Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -260,11 +261,13 @@
         const rk = (!si.unrankable && sc != null) ? si.vals.filter(v => v > sc).length : -1;
         const ic = rk >= 0 && rk <= 2 ? icons[rk] : '';
         const o = bestOdds(r);
+        const unexposed = isNaN(parseRt(r.rpr)) && isNaN(parseRt(r.ts));
+        const unTag = unexposed ? ' <span class="un" title="unexposed — no RPR or Topspeed; the score cannot see this horse">U</span>' : '';
         const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
         const dimStyle = ic ? '' : ' style="color:var(--dim);font-weight:500"';
         const wp = ic ? winP(o) : null;
         tile.appendChild(el('div','pl',
-          `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${favTag}</span>` +
+          `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>`));
       });
