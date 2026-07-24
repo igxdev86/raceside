@@ -140,7 +140,7 @@
   <div class="toolbar"><button class="btn" id="refresh">⟳ refresh results</button></div>
   <div class="timeline" id="timeline"><div class="state"><div class="spinner"></div>loading the day…</div></div>
 
-  <p class="note">Every GB &amp; IRE race today in time order. Settled races: 🏆♦️🔹 = winner held that base-score rank · <span style="color:#FF8A93">✗</span> = winner outside the top three · ○ = ratings couldn't separate the field (doesn't count either way). The meter is <b>empirical</b>: the chance the next race is icon-won given the current drought, measured from up to 12 months of real sequences (the deepest the data plan reaches — full 2025 is outside the 12-month results window) using the closest reconstructable icon definition (RPR + TS + trainer 14-day form; the live card also knows C&amp;D, form and freshness, so the two rulers are close but not identical). Pending results (photos, stewards) can revise the drought when they land. If racing has no memory the meter stays near the base rate at every drought — and this page will honestly show that. Not advice; an experiment in public.</p>
+  <p class="note">Every GB &amp; IRE race today in time order. Settled races: 🏆♦️🔹 = winner held that base-score rank · <span style="color:#FF8A93">✗</span> = winner outside the top three · <b style="color:#7C3AED">Z</b> = the race's top-scored horse won · ○ = ratings couldn't separate the field (doesn't count either way). The meter is <b>empirical</b>: the chance the next race is icon-won given the current drought, measured from up to 12 months of real sequences (the deepest the data plan reaches — full 2025 is outside the 12-month results window) using the closest reconstructable icon definition (RPR + TS + trainer 14-day form; the live card also knows C&amp;D, form and freshness, so the two rulers are close but not identical). Pending results (photos, stewards) can revise the drought when they land. If racing has no memory the meter stays near the base rate at every drought — and this page will honestly show that. Not advice; an experiment in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -374,6 +374,7 @@
     const now = Date.now();
     cards.forEach(rc => {
       const w = winners[rc.race_id];
+      let zTag = '';
       const row = el('div','row');
       let icHtml, winHtml = '';
       if (w) {
@@ -385,6 +386,7 @@
           const rk = t3.rank(w.id);
           if (rk >= 0 && rk <= 2) { icHtml = icons[rk]; drought = 0; }
           else { icHtml = '<span class="miss">✗</span>'; drought++; }
+          if (rk === 0) zTag = ' <b style="color:#7C3AED;font-family:var(--mono)" title="the top-scored horse won">Z</b>';
           iconD[0] = rk === 0 ? 0 : iconD[0] + 1;
           iconD[1] = rk === 1 ? 0 : iconD[1] + 1;
           iconD[2] = rk === 2 ? 0 : iconD[2] + 1;
@@ -397,7 +399,7 @@
           dtag = ` <span style="color:${c};font-weight:600">D ${dch.pl > 0 ? '+' : '−'}£${Math.abs(dch.pl).toFixed(2)}</span>`;
         }
         const mtag = w.manual ? ` <span class="mantag">MANUAL</span><button class="manundo" data-undo="${esc(rc.race_id)}">×</button>` : '';
-        winHtml = `<span class="r-win">${esc(w.name)}${w.sp ? ' ' + esc(String(w.sp)) : ''}${dtag}${mtag}</span>`;
+        winHtml = `<span class="r-win">${esc(w.name)}${zTag}${w.sp ? ' ' + esc(String(w.sp)) : ''}${dtag}${mtag}</span>`;
         row.classList.add('past');
       } else {
         icHtml = '<span class="pend">·</span>';
