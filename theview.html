@@ -215,29 +215,28 @@
         if (o && (!fav || o.d < fav.o.d)) fav = { r, o };
       });
 
-      if (!si.unrankable) {
-        const shown = new Set();
-        for (let rank = 0; rank < 3 && rank < si.vals.length; rank++) {
-          const ids = Object.keys(si.map).filter(id => si.map[id] === si.vals[rank]);
-          if (ids.length !== 1) continue;
-          const r = rs.find(x => x.horse_id === ids[0]);
-          if (!r) continue;
-          shown.add(r.horse_id);
-          const o = bestOdds(r);
-          const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
-          tile.appendChild(el('div','pl',
-            `<span class="ic">${icons[rank]}</span><span class="nm">${esc(r.horse || '')}${favTag}</span>` +
-            `<span class="od">${o ? esc(o.frac) : '\u2014'}</span><span class="sc">${si.vals[rank].toFixed(1)}</span>`));
-        }
-        if (fav && !shown.has(fav.r.horse_id)) {
-          const fs = si.map[fav.r.horse_id];
-          tile.appendChild(el('div','pl',
-            `<span class="ic"><span class="fav">F</span></span><span class="nm">${esc(fav.r.horse || '')}</span>` +
-            `<span class="od">${esc(fav.o.frac)}</span><span class="sc">${fs != null ? fs.toFixed(1) : ''}</span>`));
-        }
-      } else {
-        tile.appendChild(el('div','pl','<span class="ic">\u25cb</span><span class="nm" style="color:var(--faint)">unrankable field</span>'));
-      }
+      // every runner, best score first
+      const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
+        const sa = si.map[a.horse_id], sbv = si.map[b.horse_id];
+        if (sa == null && sbv == null) return 0;
+        if (sa == null) return 1;
+        if (sbv == null) return -1;
+        if (sbv !== sa) return sbv - sa;
+        const oa = bestOdds(a), ob = bestOdds(b);
+        return (oa ? oa.d : 999) - (ob ? ob.d : 999);
+      });
+      sorted.forEach(r => {
+        const sc = si.map[r.horse_id];
+        const rk = (!si.unrankable && sc != null) ? si.vals.filter(v => v > sc).length : -1;
+        const ic = rk >= 0 && rk <= 2 ? icons[rk] : '';
+        const o = bestOdds(r);
+        const favTag = fav && fav.r.horse_id === r.horse_id ? ' <span class="fav">F</span>' : '';
+        const dimStyle = ic ? '' : ' style="color:var(--dim);font-weight:500"';
+        tile.appendChild(el('div','pl',
+          `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${favTag}</span>` +
+          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>`));
+      });
+      if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
 
       if (w) {
         tile.classList.add('done');
