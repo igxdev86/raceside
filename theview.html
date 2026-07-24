@@ -77,10 +77,11 @@
   <div class="chips" id="daychips">
     <button class="chip on" data-day="today">Today</button>
     <button class="chip" data-day="tomorrow">Tomorrow</button>
+    <button class="chip" data-day="yesterday">Yesterday</button>
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -93,6 +94,7 @@
   function setHdate() {
     const d = new Date();
     if (day === 'tomorrow') d.setDate(d.getDate() + 1);
+    if (day === 'yesterday') d.setDate(d.getDate() - 1);
     $('hdate').textContent = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
   }
 
@@ -182,10 +184,38 @@
     const grid = $('grid');
     grid.innerHTML = '<div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall\u2026</div>';
     let cardsRes = null, resultsRes = null;
-    for (const tier of ['standard','basic','free']) {
-      try { cardsRes = await api('/v1/racecards/' + tier, { day }); break; } catch {}
+    if (day === 'yesterday') {
+      // rebuild yesterday's cards from results: SPs become the odds, positions give winners
+      const yd = new Date(); yd.setDate(yd.getDate() - 1);
+      const ds = yd.toISOString().slice(0, 10);
+      const racecards = [];
+      let skip = 0, total = Infinity, pages = 0;
+      while (skip < total && pages < 4) {
+        let page = null;
+        try { page = await api('/v1/results', { start_date: ds, end_date: ds, limit: 50, skip }); } catch { break; }
+        total = Number(page.total) || 0;
+        (page.results || []).forEach(race => {
+          racecards.push({
+            race_id: race.race_id, region: race.region, course: race.course,
+            race_name: race.race_name, off_time: race.off, off_dt: race.off_dt || (ds + 'T00:00:00Z'),
+            race_class: race.class, distance: race.dist,
+            runners: (race.runners || []).map(x => ({
+              horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
+              position: x.position,
+              odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
+            })),
+          });
+        });
+        skip += 50; pages++;
+      }
+      cardsRes = { racecards };
+      resultsRes = { results: racecards.map(rc => ({ race_id: rc.race_id, runners: rc.runners.map(x => ({ horse_id: x.horse_id, position: x.position, horse: x.horse, sp: (x.odds[0] || {}).fractional })) })) };
+    } else {
+      for (const tier of ['standard','basic','free']) {
+        try { cardsRes = await api('/v1/racecards/' + tier, { day }); break; } catch {}
+      }
+      if (day === 'today') { try { resultsRes = await api('/v1/results/today'); } catch {} }
     }
-    if (day === 'today') { try { resultsRes = await api('/v1/results/today'); } catch {} }
     const cards = ((cardsRes && cardsRes.racecards) || [])
       .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
       .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
