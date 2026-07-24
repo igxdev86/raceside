@@ -148,6 +148,7 @@ export default async function handler(req, res) {
 
   const byDay = {};
   const spBands = {};
+  const rateBands = {};
   let races = 0, skipped = 0;
   for (const race of all) {
     const runners = race.runners;
@@ -175,6 +176,18 @@ export default async function handler(req, res) {
           const band = spBand(spDec2(win));
           const key = ['cup','red','blue'][wr];
           ((spBands[key] ||= {})[band] = (spBands[key][band] || 0) + 1);
+        }
+        for (let rank = 0; rank < 3 && rank < vals.length; rank++) {
+          const ids = Object.keys(map).filter((id) => map[id] === vals[rank]);
+          if (ids.length !== 1) continue;
+          const r = runners.find((x) => x.horse_id === ids[0]);
+          const d = r ? spDec2(r) : null;
+          if (d == null) continue;
+          const band = spBand(d);
+          const key = ['cup','red','blue'][rank];
+          const cell = ((rateBands[key] ||= {})[band] ||= { runs: 0, wins: 0 });
+          cell.runs++;
+          if (String(r.position) === '1') cell.wins++;
         }
       }
     }
@@ -253,6 +266,7 @@ export default async function handler(req, res) {
     extremes: { drought: maxDrought, streak: maxStreak },
     perIcon: { cup: iconStream(0, 12), red: iconStream(1, 18), blue: iconStream(2, 24) },
     spBands,
+    rateBands,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
