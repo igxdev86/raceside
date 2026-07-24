@@ -117,6 +117,7 @@
   </div>
 
   <div class="xtiles" id="iconStrip" hidden style="grid-template-columns:repeat(3,1fr)"></div>
+  <div class="xtiles" id="iconDelta" hidden style="grid-template-columns:repeat(3,1fr)"></div>
 
   <div class="xtiles" id="xtiles" hidden>
     <div class="xtile"><span class="xl">WATCHED HIGH</span><span class="xv" id="xHi">—</span><span class="xs" id="xHiSub"></span></div>
@@ -615,6 +616,19 @@
       const ratio = meanGap > 0 ? g / meanGap : 0;
       if (ratio > dueRatio) { dueRatio = ratio; dueKey = key; }
       return { key, icon, g, pct, usable, ratio, base: s.base, rec: s.record };
+    });
+    const dstrip = $('iconDelta');
+    dstrip.hidden = false;
+    dstrip.innerHTML = '';
+    info.forEach(x => {
+      const delta = x.pct - x.base;
+      const c = Math.abs(delta) < 0.05 ? 'var(--dim)' : delta > 0 ? 'var(--green)' : 'var(--red)';
+      const tile = el('div','xtile');
+      tile.innerHTML =
+        `<span class="xl">${x.icon} CHANGE · HISTORY</span>` +
+        `<span class="xv" style="color:${c}">${delta > 0 ? '+' : ''}${delta.toFixed(1)}pts</span>` +
+        `<span class="xs">next ${x.pct.toFixed(1)}% vs base ${x.base.toFixed(1)}% · at drought ${x.g}${x.usable ? '' : ' · thin sample, no shift'}</span>`;
+      dstrip.appendChild(tile);
     });
     strip.hidden = false;
     strip.innerHTML = '';
