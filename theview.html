@@ -162,7 +162,10 @@
   async function api(path, params = {}) {
     const qs = new URLSearchParams();
     qs.set('path', path);
-    for (const [k, v] of Object.entries(params)) qs.append(k, v);
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
+      else qs.append(k, v);
+    }
     const r = await fetch('/api/tra?' + qs.toString());
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
@@ -190,9 +193,9 @@
       const ds = yd.toISOString().slice(0, 10);
       const racecards = [];
       let skip = 0, total = Infinity, pages = 0;
-      while (skip < total && pages < 4) {
+      while (skip < total && pages < 6) {
         let page = null;
-        try { page = await api('/v1/results', { start_date: ds, end_date: ds, limit: 50, skip }); } catch { break; }
+        try { page = await api('/v1/results', { region: ['gb','ire'], start_date: ds, end_date: ds, limit: 50, skip }); } catch { break; }
         total = Number(page.total) || 0;
         (page.results || []).forEach(race => {
           racecards.push({
@@ -378,7 +381,7 @@
         tile.appendChild(el('div','win',
           `<span class="lbl">WINNER </span><span class="who">${esc(w.name)}</span>` +
           `${w.sp ? ' <span style="color:var(--dim)">' + esc(String(w.sp)) + '</span>' : ''} ${badge}${z}`));
-      } else if (!nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
+      } else if (day === 'today' && !nextMarked && Date.parse(rc.off_dt || 0) > now - 15 * 60000) {
         tile.classList.add('next');
         nextMarked = true;
       }
