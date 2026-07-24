@@ -40,6 +40,10 @@
   .th .crs{font-weight:800;font-size:13.5px;letter-spacing:.01em;text-transform:uppercase}
   .th .meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap}
   .rname{font-size:11px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ipct{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin:5px 0 3px}
+  .ipct b{color:var(--ink)}
+  .ibar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden}
+  .ibar span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),#6FB2FF)}
   .pl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12px;padding:3.5px 0}
   .pl .ic{flex:none;width:18px;text-align:center}
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -67,7 +71,7 @@
   </header>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, <span class="fav">F</span> marking the market favourite. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. Scores are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -207,6 +211,26 @@
         `<span class="off">${esc(rc.off_time || '')}</span><span class="crs">${esc(rc.course || '')}</span>` +
         `<span class="meta">${esc(bits.join(' \u00b7 '))}</span>`));
       tile.appendChild(el('div','rname', esc(rc.race_name || '')));
+      // market-implied chance that one of the icon horses wins this race
+      if (!si.unrankable) {
+        let tot = 0, iconP = 0, priced = 0;
+        rs.forEach(r => {
+          if (!r.horse_id) return;
+          const o = bestOdds(r);
+          if (!o) return;
+          priced++;
+          const p = 1 / o.d;
+          tot += p;
+          const sc = si.map[r.horse_id];
+          const rk = sc != null ? si.vals.filter(v => v > sc).length : 99;
+          if (rk <= 2) iconP += p;
+        });
+        if (tot > 0 && priced >= 2 && iconP > 0) {
+          const pc = Math.round(iconP / tot * 100);
+          tile.appendChild(el('div','ipct',
+            `icon win chance <b>${pc}%</b><span class="ibar"><span style="width:${Math.min(100, pc)}%"></span></span>`));
+        }
+      }
 
       // favourite
       let fav = null;
