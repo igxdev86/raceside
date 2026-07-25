@@ -236,6 +236,33 @@
       try { localStorage.setItem('rsdraw:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
     }
   }
+  let yearBase = null;   // pooled 12-month baselines from the strike engine
+  async function buildYearBase() {
+    try {
+      const c = JSON.parse(localStorage.getItem('rsbase:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && c.v.races > 1000) { yearBase = c.v; render(); return; }
+    } catch {}
+    const nowD = new Date();
+    const months = [];
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+    while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+    const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0 };
+    for (const mo of months.reverse()) {
+      try {
+        const r = await fetch('/api/strike?month=' + mo + '&v=7');
+        const d = await r.json();
+        const B = d && d.baseline;
+        if (r.ok && B) {
+          ['races','iconWins','cupWins','favWins','spSum','spN','flatN'].forEach(k => { P[k] += B[k] || 0; });
+          for (let i = 0; i < 4; i++) P.mr[i] += (B.mr || [])[i] || 0;
+          ['low','mid','high'].forEach(k => { P.thirds[k] += (B.thirds || {})[k] || 0; });
+          yearBase = P;
+          render();
+        }
+      } catch {}
+    }
+    if (P.races > 1000) { try { localStorage.setItem('rsbase:v1', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
+  }
   let drawsMode = false;
   let courseFilter = '';
   let day = 'today';
@@ -567,6 +594,17 @@
         if (th.low + th.mid + th.high >= 3) bits.push(`flat draw thirds: LOW <b>${th.low}</b> · MID <b>${th.mid}</b> · HIGH <b>${th.high}</b>`);
         if (T.uRaces) bits.push(`ghost (U) races settled: <b>${T.uRaces}</b> · the U horse won <b>${T.uWon}</b> (${pc(T.uWon, T.uRaces)}%)`);
         if (T.upset) bits.push(`biggest upset: <b>${esc(T.upset.name)}</b> at ${esc(String(T.upset.sp))} (${esc(T.upset.course)})`);
+        if (yearBase && yearBase.races > 1000) {
+          const Y = yearBase;
+          const yp = (a, b) => b ? (a / b * 100).toFixed(0) : '—';
+          const mrTot = Y.mr.reduce((a, v) => a + v, 0);
+          let yline = `<span style="color:var(--faint)">12 mo baseline (${Y.races.toLocaleString()} races): icons ${yp(Y.iconWins, Y.races)}% · Z ${yp(Y.cupWins, Y.races)}% · favs ${yp(Y.favWins, Y.races)}%`;
+          if (mrTot) yline += ` · slots ${Y.mr.map(v => yp(v, mrTot) + '%').join('/')}`;
+          if (Y.spN) yline += ` · avg SP ${(Y.spSum / Y.spN - 1).toFixed(1)}/1`;
+          if (Y.flatN) yline += ` · draw ${yp(Y.thirds.low, Y.flatN)}/${yp(Y.thirds.mid, Y.flatN)}/${yp(Y.thirds.high, Y.flatN)}%`;
+          yline += '</span>';
+          bits.push(yline);
+        }
         document.getElementById('todayReadBody').innerHTML = bits.join('<br>');
         tr.hidden = false;
       } else tr.hidden = true;
@@ -575,6 +613,7 @@
 
   load();
   buildDrawStats();
+  buildYearBase();
   const dbn = document.getElementById('drawsBtn');
   if (dbn) dbn.onclick = () => { drawsMode = !drawsMode; dbn.classList.toggle('on', drawsMode); render(); };
   const dsEl = document.getElementById('drawstamp');
