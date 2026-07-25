@@ -85,7 +85,7 @@
     <button class="chip on" data-day="today">Today</button>
     <button class="chip" data-day="tomorrow">Tomorrow</button>
     <button class="chip" data-day="yesterday">Yesterday</button>
-    <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block"></span></span>
+    <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block;cursor:pointer" title="tap to rebuild draw stats"></span></span>
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
@@ -193,8 +193,8 @@
   const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
   async function buildDrawStats() {
     try {
-      const cached = JSON.parse(localStorage.getItem('rsdraw:v1') || 'null');
-      if (cached && Date.now() - cached.t < 86400000) {
+      const cached = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null');
+      if (cached && Date.now() - cached.t < 86400000 && cached.v && Object.keys(cached.v).length > 10) {
         drawStats = cached.v;
         const ds0 = document.getElementById('drawstamp');
         if (ds0) ds0.textContent = 'draw stats: 12 mo ready';
@@ -226,7 +226,9 @@
       done++;
     }
     if (ds) ds.textContent = fails >= months.length ? 'draw stats unavailable \u2014 tell Claude' : 'draw stats: 12 mo ready' + (fails ? ' (' + fails + ' months failed)' : '');
-    try { localStorage.setItem('rsdraw:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
+    if (Object.keys(merged).length > 10) {
+      try { localStorage.setItem('rsdraw:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
+    }
   }
   let courseFilter = '';
   let day = 'today';
@@ -498,6 +500,8 @@
 
   load();
   buildDrawStats();
+  const dsEl = document.getElementById('drawstamp');
+  if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v2'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
 })();
 </script>
 </body>
