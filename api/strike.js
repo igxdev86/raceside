@@ -149,7 +149,8 @@ export default async function handler(req, res) {
   const byDay = {};
   const spBands = {};
   const BL = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0,
-    mr: [0, 0, 0, 0], thirds: { low: 0, mid: 0, high: 0 }, flatN: 0 };
+    mr: [0, 0, 0, 0], thirds: { low: 0, mid: 0, high: 0 }, flatN: 0,
+    nonIconWins: 0, nonIconFav: 0 };
   const rateBands = {};
   let races = 0, skipped = 0;
   for (const race of all) {
@@ -180,9 +181,14 @@ export default async function handler(req, res) {
         const pricedBL = runners.filter((x) => x.horse_id && spDec2(x));
         if (pricedBL.length >= 2) {
           const byPrice = pricedBL.slice().sort((a, b) => spDec2(a) - spDec2(b));
-          if (byPrice[0].horse_id === win.horse_id) BL.favWins++;
+          const winWasFav = byPrice[0].horse_id === win.horse_id;
+          if (winWasFav) BL.favWins++;
           const mrIdx = byPrice.findIndex((x) => x.horse_id === win.horse_id);
           if (mrIdx >= 0) BL.mr[Math.min(mrIdx, 3)]++;
+          if (!iconWin) {
+            BL.nonIconWins++;
+            if (winWasFav) BL.nonIconFav++;
+          }
         }
         const wsp = spDec2(win);
         if (wsp) { BL.spSum += wsp; BL.spN++; }
