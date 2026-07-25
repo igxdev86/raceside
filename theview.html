@@ -387,6 +387,21 @@
       const w = winnersCache[rc.race_id];
       const si = scoreMap(rc);
       const rs = rc.runners || [];
+      const isFlat = String(rc.type || '').toLowerCase() === 'flat';
+      const sumOf = (r) => {
+        if (!isFlat) return null;
+        const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10);
+        return (n >= 1 && dr >= 1) ? n + dr : null;
+      };
+      // effective ranking values: draws mode swaps in score-minus-sum where available
+      const effVal = (id) => {
+        if (si.map[id] == null) return null;
+        if (!drawsMode) return si.map[id];
+        const r = rs.find(x => x.horse_id === id);
+        const sm = r ? sumOf(r) : null;
+        return sm != null ? si.map[id] - sm : si.map[id];
+      };
+      const effVals = [...new Set(Object.keys(si.map).map(effVal).filter(v => v != null))].sort((a, b) => b - a);
       const tile = el('div','tile');
       const bits = [];
       if (rc.race_class) bits.push(String(rc.race_class).replace(/class\s*/i,'Cls '));
@@ -411,14 +426,14 @@
           if (!r.horse_id) return;
           const o = bestOdds(r);
           if (!o) return;
-          const sc = si.map[r.horse_id];
-          const rk = sc != null ? si.vals.filter(v => v > sc).length : 99;
+          const ev = effVal(r.horse_id);
+          const rk = ev != null ? effVals.filter(v => v > ev).length : 99;
           if (rk <= 2) iconP += 1 / o.d;
         });
         if (tot > 0 && bookPriced >= 2 && iconP > 0) {
           const pc = Math.round(iconP / tot * 100);
           tile.appendChild(el('div','ipct',
-            `icon win chance <b>${pc}%</b><span class="ibar"><span style="width:${Math.min(100, pc)}%"></span></span>`));
+            `icon win chance${drawsMode && isFlat ? ' (draws)' : ''} <b>${pc}%</b><span class="ibar"><span style="width:${Math.min(100, pc)}%"></span></span>`));
         }
       }
 
@@ -460,12 +475,7 @@
       // order: icons (score desc) → rest by odds → unpriced (non-runners) at the bottom
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
-      const isFlat = String(rc.type || '').toLowerCase() === 'flat';
-      const sumOf = (r) => {
-        if (!isFlat) return null;
-        const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10);
-        return (n >= 1 && dr >= 1) ? n + dr : null;
-      };
+
       const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
         const oa = bestOdds(a), ob = bestOdds(b);
         if (!oa && !ob) return String(a.horse || '').localeCompare(String(b.horse || ''));
