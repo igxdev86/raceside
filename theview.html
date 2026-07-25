@@ -57,6 +57,9 @@
   .pl .pr{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right;font-style:italic}
   .pl .pr.up{color:var(--green);font-weight:600}
   .pl .pr.down{color:var(--red);font-weight:600}
+  .pl .dw{color:var(--faint);font-size:10.5px;flex:none;min-width:30px;text-align:right}
+  .pl .dw.up{color:var(--green);font-weight:600}
+  .pl .dw.down{color:var(--red);font-weight:600}
   .win{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-family:var(--mono);font-size:12px}
   .win .lbl{color:var(--faint);font-size:9.5px;letter-spacing:.1em}
   .win .who{font-family:var(--sans);font-weight:700;font-size:13px}
@@ -86,7 +89,7 @@
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). On Today the wall re-pulls prices every 2½ minutes while open: ▲ green = backed in, ▼ red = drifted (8%+ move since the last cycle; hover for the exact prices). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). On Today the wall re-pulls prices every 2½ minutes while open: ▲ green = backed in, ▼ red = drifted (8%+ move since the last cycle; hover for the exact prices). On flat races the final column is <b>draw bias</b>: how often the winner came from that horse's draw third (LOW/MID/HIGH stalls) over 12 months of races at the same course, distance band and field size \u2014 33% means no bias; green 38%+, red 28% or under; blank when under 20 comparable races. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -176,6 +179,44 @@
     return r.json();
   }
 
+  // draw bias: winner's draw third by course | dist band | field size, 12 months
+  let drawStats = null;
+  const furlongs = (dist) => {
+    const s = String(dist || '').toLowerCase().replace(/\s/g, '');
+    const mch = s.match(/^(?:(\d+)m)?(?:(\d+)f)?/);
+    if (!mch) return null;
+    const f = (Number(mch[1]) || 0) * 8 + (Number(mch[2]) || 0);
+    return f > 0 ? f : null;
+  };
+  const distBand = (f) => f == null ? null : f <= 6 ? 'sprint' : f <= 8 ? 'mile' : f <= 12 ? 'middle' : 'staying';
+  const fieldBand = (n) => n <= 8 ? 'S' : n <= 12 ? 'M' : 'L';
+  const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
+  async function buildDrawStats() {
+    try {
+      const cached = JSON.parse(localStorage.getItem('rsdraw:v1') || 'null');
+      if (cached && Date.now() - cached.t < 86400000) { drawStats = cached.v; render(); return; }
+    } catch {}
+    const nowD = new Date();
+    const months = [];
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+    while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+    const merged = {};
+    for (const mo of months.reverse()) {
+      try {
+        const r = await fetch('/api/draw?month=' + mo);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          for (const [k, v] of Object.entries(d.tally || {})) {
+            const c = (merged[k] ||= { races: 0, low: 0, mid: 0, high: 0 });
+            c.races += v.races; c.low += v.low; c.mid += v.mid; c.high += v.high;
+          }
+          drawStats = merged;
+          render();
+        }
+      } catch {}
+    }
+    try { localStorage.setItem('rsdraw:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
+  }
   let courseFilter = '';
   let day = 'today';
   let cardsCache = null, winnersCache = null;
@@ -374,6 +415,18 @@
         return oa.d - ob.d;
       });
       const isFlat = String(rc.type || '').toLowerCase() === 'flat';
+      // draw stats cell for this race's conditions
+      let drawCell = null, maxDrawInRace = 0;
+      if (isFlat && drawStats) {
+        const drawn = rs.filter(x => Number(x.draw) >= 1);
+        maxDrawInRace = drawn.length ? Math.max(...drawn.map(x => Number(x.draw))) : 0;
+        const db = distBand(furlongs(rc.distance));
+        if (db && drawn.length >= 5 && maxDrawInRace > 1) {
+          const key = normCourse(rc.course) + '|' + db + '|' + fieldBand(drawn.length);
+          const cell = drawStats[key];
+          if (cell && cell.races >= 20) drawCell = { ...cell, key };
+        }
+      }
       sorted.forEach(r => {
         const sc = si.map[r.horse_id];
         const rk = (!si.unrankable && sc != null) ? si.vals.filter(v => v > sc).length : -1;
@@ -401,7 +454,14 @@
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
-          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}`));
+          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}${(() => {
+            if (!drawCell || !(Number(r.draw) >= 1)) return '<span class="dw"></span>';
+            const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
+            const third = rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high';
+            const p = drawCell[third] / drawCell.races * 100;
+            const cls = p >= 38.3 ? 'dw up' : p <= 28.3 ? 'dw down' : 'dw';
+            return `<span class="${cls}" title="${third.toUpperCase()} draws won ${p.toFixed(0)}% of ${drawCell.races} similar races (same course, distance band, field size) \u00b7 33% = no bias">${p.toFixed(0)}%</span>`;
+          })()}`));
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
 
@@ -426,6 +486,7 @@
   }
 
   load();
+  buildDrawStats();
 })();
 </script>
 </body>
