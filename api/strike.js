@@ -91,10 +91,10 @@ export default async function handler(req, res) {
     total = 0;
     for (const race of wh) {
       all.push({
-        date: race.date || '', off: offMin(race.off),
+        rtype: race.type || '', date: race.date || '', off: offMin(race.off),
         runners: (race.runners || []).map((x) => ({
           horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-          rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
+          rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec, draw: x.draw,
         })),
       });
     }
@@ -115,10 +115,10 @@ export default async function handler(req, res) {
       total = Number(page.total) || 0;
       for (const race of page.results || []) {
         all.push({
-          date: race.date || '', off: offMin(race.off),
+          rtype: race.type || '', date: race.date || '', off: offMin(race.off),
           runners: (race.runners || []).map((x) => ({
             horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
-            rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
+            rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec, draw: x.draw,
           })),
         });
       }
@@ -148,6 +148,8 @@ export default async function handler(req, res) {
 
   const byDay = {};
   const spBands = {};
+  const BL = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0,
+    mr: [0, 0, 0, 0], thirds: { low: 0, mid: 0, high: 0 }, flatN: 0 };
   const rateBands = {};
   let races = 0, skipped = 0;
   for (const race of all) {
@@ -172,6 +174,30 @@ export default async function handler(req, res) {
         const iconWin = wv != null && wv >= cut3;
         races++;
         (byDay[race.date] ||= []).push({ off: race.off, iconWin, wr });
+        BL.races++;
+        if (iconWin) BL.iconWins++;
+        if (wr === 0) BL.cupWins++;
+        const pricedBL = runners.filter((x) => x.horse_id && spDec2(x));
+        if (pricedBL.length >= 2) {
+          const byPrice = pricedBL.slice().sort((a, b) => spDec2(a) - spDec2(b));
+          if (byPrice[0].horse_id === win.horse_id) BL.favWins++;
+          const mrIdx = byPrice.findIndex((x) => x.horse_id === win.horse_id);
+          if (mrIdx >= 0) BL.mr[Math.min(mrIdx, 3)]++;
+        }
+        const wsp = spDec2(win);
+        if (wsp) { BL.spSum += wsp; BL.spN++; }
+        if (String(race.rtype || '').toLowerCase() === 'flat') {
+          const drawn = runners.filter((x) => Number(x.draw) >= 1);
+          const wd = Number(win.draw);
+          if (drawn.length >= 5 && wd >= 1) {
+            const mx = Math.max(...drawn.map((x) => Number(x.draw)));
+            if (mx > 1) {
+              const rel = (wd - 1) / (mx - 1);
+              BL.thirds[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high']++;
+              BL.flatN++;
+            }
+          }
+        }
         if (wr >= 0 && wr <= 2) {
           const band = spBand(spDec2(win));
           const key = ['cup','red','blue'][wr];
@@ -267,6 +293,7 @@ export default async function handler(req, res) {
     perIcon: { cup: iconStream(0, 12), red: iconStream(1, 18), blue: iconStream(2, 24) },
     spBands,
     rateBands,
+    baseline: BL,
     base: caseTotal ? Math.round((iconTotal / caseTotal) * 1000) / 10 : 0,
     hazard: Object.entries(hazard)
       .map(([gap, v]) => ({ gap: Number(gap), cases: v.cases, iconWins: v.iconWins,
