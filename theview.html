@@ -52,9 +52,6 @@
   .pl .mv.in{color:var(--green)}
   .pl .mv.out{color:var(--red)}
   .pl .od{color:var(--blue);font-weight:600;flex:none}
-  .pl{flex-wrap:wrap}
-  .pl .sub{width:100%;font-family:var(--mono);font-size:10px;color:var(--faint);padding-left:25px;margin-top:1px}
-  .pl .sub b{color:var(--dim);font-weight:600;letter-spacing:.04em}
   .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
   .pl .pr{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right;font-style:italic}
   .pl .pr.up{color:var(--green);font-weight:600}
@@ -88,7 +85,7 @@
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). On Today the wall re-pulls prices every 2½ minutes while open: ▲ green = backed in, ▼ red = drifted (8%+ move since the last cycle; hover for the exact prices). Under each horse: J = jockey and their last-7 form (real rides, oldest \u2192 newest, built once per jockey per day), H = the horse's own form figures. Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). On Today the wall re-pulls prices every 2½ minutes while open: ▲ green = backed in, ▼ red = drifted (8%+ move since the last cycle; hover for the exact prices). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -178,40 +175,6 @@
     return r.json();
   }
 
-  // 24h local cache + polite 2-lane queue for jockey last-7 form
-  const lsGet = (k) => { try { const x = JSON.parse(localStorage.getItem(k)); if (x && Date.now() - x.t < 86400000) return x.v; if (x) localStorage.removeItem(k); } catch {} return undefined; };
-  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify({ t: Date.now(), v })); } catch {} };
-  const JF = {};             // jockey_id -> form string ('' = fetched, unusable)
-  const JFpending = new Set();
-  const JFlanes = [Promise.resolve(), Promise.resolve()];
-  let JFi = 0;
-  function posChar(p) {
-    const s = String(p ?? '').trim();
-    if (/^\d+$/.test(s)) { const n = Number(s); return n >= 10 ? '0' : String(n); }
-    return s ? s[0].toUpperCase() : '-';
-  }
-  function queueJockeyForm(id) {
-    if (!id || JF[id] !== undefined || JFpending.has(id)) return;
-    const hit = lsGet('rsjf:' + id);
-    if (hit !== undefined) { JF[id] = hit; return; }
-    JFpending.add(id);
-    const lane = JFi++ % JFlanes.length;
-    JFlanes[lane] = JFlanes[lane].then(async () => {
-      try {
-        const d = await api('/v1/jockeys/' + id + '/results', { limit: 7 });
-        const races = (d.results || []).slice(0, 7);
-        const chars = races.map(race => {
-          const me = (race.runners || []).find(x => x.jockey_id === id);
-          return me ? posChar(me.position) : null;
-        }).filter(Boolean);
-        JF[id] = chars.reverse().join('');   // oldest -> newest, form-style
-      } catch { JF[id] = ''; }
-      lsSet('rsjf:' + id, JF[id]);
-      JFpending.delete(id);
-      document.querySelectorAll('[data-jid="' + id + '"]').forEach(s => { s.textContent = JF[id] || ''; });
-      await new Promise(ok => setTimeout(ok, 650));
-    });
-  }
   let courseFilter = '';
   let day = 'today';
   let cardsCache = null, winnersCache = null;
@@ -250,7 +213,6 @@
             race_class: race.class, distance: race.dist,
             runners: (race.runners || []).map(x => ({
               horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
-              jockey: x.jockey, jockey_id: x.jockey_id,
               position: x.position,
               odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
             })),
@@ -436,17 +398,7 @@
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
-          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}` +
-          (() => {
-            const bits = [];
-            if (r.jockey) {
-              if (r.jockey_id) queueJockeyForm(r.jockey_id);
-              const jf = r.jockey_id ? (JF[r.jockey_id] ?? '\u2026') : '';
-              bits.push(`J ${esc(r.jockey)} <b data-jid="${esc(r.jockey_id || '')}">${esc(jf)}</b>`);
-            }
-            if (r.form) bits.push(`H <b>${esc(String(r.form))}</b>`);
-            return bits.length ? `<span class="sub">${bits.join(' \u00b7 ')}</span>` : '';
-          })()));
+          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}`));
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
 
