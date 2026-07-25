@@ -631,11 +631,50 @@
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
 
+      // PAINT: 12-month trend probability per horse (empirical only, no hindsight)
+      let paintRank = null;
+      if (paintMode && yearBase && yearBase.races > 1000) {
+        const Y = yearBase;
+        const mrTot = Y.mr.reduce((a, v) => a + v, 0);
+        const pricedRs = rs.filter(r => r.horse_id && bestOdds(r));
+        if (mrTot && pricedRs.length >= 4) {
+          const trend = {};
+          pricedRs.forEach(r => {
+            const mr = mktRank[r.horse_id];
+            let p;
+            if (mr == null) p = 0.02;
+            else if (mr <= 2) p = Y.mr[mr] / mrTot;
+            else p = (Y.mr[3] / mrTot) / Math.max(1, pricedRs.length - 3);
+            const sc0 = si.map[r.horse_id];
+            const rk0 = (!si.unrankable && sc0 != null) ? si.vals.filter(x => x > sc0).length : 99;
+            if (rk0 <= 2 && Y.rateB) {
+              const key = ['cup','red','blue'][rk0];
+              const cell = (Y.rateB[key] || {})[bandOfDec(bestOdds(r).d)];
+              if (cell && cell.runs >= 30) p = (p + cell.wins / cell.runs) / 2;  // blend two empirical reads
+            }
+            if (drawCell && Number(r.draw) >= 1 && maxDrawInRace > 1) {
+              const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
+              const f = (drawCell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / drawCell.races) / (1/3);
+              p *= Math.max(0.7, Math.min(1.4, f));
+            }
+            trend[r.horse_id] = p;
+          });
+          const orderT = Object.entries(trend).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+          paintRank = {};
+          orderT.forEach((id, i) => { paintRank[id] = orderT.length > 1 ? i / (orderT.length - 1) : 0; });
+        }
+      }
       const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
         const oa = bestOdds(a), ob = bestOdds(b);
         if (!oa && !ob) return String(a.horse || '').localeCompare(String(b.horse || ''));
         if (!oa) return 1;   // non-runners last
         if (!ob) return -1;
+        if (paintRank) {
+          const pa = paintRank[a.horse_id], pb = paintRank[b.horse_id];
+          if (pa != null && pb != null && pa !== pb) return pa - pb;   // green (0) → red (1)
+          if (pa != null && pb == null) return -1;
+          if (pa == null && pb != null) return 1;
+        }
         if (texF) {
           const ta = texOf(a.horse_id), tb = texOf(b.horse_id);
           if (ta != null && tb != null && tb !== ta) return tb - ta;   // TEX high → low
@@ -696,39 +735,6 @@
           // note: fancied non-icons get NO penalty — the ghost lesson: the market usually knows
           if (v > bestV) { bestV = v; expId = r.horse_id; }
         });
-      }
-      // PAINT: 12-month trend probability per horse (empirical only, no hindsight)
-      let paintRank = null;
-      if (paintMode && yearBase && yearBase.races > 1000) {
-        const Y = yearBase;
-        const mrTot = Y.mr.reduce((a, v) => a + v, 0);
-        const pricedRs = rs.filter(r => r.horse_id && bestOdds(r));
-        if (mrTot && pricedRs.length >= 4) {
-          const trend = {};
-          pricedRs.forEach(r => {
-            const mr = mktRank[r.horse_id];
-            let p;
-            if (mr == null) p = 0.02;
-            else if (mr <= 2) p = Y.mr[mr] / mrTot;
-            else p = (Y.mr[3] / mrTot) / Math.max(1, pricedRs.length - 3);
-            const sc0 = si.map[r.horse_id];
-            const rk0 = (!si.unrankable && sc0 != null) ? si.vals.filter(x => x > sc0).length : 99;
-            if (rk0 <= 2 && Y.rateB) {
-              const key = ['cup','red','blue'][rk0];
-              const cell = (Y.rateB[key] || {})[bandOfDec(bestOdds(r).d)];
-              if (cell && cell.runs >= 30) p = (p + cell.wins / cell.runs) / 2;  // blend two empirical reads
-            }
-            if (drawCell && Number(r.draw) >= 1 && maxDrawInRace > 1) {
-              const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
-              const f = (drawCell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / drawCell.races) / (1/3);
-              p *= Math.max(0.7, Math.min(1.4, f));
-            }
-            trend[r.horse_id] = p;
-          });
-          const orderT = Object.entries(trend).sort((a, b) => b[1] - a[1]).map(([id]) => id);
-          paintRank = {};
-          orderT.forEach((id, i) => { paintRank[id] = orderT.length > 1 ? i / (orderT.length - 1) : 0; });
-        }
       }
       let raceHadU = false, uHorseWon = false;
       sorted.forEach(r => {
