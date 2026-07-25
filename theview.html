@@ -268,7 +268,7 @@
   let expMode = false;
   let texMode = false;
   let texFit = null;   // { w, top3, n, key }
-  const TEXF = ['market','score','form','draw','lowsum','t14'];
+  const TEXF = ['market','logMkt','mktRank','score','scoreRank','rpr','ts','form','fresh','t14','cd','drawBias','drawPos','lowSum','parityGap','icon'];
   function texFeats(rc) {
     const si2 = scoreMap(rc);
     const rs2 = (rc.runners || []).filter(r => r.horse_id);
@@ -276,7 +276,6 @@
     const isFlat2 = String(rc.type || '').toLowerCase() === 'flat';
     let bookT = 0;
     rs2.forEach(r => { const o = bestOdds(r); if (o) bookT += 1 / o.d; });
-    // draw cell (duplicated lookup, same rules as the column)
     let cell = null, maxD = 0;
     if (isFlat2 && drawStats) {
       const drawn = rs2.filter(x => Number(x.draw) >= 1);
@@ -287,22 +286,49 @@
         if (c && c.races >= 20) cell = c;
       }
     }
-    const raw = rs2.map(r => {
+    // parity within this helper
+    const scoresDesc2 = rs2.map(r => si2.map[r.horse_id]).filter(v => v != null).sort((a, b) => b - a);
+    const byOdds = rs2.filter(r => bestOdds(r)).sort((a, b) => bestOdds(a).d - bestOdds(b).d);
+    const mR = {};
+    byOdds.forEach((r, i) => { mR[r.horse_id] = i; });
+    const rprs2 = rs2.map(r => parseRt(r.rpr)), tss2 = rs2.map(r => parseRt(r.ts));
+    const raw = rs2.map((r, ri) => {
       const o = bestOdds(r);
-      const mkt = (o && bookT > 0) ? (1 / o.d) / bookT : 0;
-      const scr = si2.map[r.horse_id] ?? null;
-      const frm = formUnit(r.form);
-      let drw = 0.5;
-      if (cell && Number(r.draw) >= 1 && maxD > 1) {
+      const p = (o && bookT > 0) ? (1 / o.d) / bookT : null;
+      const sc = si2.map[r.horse_id] ?? null;
+      const scRank = sc != null ? si2.vals.filter(v => v > sc).length : null;
+      let drw = null, dpos = null;
+      if (Number(r.draw) >= 1 && maxD > 1) {
         const rel = (Number(r.draw) - 1) / (maxD - 1);
-        drw = cell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / cell.races;
+        dpos = 1 - rel;
+        if (cell) drw = cell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / cell.races;
       }
       const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10);
       const low = (isFlat2 && n >= 1 && dr >= 1) ? -(n + dr) : null;
-      return { id: r.horse_id, v: [mkt, scr, frm, drw, low, t14Unit(r)] };
+      const par = (mR[r.horse_id] != null && scoresDesc2.length)
+        ? scoresDesc2[Math.min(mR[r.horse_id], scoresDesc2.length - 1)] : null;
+      const pg = (par != null && sc != null) ? sc - par : null;
+      return { id: r.horse_id, v: [
+        p,
+        p != null ? Math.log(p + 0.01) : null,
+        mR[r.horse_id] != null ? -mR[r.horse_id] : null,
+        sc,
+        scRank != null ? -scRank : null,
+        relUnit(parseRt(r.rpr), rprs2),
+        relUnit(parseRt(r.ts), tss2),
+        formUnit(r.form),
+        freshUnit(r.last_run),
+        t14Unit(r),
+        cdUnit(r),
+        drw,
+        dpos,
+        low,
+        pg,
+        (scRank != null && scRank <= 2) ? 1 : 0,
+      ] };
     });
-    // min-max normalise each feature within the race (nulls -> 0.5)
-    for (let f = 0; f < 6; f++) {
+    const NF = 16;
+    for (let f = 0; f < NF; f++) {
       const vals2 = raw.map(x => x.v[f]).filter(v => v != null && !isNaN(v));
       const mn = Math.min(...vals2), mx = Math.max(...vals2);
       raw.forEach(x => {
@@ -324,32 +350,54 @@
       samples.push({ vecs: F.vecs, winIdx: wi });
     });
     if (samples.length < 5) return null;
-    const cands = [];
-    for (let i = 0; i < 6; i++) { const w = Array(6).fill(0); w[i] = 1; cands.push(w); }
-    for (let k = 0; k < 500; k++) {
-      const w = Array.from({ length: 6 }, () => Math.random());
-      const s = w.reduce((a, b) => a + b, 0);
-      cands.push(w.map(x => x / s));
-    }
-    let best = null;
-    for (const w of cands) {
+    const NF = 16;
+    const evalW = (w) => {
       let mrr = 0, top3 = 0, top1 = 0;
       for (const s of samples) {
-        const scores = s.vecs.map(v => v.reduce((a, x, i) => a + x * w[i], 0));
-        const winS = scores[s.winIdx];
-        const rank = scores.filter(x => x > winS).length;
+        let winS = 0;
+        const sc = s.vecs.map((v, i2) => {
+          let t = 0;
+          for (let k = 0; k < NF; k++) t += v[k] * w[k];
+          if (i2 === s.winIdx) winS = t;
+          return t;
+        });
+        let rank = 0;
+        for (const x of sc) if (x > winS) rank++;
         mrr += 1 / (rank + 1);
         if (rank < 3) top3++;
         if (rank === 0) top1++;
       }
-      if (!best || mrr > best.mrr) best = { w, mrr, top3, top1, n: samples.length };
+      return { score: top1 * 1e6 + mrr, mrr, top3, top1 };
+    };
+    // wide signed sweep
+    let best = null;
+    for (let k = 0; k < 3000; k++) {
+      const w = Array.from({ length: NF }, () => Math.random() * 2 - 1);
+      const s = w.reduce((a, b) => a + Math.abs(b), 0) || 1;
+      const wn = w.map(x => x / s);
+      const e = evalW(wn);
+      if (!best || e.score > best.score) best = { w: wn, ...e };
     }
-    return best;
+    // hill-climb refinement: mutate one weight at a time, keep improvements
+    let step = 0.3;
+    for (let it = 0; it < 1600; it++) {
+      const dim = it % NF;
+      for (const dir of [1, -1]) {
+        const w2 = best.w.slice();
+        w2[dim] += dir * step;
+        const e = evalW(w2);
+        if (e.score > best.score) best = { w: w2, ...e };
+      }
+      if (it % 160 === 159) step *= 0.7;
+    }
+    return { w: best.w, mrr: best.mrr, top3: best.top3, top1: best.top1, n: samples.length };
   }
   function texValOf(F, id, w) {
     const i = F.ids.indexOf(id);
     if (i < 0) return null;
-    return F.vecs[i].reduce((a, x, k) => a + x * w[k], 0) * 100;
+    let t = 0;
+    for (let k = 0; k < 16; k++) t += F.vecs[i][k] * w[k];
+    return t * 100;
   }
   let courseFilter = '';
   let day = 'today';
@@ -745,7 +793,8 @@
         if (T.uRaces) bits.push(`ghost (U) races settled: <b>${T.uRaces}</b> · the U horse won <b>${T.uWon}</b> (${pc(T.uWon, T.uRaces)}%)`);
         if (texMode && texFit) {
           if (texFit.w) {
-            const ws = texFit.w.map((v, i) => TEXF[i] + ' ' + Math.round(v * 100) + '%').join(' · ');
+                        const ranked = texFit.w.map((v, i) => ({ f: TEXF[i], v })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 6);
+            const ws = ranked.map(x => (x.v >= 0 ? '+' : '−') + x.f + ' ' + Math.abs(x.v).toFixed(2)).join(' · ');
             bits.push(`<span style="background:#FFF3C4;border-radius:5px;padding:1px 6px">TEX fit (${texFit.n} settled): ${ws} · winner top of card ${Math.round(texFit.top1 / texFit.n * 100)}% · in top 3 ${Math.round(texFit.top3 / texFit.n * 100)}% · fitted on today's winners — hindsight, not prediction</span>`);
           } else bits.push('TEX: not enough settled races to fit yet (needs 5+)');
         }
