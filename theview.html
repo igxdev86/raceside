@@ -85,7 +85,7 @@
     <button class="chip on" data-day="today">Today</button>
     <button class="chip" data-day="tomorrow">Tomorrow</button>
     <button class="chip" data-day="yesterday">Yesterday</button>
-    <span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;align-self:center;margin-left:auto"></span>
+    <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block"></span></span>
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
@@ -194,14 +194,23 @@
   async function buildDrawStats() {
     try {
       const cached = JSON.parse(localStorage.getItem('rsdraw:v1') || 'null');
-      if (cached && Date.now() - cached.t < 86400000) { drawStats = cached.v; render(); return; }
+      if (cached && Date.now() - cached.t < 86400000) {
+        drawStats = cached.v;
+        const ds0 = document.getElementById('drawstamp');
+        if (ds0) ds0.textContent = 'draw stats: 12 mo ready';
+        render();
+        return;
+      }
     } catch {}
     const nowD = new Date();
     const months = [];
     const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
     const merged = {};
+    let done = 0, fails = 0;
+    const ds = document.getElementById('drawstamp');
     for (const mo of months.reverse()) {
+      if (ds) ds.textContent = 'draw stats: building ' + (done + 1) + '/' + months.length + '\u2026';
       try {
         const r = await fetch('/api/draw?month=' + mo);
         const d = await r.json();
@@ -212,9 +221,11 @@
           }
           drawStats = merged;
           render();
-        }
-      } catch {}
+        } else fails++;
+      } catch { fails++; }
+      done++;
     }
+    if (ds) ds.textContent = fails >= months.length ? 'draw stats unavailable \u2014 tell Claude' : 'draw stats: 12 mo ready' + (fails ? ' (' + fails + ' months failed)' : '');
     try { localStorage.setItem('rsdraw:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
   }
   let courseFilter = '';
