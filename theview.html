@@ -419,16 +419,25 @@
       // order: icons (score desc) → rest by odds → unpriced (non-runners) at the bottom
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
+      const isFlat = String(rc.type || '').toLowerCase() === 'flat';
+      const sumOf = (r) => {
+        if (!isFlat) return null;
+        const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10);
+        return (n >= 1 && dr >= 1) ? n + dr : null;
+      };
       const sorted = rs.slice().filter(r => r.horse_id).sort((a, b) => {
         const oa = bestOdds(a), ob = bestOdds(b);
         if (!oa && !ob) return String(a.horse || '').localeCompare(String(b.horse || ''));
         if (!oa) return 1;   // non-runners last
         if (!ob) return -1;
+        const sa = sumOf(a), sb = sumOf(b);
+        if (sa != null && sb != null && sa !== sb) return sa - sb;   // number+draw sum low → high
+        if (sa != null && sb == null) return -1;
+        if (sa == null && sb != null) return 1;
         const pa = parityOf(a.horse_id), pb = parityOf(b.horse_id);
-        if (pa != null && pb != null && pb !== pa) return pb - pa;   // parity high → low
+        if (pa != null && pb != null && pb !== pa) return pb - pa;   // fallback: parity high → low
         return oa.d - ob.d;
       });
-      const isFlat = String(rc.type || '').toLowerCase() === 'flat';
       // draw stats cell for this race's conditions
       let drawCell = null, maxDrawInRace = 0;
       if (isFlat && drawStats) {
