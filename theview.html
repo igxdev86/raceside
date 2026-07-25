@@ -45,6 +45,7 @@
   .ibar{flex:1;height:5px;background:var(--card2);border-radius:3px;overflow:hidden}
   .ibar span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),#6FB2FF)}
   .pl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12px;padding:3.5px 0}
+  .pl.exp{background:#FFF3C4;border-radius:8px;padding-left:7px;padding-right:7px;margin-left:-7px;margin-right:-7px}
   .pl .ic{flex:none;width:18px;text-align:center}
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pl .no{font-family:var(--mono);font-weight:500;font-size:10.5px;color:var(--faint)}
@@ -89,7 +90,7 @@
     <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block;cursor:pointer" title="tap to rebuild draw stats"></span></span>
   </div>
   <div class="chips" id="chips"></div>
-  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button></div>
+  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button><button class="chip" id="expBtn">EXP</button></div>
   <div class="tile" id="todayRead" hidden style="margin-bottom:10px;max-width:970px;margin-left:auto;margin-right:auto">
     <span class="lbl" style="font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase">Today's read · winners so far</span>
     <div id="todayReadBody" style="font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.75;margin-top:6px"></div>
@@ -264,6 +265,7 @@
     if (P.races > 1000) { try { localStorage.setItem('rsbase:v2', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
   }
   let drawsMode = false;
+  let expMode = false;
   let courseFilter = '';
   let day = 'today';
   let cardsCache = null, winnersCache = null;
@@ -509,6 +511,34 @@
           if (cell && cell.races >= 20) drawCell = { ...cell, key };
         }
       }
+      // EXP: composite expectation from everything learned —
+      // market probability (the strongest signal), icon status, draw bias, value-shaped parity
+      let expId = null;
+      if (expMode) {
+        let bookT = 0;
+        rs.forEach(r => { const o = bestOdds(r); if (r.horse_id && o) bookT += 1 / o.d; });
+        let bestV = -1;
+        rs.forEach(r => {
+          if (!r.horse_id) return;
+          const o = bestOdds(r);
+          if (!o || !(bookT > 0)) return;
+          let v = (1 / o.d) / bookT;                       // market belief, overround-stripped
+          const sc0 = si.map[r.horse_id];
+          const rk0 = (!si.unrankable && sc0 != null) ? si.vals.filter(x => x > sc0).length : 99;
+          if (rk0 === 0) v *= 1.15;                        // top score: icons win ~60%, cup leads
+          else if (rk0 <= 2) v *= 1.08;
+          if (drawCell && Number(r.draw) >= 1 && maxDrawInRace > 1) {
+            const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
+            const third = rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high';
+            const f = (drawCell[third] / drawCell.races) / (1/3);
+            v *= Math.max(0.8, Math.min(1.25, f));         // 12mo draw bias, clamped
+          }
+          const par = parityOf(r.horse_id);
+          if (par != null && sc0 != null && sc0 - par >= 4) v *= 1.06;   // ratings above price
+          // note: fancied non-icons get NO penalty — the ghost lesson: the market usually knows
+          if (v > bestV) { bestV = v; expId = r.horse_id; }
+        });
+      }
       let raceHadU = false, uHorseWon = false;
       sorted.forEach(r => {
         const sc = si.map[r.horse_id];
@@ -534,7 +564,7 @@
           const cls = diff >= 4 ? 'pr up' : diff <= -4 ? 'pr down' : 'pr';
           prHtml = `<span class="${cls}" title="parity: the score this price implies · gap ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}">${par.toFixed(1)}</span>`;
         }
-        tile.appendChild(el('div','pl',
+        tile.appendChild(el('div','pl' + (expMode && expId === r.horse_id ? ' exp' : ''),
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
@@ -637,6 +667,8 @@
   buildYearBase();
   const dbn = document.getElementById('drawsBtn');
   if (dbn) dbn.onclick = () => { drawsMode = !drawsMode; dbn.classList.toggle('on', drawsMode); render(); };
+  const ebn = document.getElementById('expBtn');
+  if (ebn) ebn.onclick = () => { expMode = !expMode; ebn.classList.toggle('on', expMode); render(); };
   const dsEl = document.getElementById('drawstamp');
   if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v2'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
 })();
