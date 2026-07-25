@@ -48,6 +48,9 @@
   .pl .ic{flex:none;width:18px;text-align:center}
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pl .wp{color:var(--green);font-weight:600;flex:none;font-size:11px}
+  .pl .mv{flex:none;font-size:10px}
+  .pl .mv.in{color:var(--green)}
+  .pl .mv.out{color:var(--red)}
   .pl .od{color:var(--blue);font-weight:600;flex:none}
   .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
   .pl .pr{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right;font-style:italic}
@@ -78,10 +81,11 @@
     <button class="chip on" data-day="today">Today</button>
     <button class="chip" data-day="tomorrow">Tomorrow</button>
     <button class="chip" data-day="yesterday">Yesterday</button>
+    <span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;align-self:center;margin-left:auto"></span>
   </div>
   <div class="chips" id="chips"></div>
   <div class="grid" id="grid"><div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall…</div></div>
-  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). Not advice.</p>
+  <p class="note">Every GB &amp; IRE race today as a micro racecard: the three icon picks (🏆 top base score · ♦️ second · 🔹 third) with current best price and score, plus the market-implied chance an icon wins (the icons' share of the overround-normalised book), <span class="fav">F</span> marking the market favourite and <span class="un">U</span> marking ghosts — non-icon horses in the market's top three at 8/1 or shorter, priced inside the icons' odds range, while scoring clearly below the frame or carrying no ratings: the market treats them as contenders, the score doesn't, and one of the two knows something. Settled tiles show the winner with its rank badge, SP, and <span class="z">Z</span> when the top-scored horse won. The italic figure after each score is <b>parity</b> — the score that horse's market rank implies (the field's own scores dealt out in betting order). <span style="color:#7BE0A8">Green</span> = the ratings rate it 4+ points above its price (value shape); <span style="color:#FF8A93">red</span> = the market rates it 4+ points above its score (ghost shape). On the Yesterday tab, tiles are rebuilt from results: prices are SPs and scores lean on RPR + Topspeed alone (form and trainer data aren't in the results feed), so treat yesterday's scores as the leaner engine ruler. Scores otherwise are the 62-pt static build (RPR + TS + C&amp;D + trainer 14-day + form + freshness, field-relative). On Today the wall re-pulls prices every 2½ minutes while open: ▲ green = backed in, ▼ red = drifted (8%+ move since the last cycle; hover for the exact prices). Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -174,6 +178,9 @@
   let courseFilter = '';
   let day = 'today';
   let cardsCache = null, winnersCache = null;
+  let lastOdds = {};      // horse_id -> decimal at previous refresh
+  let moves = {};         // horse_id -> {from, to} when moved >= 8% since last cycle
+  let loading = false;
   document.querySelectorAll('#daychips .chip').forEach(b => b.onclick = () => {
     if (b.dataset.day === day) return;
     day = b.dataset.day;
@@ -183,6 +190,8 @@
   });
 
   async function load() {
+    if (loading) return;
+    loading = true;
     setHdate();
     const grid = $('grid');
     grid.innerHTML = '<div class="state" style="grid-column:1/-1"><div class="spinner"></div>building the wall\u2026</div>';
@@ -227,10 +236,33 @@
       const w = (race.runners || []).find(r => String(r.position) === '1');
       if (race.race_id && w && w.horse_id) winners[race.race_id] = { id: w.horse_id, name: w.horse || '', sp: w.sp || '' };
     });
+    // price movement since the last refresh cycle (today only)
+    moves = {};
+    if (day === 'today') {
+      const cur = {};
+      cards.forEach(rc => (rc.runners || []).forEach(r => {
+        if (!r.horse_id) return;
+        const o = bestOdds(r);
+        if (o) cur[r.horse_id] = o.d;
+      }));
+      if (Object.keys(lastOdds).length) {
+        for (const [id, d] of Object.entries(cur)) {
+          const prev = lastOdds[id];
+          if (prev && Math.abs(d - prev) / prev >= 0.08) moves[id] = { from: prev, to: d };
+        }
+      }
+      lastOdds = cur;
+    }
+    const stamp = document.getElementById('stamp');
+    if (stamp) stamp.textContent = 'odds as of ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     cardsCache = cards; winnersCache = winners;
     renderChips(cards);
     render();
+    loading = false;
   }
+
+  // auto-refresh: every 2.5 minutes while the Today tab is open and visible
+  setInterval(() => { if (day === 'today' && !document.hidden) load(); }, 150000);
 
   function renderChips(cards) {
     const chips = $('chips');
@@ -365,6 +397,7 @@
         tile.appendChild(el('div','pl',
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}>${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
+          `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
           `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${sc != null ? sc.toFixed(1) : ''}</span>${prHtml}`));
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
