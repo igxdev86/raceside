@@ -49,6 +49,7 @@
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pl .no{font-family:var(--mono);font-weight:500;font-size:10.5px;color:var(--faint)}
   .pl .ns{font-family:var(--mono);font-weight:300;font-size:10.5px;color:#E8853D}
+  .pl .wt{font-family:var(--mono);font-weight:400;font-size:10px;color:var(--dim)}
   .pl .wp{color:var(--green);font-weight:600;flex:none;font-size:11px}
   .pl .mv{flex:none;font-size:10px}
   .pl .mv.in{color:var(--green)}
@@ -271,7 +272,7 @@
             race_class: race.class, distance: race.dist, type: race.type,
             runners: (race.runners || []).map(x => ({
               horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
-              number: x.number, draw: x.draw,
+              number: x.number, draw: x.draw, weight_lbs: x.weight_lbs,
               position: x.position,
               odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
             })),
@@ -483,7 +484,7 @@
           prHtml = `<span class="${cls}" title="parity: the score this price implies · gap ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}">${par.toFixed(1)}</span>`;
         }
         tile.appendChild(el('div','pl',
-          `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
+          `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}${(() => { const lbs = Number(r.lbs ?? r.weight_lbs); return lbs > 0 ? ` <span class="wt">${(lbs * 0.45359237).toFixed(1)}kg</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
           `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${(() => { if (sc == null) return ''; const sm = sumOf(r); return (drawsMode && sm != null) ? (sc - sm).toFixed(1) : sc.toFixed(1); })()}</span>${prHtml}${(() => {
