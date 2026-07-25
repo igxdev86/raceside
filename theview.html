@@ -90,7 +90,7 @@
     <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block;cursor:pointer" title="tap to rebuild draw stats"></span></span>
   </div>
   <div class="chips" id="chips"></div>
-  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button><button class="chip" id="expBtn">EXP</button></div>
+  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button><button class="chip" id="expBtn">EXP</button><button class="chip" id="texBtn">TEX</button></div>
   <div class="tile" id="todayRead" hidden style="margin-bottom:10px;max-width:970px;margin-left:auto;margin-right:auto">
     <span class="lbl" style="font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase">Today's read · winners so far</span>
     <div id="todayReadBody" style="font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.75;margin-top:6px"></div>
@@ -266,6 +266,91 @@
   }
   let drawsMode = false;
   let expMode = false;
+  let texMode = false;
+  let texFit = null;   // { w, top3, n, key }
+  const TEXF = ['market','score','form','draw','lowsum','t14'];
+  function texFeats(rc) {
+    const si2 = scoreMap(rc);
+    const rs2 = (rc.runners || []).filter(r => r.horse_id);
+    if (si2.unrankable || rs2.length < 4) return null;
+    const isFlat2 = String(rc.type || '').toLowerCase() === 'flat';
+    let bookT = 0;
+    rs2.forEach(r => { const o = bestOdds(r); if (o) bookT += 1 / o.d; });
+    // draw cell (duplicated lookup, same rules as the column)
+    let cell = null, maxD = 0;
+    if (isFlat2 && drawStats) {
+      const drawn = rs2.filter(x => Number(x.draw) >= 1);
+      maxD = drawn.length ? Math.max(...drawn.map(x => Number(x.draw))) : 0;
+      const db = distBand(furlongs(rc.distance));
+      if (db && drawn.length >= 5 && maxD > 1) {
+        const c = drawStats[normCourse(rc.course) + '|' + db + '|' + fieldBand(drawn.length)];
+        if (c && c.races >= 20) cell = c;
+      }
+    }
+    const raw = rs2.map(r => {
+      const o = bestOdds(r);
+      const mkt = (o && bookT > 0) ? (1 / o.d) / bookT : 0;
+      const scr = si2.map[r.horse_id] ?? null;
+      const frm = formUnit(r.form);
+      let drw = 0.5;
+      if (cell && Number(r.draw) >= 1 && maxD > 1) {
+        const rel = (Number(r.draw) - 1) / (maxD - 1);
+        drw = cell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / cell.races;
+      }
+      const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10);
+      const low = (isFlat2 && n >= 1 && dr >= 1) ? -(n + dr) : null;
+      return { id: r.horse_id, v: [mkt, scr, frm, drw, low, t14Unit(r)] };
+    });
+    // min-max normalise each feature within the race (nulls -> 0.5)
+    for (let f = 0; f < 6; f++) {
+      const vals2 = raw.map(x => x.v[f]).filter(v => v != null && !isNaN(v));
+      const mn = Math.min(...vals2), mx = Math.max(...vals2);
+      raw.forEach(x => {
+        const v = x.v[f];
+        x.v[f] = (v == null || isNaN(v) || !(mx > mn)) ? 0.5 : (v - mn) / (mx - mn);
+      });
+    }
+    return { ids: raw.map(x => x.id), vecs: raw.map(x => x.v) };
+  }
+  function fitTex(cards, winners) {
+    const samples = [];
+    cards.forEach(rc => {
+      const w = winners[rc.race_id];
+      if (!w) return;
+      const F = texFeats(rc);
+      if (!F) return;
+      const wi = F.ids.indexOf(w.id);
+      if (wi < 0) return;
+      samples.push({ vecs: F.vecs, winIdx: wi });
+    });
+    if (samples.length < 5) return null;
+    const cands = [];
+    for (let i = 0; i < 6; i++) { const w = Array(6).fill(0); w[i] = 1; cands.push(w); }
+    for (let k = 0; k < 500; k++) {
+      const w = Array.from({ length: 6 }, () => Math.random());
+      const s = w.reduce((a, b) => a + b, 0);
+      cands.push(w.map(x => x / s));
+    }
+    let best = null;
+    for (const w of cands) {
+      let mrr = 0, top3 = 0, top1 = 0;
+      for (const s of samples) {
+        const scores = s.vecs.map(v => v.reduce((a, x, i) => a + x * w[i], 0));
+        const winS = scores[s.winIdx];
+        const rank = scores.filter(x => x > winS).length;
+        mrr += 1 / (rank + 1);
+        if (rank < 3) top3++;
+        if (rank === 0) top1++;
+      }
+      if (!best || mrr > best.mrr) best = { w, mrr, top3, top1, n: samples.length };
+    }
+    return best;
+  }
+  function texValOf(F, id, w) {
+    const i = F.ids.indexOf(id);
+    if (i < 0) return null;
+    return F.vecs[i].reduce((a, x, k) => a + x * w[k], 0) * 100;
+  }
   let courseFilter = '';
   let day = 'today';
   let cardsCache = null, winnersCache = null;
@@ -374,6 +459,13 @@
     const cards = (cardsCache || []).filter(rc => !courseFilter || rc.course === courseFilter);
     if (!cards.length) { grid.innerHTML = '<div class="state" style="grid-column:1/-1">No GB/IRE racing today.</div>'; return; }
     grid.innerHTML = '';
+    if (texMode) {
+      const key = day + ':' + Object.keys(winnersCache).length;
+      if (!texFit || texFit.key !== key) {
+        const fit = fitTex(cards, winnersCache);
+        texFit = fit ? { ...fit, key } : { key, w: null };
+      }
+    }
     const now = Date.now();
     const T = { settled: 0, icon: 0, z: 0, fav: 0, spSum: 0, spN: 0, mrTally: [0, 0, 0, 0],
       thirds: { low: 0, mid: 0, high: 0 }, uRaces: 0, uWon: 0, upset: null,
@@ -405,6 +497,8 @@
         return sm != null ? si.map[id] - sm : si.map[id];
       };
       const effVals = [...new Set(Object.keys(si.map).map(effVal).filter(v => v != null))].sort((a, b) => b - a);
+      const texF = (texMode && texFit && texFit.w) ? texFeats(rc) : null;
+      const texOf = (id) => texF ? texValOf(texF, id, texFit.w) : null;
       const tile = el('div','tile');
       const bits = [];
       if (rc.race_class) bits.push(String(rc.race_class).replace(/class\s*/i,'Cls '));
@@ -484,6 +578,12 @@
         if (!oa && !ob) return String(a.horse || '').localeCompare(String(b.horse || ''));
         if (!oa) return 1;   // non-runners last
         if (!ob) return -1;
+        if (texF) {
+          const ta = texOf(a.horse_id), tb = texOf(b.horse_id);
+          if (ta != null && tb != null && tb !== ta) return tb - ta;   // TEX high → low
+          if (ta != null && tb == null) return -1;
+          if (ta == null && tb != null) return 1;
+        }
         const sa = sumOf(a), sb = sumOf(b);
         if (drawsMode) {
           const va = (si.map[a.horse_id] != null && sa != null) ? si.map[a.horse_id] - sa : null;
@@ -568,7 +668,7 @@
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
-          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${(() => { if (sc == null) return ''; const sm = sumOf(r); return (drawsMode && sm != null) ? (sc - sm).toFixed(1) : sc.toFixed(1); })()}</span>${prHtml}${(() => {
+          `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${(() => { if (texF) { const tv = texOf(r.horse_id); if (tv != null) return tv.toFixed(1); } if (sc == null) return ''; const sm = sumOf(r); return (drawsMode && sm != null) ? (sc - sm).toFixed(1) : sc.toFixed(1); })()}</span>${prHtml}${(() => {
             if (!drawCell || !(Number(r.draw) >= 1)) return '<span class="dw"></span>';
             const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
             const third = rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high';
@@ -643,6 +743,12 @@
         if (th.low + th.mid + th.high >= 3) bits.push(`flat draw thirds: LOW <b>${th.low}</b> · MID <b>${th.mid}</b> · HIGH <b>${th.high}</b>`);
         if (T.nonIcon) bits.push(`non-icon winners: <b>${T.nonIcon}</b> · of those the favourite: <b>${T.nonIconFav}</b> (${pc(T.nonIconFav, T.nonIcon)}%)`);
         if (T.uRaces) bits.push(`ghost (U) races settled: <b>${T.uRaces}</b> · the U horse won <b>${T.uWon}</b> (${pc(T.uWon, T.uRaces)}%)`);
+        if (texMode && texFit) {
+          if (texFit.w) {
+            const ws = texFit.w.map((v, i) => TEXF[i] + ' ' + Math.round(v * 100) + '%').join(' · ');
+            bits.push(`<span style="background:#FFF3C4;border-radius:5px;padding:1px 6px">TEX fit (${texFit.n} settled): ${ws} · winner top of card ${Math.round(texFit.top1 / texFit.n * 100)}% · in top 3 ${Math.round(texFit.top3 / texFit.n * 100)}% · fitted on today's winners — hindsight, not prediction</span>`);
+          } else bits.push('TEX: not enough settled races to fit yet (needs 5+)');
+        }
         if (T.upset) bits.push(`biggest upset: <b>${esc(T.upset.name)}</b> at ${esc(String(T.upset.sp))} (${esc(T.upset.course)})`);
         if (yearBase && yearBase.races > 1000) {
           const Y = yearBase;
@@ -669,6 +775,8 @@
   if (dbn) dbn.onclick = () => { drawsMode = !drawsMode; dbn.classList.toggle('on', drawsMode); render(); };
   const ebn = document.getElementById('expBtn');
   if (ebn) ebn.onclick = () => { expMode = !expMode; ebn.classList.toggle('on', expMode); render(); };
+  const tbn = document.getElementById('texBtn');
+  if (tbn) tbn.onclick = () => { texMode = !texMode; tbn.classList.toggle('on', texMode); render(); };
   const dsEl = document.getElementById('drawstamp');
   if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v2'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
 })();
