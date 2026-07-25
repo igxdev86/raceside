@@ -90,7 +90,7 @@
     <span style="align-self:center;margin-left:auto;text-align:right"><span id="stamp" style="font-family:var(--mono);font-size:10.5px;color:#8FA3C8;display:block"></span><span id="drawstamp" style="font-family:var(--mono);font-size:10px;color:#5C6E96;display:block;cursor:pointer" title="tap to rebuild draw stats"></span></span>
   </div>
   <div class="chips" id="chips"></div>
-  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button><button class="chip" id="expBtn">EXP</button><button class="chip" id="texBtn">TEX</button></div>
+  <div class="chips"><button class="chip" id="drawsBtn">DRAWS</button><button class="chip" id="expBtn">EXP</button><button class="chip" id="texBtn">TEX</button><button class="chip" id="paintBtn">PAINT</button></div>
   <div class="tile" id="todayRead" hidden style="margin-bottom:10px;max-width:970px;margin-left:auto;margin-right:auto">
     <span class="lbl" style="font-family:var(--sans);font-weight:800;font-size:10.5px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase">Today's read · winners so far</span>
     <div id="todayReadBody" style="font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.75;margin-top:6px"></div>
@@ -240,14 +240,14 @@
   let yearBase = null;   // pooled 12-month baselines from the strike engine
   async function buildYearBase() {
     try {
-      const c = JSON.parse(localStorage.getItem('rsbase:v2') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsbase:v3') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.races > 1000) { yearBase = c.v; render(); return; }
     } catch {}
     const nowD = new Date();
     const months = [];
     const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
-    const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0, nonIconWins: 0, nonIconFav: 0 };
+    const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0, nonIconWins: 0, nonIconFav: 0, rateB: {} };
     for (const mo of months.reverse()) {
       try {
         const r = await fetch('/api/strike?month=' + mo + '&v=8');
@@ -255,6 +255,14 @@
         const B = d && d.baseline;
         if (r.ok && B) {
           ['races','iconWins','cupWins','favWins','spSum','spN','flatN','nonIconWins','nonIconFav'].forEach(k => { P[k] += B[k] || 0; });
+          for (const [ik, bands] of Object.entries(d.rateBands || {})) {
+            const t = (P.rateB[ik] ||= {});
+            for (const [b, c2] of Object.entries(bands)) {
+              const cc = (t[b] ||= { runs: 0, wins: 0 });
+              cc.runs += c2.runs || 0;
+              cc.wins += c2.wins || 0;
+            }
+          }
           for (let i = 0; i < 4; i++) P.mr[i] += (B.mr || [])[i] || 0;
           ['low','mid','high'].forEach(k => { P.thirds[k] += (B.thirds || {})[k] || 0; });
           yearBase = P;
@@ -262,11 +270,13 @@
         }
       } catch {}
     }
-    if (P.races > 1000) { try { localStorage.setItem('rsbase:v2', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
+    if (P.races > 1000) { try { localStorage.setItem('rsbase:v3', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
   }
   let drawsMode = false;
   let expMode = false;
   let texMode = false;
+  let paintMode = false;
+  const bandOfDec = (d) => d == null ? 'unk' : d < 2 ? 'odds_on' : d < 3 ? 'ev_2' : d < 5 ? 'f2_4' : d < 9 ? 'f4_8' : d < 17 ? 'f8_16' : 'f16p';
   let texFit = null;   // { w, top3, n, key }
   const TEXF = ['market','logMkt','mktRank','score','scoreRank','rpr','ts','form','fresh','t14','cd','drawBias','drawPos','lowSum','parityGap','icon'];
   function texFeats(rc) {
@@ -687,6 +697,39 @@
           if (v > bestV) { bestV = v; expId = r.horse_id; }
         });
       }
+      // PAINT: 12-month trend probability per horse (empirical only, no hindsight)
+      let paintRank = null;
+      if (paintMode && yearBase && yearBase.races > 1000) {
+        const Y = yearBase;
+        const mrTot = Y.mr.reduce((a, v) => a + v, 0);
+        const pricedRs = rs.filter(r => r.horse_id && bestOdds(r));
+        if (mrTot && pricedRs.length >= 4) {
+          const trend = {};
+          pricedRs.forEach(r => {
+            const mr = mktRank[r.horse_id];
+            let p;
+            if (mr == null) p = 0.02;
+            else if (mr <= 2) p = Y.mr[mr] / mrTot;
+            else p = (Y.mr[3] / mrTot) / Math.max(1, pricedRs.length - 3);
+            const sc0 = si.map[r.horse_id];
+            const rk0 = (!si.unrankable && sc0 != null) ? si.vals.filter(x => x > sc0).length : 99;
+            if (rk0 <= 2 && Y.rateB) {
+              const key = ['cup','red','blue'][rk0];
+              const cell = (Y.rateB[key] || {})[bandOfDec(bestOdds(r).d)];
+              if (cell && cell.runs >= 30) p = (p + cell.wins / cell.runs) / 2;  // blend two empirical reads
+            }
+            if (drawCell && Number(r.draw) >= 1 && maxDrawInRace > 1) {
+              const rel = (Number(r.draw) - 1) / (maxDrawInRace - 1);
+              const f = (drawCell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / drawCell.races) / (1/3);
+              p *= Math.max(0.7, Math.min(1.4, f));
+            }
+            trend[r.horse_id] = p;
+          });
+          const orderT = Object.entries(trend).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+          paintRank = {};
+          orderT.forEach((id, i) => { paintRank[id] = orderT.length > 1 ? i / (orderT.length - 1) : 0; });
+        }
+      }
       let raceHadU = false, uHorseWon = false;
       sorted.forEach(r => {
         const sc = si.map[r.horse_id];
@@ -712,7 +755,7 @@
           const cls = diff >= 4 ? 'pr up' : diff <= -4 ? 'pr down' : 'pr';
           prHtml = `<span class="${cls}" title="parity: the score this price implies · gap ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}">${par.toFixed(1)}</span>`;
         }
-        tile.appendChild(el('div','pl' + (expMode && expId === r.horse_id ? ' exp' : ''),
+        const plRow = el('div','pl' + (expMode && expId === r.horse_id ? ' exp' : ''),
           `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
@@ -723,7 +766,17 @@
             const p = drawCell[third] / drawCell.races * 100;
             const cls = p >= 38.3 ? 'dw up' : p <= 28.3 ? 'dw down' : 'dw';
             return `<span class="${cls}" title="${third.toUpperCase()} draws won ${p.toFixed(0)}% of ${drawCell.races} similar races (same course, distance band, field size) \u00b7 33% = no bias">${p.toFixed(0)}%</span>`;
-          })()}`));
+          })()}`);
+        if (paintRank && paintRank[r.horse_id] != null) {
+          const t = 1 - paintRank[r.horse_id];   // 1 = best
+          plRow.style.backgroundColor = `hsl(${Math.round(140 * t)},62%,${91 - Math.round(3 * t)}%)`;
+          plRow.style.borderRadius = '8px';
+          plRow.style.paddingLeft = '7px';
+          plRow.style.paddingRight = '7px';
+          plRow.style.marginLeft = '-7px';
+          plRow.style.marginRight = '-7px';
+        }
+        tile.appendChild(plRow);
       });
       if (si.unrankable) tile.appendChild(el('div','pl','<span class="ic">○</span><span class="nm" style="color:var(--faint)">unrankable field — no icons</span>'));
 
@@ -826,6 +879,8 @@
   if (ebn) ebn.onclick = () => { expMode = !expMode; ebn.classList.toggle('on', expMode); render(); };
   const tbn = document.getElementById('texBtn');
   if (tbn) tbn.onclick = () => { texMode = !texMode; tbn.classList.toggle('on', texMode); render(); };
+  const pbn = document.getElementById('paintBtn');
+  if (pbn) pbn.onclick = () => { paintMode = !paintMode; pbn.classList.toggle('on', paintMode); render(); };
   const dsEl = document.getElementById('drawstamp');
   if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v2'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
 })();
