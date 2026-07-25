@@ -433,6 +433,13 @@
         if (!oa) return 1;   // non-runners last
         if (!ob) return -1;
         const sa = sumOf(a), sb = sumOf(b);
+        if (drawsMode) {
+          const va = (si.map[a.horse_id] != null && sa != null) ? si.map[a.horse_id] - sa : null;
+          const vb = (si.map[b.horse_id] != null && sb != null) ? si.map[b.horse_id] - sb : null;
+          if (va != null && vb != null && vb !== va) return vb - va;   // adjusted score high → low
+          if (va != null && vb == null) return -1;
+          if (va == null && vb != null) return 1;
+        }
         if (sa != null && sb != null && sa !== sb) return sa - sb;   // number+draw sum low → high
         if (sa != null && sb == null) return -1;
         if (sa == null && sb != null) return 1;
