@@ -239,21 +239,21 @@
   let yearBase = null;   // pooled 12-month baselines from the strike engine
   async function buildYearBase() {
     try {
-      const c = JSON.parse(localStorage.getItem('rsbase:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsbase:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.races > 1000) { yearBase = c.v; render(); return; }
     } catch {}
     const nowD = new Date();
     const months = [];
     const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
-    const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0 };
+    const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0, nonIconWins: 0, nonIconFav: 0 };
     for (const mo of months.reverse()) {
       try {
-        const r = await fetch('/api/strike?month=' + mo + '&v=7');
+        const r = await fetch('/api/strike?month=' + mo + '&v=8');
         const d = await r.json();
         const B = d && d.baseline;
         if (r.ok && B) {
-          ['races','iconWins','cupWins','favWins','spSum','spN','flatN'].forEach(k => { P[k] += B[k] || 0; });
+          ['races','iconWins','cupWins','favWins','spSum','spN','flatN','nonIconWins','nonIconFav'].forEach(k => { P[k] += B[k] || 0; });
           for (let i = 0; i < 4; i++) P.mr[i] += (B.mr || [])[i] || 0;
           ['low','mid','high'].forEach(k => { P.thirds[k] += (B.thirds || {})[k] || 0; });
           yearBase = P;
@@ -261,7 +261,7 @@
         }
       } catch {}
     }
-    if (P.races > 1000) { try { localStorage.setItem('rsbase:v1', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
+    if (P.races > 1000) { try { localStorage.setItem('rsbase:v2', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
   }
   let drawsMode = false;
   let courseFilter = '';
@@ -374,7 +374,8 @@
     grid.innerHTML = '';
     const now = Date.now();
     const T = { settled: 0, icon: 0, z: 0, fav: 0, spSum: 0, spN: 0, mrTally: [0, 0, 0, 0],
-      thirds: { low: 0, mid: 0, high: 0 }, uRaces: 0, uWon: 0, upset: null };
+      thirds: { low: 0, mid: 0, high: 0 }, uRaces: 0, uWon: 0, upset: null,
+      nonIcon: 0, nonIconFav: 0 };
     const parseFrac = (s) => {
       const t = String(s || '').replace(/[FJC]+$/i, '').trim();
       if (t.includes('/')) { const [a, b] = t.split('/').map(Number); if (a > 0 && b > 0) return a / b + 1; }
@@ -565,7 +566,15 @@
           if (rk2 <= 2) T.icon++;
           if (rk2 === 0) T.z++;
         }
-        if (fav && fav.r.horse_id === w.id) T.fav++;
+        const winWasFav = !!(fav && fav.r.horse_id === w.id);
+        if (winWasFav) T.fav++;
+        if (!si.unrankable && si.map[w.id] != null) {
+          const wv3 = si.map[w.id];
+          if (si.vals.filter(v => v > wv3).length > 2) {
+            T.nonIcon++;
+            if (winWasFav) T.nonIconFav++;
+          }
+        }
         const mr = mktRank[w.id];
         if (mr != null) T.mrTally[Math.min(mr, 3)]++;
         const spd = parseFrac(w.sp);
@@ -602,6 +611,7 @@
         bits.push(`favourites <b>${T.fav}/${T.settled}</b> (${pc(T.fav, T.settled)}%) · winner from market slot: fav ${T.mrTally[0]} · 2nd ${T.mrTally[1]} · 3rd ${T.mrTally[2]} · bigger ${T.mrTally[3]}` + (T.spN ? ` · avg winning SP ${(T.spSum / T.spN - 1).toFixed(1)}/1` : ''));
         const th = T.thirds;
         if (th.low + th.mid + th.high >= 3) bits.push(`flat draw thirds: LOW <b>${th.low}</b> · MID <b>${th.mid}</b> · HIGH <b>${th.high}</b>`);
+        if (T.nonIcon) bits.push(`non-icon winners: <b>${T.nonIcon}</b> · of those the favourite: <b>${T.nonIconFav}</b> (${pc(T.nonIconFav, T.nonIcon)}%)`);
         if (T.uRaces) bits.push(`ghost (U) races settled: <b>${T.uRaces}</b> · the U horse won <b>${T.uWon}</b> (${pc(T.uWon, T.uRaces)}%)`);
         if (T.upset) bits.push(`biggest upset: <b>${esc(T.upset.name)}</b> at ${esc(String(T.upset.sp))} (${esc(T.upset.course)})`);
         if (yearBase && yearBase.races > 1000) {
@@ -612,6 +622,7 @@
           if (mrTot) yline += ` · slots ${Y.mr.map(v => yp(v, mrTot) + '%').join('/')}`;
           if (Y.spN) yline += ` · avg SP ${(Y.spSum / Y.spN - 1).toFixed(1)}/1`;
           if (Y.flatN) yline += ` · draw ${yp(Y.thirds.low, Y.flatN)}/${yp(Y.thirds.mid, Y.flatN)}/${yp(Y.thirds.high, Y.flatN)}%`;
+          if (Y.nonIconWins) yline += ` · non-icon winners were the fav ${yp(Y.nonIconFav, Y.nonIconWins)}% of the time (${Y.nonIconWins.toLocaleString()} cases)`;
           yline += '</span>';
           bits.push(yline);
         }
