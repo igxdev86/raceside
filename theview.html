@@ -631,6 +631,18 @@
       const rkOf = {};
       if (!si.unrankable) Object.keys(si.map).forEach(id => { rkOf[id] = si.vals.filter(v => v > si.map[id]).length; });
 
+      // draw stats cell for this race's conditions
+      let drawCell = null, maxDrawInRace = 0;
+      if (isFlat && drawStats) {
+        const drawn = rs.filter(x => Number(x.draw) >= 1);
+        maxDrawInRace = drawn.length ? Math.max(...drawn.map(x => Number(x.draw))) : 0;
+        const db = distBand(furlongs(rc.distance));
+        if (db && drawn.length >= 5 && maxDrawInRace > 1) {
+          const key = normCourse(rc.course) + '|' + db + '|' + fieldBand(drawn.length);
+          const cell = drawStats[key];
+          if (cell && cell.races >= 20) drawCell = { ...cell, key };
+        }
+      }
       // PAINT: 12-month trend probability per horse (empirical only, no hindsight)
       let paintRank = null;
       if (paintMode && yearBase && yearBase.races > 1000) {
@@ -696,18 +708,6 @@
         if (pa != null && pb != null && pb !== pa) return pb - pa;   // fallback: parity high → low
         return oa.d - ob.d;
       });
-      // draw stats cell for this race's conditions
-      let drawCell = null, maxDrawInRace = 0;
-      if (isFlat && drawStats) {
-        const drawn = rs.filter(x => Number(x.draw) >= 1);
-        maxDrawInRace = drawn.length ? Math.max(...drawn.map(x => Number(x.draw))) : 0;
-        const db = distBand(furlongs(rc.distance));
-        if (db && drawn.length >= 5 && maxDrawInRace > 1) {
-          const key = normCourse(rc.course) + '|' + db + '|' + fieldBand(drawn.length);
-          const cell = drawStats[key];
-          if (cell && cell.races >= 20) drawCell = { ...cell, key };
-        }
-      }
       // EXP: composite expectation from everything learned —
       // market probability (the strongest signal), icon status, draw bias, value-shaped parity
       let expId = null;
