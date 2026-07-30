@@ -52,6 +52,7 @@ export default async function handler(req, res) {
       for (const race of page.results || []) {
         if (!race.race_id || !race.date) continue;
         rows.push({
+          dist: race.dist || null, going: race.going || null, class: race.class || null,
           race_id: race.race_id,
           date: race.date,
           course: race.course || null,
@@ -72,11 +73,18 @@ export default async function handler(req, res) {
     return res.status(502).json({ ok: false, error: 'upstream', detail: String(e) });
   }
 
+  // chainable backfill hint: the month before the one just ingested
+  let prevMonth = null;
+  if (/^\d{4}-\d{2}$/.test(m)) {
+    const [yy2, mm2] = m.split('-').map(Number);
+    prevMonth = new Date(Date.UTC(yy2, mm2 - 2, 1)).toISOString().slice(0, 7);
+  }
   const up = await upsertResults(rows);
   res.setHeader('Cache-Control', 'no-store');
   return res.status(up.ok ? 200 : 500).json({
     ok: up.ok, from: fmt(start), to: fmt(end),
     fetched: rows.length, written: up.written || 0,
+    nextBackfill: prevMonth ? '/api/ingest?month=' + prevMonth : null,
     truncated: skip < total, error: up.error, detail: up.detail,
   });
 }
