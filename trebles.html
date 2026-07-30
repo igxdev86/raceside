@@ -92,7 +92,7 @@
     const status = $('status');
     let daysMap = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 100) daysMap = c.v;
     } catch {}
     if (!daysMap) {
@@ -105,22 +105,27 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=3');
+          const r = await fetch('/api/expback?month=' + mo + '&v=4');
           const d = await r.json();
-          if (r.ok && d && d.ok) {
-            Object.entries(d.days || {}).forEach(([dt, dd]) => { daysMap[dt] = dd; });
+          if (r.ok && d && d.ok && d.days && Object.keys(d.days).length) {
+            Object.entries(d.days).forEach(([dt, dd]) => { daysMap[dt] = dd; });
             render(daysMap);
           } else fails++;
         } catch { fails++; }
       }
-      status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : '12 months ready · tap to rebuild';
-      if (Object.keys(daysMap).length > 100) { try { localStorage.setItem('rstreb:v1', JSON.stringify({ t: Date.now(), v: daysMap })); } catch {} }
+      if (fails >= 10 && Object.keys(daysMap).length < 50) {
+        status.textContent = 'engine warming up — wait a minute, then tap here to rebuild';
+        $('ledger').innerHTML = '<div class="state">The day-level data isn\u2019t deployed to those cached months yet. Tap the line above in a minute to rebuild fresh.</div>';
+      } else {
+        status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : '12 months ready · tap to rebuild';
+      }
+      if (Object.keys(daysMap).length > 100) { try { localStorage.setItem('rstreb:v2', JSON.stringify({ t: Date.now(), v: daysMap })); } catch {} }
     } else {
       status.textContent = '12 months ready · tap to rebuild';
       render(daysMap);
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v1'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v1'); localStorage.removeItem('rstreb:v2'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
