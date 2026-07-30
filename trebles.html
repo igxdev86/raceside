@@ -73,6 +73,7 @@
   <div id="pickchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
   <div id="crschips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
   <div class="tiles" id="tiles" hidden>
+    <div class="tile"><span class="tl">STRIKE RATE</span><span class="tv" id="tSr">—</span><span class="ts" id="tSrSub"></span></div>
     <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
     <div class="tile"><span class="tl">STAKED / RETURNED</span><span class="tv" id="tSt">—</span><span class="ts" id="tStSub"></span></div>
     <div class="tile"><span class="tl">GREEN DAYS</span><span class="tv" id="tGd">—</span><span class="ts" id="tGdSub"></span></div>
@@ -335,10 +336,12 @@
 
     // tiles
     document.querySelectorAll('.stl')[0].textContent = 'Day by day' + (courseFilter ? ' · ' + courseFilter : '');
-    const tot = daysAll.reduce((a, d) => ({ st: a.st + d.bets, ret: a.ret + d.ret, pl: a.pl + d.pl, g: a.g + (d.pl > 0 ? 1 : 0) }), { st: 0, ret: 0, pl: 0, g: 0 });
+    const tot = daysAll.reduce((a, d) => ({ st: a.st + d.bets, ret: a.ret + d.ret, pl: a.pl + d.pl, g: a.g + (d.pl > 0 ? 1 : 0), pk: a.pk + d.n, w: a.w + d.w, lb: a.lb + d.landed, bb: a.bb + d.bets }), { st: 0, ret: 0, pl: 0, g: 0, pk: 0, w: 0, lb: 0, bb: 0 });
     const best = daysAll.slice().sort((a, b) => b.pl - a.pl)[0];
     const worst = daysAll.slice().sort((a, b) => a.pl - b.pl)[0];
     $('tiles').hidden = false;
+    $('tSr').textContent = tot.pk ? (tot.w / tot.pk * 100).toFixed(1) + '%' : '—';
+    $('tSrSub').textContent = tot.w.toLocaleString() + '/' + tot.pk.toLocaleString() + ' picks won · ' + tot.lb.toLocaleString() + '/' + tot.bb.toLocaleString() + ' ' + FOLD.toLowerCase() + 's landed';
     $('tPl').textContent = money(tot.pl);
     $('tPl').style.color = tot.pl >= 0 ? 'var(--green)' : 'var(--red)';
     $('tPlSub').textContent = 'ROI ' + (tot.pl / tot.st * 100).toFixed(1) + '% · ' + daysAll.length + ' racing days';
