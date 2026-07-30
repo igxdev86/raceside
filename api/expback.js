@@ -175,8 +175,12 @@ export default async function handler(req, res) {
             const rd2 = Math.round(d * 100) / 100;
             if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(rd2); cd.wins.push(rd2); }
             else { c.pl -= 1; totalT.pl -= 1; md.pl -= 1; }
+            const pkSc = map[pick.x.horse_id];
+            const pkRk = pkSc != null ? vals.filter((q) => q > pkSc).length : 99;
             cd.picks.push({
               t: race.offRaw, h: pick.x.horse || '', sp: rd2, won: won ? 1 : 0,
+              ic: pkRk <= 2 ? pkRk : null,
+              fv: pick.x.horse_id === byPrice[0].horse_id ? 1 : 0,
               ...(won ? {} : { wh: win.horse || '', wsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
             });
             const favWon = byPrice[0].horse_id === win.horse_id;
