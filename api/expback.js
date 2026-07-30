@@ -123,6 +123,7 @@ export default async function handler(req, res) {
   };
 
   const courses = {}; // course -> { n, w, pl, favW, favPl }
+  const meets = {};   // course -> { date: { n, w, pl } }
   const totalT = { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 };
 
   for (const race of all) {
@@ -161,11 +162,12 @@ export default async function handler(req, res) {
           });
           if (pick) {
             const c = (courses[race.course] ||= { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 });
+            const md = ((meets[race.course] ||= {})[race.date] ||= { n: 0, w: 0, pl: 0 });
             const won = pick.x.horse_id === win.horse_id;
             const d = spDec2(pick.x);
-            c.n++; totalT.n++;
-            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; }
-            else { c.pl -= 1; totalT.pl -= 1; }
+            c.n++; totalT.n++; md.n++;
+            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; }
+            else { c.pl -= 1; totalT.pl -= 1; md.pl -= 1; }
             const favWon = byPrice[0].horse_id === win.horse_id;
             const fd = spDec2(byPrice[0]);
             if (favWon) { c.favW++; totalT.favW++; c.favPl += fd - 1; totalT.favPl += fd - 1; }
@@ -182,11 +184,12 @@ export default async function handler(req, res) {
   }
 
   for (const c of Object.values(courses)) { c.pl = Math.round(c.pl * 100) / 100; c.favPl = Math.round(c.favPl * 100) / 100; }
+  for (const cm of Object.values(meets)) for (const md of Object.values(cm)) md.pl = Math.round(md.pl * 100) / 100;
   totalT.pl = Math.round(totalT.pl * 100) / 100;
   totalT.favPl = Math.round(totalT.favPl * 100) / 100;
 
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({ ok: true, month: m, source, total: totalT, courses });
+  return res.status(200).json({ ok: true, month: m, source, total: totalT, courses, meets });
 }
