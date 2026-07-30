@@ -75,9 +75,7 @@ export default async function handler(req, res) {
     analysisEnd = now;
   }
   let lookbackStart = new Date(analysisStart.getTime() - 14 * 86400000);
-  // clamp inside the API's 12-month results window so edge months don't 400
-  const windowFloor = new Date(now.getTime() - 363 * 86400000);
-  if (lookbackStart < windowFloor) lookbackStart = windowFloor;
+  // Pro plan: results reach far beyond 12 months — no window clamp needed
   const periodStart = fmt(analysisStart);
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
