@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     dist: race.dist || null, rtype: race.type || '',
     runners: (race.runners || []).map((x) => ({
       horse_id: x.horse_id, horse: x.horse, trainer_id: x.trainer_id, position: x.position,
-      rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
+      rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec, sire_id: x.sire_id || null,
     })),
     offRaw: race.off || '',
   });
@@ -264,6 +264,7 @@ export default async function handler(req, res) {
               t: race.offRaw, h: pick.x.horse || '', sp: rd2, won: won ? 1 : 0,
               ic: pkRk <= 2 ? pkRk : null,
               fv: pick.x.horse_id === byPrice[0].horse_id ? 1 : 0,
+              sid: pick.x.sire_id || null,
               ...(won ? {} : { wh: win.horse || '', wsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
               ...(paintPk ? (() => {
                 const pw = paintPk.x.horse_id === win.horse_id;
