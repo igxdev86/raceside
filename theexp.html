@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE EXP</title>
+<meta name="description" content="The EXP composite's pick in every race: record, full-cover multiples and the day acca.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --card2:#F0F3F8; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B; --yellow:#FFF3C4;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#FFD84D}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  @media (min-width:640px){.tiles{grid-template-columns:repeat(3,1fr)}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .tile.wide{grid-column:1/-1}
+  .tl{display:block;font-family:var(--sans);font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+  .tv{display:block;font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
+  .ts{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px;line-height:1.55}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+  .row{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+  .row:last-child{border-bottom:0}
+  .row .res{flex:none;width:20px;text-align:center;font-weight:700}
+  .row .off{color:var(--blue);font-weight:600;flex:none;min-width:42px}
+  .row .crs{font-family:var(--sans);font-weight:700;font-size:12.5px;flex:none;min-width:86px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .nm{font-family:var(--sans);font-weight:700;font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--yellow);border-radius:5px;padding:0 6px}
+  .row .od{color:var(--blue);font-weight:600;flex:none}
+  .row .pct{color:var(--green);font-weight:600;flex:none;font-size:11px}
+  .win{color:var(--green)}
+  .lose{color:var(--red)}
+  .pend{color:var(--faint)}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#FFD84D;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>EXP</b><small id="hdate"></small></div>
+    <a class="back" href="/theview.html">← the view</a>
+  </header>
+
+  <div class="chips" id="daychips">
+    <button class="chip on" data-day="today">Today</button>
+    <button class="chip" data-day="tomorrow">Tomorrow</button>
+    <button class="chip" data-day="yesterday">Yesterday</button>
+  </div>
+
+  <div class="tiles" id="tiles" hidden>
+    <div class="tile"><span class="tl">EXP RECORD</span><span class="tv" id="tRec">—</span><span class="ts" id="tRecSub"></span></div>
+    <div class="tile"><span class="tl">SINGLES · £1</span><span class="tv" id="tS1">—</span><span class="ts" id="tS1Sub"></span></div>
+    <div class="tile"><span class="tl">DOUBLES · £1</span><span class="tv" id="tS2">—</span><span class="ts" id="tS2Sub"></span></div>
+    <div class="tile"><span class="tl">TREBLES · £1</span><span class="tv" id="tS3">—</span><span class="ts" id="tS3Sub"></span></div>
+    <div class="tile"><span class="tl">4-FOLDS · £1</span><span class="tv" id="tS4">—</span><span class="ts" id="tS4Sub"></span></div>
+    <div class="tile"><span class="tl">5-FOLDS · £1</span><span class="tv" id="tS5">—</span><span class="ts" id="tS5Sub"></span></div>
+    <div class="tile wide"><span class="tl">TOP-5 ACCA · £1</span><span class="tv" id="tAcca">—</span><span class="ts" id="tAccaSub"></span></div>
+  </div>
+
+  <div class="sect">
+    <div class="stl">The picks</div>
+    <div id="picks"><div class="state"><div class="spinner"></div>working the card…</div></div>
+  </div>
+
+  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. Not advice; a system being marked in public.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+
+  // ---- scoring (mirrors The View exactly) ----
+  const parseRt = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s || s === '-' || s === '\u2013') return NaN;
+    const n = Number(s);
+    return n > 0 ? n : NaN;
+  };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function formUnit(fs) {
+    const chars = String(fs || '').replace(/[^0-9a-zA-Z]/g, '').slice(-3).split('');
+    if (!chars.length) return 0.4;
+    const val = (c) => c === '1' ? 1 : c === '2' ? 0.7 : c === '3' ? 0.5
+      : (c === '4' || c === '5') ? 0.3 : /[0-9]/.test(c) ? 0.15 : 0;
+    return chars.reduce((a, c) => a + val(c), 0) / chars.length;
+  }
+  function freshUnit(d) {
+    const n = Number(d);
+    if (isNaN(n)) return 0.4;
+    return n <= 30 ? 1 : n <= 60 ? 0.7 : n <= 100 ? 0.5 : n <= 200 ? 0.3 : 0.15;
+  }
+  function cdUnit(r) {
+    const fl = (r.past_results_flags || []).map(x => String(x).toLowerCase().trim());
+    const cd = fl.some(f => f === 'cd' || (f.includes('course') && f.includes('distance')));
+    const c = cd || fl.some(f => f === 'c' || (f.includes('course') && !f.includes('distance')));
+    const d = cd || fl.some(f => f === 'd' || (f.includes('distance') && !f.includes('course')));
+    return cd ? 1.0 : (c && d) ? 0.9 : c ? 0.65 : d ? 0.55 : 0.25;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function scoreMap(rc) {
+    const rs = rc.runners || [];
+    const map = {};
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    rs.forEach(r => {
+      if (!r.horse_id) return;
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 +
+        cdUnit(r) * 8 + t14Unit(r) * 5 + formUnit(r.form) * 8 + freshUnit(r.last_run) * 6) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    return { map, vals, unrankable: vals.length < 2 };
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
+      else qs.append(k, v);
+    }
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // ---- draw stats (shared cache with The View) ----
+  let drawStats = null;
+  const furlongs = (dist) => {
+    const s = String(dist || '').toLowerCase().replace(/\s/g, '');
+    const mch = s.match(/^(?:(\d+)m)?(?:(\d+)f)?/);
+    if (!mch) return null;
+    const f = (Number(mch[1]) || 0) * 8 + (Number(mch[2]) || 0);
+    return f > 0 ? f : null;
+  };
+  const distBand = (f) => f == null ? null : f <= 6 ? 'sprint' : f <= 8 ? 'mile' : f <= 12 ? 'middle' : 'staying';
+  const fieldBand = (n) => n <= 8 ? 'S' : n <= 12 ? 'M' : 'L';
+  const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
+  (function loadDraw() {
+    try {
+      const c = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 10) drawStats = c.v;
+    } catch {}
+  })();
+
+  // ---- EXP pick (identical rule to The View) ----
+  function expPick(rc) {
+    const si = scoreMap(rc);
+    const rs = (rc.runners || []).filter(r => r.horse_id);
+    if (rs.length < 4) return null;
+    const isFlat = String(rc.type || '').toLowerCase() === 'flat';
+    let bookT = 0;
+    rs.forEach(r => { const o = bestOdds(r); if (o) bookT += 1 / o.d; });
+    if (!(bookT > 0)) return null;
+    // draw cell
+    let cell = null, maxD = 0;
+    if (isFlat && drawStats) {
+      const drawn = rs.filter(x => Number(x.draw) >= 1);
+      maxD = drawn.length ? Math.max(...drawn.map(x => Number(x.draw))) : 0;
+      const db = distBand(furlongs(rc.distance));
+      if (db && drawn.length >= 5 && maxD > 1) {
+        const c = drawStats[normCourse(rc.course) + '|' + db + '|' + fieldBand(drawn.length)];
+        if (c && c.races >= 20) cell = c;
+      }
+    }
+    // parity
+    const scoresDesc = rs.map(r => si.map[r.horse_id]).filter(v => v != null).sort((a, b) => b - a);
+    const byOdds = rs.filter(r => bestOdds(r)).sort((a, b) => bestOdds(a).d - bestOdds(b).d);
+    const mR = {};
+    byOdds.forEach((r, i) => { mR[r.horse_id] = i; });
+    let best = null;
+    rs.forEach(r => {
+      const o = bestOdds(r);
+      if (!o) return;
+      let v = (1 / o.d) / bookT;
+      const sc = si.map[r.horse_id];
+      const rk = (!si.unrankable && sc != null) ? si.vals.filter(x => x > sc).length : 99;
+      if (rk === 0) v *= 1.15;
+      else if (rk <= 2) v *= 1.08;
+      if (cell && Number(r.draw) >= 1 && maxD > 1) {
+        const rel = (Number(r.draw) - 1) / (maxD - 1);
+        const f = (cell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / cell.races) / (1/3);
+        v *= Math.max(0.8, Math.min(1.25, f));
+      }
+      const par = (mR[r.horse_id] != null && scoresDesc.length)
+        ? scoresDesc[Math.min(mR[r.horse_id], scoresDesc.length - 1)] : null;
+      if (par != null && sc != null && sc - par >= 4) v *= 1.06;
+      if (!best || v > best.v) best = { r, o, v };
+    });
+    return best;
+  }
+
+  // ---- day handling ----
+  let day = 'today';
+  document.querySelectorAll('#daychips .chip').forEach(b => b.onclick = () => {
+    if (b.dataset.day === day) return;
+    day = b.dataset.day;
+    document.querySelectorAll('#daychips .chip').forEach(x => x.classList.toggle('on', x.dataset.day === day));
+    load();
+  });
+  function setHdate() {
+    const d = new Date();
+    if (day === 'tomorrow') d.setDate(d.getDate() + 1);
+    if (day === 'yesterday') d.setDate(d.getDate() - 1);
+    $('hdate').textContent = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  }
+
+  async function load() {
+    setHdate();
+    $('picks').innerHTML = '<div class="state"><div class="spinner"></div>working the card\u2026</div>';
+    $('tiles').hidden = true;
+    let cardsRes = null, resultsRes = null;
+    if (day === 'yesterday') {
+      const yd = new Date(); yd.setDate(yd.getDate() - 1);
+      const ds = yd.toISOString().slice(0, 10);
+      const racecards = [];
+      let skip = 0, total = Infinity, pages = 0;
+      while (skip < total && pages < 6) {
+        let page = null;
+        try { page = await api('/v1/results', { region: ['gb','ire'], start_date: ds, end_date: ds, limit: 50, skip }); } catch { break; }
+        total = Number(page.total) || 0;
+        (page.results || []).forEach(race => {
+          racecards.push({
+            race_id: race.race_id, region: race.region, course: race.course, type: race.type,
+            race_name: race.race_name, off_time: race.off, off_dt: race.off_dt || (ds + 'T00:00:00Z'),
+            distance: race.dist,
+            runners: (race.runners || []).map(x => ({
+              horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
+              number: x.number, draw: x.draw, position: x.position,
+              odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
+            })),
+          });
+        });
+        skip += 50; pages++;
+      }
+      cardsRes = { racecards };
+      resultsRes = { results: racecards.map(rc => ({ race_id: rc.race_id, runners: rc.runners.map(x => ({ horse_id: x.horse_id, position: x.position })) })) };
+    } else {
+      for (const tier of ['standard','basic','free']) {
+        try { cardsRes = await api('/v1/racecards/' + tier, { day }); break; } catch {}
+      }
+      if (day === 'today') { try { resultsRes = await api('/v1/results/today'); } catch {} }
+    }
+
+    const cards = ((cardsRes && cardsRes.racecards) || [])
+      .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
+      .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
+    const winners = {};
+    (((resultsRes && resultsRes.results) || [])).forEach(race => {
+      const w = (race.runners || []).find(r => String(r.position) === '1');
+      if (race.race_id && w && w.horse_id) winners[race.race_id] = w.horse_id;
+    });
+
+    const box = $('picks');
+    box.innerHTML = '';
+    const settledPicks = [];
+    const allPicks = [];
+    let any = false;
+    cards.forEach(rc => {
+      const p = expPick(rc);
+      if (!p) return;
+      any = true;
+      const wid = winners[rc.race_id];
+      const won = wid ? wid === p.r.horse_id : null;
+      allPicks.push({ p, rc, won });
+      if (won !== null) settledPicks.push({ d: p.o.d, won });
+      const res = won === null ? '<span class="pend">\u00b7</span>' : won ? '<span class="win">\u2713</span>' : '<span class="lose">\u2717</span>';
+      box.appendChild(el('div','row',
+        `<span class="res">${res}</span><span class="off">${esc(rc.off_time || '')}</span>` +
+        `<span class="crs">${esc(rc.course || '')}</span>` +
+        `<span class="nm">${esc(p.r.horse || '')}</span>` +
+        `<span class="pct">${Math.round(p.v * 100)}</span><span class="od">${esc(p.o.frac)}</span>`));
+    });
+    if (!any) { box.innerHTML = '<div class="state">No qualifying races.</div>'; return; }
+
+    // tiles
+    const n = settledPicks.length;
+    const wins = settledPicks.filter(x => x.won);
+    $('tiles').hidden = false;
+    $('tRec').textContent = n ? wins.length + '/' + n : '\u2014';
+    $('tRec').style.color = 'var(--ink)';
+    $('tRecSub').textContent = n ? Math.round(wins.length / n * 100) + '% of settled races' : 'nothing settled yet';
+    const e = [1];
+    for (const x of wins) {
+      for (let k = e.length; k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * x.d;
+    }
+    const comb = (n2, k) => { let r = 1; for (let i = 0; i < k; i++) r = r * (n2 - i) / (i + 1); return Math.round(r); };
+    for (let k = 1; k <= 5; k++) {
+      const tv = $('tS' + k), ts = $('tS' + k + 'Sub');
+      if (n < k) { tv.textContent = '\u2014'; ts.textContent = 'needs ' + k + '+ settled'; continue; }
+      const bets = comb(n, k);
+      const pl = (e[k] || 0) - bets;
+      tv.textContent = money(pl);
+      tv.style.color = pl >= 0 ? 'var(--green)' : 'var(--red)';
+      ts.textContent = bets.toLocaleString() + ' bets \u00d7 \u00a31 full cover';
+    }
+    // top-5 acca: strongest composites of the day
+    const top5 = allPicks.slice().sort((a, b) => b.p.v - a.p.v).slice(0, 5);
+    if (top5.length === 5) {
+      const legs = top5.map(x => `${esc(x.p.r.horse || '')} ${x.won === null ? '\u00b7' : x.won ? '\u2713' : '\u2717'}`).join(' / ');
+      const settledLegs = top5.filter(x => x.won !== null);
+      const lost = top5.some(x => x.won === false);
+      const allSettled = settledLegs.length === 5;
+      const runningOdds = top5.reduce((a, x) => a * ((x.won === null || x.won) ? x.p.o.d : 1), 1);
+      if (lost) {
+        $('tAcca').textContent = '\u2212\u00a31.00';
+        $('tAcca').style.color = 'var(--red)';
+        $('tAccaSub').innerHTML = legs + ' \u00b7 a leg went down';
+      } else if (allSettled) {
+        $('tAcca').textContent = money(runningOdds - 1);
+        $('tAcca').style.color = 'var(--green)';
+        $('tAccaSub').innerHTML = legs + ' \u00b7 LANDED at ' + runningOdds.toFixed(1) + '/1 combined';
+      } else {
+        $('tAcca').textContent = '\u00a3' + runningOdds.toFixed(2);
+        $('tAcca').style.color = 'var(--ink)';
+        $('tAccaSub').innerHTML = legs + ' \u00b7 potential return if the rest land';
+      }
+    } else {
+      $('tAcca').textContent = '\u2014';
+      $('tAccaSub').textContent = 'needs 5 qualifying races';
+    }
+  }
+
+  load();
+  if (!drawStats) setTimeout(() => { try { const c = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null'); if (c && c.v) { drawStats = c.v; load(); } } catch {} }, 8000);
+  setInterval(() => { if (day === 'today' && !document.hidden) load(); }, 150000);
+})();
+</script>
+</body>
+</html>
