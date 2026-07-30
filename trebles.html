@@ -89,7 +89,7 @@
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
-  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -125,7 +125,7 @@
   let pickFilter = '';
   const PF = [
     ['', 'All picks'], ['cup', '🏆 Cup'], ['red', '♦️ Red'], ['blue', '🔹 Blue'],
-    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT-top (fav+icon)'],
+    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'],
   ];
   const passPick = (p) => {
     switch (pickFilter) {
@@ -135,7 +135,6 @@
       case 'icon': return p.ic != null;
       case 'non': return p.ic == null;
       case 'fav': return p.fv === 1;
-      case 'paint': return p.fv === 1 && p.ic != null;
       default: return true;
     }
   };
@@ -151,6 +150,14 @@
     });
   }
   const deriveDay = (dd) => {
+    if (pickFilter === 'paint') {
+      // PAINT TOP is its own selection stream: the horse the PAINT view ranks #1 in each race
+      const pk = (dd.picks || []).filter(p => p.ph).map(p => ({
+        t: p.t, h: p.ph, sp: p.psp, won: p.pwon, ic: p.pic ?? null, fv: p.pfv,
+        wh: p.pwh, wsp: p.pwsp,
+      }));
+      return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
+    }
     const pk = (dd.picks || []).filter(passPick);
     return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
   };
@@ -210,7 +217,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v6') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v7') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -223,7 +230,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=8');
+          const r = await fetch('/api/expback?month=' + mo + '&v=9');
           const d = await r.json();
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
@@ -242,7 +249,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v6', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v7', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -250,7 +257,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v6'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v7'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
