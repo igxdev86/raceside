@@ -100,7 +100,7 @@
     <div id="backRows" style="margin-top:4px"></div>
   </div>
 
-  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. The 12-month table replays the EXP core (market × icon boosts × parity) at SP with the same leak-free score the engines use — no draw factor (distance isn't warehoused) and no form/freshness inputs, so it's the composite's skeleton, not its full live rule. Courses need 10+ picks to appear; sorted by ROI — small samples near the bottom of that range are noise, so weight the big-number rows. A green-tinted <b>STEADY</b> row means the profit is boring in the best way: 10+ meetings, at least half of them green, and still profitable with its single best day removed — the shape a real edge takes, rather than one spike carrying a year. “vs fav” is EXP's ROI minus just-backing-the-favourite's ROI at that course — the honest measure of whether EXP adds anything there. Not advice; a system being marked in public.</p>
+  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at SP on every tab (pending picks display the current card price until they run) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. The 12-month table replays the EXP core (market × icon boosts × parity) at SP with the same leak-free score the engines use — no draw factor (distance isn't warehoused) and no form/freshness inputs, so it's the composite's skeleton, not its full live rule. Courses need 10+ picks to appear; sorted by ROI — small samples near the bottom of that range are noise, so weight the big-number rows. A green-tinted <b>STEADY</b> row means the profit is boring in the best way: 10+ meetings, at least half of them green, and still profitable with its single best day removed — the shape a real edge takes, rather than one spike carrying a year. “vs fav” is EXP's ROI minus just-backing-the-favourite's ROI at that course — the honest measure of whether EXP adds anything there. Not advice; a system being marked in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -307,7 +307,7 @@
         skip += 50; pages++;
       }
       cardsRes = { racecards };
-      resultsRes = { results: racecards.map(rc => ({ race_id: rc.race_id, runners: rc.runners.map(x => ({ horse_id: x.horse_id, position: x.position })) })) };
+      resultsRes = { results: racecards.map(rc => ({ race_id: rc.race_id, runners: rc.runners.map(x => ({ horse_id: x.horse_id, position: x.position, sp_dec: (x.odds[0] || {}).decimal, sp: (x.odds[0] || {}).fractional })) })) };
     } else {
       for (const tier of ['standard','basic','free']) {
         try { cardsRes = await api('/v1/racecards/' + tier, { day }); break; } catch {}
@@ -319,9 +319,23 @@
       .filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
       .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
     const winners = {};
+    const spOf = {};   // race_id -> horse_id -> { d, frac }  (starting prices from the results feed)
     (((resultsRes && resultsRes.results) || [])).forEach(race => {
       const w = (race.runners || []).find(r => String(r.position) === '1');
       if (race.race_id && w && w.horse_id) winners[race.race_id] = w.horse_id;
+      if (race.race_id) {
+        const m2 = (spOf[race.race_id] ||= {});
+        (race.runners || []).forEach(r => {
+          if (!r.horse_id) return;
+          let d = Number(r.sp_dec);
+          if (!(d > 1)) {
+            const s = String(r.sp || '').replace(/[^\d/.]/g, '');
+            if (s.includes('/')) { const [a2, b2] = s.split('/').map(Number); if (a2 > 0 && b2 > 0) d = a2 / b2 + 1; }
+            else { const n2 = Number(s); if (n2 > 1) d = n2; }
+          }
+          if (d > 1) m2[r.horse_id] = { d, frac: r.sp || String(Math.round((d - 1) * 100) / 100) + '/1' };
+        });
+      }
     });
 
     dayPicks = [];
@@ -331,13 +345,15 @@
       if (!p) return;
       const wid = winners[rc.race_id];
       const won = wid ? wid === p.r.horse_id : null;
-      dayPicks.push({ p, rc, won });
+      const sp = (spOf[rc.race_id] || {})[p.r.horse_id] || null;   // SP once settled
+      const settleD = sp ? sp.d : p.o.d;                            // SP preferred, card price fallback
+      dayPicks.push({ p, rc, won, sp, settleD });
       const ck = String(rc.course || '?');
       const cc = (dayByCourse[ck] ||= { n: 0, w: 0, pl: 0, pend: 0 });
       if (won === null) cc.pend++;
       else {
         cc.n++;
-        if (won) { cc.w++; cc.pl += p.o.d - 1; }
+        if (won) { cc.w++; cc.pl += settleD - 1; }
         else cc.pl -= 1;
       }
     });
@@ -399,16 +415,17 @@
       $('tiles').hidden = true;
       return;
     }
-    picks.forEach(({ p, rc, won }) => {
+    picks.forEach(({ p, rc, won, sp }) => {
       const res = won === null ? '<span class="pend">·</span>' : won ? '<span class="win">✓</span>' : '<span class="lose">✗</span>';
+      const shown = (won !== null && sp) ? sp.frac + ' SP' : p.o.frac;
       box.appendChild(el('div','row',
         `<span class="res">${res}</span><span class="off">${esc(rc.off_time || '')}</span>` +
         `<span class="crs">${esc(rc.course || '')}</span>` +
         `<span class="nm">${esc(p.r.horse || '')}</span>` +
-        `<span class="pct">${Math.round(p.v * 100)}</span><span class="od">${esc(p.o.frac)}</span>`));
+        `<span class="pct">${Math.round(p.v * 100)}</span><span class="od">${esc(shown)}</span>`));
     });
 
-    const settledPicks = picks.filter(x => x.won !== null).map(x => ({ d: x.p.o.d, won: x.won }));
+    const settledPicks = picks.filter(x => x.won !== null).map(x => ({ d: x.settleD, won: x.won }));
     const n = settledPicks.length;
     const wins = settledPicks.filter(x => x.won);
     $('tiles').hidden = false;
@@ -434,7 +451,7 @@
       const settledLegs = top5.filter(x => x.won !== null);
       const lost = top5.some(x => x.won === false);
       const allSettled = settledLegs.length === 5;
-      const runningOdds = top5.reduce((a, x) => a * ((x.won === null || x.won) ? x.p.o.d : 1), 1);
+      const runningOdds = top5.reduce((a, x) => a * ((x.won === null) ? x.p.o.d : (x.won ? x.settleD : 1)), 1);
       if (lost) {
         $('tAcca').textContent = '−£1.00';
         $('tAcca').style.color = 'var(--red)';
