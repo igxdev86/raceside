@@ -189,27 +189,27 @@
     const status = $('status');
     let monthly = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rsdiff:v2') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsdiff:v3') || 'null');
       if (c && Date.now() - c.t < 86400000 && Array.isArray(c.v) && c.v.length >= 6) monthly = c.v;
     } catch {}
     if (!monthly) {
       const nowD = new Date();
       const months = [];
-      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
       monthly = [];
       let done = 0, fails = 0;
       for (const mo of months) {   // chronological: oldest first, so the split is honest
         status.textContent = 'searching ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/diff?month=' + mo + '&v=2');
+          const r = await fetch('/api/diff?month=' + mo + '&v=3');
           const d = await r.json();
           if (r.ok && d && d.ok) monthly.push({ month: mo, courses: d.courses, meets: d.meets || {} });
           else fails++;
         } catch { fails++; }
       }
       status.textContent = fails ? 'search done · ' + fails + ' months failed' : 'search done · 12 months';
-      if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v2', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
+      if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v3', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
     } else {
       status.textContent = 'search done · cached';
     }
@@ -217,7 +217,7 @@
     grade(monthly);
     loadPicks();
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsdiff:v1'); localStorage.removeItem('rsdiff:v2'); } catch {} verdicts = null; $('courses').innerHTML = ''; $('summary').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsdiff:v1'); localStorage.removeItem('rsdiff:v3'); } catch {} verdicts = null; $('courses').innerHTML = ''; $('summary').innerHTML = ''; build(); };
 
   function grade(monthly) {
     monthly.sort((a, b) => a.month.localeCompare(b.month));
