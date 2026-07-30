@@ -189,7 +189,7 @@
     const status = $('status');
     let monthly = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rsdiff:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsdiff:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && Array.isArray(c.v) && c.v.length >= 6) monthly = c.v;
     } catch {}
     if (!monthly) {
@@ -202,21 +202,22 @@
       for (const mo of months) {   // chronological: oldest first, so the split is honest
         status.textContent = 'searching ' + (++done) + '/' + months.length + '\u2026';
         try {
-          const r = await fetch('/api/diff?month=' + mo);
+          const r = await fetch('/api/diff?month=' + mo + '&v=2');
           const d = await r.json();
-          if (r.ok && d && d.ok) monthly.push({ month: mo, courses: d.courses });
+          if (r.ok && d && d.ok) monthly.push({ month: mo, courses: d.courses, meets: d.meets || {} });
           else fails++;
         } catch { fails++; }
       }
       status.textContent = fails ? 'search done \u00b7 ' + fails + ' months failed' : 'search done \u00b7 12 months';
-      if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v1', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
+      if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v2', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
     } else {
       status.textContent = 'search done \u00b7 cached';
     }
+    window.__diffMonthly = monthly;
     grade(monthly);
     loadPicks();
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsdiff:v1'); } catch {} verdicts = null; $('courses').innerHTML = ''; $('summary').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsdiff:v1'); localStorage.removeItem('rsdiff:v2'); } catch {} verdicts = null; $('courses').innerHTML = ''; $('summary').innerHTML = ''; build(); };
 
   function grade(monthly) {
     monthly.sort((a, b) => a.month.localeCompare(b.month));
@@ -272,7 +273,68 @@
       } else {
         inner += `<span style="flex:1;color:var(--faint)">no rule even profited in training \u2014 nothing to offer here</span>`;
       }
-      box.appendChild(el('div','row', inner));
+      const row = el('div','row', inner);
+      row.style.cursor = 'pointer';
+      row.title = 'tap for meeting-by-meeting bars';
+      box.appendChild(row);
+      row.onclick = () => {
+        const open = row.nextSibling && row.nextSibling.className === 'meetchart';
+        document.querySelectorAll('.meetchart').forEach(x => x.remove());
+        if (open) return;
+        const monthly = window.__diffMonthly || [];
+        const strat = v.strat || 'exp';
+        const cut = Math.max(1, monthly.length - 4);
+        const testMonths = new Set(monthly.slice(cut).map(mo => mo.month));
+        const days = [];
+        monthly.forEach(mo => {
+          const sm = ((mo.meets || {})[course] || {})[strat] || {};
+          Object.entries(sm).forEach(([dt, d2]) => days.push({ dt, ...d2, exam: testMonths.has(mo.month) }));
+        });
+        days.sort((a, b) => a.dt.localeCompare(b.dt));
+        if (!days.length) return;
+        const wrap = el('div','meetchart');
+        wrap.style.cssText = 'padding:10px 4px 6px;border-bottom:1px solid var(--line)';
+        wrap.appendChild(el('div', null, `<span style="font-family:var(--mono);font-size:10.5px;color:var(--dim)"><b>${esc(v.strat ? SNAMES[strat] : 'EXP (no alternative found)')}</b> · meeting by meeting · the gold line marks where training ends and the unseen months begin</span>`));
+        const detail = el('div', null, '<span style="font-family:var(--mono);font-size:11px;color:var(--dim)">tap a bar for that day</span>');
+        detail.style.cssText = 'min-height:18px;margin:4px 0';
+        wrap.appendChild(detail);
+        const chart = el('div', null);
+        chart.style.cssText = 'display:flex;align-items:stretch;gap:2px;height:96px';
+        const maxAbs = Math.max(0.5, ...days.map(d2 => Math.abs(d2.pl)));
+        let dividerDone = false;
+        days.forEach(d2 => {
+          if (d2.exam && !dividerDone) {
+            dividerDone = true;
+            const div = el('div', null);
+            div.style.cssText = 'width:2px;background:var(--gold);border-radius:1px;flex:none';
+            div.title = 'unseen months begin';
+            chart.appendChild(div);
+          }
+          const col = el('div', null);
+          col.style.cssText = 'flex:1;max-width:16px;display:flex;flex-direction:column;cursor:pointer' + (d2.exam ? ';background:rgba(184,134,11,.06)' : '');
+          const hpx = Math.max(2, Math.round(Math.abs(d2.pl) / maxAbs * 44));
+          const up = d2.pl >= 0;
+          const dtNice = new Date(d2.dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+          col.onclick = (ev) => {
+            ev.stopPropagation();
+            chart.querySelectorAll('[data-bar]').forEach(b2 => { b2.style.outline = 'none'; });
+            const bar2 = col.querySelector('[data-bar]');
+            if (bar2) bar2.style.outline = '2px solid var(--gold)';
+            detail.innerHTML = '<span style="font-family:var(--mono);font-size:11px"><b>' + dtNice + '</b>' + (d2.exam ? ' <span style="color:var(--gold)">[unseen]</span>' : '') + ' · ' + d2.w + '/' + d2.n + ' won · <b style="color:' + (up ? 'var(--green)' : 'var(--red)') + '">' + money(d2.pl) + '</b></span>';
+          };
+          col.innerHTML =
+            '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center">' +
+              (up ? '<div data-bar style="width:70%;height:' + hpx + 'px;background:var(--green);border-radius:2px 2px 0 0"></div>' : '') +
+            '</div>' +
+            '<div style="height:1px;background:var(--line)"></div>' +
+            '<div style="flex:1;display:flex;align-items:flex-start;justify-content:center">' +
+              (!up ? '<div data-bar style="width:70%;height:' + hpx + 'px;background:var(--red);border-radius:0 0 2px 2px"></div>' : '') +
+            '</div>';
+          chart.appendChild(col);
+        });
+        wrap.appendChild(chart);
+        row.after(wrap);
+      };
     });
     if (!list.length) box.innerHTML = '<div class="state">EXP wasn\u2019t red anywhere with 25+ picks \u2014 nothing for The Diff to fix.</div>';
   }
