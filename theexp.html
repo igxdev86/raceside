@@ -80,12 +80,17 @@
     <div class="tile wide"><span class="tl">TOP-5 ACCA · £1</span><span class="tv" id="tAcca">—</span><span class="ts" id="tAccaSub"></span></div>
   </div>
 
+  <div class="sect" id="courseSect" hidden>
+    <div class="stl">By course</div>
+    <div id="courses"></div>
+  </div>
+
   <div class="sect">
     <div class="stl">The picks</div>
     <div id="picks"><div class="state"><div class="spinner"></div>working the card…</div></div>
   </div>
 
-  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. Not advice; a system being marked in public.</p>
+  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. Not advice; a system being marked in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -301,6 +306,7 @@
     box.innerHTML = '';
     const settledPicks = [];
     const allPicks = [];
+    const byCourse = {};
     let any = false;
     cards.forEach(rc => {
       const p = expPick(rc);
@@ -310,6 +316,14 @@
       const won = wid ? wid === p.r.horse_id : null;
       allPicks.push({ p, rc, won });
       if (won !== null) settledPicks.push({ d: p.o.d, won });
+      const ck = String(rc.course || '?');
+      const cc = (byCourse[ck] ||= { n: 0, w: 0, pl: 0, pend: 0 });
+      if (won === null) cc.pend++;
+      else {
+        cc.n++;
+        if (won) { cc.w++; cc.pl += p.o.d - 1; }
+        else cc.pl -= 1;
+      }
       const res = won === null ? '<span class="pend">\u00b7</span>' : won ? '<span class="win">\u2713</span>' : '<span class="lose">\u2717</span>';
       box.appendChild(el('div','row',
         `<span class="res">${res}</span><span class="off">${esc(rc.off_time || '')}</span>` +
@@ -317,7 +331,24 @@
         `<span class="nm">${esc(p.r.horse || '')}</span>` +
         `<span class="pct">${Math.round(p.v * 100)}</span><span class="od">${esc(p.o.frac)}</span>`));
     });
-    if (!any) { box.innerHTML = '<div class="state">No qualifying races.</div>'; return; }
+    if (!any) { box.innerHTML = '<div class="state">No qualifying races.</div>'; $('courseSect').hidden = true; return; }
+
+    // per-course record
+    const cs = $('courses');
+    cs.innerHTML = '';
+    const entries = Object.entries(byCourse).sort((a, b) => b[1].pl - a[1].pl);
+    const anySettled = entries.some(([, c]) => c.n > 0);
+    if (anySettled) {
+      entries.forEach(([course, c]) => {
+        const plTxt = c.n ? `<b style="color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(c.pl)}</b>` : '<span class="pend">—</span>';
+        const rec = c.n ? `${c.w}/${c.n}` : '0 settled';
+        cs.appendChild(el('div','row',
+          `<span class="crs" style="min-width:120px">${esc(course)}</span>` +
+          `<span style="flex:1;font-family:var(--mono)">${rec}${c.pend ? ` <span class="pend">· ${c.pend} to run</span>` : ''}</span>` +
+          `<span style="font-family:var(--mono)">${plTxt}</span>`));
+      });
+      $('courseSect').hidden = false;
+    } else $('courseSect').hidden = true;
 
     // tiles
     const n = settledPicks.length;
