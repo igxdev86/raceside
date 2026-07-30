@@ -4,6 +4,8 @@
 // Per month (?month=YYYY-MM). API-sourced (distance isn't in the warehouse);
 // complete months cache at the CDN for 30 days so the cost is one-time.
 
+import { fetchResultsRange } from '../lib/db.js';
+
 export const config = { maxDuration: 60 };
 
 function furlongs(dist) {
@@ -36,6 +38,35 @@ export default async function handler(req, res) {
 
   const tally = {}; // course|distBand|fieldBand -> {races, low, mid, high}
   let skip = 0, total = Infinity, pages = 0, flatRaces = 0;
+  let source = 'api';
+  const gradeRace = (race) => {
+    if (String(race.type || '').toLowerCase() !== 'flat') return;
+    const db = distBand(furlongs(race.dist));
+    if (!db) return;
+    const drawn = (race.runners || []).filter((x) => Number(x.draw) >= 1);
+    if (drawn.length < 5) return;
+    const win = drawn.find((x) => String(x.position) === '1');
+    if (!win) return;
+    const maxD = Math.max(...drawn.map((x) => Number(x.draw)));
+    if (!(maxD > 1)) return;
+    const rel = (Number(win.draw) - 1) / (maxD - 1);
+    const third = rel < 1 / 3 ? 'low' : rel < 2 / 3 ? 'mid' : 'high';
+    const key = normCourse(race.course) + '|' + db + '|' + fieldBand(drawn.length);
+    const cell = (tally[key] ||= { races: 0, low: 0, mid: 0, high: 0 });
+    cell.races++;
+    cell[third]++;
+    flatRaces++;
+  };
+  // warehouse-first: rows carry dist once the schema migration has run
+  const wh = await fetchResultsRange(fmt(start), fmt(end));
+  if (wh && wh.length && wh.some((r) => r.dist)) {
+    source = 'warehouse';
+    for (const race of wh) gradeRace(race);
+    res.setHeader('Cache-Control', isCompleteMonth
+      ? 's-maxage=2592000, stale-while-revalidate=5184000'
+      : 's-maxage=21600, stale-while-revalidate=86400');
+    return res.status(200).json({ ok: true, month: m, source, flatRaces, tally });
+  }
   try {
     while (skip < total && pages < 40) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire` +
