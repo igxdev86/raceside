@@ -266,7 +266,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v9') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v10') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -279,8 +279,24 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=11');
-          const d = await r.json();
+          let r = await fetch('/api/expback?month=' + mo + '&v=12');
+          let d = await r.json();
+          // freshness check: this build needs sid/psid on picks — a month cached from an
+          // older engine lacks them and would silently empty the sire/paint tabs
+          const isStale = (dj) => {
+            if (!dj || !dj.ok || !dj.cdays) return false;
+            for (const cm of Object.values(dj.cdays)) {
+              for (const dd of Object.values(cm)) {
+                const p0 = (dd.picks || [])[0];
+                if (p0) return !('sid' in p0) || !('ph' in p0 && 'psid' in p0 || !('ph' in p0));
+              }
+            }
+            return false;
+          };
+          if (r.ok && isStale(d)) {
+            r = await fetch('/api/expback?month=' + mo + '&v=12&fresh=' + Date.now());
+            d = await r.json();
+          }
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
               const t = (loaded[crs] ||= {});
@@ -298,7 +314,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v9', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v10', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -306,7 +322,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v9'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v10'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
