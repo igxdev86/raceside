@@ -330,7 +330,7 @@
       const bets = combK(dd.n);
       const landed = combK(dd.wins.length);
       const ret = eK(dd.wins);
-      return { dt, n: dd.n, w: dd.wins.length, bets, landed, ret, pl: ret - bets, picks: dd.picks || [] };
+      return { dt, n: dd.n, w: dd.wins.length, sr: dd.n ? dd.wins.length / dd.n : 0, bets, landed, ret, pl: ret - bets, picks: dd.picks || [] };
     }).filter(d => d.bets > 0);
     if (!daysAll.length) return;
 
@@ -367,12 +367,12 @@
     const cumMap = {};
     daysAll.slice().sort((a, b) => a.dt.localeCompare(b.dt)).forEach(d => { cum += d.pl; cumMap[d.dt] = cum; });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === 1 ? ' ▴' : ' ▾') : ''}</th>`;
-    let html = '<div class="tablewrap"><table><thead><tr>' + th('dt','Date') + th('n','Picks') + th('w','Won') + th('bets','Bets £') + th('landed','Landed') + th('ret','Return') + th('pl','Day P/L') + th('dt2','Cum') + '</tr></thead><tbody>';
+    let html = '<div class="tablewrap"><table><thead><tr>' + th('dt','Date') + th('n','Picks') + th('w','Won') + th('sr','Strike') + th('bets','Bets £') + th('landed','Landed') + th('ret','Return') + th('pl','Day P/L') + th('dt2','Cum') + '</tr></thead><tbody>';
     rows.forEach((d, ri) => {
       const cls = d.dt === bestDt ? 'best' : d.dt === worstDt ? 'worst' : '';
       const c2 = cumMap[d.dt];
       html += `<tr class="dayrow ${cls}" data-ri="${ri}"><td>${new Date(d.dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })} <span style="color:var(--faint)">▸</span></td>` +
-        `<td>${d.n}</td><td>${d.w}</td><td>${d.bets.toLocaleString()}</td><td>${d.landed.toLocaleString()}</td>` +
+        `<td>${d.n}</td><td>${d.w}</td><td>${(d.sr * 100).toFixed(0)}%</td><td>${d.bets.toLocaleString()}</td><td>${d.landed.toLocaleString()}</td>` +
         `<td>£${Math.round(d.ret).toLocaleString()}</td>` +
         `<td class="${d.pl >= 0 ? 'pos' : 'neg'}">${money(d.pl)}</td>` +
         `<td class="${c2 >= 0 ? 'pos' : 'neg'}">${money(c2)}</td></tr>`;
@@ -406,7 +406,7 @@
         `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}${icg(p)}<b>${String(p.h).replace(/</g,'&lt;')}</b>${p.fv ? ' <span style="color:var(--blue);font-weight:600">F</span>' : ''} ${fr(p.sp)} ` +
         (p.won ? '<b class="pos">✓ won</b>' : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr(p.wsp) : ''}</span>`) +
         '</div>').join('');
-      sub.innerHTML = `<td colspan="8" style="text-align:left">${lines}</td>`;
+      sub.innerHTML = `<td colspan="9" style="text-align:left">${lines}</td>`;
       tr.after(sub);
     });
     box.querySelectorAll('th').forEach(t => t.onclick = () => {
