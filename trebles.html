@@ -89,7 +89,7 @@
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
-  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). SIRE+15 keeps only EXP picks whose sire strikes at 15%+ over 50+ runs (sharing the TOP SIRES build — give it a minute on first use, or open the sires page once). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -123,9 +123,51 @@
   let daysAll = [];
   let courseFilter = '';
   let pickFilter = '';
+  let sire15 = new Set();   // sires with 15%+ strike over 50+ runs (shared with the TOP SIRES build)
+  let sireReady = false;
+  async function loadSires() {
+    const apply = (sires) => {
+      sire15 = new Set(Object.entries(sires)
+        .filter(([, s]) => s.runs >= 50 && s.wins / s.runs >= 0.15)
+        .map(([id]) => id));
+      sireReady = true;
+      if (pickFilter === 'sire15') { renderChips(); render(activeDaysMap()); }
+    };
+    try {
+      const c = JSON.parse(localStorage.getItem('rssire:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && c.v.sires && Object.keys(c.v.sires).length > 200) { apply(c.v.sires); return; }
+    } catch {}
+    // no shared cache yet: quiet background build (same months as the sires page, cached for both)
+    const nowD = new Date();
+    const months = [];
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+    while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+    const sires = {};
+    const base = { runs: 0, wins: 0, exp: 0 };
+    for (const mo of months.reverse()) {
+      try {
+        const r = await fetch('/api/sires?month=' + mo);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          ['runs','wins','exp'].forEach(k => { base[k] += (d.baseline || {})[k] || 0; });
+          for (const [id, s] of Object.entries(d.sires || {})) {
+            const t = (sires[id] ||= { name: s.name, runs: 0, wins: 0, pl: 0, exp: 0,
+              flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 },
+              bands: { sprint: { runs: 0, wins: 0 }, mile: { runs: 0, wins: 0 }, middle: { runs: 0, wins: 0 }, staying: { runs: 0, wins: 0 } } });
+            t.runs += s.runs; t.wins += s.wins; t.pl += s.pl; t.exp += s.exp;
+          }
+        }
+      } catch {}
+    }
+    if (Object.keys(sires).length > 200) {
+      try { localStorage.setItem('rssire:v1', JSON.stringify({ t: Date.now(), v: { sires, baseline: base } })); } catch {}
+    }
+    apply(sires);
+  }
+  loadSires();
   const PF = [
     ['', 'All picks'], ['cup', '🏆 Cup'], ['red', '♦️ Red'], ['blue', '🔹 Blue'],
-    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'],
+    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'], ['sire15', 'SIRE+15'],
   ];
   const passPick = (p) => {
     switch (pickFilter) {
@@ -135,6 +177,7 @@
       case 'icon': return p.ic != null;
       case 'non': return p.ic == null;
       case 'fav': return p.fv === 1;
+      case 'sire15': return !!(p.sid && sire15.has(p.sid));
       default: return true;
     }
   };
@@ -150,6 +193,7 @@
     });
   }
   const deriveDay = (dd) => {
+    if (pickFilter === 'sire15' && !sireReady) return { n: 0, wins: [], picks: [] };
     if (pickFilter === 'paint') {
       // PAINT TOP is its own selection stream: the horse the PAINT view ranks #1 in each race
       const pk = (dd.picks || []).filter(p => p.ph).map(p => ({
@@ -217,7 +261,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v7') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v8') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -230,7 +274,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=9');
+          const r = await fetch('/api/expback?month=' + mo + '&v=10');
           const d = await r.json();
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
@@ -249,7 +293,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v7', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v8', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -257,7 +301,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v7'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v8'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
