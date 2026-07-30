@@ -32,6 +32,8 @@
   .chip.pos.on{background:var(--green);border-color:var(--green);color:#fff}
   .chip.neg{border-color:#8A3A48;color:#E58B99}
   .chip.neg.on{background:var(--red);border-color:var(--red);color:#fff}
+  .chip.gold{border-color:#D9A521;color:#FFD84D;box-shadow:0 0 0 1px rgba(217,165,33,.35)}
+  .chip.gold.on{background:#B8860B;border-color:#B8860B;color:#fff}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
@@ -132,30 +134,39 @@
     }
     return out;
   }
-  function coursePl(cm) {
-    let pl = 0;
-    for (const dd of Object.values(cm)) pl += eK(dd.wins) - combK(dd.n);
-    return pl;
+  function courseStats(cm) {
+    let pl = 0, days = 0, green = 0, bestD = -Infinity;
+    for (const dd of Object.values(cm)) {
+      const bets = combK(dd.n);
+      if (!bets) continue;
+      const dpl = eK(dd.wins) - bets;
+      pl += dpl; days++;
+      if (dpl > 0) green++;
+      if (dpl > bestD) bestD = dpl;
+    }
+    // consistent: profitable, 8+ betting days, half or more green, survives losing its best day
+    const consistent = pl > 0 && days >= 8 && green / days >= 0.5 && (pl - bestD) > 0;
+    return { pl, days, green, consistent };
   }
   function renderChips() {
     const box = $('crschips');
     box.innerHTML = '';
     const ranked = Object.entries(cdaysAll)
-      .map(([c, cm]) => ({ c, pl: coursePl(cm) }))
-      .sort((a, b) => b.pl - a.pl);
+      .map(([c, cm]) => ({ c, ...courseStats(cm) }))
+      .sort((a, b) => (b.consistent - a.consistent) || (b.pl - a.pl));
     if (ranked.length < 2) return;
-    const mk = (label, val, pl) => {
+    const mk = (label, val, st) => {
       const b = document.createElement('button');
       let cls = 'chip' + (courseFilter === val ? ' on' : '');
-      if (val && pl != null) cls += pl > 0 ? ' pos' : pl < 0 ? ' neg' : '';
+      if (val && st) cls += st.consistent ? ' gold' : st.pl > 0 ? ' pos' : st.pl < 0 ? ' neg' : '';
       b.className = cls;
       b.textContent = label;
-      if (val && pl != null) b.title = FOLD.toLowerCase() + 's here 12mo: ' + money(pl);
+      if (val && st) b.title = (st.consistent ? 'CONSISTENT · ' : '') + FOLD.toLowerCase() + 's here 12mo: ' + money(st.pl) + ' · ' + st.green + '/' + st.days + ' green days' + (st.consistent ? ' · still profitable without its best day' : '');
       b.onclick = () => { courseFilter = val; renderChips(); render(activeDaysMap()); };
       return b;
     };
     box.appendChild(mk('All', '', null));
-    ranked.forEach(({ c, pl }) => box.appendChild(mk(c, c, pl)));
+    ranked.forEach((st) => box.appendChild(mk(st.c, st.c, st)));
   }
 
   async function build() {
