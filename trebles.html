@@ -70,6 +70,7 @@
   </header>
 
   <div id="foldchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+  <div id="pickchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
   <div id="crschips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
   <div class="tiles" id="tiles" hidden>
     <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
@@ -119,18 +120,53 @@
     });
   })();
   let sortKey = 'dt', sortDir = -1;   // newest first by default
+  renderPickChips();
   let daysAll = [];
   let courseFilter = '';
-  let cdaysAll = {};   // course -> date -> {n, wins}
+  let pickFilter = '';
+  const PF = [
+    ['', 'All picks'], ['cup', '🏆 Cup'], ['red', '♦️ Red'], ['blue', '🔹 Blue'],
+    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT-top (fav+icon)'],
+  ];
+  const passPick = (p) => {
+    switch (pickFilter) {
+      case 'cup': return p.ic === 0;
+      case 'red': return p.ic === 1;
+      case 'blue': return p.ic === 2;
+      case 'icon': return p.ic != null;
+      case 'non': return p.ic == null;
+      case 'fav': return p.fv === 1;
+      case 'paint': return p.fv === 1 && p.ic != null;
+      default: return true;
+    }
+  };
+  function renderPickChips() {
+    const box = $('pickchips');
+    box.innerHTML = '';
+    PF.forEach(([val, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (pickFilter === val ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { pickFilter = val; renderPickChips(); renderChips(); render(activeDaysMap()); };
+      box.appendChild(b);
+    });
+  }
+  const deriveDay = (dd) => {
+    const pk = (dd.picks || []).filter(passPick);
+    return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
+  };
+  let cdaysAll = {};   // course -> date -> {n, wins, picks}
   function activeDaysMap() {
-    if (courseFilter) return cdaysAll[courseFilter] || {};
+    const src = courseFilter ? { x: cdaysAll[courseFilter] || {} } : cdaysAll;
     const out = {};
-    for (const cm of Object.values(cdaysAll)) {
+    for (const cm of Object.values(src)) {
       for (const [dt, dd] of Object.entries(cm)) {
+        const d2 = deriveDay(dd);
+        if (!d2.n) continue;
         const t = (out[dt] ||= { n: 0, wins: [], picks: [] });
-        t.n += dd.n;
-        t.wins.push(...dd.wins);
-        t.picks.push(...(dd.picks || []));
+        t.n += d2.n;
+        t.wins.push(...d2.wins);
+        t.picks.push(...d2.picks);
       }
     }
     return out;
@@ -138,9 +174,10 @@
   function courseStats(cm) {
     let pl = 0, days = 0, green = 0, bestD = -Infinity;
     for (const dd of Object.values(cm)) {
-      const bets = combK(dd.n);
+      const d2 = deriveDay(dd);
+      const bets = combK(d2.n);
       if (!bets) continue;
-      const dpl = eK(dd.wins) - bets;
+      const dpl = eK(d2.wins) - bets;
       pl += dpl; days++;
       if (dpl > 0) green++;
       if (dpl > bestD) bestD = dpl;
@@ -174,7 +211,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v5') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v6') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -187,7 +224,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=7');
+          const r = await fetch('/api/expback?month=' + mo + '&v=8');
           const d = await r.json();
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
@@ -206,7 +243,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v5', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v6', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -214,7 +251,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v5'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v6'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
@@ -290,8 +327,9 @@
       if (!d.picks.length) return;
       const sub = document.createElement('tr');
       sub.className = 'subpicks';
+      const icg = (p) => p.ic === 0 ? '🏆 ' : p.ic === 1 ? '♦️ ' : p.ic === 2 ? '🔹 ' : '';
       const lines = d.picks.map(p =>
-        `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr(p.sp)} ` +
+        `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}${icg(p)}<b>${String(p.h).replace(/</g,'&lt;')}</b>${p.fv ? ' <span style="color:var(--blue);font-weight:600">F</span>' : ''} ${fr(p.sp)} ` +
         (p.won ? '<b class="pos">✓ won</b>' : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr(p.wsp) : ''}</span>`) +
         '</div>').join('');
       sub.innerHTML = `<td colspan="8" style="text-align:left">${lines}</td>`;
