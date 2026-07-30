@@ -527,7 +527,7 @@
     const now = Date.now();
     const T = { settled: 0, icon: 0, z: 0, fav: 0, spSum: 0, spN: 0, mrTally: [0, 0, 0, 0],
       thirds: { low: 0, mid: 0, high: 0 }, uRaces: 0, uWon: 0, upset: null,
-      nonIcon: 0, nonIconFav: 0, expN: 0, expWins: 0 };
+      nonIcon: 0, nonIconFav: 0, expN: 0, expWins: 0, expPicks: [] };
     const parseFrac = (s) => {
       const t = String(s || '').replace(/[FJC]+$/i, '').trim();
       if (t.includes('/')) { const [a, b] = t.split('/').map(Number); if (a > 0 && b > 0) return a / b + 1; }
@@ -828,7 +828,14 @@
           }
         }
         if (raceHadU) { T.uRaces++; if (uHorseWon) T.uWon++; }
-        if (expId) { T.expN++; if (expId === w.id) T.expWins++; }
+        if (expId) {
+          T.expN++;
+          const won2 = expId === w.id;
+          if (won2) T.expWins++;
+          const er = rs.find(x => x.horse_id === expId);
+          const eo = er && bestOdds(er);
+          if (eo) T.expPicks.push({ d: eo.d, won: won2 });
+        }
         tile.appendChild(el('div','win',
           `<span class="lbl">WINNER </span><span class="who">${esc(w.name)}</span>` +
           `${w.sp ? ' <span style="color:var(--dim)">' + esc(String(w.sp)) + '</span>' : ''} ${badge}${z}`));
@@ -850,6 +857,25 @@
         const th = T.thirds;
         if (th.low + th.mid + th.high >= 3) bits.push(`flat draw thirds: LOW <b>${th.low}</b> · MID <b>${th.mid}</b> · HIGH <b>${th.high}</b>`);
         if (T.expN) bits.push(`EXP picks won <b style="background:#FFF3C4;border-radius:4px;padding:0 5px">${T.expWins}/${T.expN}</b> (${pc(T.expWins, T.expN)}%)`);
+        if (T.expPicks.length >= 1) {
+          // full-cover multiples on all EXP picks at £1 a line, settled at card prices
+          const n2 = T.expPicks.length;
+          const winsD = T.expPicks.filter(p2 => p2.won).map(p2 => p2.d);
+          const e = [1];
+          for (const dd of winsD) {
+            for (let k = e.length; k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * dd;
+          }
+          const comb = (n3, k) => { let r2 = 1; for (let i = 0; i < k; i++) r2 = r2 * (n3 - i) / (i + 1); return Math.round(r2); };
+          const names = ['singles','doubles','trebles','4-folds','5-folds'];
+          const rows2 = [];
+          for (let k = 1; k <= 5 && k <= n2; k++) {
+            const bets = comb(n2, k);
+            const ret = e[k] || 0;
+            const pl2 = ret - bets;
+            rows2.push(`${names[k-1]}: ${bets.toLocaleString()} × £1 → <b style="color:${pl2 >= 0 ? 'var(--green)' : 'var(--red)'}">${pl2 >= 0 ? '+' : '−'}£${Math.abs(pl2).toFixed(2)}</b>`);
+          }
+          bits.push(`<span style="color:var(--dim)">EXP full-cover at £1/line · ${rows2.join(' · ')} · card-price settle</span>`);
+        }
         if (T.nonIcon) bits.push(`non-icon winners: <b>${T.nonIcon}</b> · of those the favourite: <b>${T.nonIconFav}</b> (${pc(T.nonIconFav, T.nonIcon)}%)`);
         if (T.uRaces) bits.push(`ghost (U) races settled: <b>${T.uRaces}</b> · the U horse won <b>${T.uWon}</b> (${pc(T.uWon, T.uRaces)}%)`);
         if (texMode && texFit) {
