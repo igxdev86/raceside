@@ -459,7 +459,7 @@
     const status = $('backStatus'), totEl = $('backTotal'), rowsEl = $('backRows');
     let merged = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rsexpb:v2') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsexpb:v3') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.total && c.v.total.n > 1000) merged = c.v;
     } catch {}
     if (!merged) {
@@ -467,19 +467,23 @@
       const months = [];
       const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
-      merged = { total: { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 }, courses: {} };
+      merged = { total: { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 }, courses: {}, meets: {} };
       let done = 0, fails = 0;
       const failedMonths = [];
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo);
+          const r = await fetch('/api/expback?month=' + mo + '&v=2');
           const d = await r.json();
           if (r.ok && d && d.ok) {
             ['n','w','pl','favW','favPl'].forEach(k => { merged.total[k] += d.total[k] || 0; });
             for (const [crs, c2] of Object.entries(d.courses || {})) {
               const t = (merged.courses[crs] ||= { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 });
               ['n','w','pl','favW','favPl'].forEach(k => { t[k] += c2[k] || 0; });
+            }
+            for (const [crs, cm] of Object.entries(d.meets || {})) {
+              const t = (merged.meets[crs] ||= {});
+              for (const [dt, md] of Object.entries(cm)) t[dt] = md;
             }
             backData = merged;
             renderBacktest(merged, totEl, rowsEl);
@@ -489,7 +493,7 @@
       }
       status.textContent = fails >= months.length ? 'backtest unavailable — tell Claude'
         : '12 months ready' + (fails ? ' · failed: ' + failedMonths.join(', ') : '');
-      if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+      if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v3', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
     } else {
       status.textContent = '12 months ready';
       backData = merged;
@@ -552,13 +556,54 @@
     list.forEach(([crs, c]) => {
       const edge = (c.pl - c.favPl) / c.n;
       const roiV = c.pl / c.n * 100;
-      rowsEl.appendChild(el('div','row',
+      const row = el('div','row',
         `<span class="crs" style="min-width:120px">${esc(crs)}</span>` +
         `<span style="font-family:var(--mono);flex:1">${c.w}/${c.n} (${Math.round(c.w / c.n * 100)}%)</span>` +
         `<span style="font-family:var(--mono);min-width:52px;text-align:right;color:var(--faint)">${c.n}</span>` +
         `<span style="font-family:var(--mono);color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;min-width:74px;text-align:right">${money(c.pl)}</span>` +
         `<span style="font-family:var(--mono);min-width:56px;text-align:right;color:${roiV >= 0 ? 'var(--green)' : 'var(--red)'}">${roiV >= 0 ? '+' : '−'}${Math.abs(roiV).toFixed(1)}%</span>` +
-        `<span style="font-family:var(--mono);font-size:10.5px;min-width:74px;text-align:right;color:${edge >= 0 ? 'var(--green)' : 'var(--red)'}" title="EXP ROI minus favourite ROI at this course">${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`));
+        `<span style="font-family:var(--mono);font-size:10.5px;min-width:74px;text-align:right;color:${edge >= 0 ? 'var(--green)' : 'var(--red)'}" title="EXP ROI minus favourite ROI at this course">${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`);
+      row.style.cursor = 'pointer';
+      row.title = 'tap for meeting-by-meeting bars';
+      rowsEl.appendChild(row);
+      row.onclick = () => {
+        const open = row.nextSibling && row.nextSibling.className === 'meetchart';
+        document.querySelectorAll('.meetchart').forEach(x => x.remove());
+        if (open) return;
+        const cm = (M.meets || {})[crs];
+        if (!cm) return;
+        const days = Object.entries(cm).sort((a, b) => a[0].localeCompare(b[0]));
+        if (!days.length) return;
+        const maxAbs = Math.max(0.5, ...days.map(([, d2]) => Math.abs(d2.pl)));
+        const wrap = el('div', 'meetchart');
+        wrap.style.cssText = 'padding:10px 4px 6px;border-bottom:1px solid var(--line)';
+        const chart = el('div', null);
+        chart.style.cssText = 'display:flex;align-items:stretch;gap:2px;height:96px';
+        days.forEach(([dt, d2]) => {
+          const col = el('div', null);
+          col.style.cssText = 'flex:1;max-width:16px;display:flex;flex-direction:column';
+          const hpx = Math.max(2, Math.round(Math.abs(d2.pl) / maxAbs * 44));
+          const up = d2.pl >= 0;
+          const dtNice = new Date(dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          col.title = dtNice + ' · ' + d2.w + '/' + d2.n + ' · ' + money(d2.pl);
+          col.innerHTML =
+            '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center">' +
+              (up ? '<div style="width:70%;height:' + hpx + 'px;background:var(--green);border-radius:2px 2px 0 0"></div>' : '') +
+            '</div>' +
+            '<div style="height:1px;background:var(--line)"></div>' +
+            '<div style="flex:1;display:flex;align-items:flex-start;justify-content:center">' +
+              (!up ? '<div style="width:70%;height:' + hpx + 'px;background:var(--red);border-radius:0 0 2px 2px"></div>' : '') +
+            '</div>';
+          chart.appendChild(col);
+        });
+        wrap.appendChild(chart);
+        const best = days.slice().sort((a, b) => b[1].pl - a[1].pl)[0];
+        const worst = days.slice().sort((a, b) => a[1].pl - b[1].pl)[0];
+        const fmtD = (x) => new Date(x + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        wrap.appendChild(el('div', null,
+          `<span style="font-family:var(--mono);font-size:10px;color:var(--faint)">${days.length} meetings · £1 level stakes per race · best ${fmtD(best[0])} <b style="color:var(--green)">${money(best[1].pl)}</b> · worst ${fmtD(worst[0])} <b style="color:var(--red)">${money(worst[1].pl)}</b> · tap a bar's tooltip for the day</span>`));
+        row.after(wrap);
+      };
     });
   }
   buildBacktest();
