@@ -89,7 +89,7 @@
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
-  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). SIRE+15 keeps only EXP picks whose sire strikes at 15%+ over 50+ runs (sharing the TOP SIRES build — give it a minute on first use, or open the sires page once). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). SIPA is the PAINT-top selection kept only when its sire strikes 15%+ over 50+ runs — the trend leader with a proven bloodline behind it. SIRE+15 keeps only EXP picks whose sire strikes at 15%+ over 50+ runs (sharing the TOP SIRES build — give it a minute on first use, or open the sires page once). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -131,7 +131,7 @@
         .filter(([, s]) => s.runs >= 50 && s.wins / s.runs >= 0.15)
         .map(([id]) => id));
       sireReady = true;
-      if (pickFilter === 'sire15') { renderChips(); render(activeDaysMap()); }
+      if (pickFilter === 'sire15' || pickFilter === 'sipa') { renderChips(); render(activeDaysMap()); }
     };
     try {
       const c = JSON.parse(localStorage.getItem('rssire:v1') || 'null');
@@ -167,7 +167,7 @@
   loadSires();
   const PF = [
     ['', 'All picks'], ['cup', '🏆 Cup'], ['red', '♦️ Red'], ['blue', '🔹 Blue'],
-    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'], ['sire15', 'SIRE+15'],
+    ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'], ['sire15', 'SIRE+15'], ['sipa', 'SIPA'],
   ];
   const passPick = (p) => {
     switch (pickFilter) {
@@ -192,14 +192,19 @@
       box.appendChild(b);
     });
   }
+  const paintMap = (dd) => (dd.picks || []).filter(p => p.ph).map(p => ({
+    t: p.t, h: p.ph, sp: p.psp, won: p.pwon, ic: p.pic ?? null, fv: p.pfv, sid: p.psid ?? null,
+    wh: p.pwh, wsp: p.pwsp,
+  }));
   const deriveDay = (dd) => {
-    if (pickFilter === 'sire15' && !sireReady) return { n: 0, wins: [], picks: [] };
+    if ((pickFilter === 'sire15' || pickFilter === 'sipa') && !sireReady) return { n: 0, wins: [], picks: [] };
+    if (pickFilter === 'sipa') {
+      const pk = paintMap(dd).filter(p => p.sid && sire15.has(p.sid));
+      return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
+    }
     if (pickFilter === 'paint') {
       // PAINT TOP is its own selection stream: the horse the PAINT view ranks #1 in each race
-      const pk = (dd.picks || []).filter(p => p.ph).map(p => ({
-        t: p.t, h: p.ph, sp: p.psp, won: p.pwon, ic: p.pic ?? null, fv: p.pfv,
-        wh: p.pwh, wsp: p.pwsp,
-      }));
+      const pk = paintMap(dd);
       return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
     }
     const pk = (dd.picks || []).filter(passPick);
@@ -261,7 +266,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v8') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v9') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -274,7 +279,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=10');
+          const r = await fetch('/api/expback?month=' + mo + '&v=11');
           const d = await r.json();
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
@@ -293,7 +298,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v8', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v9', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -301,7 +306,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v8'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v9'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
