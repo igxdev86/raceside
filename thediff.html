@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE DIFF</title>
+<meta name="description" content="Where EXP loses, which simple rule would have won — validated out of sample.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B; --yellow:#FFF3C4;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#FF7A8A}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px;cursor:pointer}
+  .row{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+  .row:last-child{border-bottom:0}
+  .crs{font-family:var(--sans);font-weight:700;font-size:13px}
+  .badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:0 5px;vertical-align:1px}
+  .badge.val{color:var(--green);border:1px solid var(--green)}
+  .badge.fail{color:var(--faint);border:1px solid var(--line)}
+  .pick .nm{font-family:var(--sans);font-weight:700;font-size:13px;background:#FFE1E6;border-radius:5px;padding:0 6px}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#FF7A8A;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>DIFF</b><small id="hsub">where exp loses \u00b7 what wins instead</small></div>
+    <a class="back" href="/theexp.html">\u2190 the exp</a>
+  </header>
+
+  <div class="sect">
+    <div class="stl">Red courses \u00b7 the search</div>
+    <div class="status" id="status" title="tap to rebuild">building\u2026</div>
+    <div id="summary" style="font-family:var(--mono);font-size:12px;margin-top:8px"></div>
+    <div id="courses"></div>
+  </div>
+
+  <div class="sect">
+    <div class="stl">Live picks \u00b7 validated rules only</div>
+    <div id="pickstatus" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px"></div>
+    <div id="picks"><div class="state"><div class="spinner"></div>waiting for the search\u2026</div></div>
+  </div>
+
+  <p class="note">The method, in the open: for every course where the EXP composite lost money over 12 months, ten simple alternative rules are replayed at SP \u2014 favourite, second favourite, top score, top RPR, top Topspeed, biggest parity gap, low draw among the front three, EXP-when-not-favourite, lowest number+draw sum, best trainer form in the market. Each candidate is chosen on the <b>first 8 months only</b> and then marked on the <b>final 4 months it never saw</b>. Only rules profitable in BOTH windows earn a VALIDATED badge and a place in the live picks. Courses where nothing survives say so \u2014 that honesty is the point. Even a validated rule is one split of one year: treat these as leads to keep marking forward, not certainties. \u00a31 level stakes throughout. Not advice.</p>
+  <footer>RACESIDE \u00b7 data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  const SNAMES = {
+    fav: 'back the favourite', sec: 'back the 2nd favourite', cup: 'back the top score',
+    rpr: 'back the top RPR', ts: 'back the top Topspeed', par: 'back the biggest parity gap',
+    drawlo: 'lowest stall of the front 3 (flat)', expnf: 'EXP pick when not favourite',
+    sum: 'lowest number+draw sum of the front 4 (flat)', t14: 'hottest trainer in the front 3',
+  };
+
+  // ---- shared scoring (engine core ruler) ----
+  const parseRt = (v) => { const s = String(v ?? '').trim(); if (!s || s === '-' || s === '\u2013') return NaN; const n = Number(s); return n > 0 ? n : NaN; };
+  function relUnit(v, arr) {
+    const ns = arr.filter(x => !isNaN(x));
+    if (isNaN(v) || ns.length < 2) return 0.4;
+    const mn = Math.min(...ns), mx = Math.max(...ns);
+    return mx > mn ? (v - mn) / (mx - mn) : 0.6;
+  }
+  function t14Unit(r) {
+    const t = r.trainer_14_days || {};
+    const runs = Number(t.runs), wins = Number(t.wins);
+    if (!(runs > 0)) return 0.4;
+    let v = 0.15 + clamp01((wins / runs) / 0.25) * 0.85;
+    if (runs < 3) v = v * 0.5 + 0.2;
+    return v;
+  }
+  function bestOdds(r) {
+    const list = Array.isArray(r.odds) ? r.odds : [];
+    let best = null;
+    for (const o of list) {
+      const d = Number(o.decimal);
+      if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
+    }
+    return best;
+  }
+  async function api(path, params = {}) {
+    const qs = new URLSearchParams();
+    qs.set('path', path);
+    for (const [k, v] of Object.entries(params)) {
+      if (Array.isArray(v)) v.forEach(x => qs.append(k, x));
+      else qs.append(k, v);
+    }
+    const r = await fetch('/api/tra?' + qs.toString());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // ---- live pick per strategy from a racecard ----
+  function livePick(rc, strat) {
+    const rs = (rc.runners || []).filter(r => r.horse_id);
+    if (rs.length < 4) return null;
+    const priced = rs.filter(r => bestOdds(r));
+    if (priced.length < 4) return null;
+    const byPrice = priced.slice().sort((a, b) => bestOdds(a).d - bestOdds(b).d);
+    const isFlat = String(rc.type || '').toLowerCase() === 'flat';
+    const rprs = rs.map(r => parseRt(r.rpr)), tss = rs.map(r => parseRt(r.ts));
+    const map = {};
+    rs.forEach((r, i) => {
+      map[r.horse_id] = Math.round((relUnit(parseRt(r.rpr), rprs) * 22 + relUnit(parseRt(r.ts), tss) * 13 + t14Unit(r) * 5) * 100) / 100;
+    });
+    const vals = [...new Set(Object.values(map))].sort((a, b) => b - a);
+    if (vals.length < 2) return null;
+    const scoresDesc = Object.values(map).sort((a, b) => b - a);
+    const mR = {};
+    byPrice.forEach((r, i) => { mR[r.horse_id] = i; });
+    const bestBy = (fn, pool = priced) => {
+      let best = null, bv = -Infinity;
+      pool.forEach(r => { const v = fn(r); if (v != null && v > bv) { bv = v; best = r; } });
+      return best;
+    };
+    const expOf = () => {
+      let bookT = 0;
+      priced.forEach(r => { bookT += 1 / bestOdds(r).d; });
+      let pk = null;
+      priced.forEach(r => {
+        let v = (1 / bestOdds(r).d) / bookT;
+        const sc = map[r.horse_id];
+        const rk = sc != null ? vals.filter(q => q > sc).length : 99;
+        if (rk === 0) v *= 1.15;
+        else if (rk <= 2) v *= 1.08;
+        const par = scoresDesc[Math.min(mR[r.horse_id], scoresDesc.length - 1)];
+        if (par != null && sc != null && sc - par >= 4) v *= 1.06;
+        if (!pk || v > pk.v) pk = { r, v };
+      });
+      return pk && pk.r;
+    };
+    switch (strat) {
+      case 'fav': return byPrice[0];
+      case 'sec': return byPrice[1];
+      case 'cup': return bestBy(r => map[r.horse_id]);
+      case 'rpr': return bestBy(r => { const v = parseRt(r.rpr); return isNaN(v) ? null : v; });
+      case 'ts': return bestBy(r => { const v = parseRt(r.ts); return isNaN(v) ? null : v; });
+      case 'par': return bestBy(r => {
+        const sc = map[r.horse_id];
+        const par = scoresDesc[Math.min(mR[r.horse_id], scoresDesc.length - 1)];
+        if (sc == null || par == null) return null;
+        const g = sc - par;
+        return g >= 2 ? g : null;
+      });
+      case 'drawlo': return isFlat ? bestBy(r => { const d = Number(r.draw); return d >= 1 ? -d : null; }, byPrice.slice(0, 3)) : null;
+      case 'expnf': { const e = expOf(); return (e && e.horse_id !== byPrice[0].horse_id) ? e : null; }
+      case 'sum': return isFlat ? bestBy(r => {
+        const n = parseInt(r.number, 10), d = parseInt(r.draw, 10);
+        return (n >= 1 && d >= 1) ? -(n + d) : null;
+      }, byPrice.slice(0, 4)) : null;
+      case 't14': return bestBy(r => { const v = t14Unit(r); return v > 0.4 ? v : null; }, byPrice.slice(0, 3));
+      default: return null;
+    }
+  }
+
+  // ---- build: 12 months of diff data, train/test split ----
+  let verdicts = null; // course -> { expPl, expN, strat, trainPl, trainN, testPl, testN, validated }
+  async function build() {
+    const status = $('status');
+    let monthly = null;
+    try {
+      const c = JSON.parse(localStorage.getItem('rsdiff:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && Array.isArray(c.v) && c.v.length >= 6) monthly = c.v;
+    } catch {}
+    if (!monthly) {
+      const nowD = new Date();
+      const months = [];
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+      while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+      monthly = [];
+      let done = 0, fails = 0;
+      for (const mo of months) {   // chronological: oldest first, so the split is honest
+        status.textContent = 'searching ' + (++done) + '/' + months.length + '\u2026';
+        try {
+          const r = await fetch('/api/diff?month=' + mo);
+          const d = await r.json();
+          if (r.ok && d && d.ok) monthly.push({ month: mo, courses: d.courses });
+          else fails++;
+        } catch { fails++; }
+      }
+      status.textContent = fails ? 'search done \u00b7 ' + fails + ' months failed' : 'search done \u00b7 12 months';
+      if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v1', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
+    } else {
+      status.textContent = 'search done \u00b7 cached';
+    }
+    grade(monthly);
+    loadPicks();
+  }
+  $('status').onclick = () => { try { localStorage.removeItem('rsdiff:v1'); } catch {} verdicts = null; $('courses').innerHTML = ''; $('summary').innerHTML = ''; build(); };
+
+  function grade(monthly) {
+    monthly.sort((a, b) => a.month.localeCompare(b.month));
+    const cut = Math.max(1, monthly.length - 4);   // final 4 months are the exam
+    const trainM = monthly.slice(0, cut), testM = monthly.slice(cut);
+    const sum = (ms, course, strat) => {
+      const t = { n: 0, w: 0, pl: 0 };
+      ms.forEach(m => {
+        const c = (m.courses || {})[course];
+        const s = c && c[strat];
+        if (s) { t.n += s.n; t.w += s.w; t.pl += s.pl; }
+      });
+      return t;
+    };
+    const allCourses = new Set();
+    monthly.forEach(m => Object.keys(m.courses || {}).forEach(c => allCourses.add(c)));
+    verdicts = {};
+    for (const course of allCourses) {
+      const expAll = sum(monthly, course, 'exp');
+      if (expAll.n < 25 || expAll.pl >= 0) continue;   // red courses only, decent sample
+      let best = null;
+      for (const strat of Object.keys(SNAMES)) {
+        const tr = sum(trainM, course, strat);
+        if (tr.n < 12 || tr.pl <= 0) continue;
+        if (!best || tr.pl / tr.n > best.trainRoi) {
+          const te = sum(testM, course, strat);
+          best = { strat, trainPl: tr.pl, trainN: tr.n, trainRoi: tr.pl / tr.n, testPl: te.pl, testN: te.n };
+        }
+      }
+      verdicts[course] = {
+        expPl: Math.round(expAll.pl * 100) / 100, expN: expAll.n,
+        ...(best || {}),
+        validated: !!(best && best.testN >= 5 && best.testPl > 0),
+      };
+    }
+    renderVerdicts();
+  }
+
+  function renderVerdicts() {
+    const box = $('courses');
+    box.innerHTML = '';
+    const list = Object.entries(verdicts).sort((a, b) => (b[1].validated - a[1].validated) || (a[1].expPl - b[1].expPl));
+    const nVal = list.filter(([, v]) => v.validated).length;
+    $('summary').innerHTML = `<b>${list.length}</b> courses where EXP lost \u00b7 <b style="color:var(--green)">${nVal}</b> with a rule that survived the unseen months \u00b7 <b style="color:var(--faint)">${list.length - nVal}</b> where nothing did`;
+    list.forEach(([course, v]) => {
+      let inner = `<span class="crs" style="min-width:110px">${esc(course)}</span>` +
+        `<span style="color:var(--red);min-width:120px">EXP ${money(v.expPl)} <span style="color:var(--faint)">(${v.expN})</span></span>`;
+      if (v.strat) {
+        inner += `<span style="flex:1;min-width:200px">${esc(SNAMES[v.strat])}</span>` +
+          `<span style="color:var(--faint)">train ${money(v.trainPl)} (${v.trainN})</span>` +
+          `<span style="font-weight:600;color:${v.testPl > 0 ? 'var(--green)' : 'var(--red)'}">unseen ${money(v.testPl)} (${v.testN})</span>` +
+          `<span class="badge ${v.validated ? 'val' : 'fail'}">${v.validated ? 'VALIDATED' : 'FAILED THE EXAM'}</span>`;
+      } else {
+        inner += `<span style="flex:1;color:var(--faint)">no rule even profited in training \u2014 nothing to offer here</span>`;
+      }
+      box.appendChild(el('div','row', inner));
+    });
+    if (!list.length) box.innerHTML = '<div class="state">EXP wasn\u2019t red anywhere with 25+ picks \u2014 nothing for The Diff to fix.</div>';
+  }
+
+  // ---- live picks at validated courses ----
+  async function loadPicks() {
+    const box = $('picks'), ps = $('pickstatus');
+    const valCourses = Object.entries(verdicts || {}).filter(([, v]) => v.validated);
+    if (!valCourses.length) {
+      box.innerHTML = '<div class="state">No validated rules \u2014 so no picks. Silence is the honest output.</div>';
+      ps.textContent = '';
+      return;
+    }
+    box.innerHTML = '<div class="state"><div class="spinner"></div>checking today and tomorrow\u2026</div>';
+    let cards = [];
+    for (const day of ['today','tomorrow']) {
+      for (const tier of ['standard','basic','free']) {
+        try {
+          const d = await api('/v1/racecards/' + tier, { day });
+          (d.racecards || []).forEach(rc => { rc._day = day; cards.push(rc); });
+          break;
+        } catch {}
+      }
+    }
+    cards = cards.filter(rc => !rc.is_abandoned && ['gb','ire'].includes(String(rc.region || '').toLowerCase()))
+      .sort((a, b) => Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0));
+    box.innerHTML = '';
+    let any = 0;
+    const vmap = {};
+    valCourses.forEach(([c, v]) => { vmap[c.toLowerCase()] = v; });
+    cards.forEach(rc => {
+      const v = vmap[String(rc.course || '').toLowerCase()];
+      if (!v) return;
+      const pk = livePick(rc, v.strat);
+      if (!pk) return;
+      const o = bestOdds(pk);
+      any++;
+      box.appendChild(el('div','row pick',
+        `<span style="color:var(--faint);min-width:26px">${rc._day === 'today' ? 'TDY' : 'TMW'}</span>` +
+        `<span style="color:var(--blue);font-weight:600;min-width:42px">${esc(rc.off_time || '')}</span>` +
+        `<span class="crs" style="min-width:96px">${esc(rc.course || '')}</span>` +
+        `<span class="nm">${esc(pk.horse || '')}</span>` +
+        `<span style="color:var(--blue);font-weight:600">${o ? esc(o.frac) : ''}</span>` +
+        `<span style="color:var(--faint);font-size:10.5px;width:100%">${esc(SNAMES[v.strat])} \u00b7 unseen-months record ${money(v.testPl)} (${v.testN})</span>`));
+    });
+    ps.textContent = valCourses.length + ' validated course' + (valCourses.length === 1 ? '' : 's') + ' \u00b7 ' + any + ' pick' + (any === 1 ? '' : 's') + ' in the next two days';
+    if (!any) box.innerHTML = '<div class="state">No racing at validated courses today or tomorrow \u2014 the picks appear when those tracks race.</div>';
+  }
+
+  build();
+})();
+</script>
+</body>
+</html>
