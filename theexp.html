@@ -30,6 +30,8 @@
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
   .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .chip.pos{border-color:var(--green);color:#7DE3A8}
+  .chip.pos.on{background:var(--green);border-color:var(--green);color:#fff}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   @media (min-width:640px){.tiles{grid-template-columns:repeat(3,1fr)}}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
@@ -254,6 +256,13 @@
   let courseFilter = '';
   let dayPicks = [];
   let dayByCourse = {};
+  let backData = null;
+  function courseBack(name) {
+    if (!backData || !backData.courses) return null;
+    if (backData.courses[name]) return backData.courses[name];
+    const k = Object.keys(backData.courses).find(c => c.toLowerCase() === String(name).toLowerCase());
+    return k ? backData.courses[k] : null;
+  }
   document.querySelectorAll('#daychips .chip').forEach(b => b.onclick = () => {
     if (b.dataset.day === day) return;
     day = b.dataset.day;
@@ -342,7 +351,16 @@
     const courses = [...new Set(dayPicks.map(x => String(x.rc.course || '?')))].sort();
     if (courses.length < 2) return;
     const mk = (label, val) => {
-      const b = el('button', 'chip' + ((courseFilter === val) ? ' on' : ''), esc(label));
+      let cls = 'chip' + ((courseFilter === val) ? ' on' : '');
+      if (val) {
+        const cb = courseBack(val);
+        if (cb && cb.n >= 10 && cb.pl > 0) cls += ' pos';
+      }
+      const b = el('button', cls, esc(label));
+      if (val) {
+        const cb = courseBack(val);
+        if (cb && cb.n >= 10) b.title = '12mo EXP here: ' + cb.w + '/' + cb.n + ' · ' + money(cb.pl) + ' at £1 stakes';
+      }
       b.onclick = () => { courseFilter = val; renderCourseChips(); renderPicks(); };
       return b;
     };
@@ -462,7 +480,9 @@
               const t = (merged.courses[crs] ||= { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 });
               ['n','w','pl','favW','favPl'].forEach(k => { t[k] += c2[k] || 0; });
             }
+            backData = merged;
             renderBacktest(merged, totEl, rowsEl);
+            if (dayPicks.length) renderCourseChips();
           } else { fails++; failedMonths.push(mo); }
         } catch { fails++; failedMonths.push(mo); }
       }
@@ -471,7 +491,9 @@
       if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
     } else {
       status.textContent = '12 months ready';
+      backData = merged;
       renderBacktest(merged, totEl, rowsEl);
+      if (dayPicks.length) renderCourseChips();
     }
   }
   function renderBacktest(M, totEl, rowsEl) {
