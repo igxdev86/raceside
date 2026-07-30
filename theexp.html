@@ -257,6 +257,7 @@
   let dayPicks = [];
   let dayByCourse = {};
   let backData = null;
+  let backSort = { key: 'roi', dir: -1 };
   function courseBack(name) {
     if (!backData || !backData.courses) return null;
     if (backData.courses[name]) return backData.courses[name];
@@ -505,19 +506,59 @@
       `favourite in the same races <b style="color:${T2.favPl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(T2.favPl)}</b> (ROI ${roi(T2.favPl, T2.n)})`;
     rowsEl.innerHTML = '';
     const allCourses = Object.entries(M.courses);
+    const keyVal = ([crs, c]) => {
+      switch (backSort.key) {
+        case 'course': return crs.toLowerCase();
+        case 'n': return c.n;
+        case 'strike': return c.w / c.n;
+        case 'pl': return c.pl;
+        case 'edge': return (c.pl - c.favPl) / c.n;
+        default: return c.pl / c.n;   // roi
+      }
+    };
     const list = allCourses.filter(([, c]) => c.n >= 10)
-      .sort((a, b) => (b[1].pl / b[1].n) - (a[1].pl / a[1].n));
+      .sort((a, b) => {
+        const va = keyVal(a), vb = keyVal(b);
+        if (typeof va === 'string') return backSort.dir * va.localeCompare(vb);
+        return backSort.dir * (va - vb);
+      });
+    // sortable header
+    const hdr = el('div','row');
+    hdr.style.borderBottom = '2px solid var(--line)';
+    const cols = [
+      ['course','COURSE','min-width:120px;text-align:left'],
+      ['strike','RECORD','flex:1;text-align:left'],
+      ['n','PICKS','min-width:52px;text-align:right'],
+      ['pl','P/L','min-width:74px;text-align:right'],
+      ['roi','ROI','min-width:56px;text-align:right'],
+      ['edge','VS FAV','min-width:74px;text-align:right'],
+    ];
+    cols.forEach(([k, label, style]) => {
+      const arrow = backSort.key === k ? (backSort.dir === -1 ? ' ▾' : ' ▴') : '';
+      const s = el('span', null, `<b style="cursor:pointer;font-family:var(--sans);font-size:10px;letter-spacing:.06em;color:${backSort.key === k ? 'var(--gold)' : 'var(--dim)'}">${label}${arrow}</b>`);
+      s.style.cssText = style + ';font-family:var(--mono)';
+      s.onclick = () => {
+        if (backSort.key === k) backSort.dir *= -1;
+        else backSort = { key: k, dir: k === 'course' ? 1 : -1 };
+        renderBacktest(M, totEl, rowsEl);
+      };
+      hdr.appendChild(s);
+    });
+    rowsEl.appendChild(hdr);
     const st = $('backStatus');
     if (st && st.textContent.includes('ready')) {
       st.textContent = st.textContent.split(' · showing')[0] + ' · showing ' + list.length + ' of ' + allCourses.length + ' courses (10+ picks) · tap to rebuild';
     }
     list.forEach(([crs, c]) => {
-      const edge = c.pl / c.n - c.favPl / c.n;
+      const edge = (c.pl - c.favPl) / c.n;
+      const roiV = c.pl / c.n * 100;
       rowsEl.appendChild(el('div','row',
         `<span class="crs" style="min-width:120px">${esc(crs)}</span>` +
         `<span style="font-family:var(--mono);flex:1">${c.w}/${c.n} (${Math.round(c.w / c.n * 100)}%)</span>` +
+        `<span style="font-family:var(--mono);min-width:52px;text-align:right;color:var(--faint)">${c.n}</span>` +
         `<span style="font-family:var(--mono);color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;min-width:74px;text-align:right">${money(c.pl)}</span>` +
-        `<span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);min-width:96px;text-align:right" title="EXP ROI minus favourite ROI at this course">vs fav ${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`));
+        `<span style="font-family:var(--mono);min-width:56px;text-align:right;color:${roiV >= 0 ? 'var(--green)' : 'var(--red)'}">${roiV >= 0 ? '+' : '−'}${Math.abs(roiV).toFixed(1)}%</span>` +
+        `<span style="font-family:var(--mono);font-size:10.5px;min-width:74px;text-align:right;color:${edge >= 0 ? 'var(--green)' : 'var(--red)'}" title="EXP ROI minus favourite ROI at this course">${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`));
     });
   }
   buildBacktest();
