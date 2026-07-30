@@ -90,7 +90,14 @@
     <div id="picks"><div class="state"><div class="spinner"></div>working the card…</div></div>
   </div>
 
-  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. Not advice; a system being marked in public.</p>
+  <div class="sect" id="backSect">
+    <div class="stl">12 months · best courses</div>
+    <div id="backStatus" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px">building…</div>
+    <div id="backTotal" style="font-family:var(--mono);font-size:12px;margin-top:8px"></div>
+    <div id="backRows" style="margin-top:4px"></div>
+  </div>
+
+  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. The 12-month table replays the EXP core (market × icon boosts × parity) at SP with the same leak-free score the engines use — no draw factor (distance isn't warehoused) and no form/freshness inputs, so it's the composite's skeleton, not its full live rule. Courses need 25+ picks to appear; sorted by ROI. “vs fav” is EXP's ROI minus just-backing-the-favourite's ROI at that course — the honest measure of whether EXP adds anything there. Not advice; a system being marked in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -398,6 +405,64 @@
     }
   }
 
+  // ---- 12-month backtest, per course ----
+  async function buildBacktest() {
+    const status = $('backStatus'), totEl = $('backTotal'), rowsEl = $('backRows');
+    let merged = null;
+    try {
+      const c = JSON.parse(localStorage.getItem('rsexpb:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && c.v.total && c.v.total.n > 1000) merged = c.v;
+    } catch {}
+    if (!merged) {
+      const nowD = new Date();
+      const months = [];
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+      while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+      merged = { total: { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 }, courses: {} };
+      let done = 0, fails = 0;
+      for (const mo of months.reverse()) {
+        status.textContent = 'building ' + (++done) + '/' + months.length + '…';
+        try {
+          const r = await fetch('/api/expback?month=' + mo);
+          const d = await r.json();
+          if (r.ok && d && d.ok) {
+            ['n','w','pl','favW','favPl'].forEach(k => { merged.total[k] += d.total[k] || 0; });
+            for (const [crs, c2] of Object.entries(d.courses || {})) {
+              const t = (merged.courses[crs] ||= { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 });
+              ['n','w','pl','favW','favPl'].forEach(k => { t[k] += c2[k] || 0; });
+            }
+            renderBacktest(merged, totEl, rowsEl);
+          } else fails++;
+        } catch { fails++; }
+      }
+      status.textContent = fails >= months.length ? 'backtest unavailable — tell Claude'
+        : '12 months ready' + (fails ? ' (' + fails + ' months failed)' : '');
+      if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    } else {
+      status.textContent = '12 months ready';
+      renderBacktest(merged, totEl, rowsEl);
+    }
+  }
+  function renderBacktest(M, totEl, rowsEl) {
+    const T2 = M.total;
+    if (!T2.n) return;
+    const roi = (pl, n) => (pl / n * 100).toFixed(1) + '%';
+    totEl.innerHTML = `ALL COURSES: <b>${T2.w.toLocaleString()}/${T2.n.toLocaleString()}</b> (${Math.round(T2.w / T2.n * 100)}%) · ` +
+      `EXP £1 level stakes <b style="color:${T2.pl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(T2.pl)}</b> (ROI ${roi(T2.pl, T2.n)}) · ` +
+      `favourite in the same races <b style="color:${T2.favPl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(T2.favPl)}</b> (ROI ${roi(T2.favPl, T2.n)})`;
+    rowsEl.innerHTML = '';
+    const list = Object.entries(M.courses).filter(([, c]) => c.n >= 25)
+      .sort((a, b) => (b[1].pl / b[1].n) - (a[1].pl / a[1].n));
+    list.forEach(([crs, c]) => {
+      const edge = c.pl / c.n - c.favPl / c.n;
+      rowsEl.appendChild(el('div','row',
+        `<span class="crs" style="min-width:120px">${esc(crs)}</span>` +
+        `<span style="font-family:var(--mono);flex:1">${c.w}/${c.n} (${Math.round(c.w / c.n * 100)}%)</span>` +
+        `<span style="font-family:var(--mono);color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;min-width:74px;text-align:right">${money(c.pl)}</span>` +
+        `<span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);min-width:96px;text-align:right" title="EXP ROI minus favourite ROI at this course">vs fav ${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`));
+    });
+  }
+  buildBacktest();
   load();
   if (!drawStats) setTimeout(() => { try { const c = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null'); if (c && c.v) { drawStats = c.v; load(); } } catch {} }, 8000);
   setInterval(() => { if (day === 'today' && !document.hidden) load(); }, 150000);
