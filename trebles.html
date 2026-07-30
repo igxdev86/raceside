@@ -26,6 +26,8 @@
   .wordmark b{color:#7DE3A8}
   .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
   .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8;background:none;cursor:pointer}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
@@ -57,6 +59,7 @@
     <a class="back" href="/theexp.html">← the exp</a>
   </header>
 
+  <div id="crschips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
   <div class="tiles" id="tiles" hidden>
     <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
     <div class="tile"><span class="tl">STAKED / RETURNED</span><span class="tv" id="tSt">—</span><span class="ts" id="tStSub"></span></div>
@@ -91,45 +94,81 @@
 
   let sortKey = 'date', sortDir = 1;
   let daysAll = [];
+  let courseFilter = '';
+  let cdaysAll = {};   // course -> date -> {n, wins}
+  function activeDaysMap() {
+    if (courseFilter) return cdaysAll[courseFilter] || {};
+    const out = {};
+    for (const cm of Object.values(cdaysAll)) {
+      for (const [dt, dd] of Object.entries(cm)) {
+        const t = (out[dt] ||= { n: 0, wins: [] });
+        t.n += dd.n;
+        t.wins.push(...dd.wins);
+      }
+    }
+    return out;
+  }
+  function renderChips() {
+    const box = $('crschips');
+    box.innerHTML = '';
+    const courses = Object.keys(cdaysAll).sort();
+    if (courses.length < 2) return;
+    const mk = (label, val) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (courseFilter === val ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { courseFilter = val; renderChips(); render(activeDaysMap()); };
+      return b;
+    };
+    box.appendChild(mk('All', ''));
+    courses.forEach(c => box.appendChild(mk(c, c)));
+  }
 
   async function build() {
     const status = $('status');
-    let daysMap = null;
+    let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v2') || 'null');
-      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 100) daysMap = c.v;
+      const c = JSON.parse(localStorage.getItem('rstreb:v3') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
-    if (!daysMap) {
+    if (!loaded) {
       const nowD = new Date();
       const months = [];
       const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
-      daysMap = {};
+      loaded = {};
       let done = 0, fails = 0;
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=4');
+          const r = await fetch('/api/expback?month=' + mo + '&v=5');
           const d = await r.json();
-          if (r.ok && d && d.ok && d.days && Object.keys(d.days).length) {
-            Object.entries(d.days).forEach(([dt, dd]) => { daysMap[dt] = dd; });
-            render(daysMap);
+          if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
+            Object.entries(d.cdays).forEach(([crs, cm]) => {
+              const t = (loaded[crs] ||= {});
+              Object.entries(cm).forEach(([dt, dd]) => { t[dt] = dd; });
+            });
+            cdaysAll = loaded;
+            renderChips();
+            render(activeDaysMap());
           } else fails++;
         } catch { fails++; }
       }
-      if (fails >= 10 && Object.keys(daysMap).length < 50) {
+      if (fails >= 10 && Object.keys(loaded).length < 3) {
         status.textContent = 'engine warming up — wait a minute, then tap here to rebuild';
         $('ledger').innerHTML = '<div class="state">The day-level data isn\u2019t deployed to those cached months yet. Tap the line above in a minute to rebuild fresh.</div>';
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : '12 months ready · tap to rebuild';
       }
-      if (Object.keys(daysMap).length > 100) { try { localStorage.setItem('rstreb:v2', JSON.stringify({ t: Date.now(), v: daysMap })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v3', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = '12 months ready · tap to rebuild';
-      render(daysMap);
+      cdaysAll = loaded;
+      renderChips();
+      render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v1'); localStorage.removeItem('rstreb:v2'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v2'); localStorage.removeItem('rstreb:v3'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
@@ -141,6 +180,7 @@
     if (!daysAll.length) return;
 
     // tiles
+    document.querySelectorAll('.stl')[0].textContent = 'Day by day' + (courseFilter ? ' · ' + courseFilter : '');
     const tot = daysAll.reduce((a, d) => ({ st: a.st + d.bets, ret: a.ret + d.ret, pl: a.pl + d.pl, g: a.g + (d.pl > 0 ? 1 : 0) }), { st: 0, ret: 0, pl: 0, g: 0 });
     const best = daysAll.slice().sort((a, b) => b.pl - a.pl)[0];
     const worst = daysAll.slice().sort((a, b) => a.pl - b.pl)[0];
