@@ -125,6 +125,7 @@ export default async function handler(req, res) {
   const courses = {}; // course -> { n, w, pl, favW, favPl }
   const meets = {};   // course -> { date: { n, w, pl } }
   const days = {};    // date -> { n, wins: [sp_dec of winning picks] }
+  const cdays = {};   // course -> date -> { n, wins: [sp_dec of winning picks] }
   const totalT = { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 };
 
   for (const race of all) {
@@ -166,10 +167,12 @@ export default async function handler(req, res) {
             const md = ((meets[race.course] ||= {})[race.date] ||= { n: 0, w: 0, pl: 0 });
             const dd = (days[race.date] ||= { n: 0, wins: [] });
             dd.n++;
+            const cd = ((cdays[race.course] ||= {})[race.date] ||= { n: 0, wins: [] });
+            cd.n++;
             const won = pick.x.horse_id === win.horse_id;
             const d = spDec2(pick.x);
             c.n++; totalT.n++; md.n++;
-            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(Math.round(d * 100) / 100); }
+            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(Math.round(d * 100) / 100); cd.wins.push(Math.round(d * 100) / 100); }
             else { c.pl -= 1; totalT.pl -= 1; md.pl -= 1; }
             const favWon = byPrice[0].horse_id === win.horse_id;
             const fd = spDec2(byPrice[0]);
@@ -194,5 +197,5 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({ ok: true, month: m, source, total: totalT, courses, meets, days });
+  return res.status(200).json({ ok: true, month: m, source, total: totalT, courses, meets, days, cdays });
 }
