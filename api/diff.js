@@ -130,15 +130,18 @@ export default async function handler(req, res) {
 
   const STRATS = ['exp','fav','sec','cup','rpr','ts','par','drawlo','expnf','sum','t14'];
   const courses = {}; // course -> strat -> {n,w,pl}
+  const meets = {};   // course -> strat -> date -> {n,w,pl}
 
+  let settleDate = '';
   const settle = (course, strat, x, win) => {
     if (!x) return;
     const d = spDec2(x);
     if (!d) return;
     const cell = (((courses[course] ||= {})[strat] ||= { n: 0, w: 0, pl: 0 }));
-    cell.n++;
-    if (x.horse_id === win.horse_id) { cell.w++; cell.pl += d - 1; }
-    else cell.pl -= 1;
+    const md = ((((meets[course] ||= {})[strat] ||= {})[settleDate] ||= { n: 0, w: 0, pl: 0 }));
+    cell.n++; md.n++;
+    if (x.horse_id === win.horse_id) { cell.w++; cell.pl += d - 1; md.w++; md.pl += d - 1; }
+    else { cell.pl -= 1; md.pl -= 1; }
   };
 
   for (const race of all) {
@@ -184,6 +187,7 @@ export default async function handler(req, res) {
             return best;
           };
           const c = race.course;
+          settleDate = race.date;
           settle(c, 'exp', expPk && expPk.x, win);
           settle(c, 'fav', byPrice[0], win);
           settle(c, 'sec', byPrice[1], win);
@@ -218,9 +222,10 @@ export default async function handler(req, res) {
   }
 
   for (const cm of Object.values(courses)) for (const s of Object.values(cm)) s.pl = Math.round(s.pl * 100) / 100;
+  for (const cm of Object.values(meets)) for (const sm of Object.values(cm)) for (const md of Object.values(sm)) md.pl = Math.round(md.pl * 100) / 100;
 
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({ ok: true, month: m, source, strats: STRATS, courses });
+  return res.status(200).json({ ok: true, month: m, source, strats: STRATS, courses, meets });
 }
