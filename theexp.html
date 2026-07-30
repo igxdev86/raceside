@@ -100,7 +100,7 @@
     <div id="backRows" style="margin-top:4px"></div>
   </div>
 
-  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. The 12-month table replays the EXP core (market × icon boosts × parity) at SP with the same leak-free score the engines use — no draw factor (distance isn't warehoused) and no form/freshness inputs, so it's the composite's skeleton, not its full live rule. Courses need 10+ picks to appear; sorted by ROI — small samples near the bottom of that range are noise, so weight the big-number rows. “vs fav” is EXP's ROI minus just-backing-the-favourite's ROI at that course — the honest measure of whether EXP adds anything there. Not advice; a system being marked in public.</p>
+  <p class="note">One pick per race: the EXP composite — market probability boosted by icon status (top score ×1.15, other icons ×1.08), 12-month draw bias (clamped), and value-shaped parity (×1.06); fancied non-icons carry no penalty (the ghost lesson). Multiples are <b>full cover</b>: every combination of that size across all settled picks at £1 a line, settled at card prices (SP on Yesterday) — the bet counts show what full cover actually costs. The TOP-5 ACCA is the five strongest picks by composite as a single £1 accumulator. BY COURSE shows the settled record and £1-singles P/L per meeting, best to worst. The 12-month table replays the EXP core (market × icon boosts × parity) at SP with the same leak-free score the engines use — no draw factor (distance isn't warehoused) and no form/freshness inputs, so it's the composite's skeleton, not its full live rule. Courses need 10+ picks to appear; sorted by ROI — small samples near the bottom of that range are noise, so weight the big-number rows. A green-tinted <b>STEADY</b> row means the profit is boring in the best way: 10+ meetings, at least half of them green, and still profitable with its single best day removed — the shape a real edge takes, rather than one spike carrying a year. “vs fav” is EXP's ROI minus just-backing-the-favourite's ROI at that course — the honest measure of whether EXP adds anything there. Not advice; a system being marked in public.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -553,11 +553,21 @@
     if (st && st.textContent.includes('ready')) {
       st.textContent = st.textContent.split(' · showing')[0] + ' · showing ' + list.length + ' of ' + allCourses.length + ' courses (10+ picks) · tap to rebuild';
     }
+    const steadyOf = (crs, c) => {
+      const cm = (M.meets || {})[crs];
+      if (!cm || c.pl <= 0) return false;
+      const days = Object.values(cm);
+      if (days.length < 10) return false;
+      const green = days.filter(d2 => d2.pl > 0).length;
+      const bestD = Math.max(...days.map(d2 => d2.pl));
+      return (green / days.length >= 0.5) && (c.pl - bestD > 0);
+    };
     list.forEach(([crs, c]) => {
       const edge = (c.pl - c.favPl) / c.n;
       const roiV = c.pl / c.n * 100;
+      const steady = steadyOf(crs, c);
       const row = el('div','row',
-        `<span class="crs" style="min-width:120px">${esc(crs)}</span>` +
+        `<span class="crs" style="min-width:120px">${esc(crs)}${steady ? ' <span style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:0 4px;vertical-align:1px" title="steady: profitable, 10+ meetings, half or more green days, still profitable with its best day removed">STEADY</span>' : ''}</span>` +
         `<span style="font-family:var(--mono);flex:1">${c.w}/${c.n} (${Math.round(c.w / c.n * 100)}%)</span>` +
         `<span style="font-family:var(--mono);min-width:52px;text-align:right;color:var(--faint)">${c.n}</span>` +
         `<span style="font-family:var(--mono);color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;min-width:74px;text-align:right">${money(c.pl)}</span>` +
@@ -565,6 +575,7 @@
         `<span style="font-family:var(--mono);font-size:10.5px;min-width:74px;text-align:right;color:${edge >= 0 ? 'var(--green)' : 'var(--red)'}" title="EXP ROI minus favourite ROI at this course">${edge >= 0 ? '+' : '−'}${Math.abs(edge * 100).toFixed(1)}pts</span>`);
       row.style.cursor = 'pointer';
       row.title = 'tap for meeting-by-meeting bars';
+      if (steady) row.style.background = 'rgba(18,161,80,.07)';
       rowsEl.appendChild(row);
       row.onclick = () => {
         const open = row.nextSibling && row.nextSibling.className === 'meetchart';
@@ -579,20 +590,30 @@
         wrap.style.cssText = 'padding:10px 4px 6px;border-bottom:1px solid var(--line)';
         const chart = el('div', null);
         chart.style.cssText = 'display:flex;align-items:stretch;gap:2px;height:96px';
+        const detail = el('div', null, '<span style="font-family:var(--mono);font-size:11px;color:var(--dim)">tap a bar for that day</span>');
+        detail.style.cssText = 'min-height:18px;margin-bottom:4px';
+        wrap.appendChild(detail);
         days.forEach(([dt, d2]) => {
           const col = el('div', null);
-          col.style.cssText = 'flex:1;max-width:16px;display:flex;flex-direction:column';
+          col.style.cssText = 'flex:1;max-width:16px;display:flex;flex-direction:column;cursor:pointer';
           const hpx = Math.max(2, Math.round(Math.abs(d2.pl) / maxAbs * 44));
           const up = d2.pl >= 0;
-          const dtNice = new Date(dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          const dtNice = new Date(dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
           col.title = dtNice + ' · ' + d2.w + '/' + d2.n + ' · ' + money(d2.pl);
+          col.onclick = (ev) => {
+            ev.stopPropagation();
+            chart.querySelectorAll('[data-bar]').forEach(b2 => { b2.style.outline = 'none'; });
+            const bar2 = col.querySelector('[data-bar]');
+            if (bar2) bar2.style.outline = '2px solid var(--gold)';
+            detail.innerHTML = '<span style="font-family:var(--mono);font-size:11px"><b>' + dtNice + '</b> · ' + d2.w + '/' + d2.n + ' picks won · <b style="color:' + (up ? 'var(--green)' : 'var(--red)') + '">' + money(d2.pl) + '</b></span>';
+          };
           col.innerHTML =
             '<div style="flex:1;display:flex;align-items:flex-end;justify-content:center">' +
-              (up ? '<div style="width:70%;height:' + hpx + 'px;background:var(--green);border-radius:2px 2px 0 0"></div>' : '') +
+              (up ? '<div data-bar style="width:70%;height:' + hpx + 'px;background:var(--green);border-radius:2px 2px 0 0"></div>' : '') +
             '</div>' +
             '<div style="height:1px;background:var(--line)"></div>' +
             '<div style="flex:1;display:flex;align-items:flex-start;justify-content:center">' +
-              (!up ? '<div style="width:70%;height:' + hpx + 'px;background:var(--red);border-radius:0 0 2px 2px"></div>' : '') +
+              (!up ? '<div data-bar style="width:70%;height:' + hpx + 'px;background:var(--red);border-radius:0 0 2px 2px"></div>' : '') +
             '</div>';
           chart.appendChild(col);
         });
@@ -601,7 +622,7 @@
         const worst = days.slice().sort((a, b) => a[1].pl - b[1].pl)[0];
         const fmtD = (x) => new Date(x + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
         wrap.appendChild(el('div', null,
-          `<span style="font-family:var(--mono);font-size:10px;color:var(--faint)">${days.length} meetings · £1 level stakes per race · best ${fmtD(best[0])} <b style="color:var(--green)">${money(best[1].pl)}</b> · worst ${fmtD(worst[0])} <b style="color:var(--red)">${money(worst[1].pl)}</b> · tap a bar's tooltip for the day</span>`));
+          `<span style="font-family:var(--mono);font-size:10px;color:var(--faint)">${days.length} meetings · £1 level stakes per race · best ${fmtD(best[0])} <b style="color:var(--green)">${money(best[1].pl)}</b> · worst ${fmtD(worst[0])} <b style="color:var(--red)">${money(worst[1].pl)}</b></span>`));
         row.after(wrap);
       };
     });
