@@ -41,7 +41,10 @@
   .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
   .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
   .status{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px;cursor:pointer}
-  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:8px}
+  .tablewrap{overflow-x:auto;margin:8px -15px 0;padding:0 15px}
+  table{width:100%;min-width:560px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  tr.dayrow{cursor:pointer}
+  .subpicks td{background:#F7F9FC;font-size:11px;padding:4px 6px;white-space:normal}
   th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 6px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
   td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -112,7 +115,7 @@
       fb.appendChild(a);
     });
   })();
-  let sortKey = 'date', sortDir = 1;
+  let sortKey = 'dt', sortDir = -1;   // newest first by default
   let daysAll = [];
   let courseFilter = '';
   let cdaysAll = {};   // course -> date -> {n, wins}
@@ -121,9 +124,10 @@
     const out = {};
     for (const cm of Object.values(cdaysAll)) {
       for (const [dt, dd] of Object.entries(cm)) {
-        const t = (out[dt] ||= { n: 0, wins: [] });
+        const t = (out[dt] ||= { n: 0, wins: [], picks: [] });
         t.n += dd.n;
         t.wins.push(...dd.wins);
+        t.picks.push(...(dd.picks || []));
       }
     }
     return out;
@@ -158,7 +162,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v3') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v4') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -171,7 +175,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=5');
+          const r = await fetch('/api/expback?month=' + mo + '&v=6');
           const d = await r.json();
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
@@ -190,7 +194,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : '12 months ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v3', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v4', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = '12 months ready · tap to rebuild';
       cdaysAll = loaded;
@@ -198,14 +202,14 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v2'); localStorage.removeItem('rstreb:v3'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v4'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
       const bets = combK(dd.n);
       const landed = combK(dd.wins.length);
       const ret = eK(dd.wins);
-      return { dt, n: dd.n, w: dd.wins.length, bets, landed, ret, pl: ret - bets };
+      return { dt, n: dd.n, w: dd.wins.length, bets, landed, ret, pl: ret - bets, picks: dd.picks || [] };
     }).filter(d => d.bets > 0);
     if (!daysAll.length) return;
 
@@ -240,18 +244,34 @@
     const cumMap = {};
     daysAll.slice().sort((a, b) => a.dt.localeCompare(b.dt)).forEach(d => { cum += d.pl; cumMap[d.dt] = cum; });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === 1 ? ' ▴' : ' ▾') : ''}</th>`;
-    let html = '<table><thead><tr>' + th('dt','Date') + th('n','Picks') + th('w','Won') + th('bets','Bets £') + th('landed','Landed') + th('ret','Return') + th('pl','Day P/L') + th('dt2','Cum') + '</tr></thead><tbody>';
-    rows.forEach(d => {
+    let html = '<div class="tablewrap"><table><thead><tr>' + th('dt','Date') + th('n','Picks') + th('w','Won') + th('bets','Bets £') + th('landed','Landed') + th('ret','Return') + th('pl','Day P/L') + th('dt2','Cum') + '</tr></thead><tbody>';
+    rows.forEach((d, ri) => {
       const cls = d.dt === bestDt ? 'best' : d.dt === worstDt ? 'worst' : '';
       const c2 = cumMap[d.dt];
-      html += `<tr class="${cls}"><td>${new Date(d.dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</td>` +
+      html += `<tr class="dayrow ${cls}" data-ri="${ri}"><td>${new Date(d.dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })} <span style="color:var(--faint)">▸</span></td>` +
         `<td>${d.n}</td><td>${d.w}</td><td>${d.bets.toLocaleString()}</td><td>${d.landed.toLocaleString()}</td>` +
         `<td>£${Math.round(d.ret).toLocaleString()}</td>` +
         `<td class="${d.pl >= 0 ? 'pos' : 'neg'}">${money(d.pl)}</td>` +
         `<td class="${c2 >= 0 ? 'pos' : 'neg'}">${money(c2)}</td></tr>`;
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     box.innerHTML = html;
+    const fr = (d2) => { const v = d2 - 1; return (Math.abs(v - Math.round(v)) < 0.01 ? Math.round(v) : v.toFixed(1)) + '/1'; };
+    box.querySelectorAll('tr.dayrow').forEach(tr => tr.onclick = () => {
+      const openNext = tr.nextElementSibling && tr.nextElementSibling.classList.contains('subpicks');
+      box.querySelectorAll('tr.subpicks').forEach(x => x.remove());
+      if (openNext) return;
+      const d = rows[Number(tr.dataset.ri)];
+      if (!d.picks.length) return;
+      const sub = document.createElement('tr');
+      sub.className = 'subpicks';
+      const lines = d.picks.map(p =>
+        `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr(p.sp)} ` +
+        (p.won ? '<b class="pos">✓ won</b>' : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr(p.wsp) : ''}</span>`) +
+        '</div>').join('');
+      sub.innerHTML = `<td colspan="8" style="text-align:left">${lines}</td>`;
+      tr.after(sub);
+    });
     box.querySelectorAll('th').forEach(t => t.onclick = () => {
       const k = t.dataset.k === 'dt2' ? 'dt' : t.dataset.k;
       if (sortKey === k) sortDir *= -1;
