@@ -28,6 +28,10 @@
   .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
   .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8;background:none;cursor:pointer}
   .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .chip.pos{border-color:var(--green);color:#7DE3A8}
+  .chip.pos.on{background:var(--green);border-color:var(--green);color:#fff}
+  .chip.neg{border-color:#8A3A48;color:#E58B99}
+  .chip.neg.on{background:var(--red);border-color:var(--red);color:#fff}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
@@ -55,10 +59,11 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">TREBLE <b>LEDGER</b><small>every treble on every exp pick · 12 months</small></div>
+    <div class="wordmark"><span id="foldName">TREBLE</span> <b>LEDGER</b><small id="foldSub">every combination on every exp pick · 12 months</small></div>
     <a class="back" href="/theexp.html">← the exp</a>
   </header>
 
+  <div id="foldchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
   <div id="crschips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
   <div class="tiles" id="tiles" hidden>
     <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
@@ -77,7 +82,7 @@
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
-  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover trebles at £1 a line. BETS is C(picks,3) — the day's stake in pounds. Landed trebles are every 3-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that treble P/L is the singles edge cubed: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -85,13 +90,28 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const money = (v) => (v >= 0 ? '+' : '−') + '£' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const comb3 = (n) => n >= 3 ? Math.round(n * (n - 1) * (n - 2) / 6) : 0;
-  const e3 = (wins) => {
+  const K = Math.min(5, Math.max(2, parseInt(new URLSearchParams(location.search).get('k'), 10) || 3));
+  const FOLD = { 2: 'DOUBLE', 3: 'TREBLE', 4: '4-FOLD', 5: '5-FOLD' }[K];
+  const combK = (n) => { if (n < K) return 0; let r = 1; for (let i = 0; i < K; i++) r = r * (n - i) / (i + 1); return Math.round(r); };
+  const eK = (wins) => {
     const e = [1];
-    for (const d of wins) for (let k = Math.min(e.length, 3); k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * d;
-    return e[3] || 0;
+    for (const d of wins) for (let k = Math.min(e.length, K); k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * d;
+    return e[K] || 0;
   };
 
+  document.getElementById('foldName').textContent = FOLD;
+  document.title = 'RACESIDE — ' + FOLD + ' LEDGER';
+  (() => {
+    const fb = document.getElementById('foldchips');
+    [[2,'Doubles'],[3,'Trebles'],[4,'4-Folds'],[5,'5-Folds']].forEach(([k, label]) => {
+      const a = document.createElement('a');
+      a.className = 'chip' + (k === K ? ' on' : '');
+      a.style.textDecoration = 'none';
+      a.href = '/trebles.html?k=' + k;
+      a.textContent = label;
+      fb.appendChild(a);
+    });
+  })();
   let sortKey = 'date', sortDir = 1;
   let daysAll = [];
   let courseFilter = '';
@@ -108,20 +128,30 @@
     }
     return out;
   }
+  function coursePl(cm) {
+    let pl = 0;
+    for (const dd of Object.values(cm)) pl += eK(dd.wins) - combK(dd.n);
+    return pl;
+  }
   function renderChips() {
     const box = $('crschips');
     box.innerHTML = '';
-    const courses = Object.keys(cdaysAll).sort();
-    if (courses.length < 2) return;
-    const mk = (label, val) => {
+    const ranked = Object.entries(cdaysAll)
+      .map(([c, cm]) => ({ c, pl: coursePl(cm) }))
+      .sort((a, b) => b.pl - a.pl);
+    if (ranked.length < 2) return;
+    const mk = (label, val, pl) => {
       const b = document.createElement('button');
-      b.className = 'chip' + (courseFilter === val ? ' on' : '');
+      let cls = 'chip' + (courseFilter === val ? ' on' : '');
+      if (val && pl != null) cls += pl > 0 ? ' pos' : pl < 0 ? ' neg' : '';
+      b.className = cls;
       b.textContent = label;
+      if (val && pl != null) b.title = FOLD.toLowerCase() + 's here 12mo: ' + money(pl);
       b.onclick = () => { courseFilter = val; renderChips(); render(activeDaysMap()); };
       return b;
     };
-    box.appendChild(mk('All', ''));
-    courses.forEach(c => box.appendChild(mk(c, c)));
+    box.appendChild(mk('All', '', null));
+    ranked.forEach(({ c, pl }) => box.appendChild(mk(c, c, pl)));
   }
 
   async function build() {
@@ -172,9 +202,9 @@
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
-      const bets = comb3(dd.n);
-      const landed = comb3(dd.wins.length);
-      const ret = e3(dd.wins);
+      const bets = combK(dd.n);
+      const landed = combK(dd.wins.length);
+      const ret = eK(dd.wins);
       return { dt, n: dd.n, w: dd.wins.length, bets, landed, ret, pl: ret - bets };
     }).filter(d => d.bets > 0);
     if (!daysAll.length) return;
