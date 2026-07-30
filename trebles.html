@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — TREBLE LEDGER</title>
+<meta name="description" content="Twelve months of daily full-cover trebles on the EXP picks, day by day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:820px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#7DE3A8}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+  .tl{display:block;font-family:var(--sans);font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+  .tv{display:block;font-family:var(--mono);font-size:19px;font-weight:600;margin-top:3px}
+  .ts{display:block;font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px;line-height:1.5}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:8px}
+  th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 6px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  tr.best td{background:rgba(18,161,80,.08)}
+  tr.worst td{background:rgba(215,38,61,.07)}
+  .pos{color:var(--green);font-weight:600}
+  .neg{color:var(--red);font-weight:600}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#7DE3A8;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">TREBLE <b>LEDGER</b><small>every treble on every exp pick · 12 months</small></div>
+    <a class="back" href="/theexp.html">← the exp</a>
+  </header>
+
+  <div class="tiles" id="tiles" hidden>
+    <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
+    <div class="tile"><span class="tl">STAKED / RETURNED</span><span class="tv" id="tSt">—</span><span class="ts" id="tStSub"></span></div>
+    <div class="tile"><span class="tl">GREEN DAYS</span><span class="tv" id="tGd">—</span><span class="ts" id="tGdSub"></span></div>
+    <div class="tile"><span class="tl">BEST / WORST DAY</span><span class="tv" id="tBw">—</span><span class="ts" id="tBwSub"></span></div>
+  </div>
+
+  <div class="sect">
+    <div class="stl">Day by day</div>
+    <div class="status" id="status" title="tap to rebuild">building…</div>
+    <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
+  </div>
+
+  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover trebles at £1 a line. BETS is C(picks,3) — the day's stake in pounds. Landed trebles are every 3-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that treble P/L is the singles edge cubed: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const money = (v) => (v >= 0 ? '+' : '−') + '£' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const comb3 = (n) => n >= 3 ? Math.round(n * (n - 1) * (n - 2) / 6) : 0;
+  const e3 = (wins) => {
+    const e = [1];
+    for (const d of wins) for (let k = Math.min(e.length, 3); k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * d;
+    return e[3] || 0;
+  };
+
+  let sortKey = 'date', sortDir = 1;
+  let daysAll = [];
+
+  async function build() {
+    const status = $('status');
+    let daysMap = null;
+    try {
+      const c = JSON.parse(localStorage.getItem('rstreb:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 100) daysMap = c.v;
+    } catch {}
+    if (!daysMap) {
+      const nowD = new Date();
+      const months = [];
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+      while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+      daysMap = {};
+      let done = 0, fails = 0;
+      for (const mo of months.reverse()) {
+        status.textContent = 'building ' + (++done) + '/' + months.length + '…';
+        try {
+          const r = await fetch('/api/expback?month=' + mo + '&v=3');
+          const d = await r.json();
+          if (r.ok && d && d.ok) {
+            Object.entries(d.days || {}).forEach(([dt, dd]) => { daysMap[dt] = dd; });
+            render(daysMap);
+          } else fails++;
+        } catch { fails++; }
+      }
+      status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : '12 months ready · tap to rebuild';
+      if (Object.keys(daysMap).length > 100) { try { localStorage.setItem('rstreb:v1', JSON.stringify({ t: Date.now(), v: daysMap })); } catch {} }
+    } else {
+      status.textContent = '12 months ready · tap to rebuild';
+      render(daysMap);
+    }
+  }
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v1'); } catch {} $('ledger').innerHTML = ''; build(); };
+
+  function render(daysMap) {
+    daysAll = Object.entries(daysMap).map(([dt, dd]) => {
+      const bets = comb3(dd.n);
+      const landed = comb3(dd.wins.length);
+      const ret = e3(dd.wins);
+      return { dt, n: dd.n, w: dd.wins.length, bets, landed, ret, pl: ret - bets };
+    }).filter(d => d.bets > 0);
+    if (!daysAll.length) return;
+
+    // tiles
+    const tot = daysAll.reduce((a, d) => ({ st: a.st + d.bets, ret: a.ret + d.ret, pl: a.pl + d.pl, g: a.g + (d.pl > 0 ? 1 : 0) }), { st: 0, ret: 0, pl: 0, g: 0 });
+    const best = daysAll.slice().sort((a, b) => b.pl - a.pl)[0];
+    const worst = daysAll.slice().sort((a, b) => a.pl - b.pl)[0];
+    $('tiles').hidden = false;
+    $('tPl').textContent = money(tot.pl);
+    $('tPl').style.color = tot.pl >= 0 ? 'var(--green)' : 'var(--red)';
+    $('tPlSub').textContent = 'ROI ' + (tot.pl / tot.st * 100).toFixed(1) + '% · ' + daysAll.length + ' racing days';
+    $('tSt').textContent = '£' + Math.round(tot.st).toLocaleString();
+    $('tStSub').textContent = 'returned £' + Math.round(tot.ret).toLocaleString();
+    $('tGd').textContent = tot.g + '/' + daysAll.length;
+    $('tGdSub').textContent = Math.round(tot.g / daysAll.length * 100) + '% of days finished green';
+    const fd = (x) => new Date(x + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    $('tBw').innerHTML = '<span class="pos">' + money(best.pl) + '</span>';
+    $('tBwSub').innerHTML = 'best ' + fd(best.dt) + ' · worst ' + fd(worst.dt) + ' <span class="neg">' + money(worst.pl) + '</span>';
+
+    renderTable(best.dt, worst.dt);
+  }
+
+  function renderTable(bestDt, worstDt) {
+    const box = $('ledger');
+    const rows = daysAll.slice().sort((a, b) => {
+      const v = (x) => x[sortKey];
+      const r = typeof v(a) === 'string' ? v(a).localeCompare(v(b)) : v(a) - v(b);
+      return sortDir * r;
+    });
+    let cum = 0;
+    const cumMap = {};
+    daysAll.slice().sort((a, b) => a.dt.localeCompare(b.dt)).forEach(d => { cum += d.pl; cumMap[d.dt] = cum; });
+    const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === 1 ? ' ▴' : ' ▾') : ''}</th>`;
+    let html = '<table><thead><tr>' + th('dt','Date') + th('n','Picks') + th('w','Won') + th('bets','Bets £') + th('landed','Landed') + th('ret','Return') + th('pl','Day P/L') + th('dt2','Cum') + '</tr></thead><tbody>';
+    rows.forEach(d => {
+      const cls = d.dt === bestDt ? 'best' : d.dt === worstDt ? 'worst' : '';
+      const c2 = cumMap[d.dt];
+      html += `<tr class="${cls}"><td>${new Date(d.dt + 'T12:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}</td>` +
+        `<td>${d.n}</td><td>${d.w}</td><td>${d.bets.toLocaleString()}</td><td>${d.landed.toLocaleString()}</td>` +
+        `<td>£${Math.round(d.ret).toLocaleString()}</td>` +
+        `<td class="${d.pl >= 0 ? 'pos' : 'neg'}">${money(d.pl)}</td>` +
+        `<td class="${c2 >= 0 ? 'pos' : 'neg'}">${money(c2)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+    box.querySelectorAll('th').forEach(t => t.onclick = () => {
+      const k = t.dataset.k === 'dt2' ? 'dt' : t.dataset.k;
+      if (sortKey === k) sortDir *= -1;
+      else { sortKey = k; sortDir = k === 'dt' ? 1 : -1; }
+      renderTable(bestDt, worstDt);
+    });
+  }
+
+  build();
+})();
+</script>
+</body>
+</html>
