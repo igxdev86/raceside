@@ -69,6 +69,7 @@
     <button class="chip" data-day="tomorrow">Tomorrow</button>
     <button class="chip" data-day="yesterday">Yesterday</button>
   </div>
+  <div class="chips" id="crschips"></div>
 
   <div class="tiles" id="tiles" hidden>
     <div class="tile"><span class="tl">EXP RECORD</span><span class="tv" id="tRec">—</span><span class="ts" id="tRecSub"></span></div>
@@ -107,7 +108,7 @@
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
-  const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+  const money = (v) => (v >= 0 ? '+' : '−') + '\u00a3' + Math.abs(v).toFixed(2);
 
   // ---- scoring (mirrors The View exactly) ----
   const parseRt = (v) => {
@@ -250,9 +251,13 @@
 
   // ---- day handling ----
   let day = 'today';
+  let courseFilter = '';
+  let dayPicks = [];
+  let dayByCourse = {};
   document.querySelectorAll('#daychips .chip').forEach(b => b.onclick = () => {
     if (b.dataset.day === day) return;
     day = b.dataset.day;
+    courseFilter = '';
     document.querySelectorAll('#daychips .chip').forEach(x => x.classList.toggle('on', x.dataset.day === day));
     load();
   });
@@ -309,61 +314,87 @@
       if (race.race_id && w && w.horse_id) winners[race.race_id] = w.horse_id;
     });
 
-    const box = $('picks');
-    box.innerHTML = '';
-    const settledPicks = [];
-    const allPicks = [];
-    const byCourse = {};
-    let any = false;
+    dayPicks = [];
+    dayByCourse = {};
     cards.forEach(rc => {
       const p = expPick(rc);
       if (!p) return;
-      any = true;
       const wid = winners[rc.race_id];
       const won = wid ? wid === p.r.horse_id : null;
-      allPicks.push({ p, rc, won });
-      if (won !== null) settledPicks.push({ d: p.o.d, won });
+      dayPicks.push({ p, rc, won });
       const ck = String(rc.course || '?');
-      const cc = (byCourse[ck] ||= { n: 0, w: 0, pl: 0, pend: 0 });
+      const cc = (dayByCourse[ck] ||= { n: 0, w: 0, pl: 0, pend: 0 });
       if (won === null) cc.pend++;
       else {
         cc.n++;
         if (won) { cc.w++; cc.pl += p.o.d - 1; }
         else cc.pl -= 1;
       }
-      const res = won === null ? '<span class="pend">\u00b7</span>' : won ? '<span class="win">\u2713</span>' : '<span class="lose">\u2717</span>';
+    });
+    renderCourseChips();
+    renderCourseSect();
+    renderPicks();
+  }
+
+  function renderCourseChips() {
+    const box = $('crschips');
+    box.innerHTML = '';
+    const courses = [...new Set(dayPicks.map(x => String(x.rc.course || '?')))].sort();
+    if (courses.length < 2) return;
+    const mk = (label, val) => {
+      const b = el('button', 'chip' + ((courseFilter === val) ? ' on' : ''), esc(label));
+      b.onclick = () => { courseFilter = val; renderCourseChips(); renderPicks(); };
+      return b;
+    };
+    box.appendChild(mk('All', ''));
+    courses.forEach(c => box.appendChild(mk(c, c)));
+  }
+
+  function renderCourseSect() {
+    const cs = $('courses');
+    cs.innerHTML = '';
+    const entries = Object.entries(dayByCourse).sort((a, b) => b[1].pl - a[1].pl);
+    const anySettled = entries.some(([, c]) => c.n > 0);
+    if (!anySettled) { $('courseSect').hidden = true; return; }
+    entries.forEach(([course, c]) => {
+      const plTxt = c.n ? `<b style="color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(c.pl)}</b>` : '<span class="pend">—</span>';
+      const rec = c.n ? `${c.w}/${c.n}` : '0 settled';
+      const row = el('div','row',
+        `<span class="crs" style="min-width:120px">${esc(course)}</span>` +
+        `<span style="flex:1;font-family:var(--mono)">${rec}${c.pend ? ` <span class="pend">· ${c.pend} to run</span>` : ''}</span>` +
+        `<span style="font-family:var(--mono)">${plTxt}</span>`);
+      row.style.cursor = 'pointer';
+      row.title = 'tap to filter to ' + course;
+      row.onclick = () => { courseFilter = (courseFilter === course) ? '' : course; renderCourseChips(); renderPicks(); };
+      cs.appendChild(row);
+    });
+    $('courseSect').hidden = false;
+  }
+
+  function renderPicks() {
+    const box = $('picks');
+    box.innerHTML = '';
+    const picks = courseFilter ? dayPicks.filter(x => String(x.rc.course || '?') === courseFilter) : dayPicks;
+    if (!picks.length) {
+      box.innerHTML = '<div class="state">No qualifying races' + (courseFilter ? ' at ' + esc(courseFilter) : '') + '.</div>';
+      $('tiles').hidden = true;
+      return;
+    }
+    picks.forEach(({ p, rc, won }) => {
+      const res = won === null ? '<span class="pend">·</span>' : won ? '<span class="win">✓</span>' : '<span class="lose">✗</span>';
       box.appendChild(el('div','row',
         `<span class="res">${res}</span><span class="off">${esc(rc.off_time || '')}</span>` +
         `<span class="crs">${esc(rc.course || '')}</span>` +
         `<span class="nm">${esc(p.r.horse || '')}</span>` +
         `<span class="pct">${Math.round(p.v * 100)}</span><span class="od">${esc(p.o.frac)}</span>`));
     });
-    if (!any) { box.innerHTML = '<div class="state">No qualifying races.</div>'; $('courseSect').hidden = true; return; }
 
-    // per-course record
-    const cs = $('courses');
-    cs.innerHTML = '';
-    const entries = Object.entries(byCourse).sort((a, b) => b[1].pl - a[1].pl);
-    const anySettled = entries.some(([, c]) => c.n > 0);
-    if (anySettled) {
-      entries.forEach(([course, c]) => {
-        const plTxt = c.n ? `<b style="color:${c.pl >= 0 ? 'var(--green)' : 'var(--red)'}">${money(c.pl)}</b>` : '<span class="pend">—</span>';
-        const rec = c.n ? `${c.w}/${c.n}` : '0 settled';
-        cs.appendChild(el('div','row',
-          `<span class="crs" style="min-width:120px">${esc(course)}</span>` +
-          `<span style="flex:1;font-family:var(--mono)">${rec}${c.pend ? ` <span class="pend">· ${c.pend} to run</span>` : ''}</span>` +
-          `<span style="font-family:var(--mono)">${plTxt}</span>`));
-      });
-      $('courseSect').hidden = false;
-    } else $('courseSect').hidden = true;
-
-    // tiles
+    const settledPicks = picks.filter(x => x.won !== null).map(x => ({ d: x.p.o.d, won: x.won }));
     const n = settledPicks.length;
     const wins = settledPicks.filter(x => x.won);
     $('tiles').hidden = false;
-    $('tRec').textContent = n ? wins.length + '/' + n : '\u2014';
-    $('tRec').style.color = 'var(--ink)';
-    $('tRecSub').textContent = n ? Math.round(wins.length / n * 100) + '% of settled races' : 'nothing settled yet';
+    $('tRec').textContent = n ? wins.length + '/' + n : '—';
+    $('tRecSub').textContent = (n ? Math.round(wins.length / n * 100) + '% of settled races' : 'nothing settled yet') + (courseFilter ? ' · ' + courseFilter : '');
     const e = [1];
     for (const x of wins) {
       for (let k = e.length; k >= 1; k--) e[k] = (e[k] || 0) + e[k - 1] * x.d;
@@ -371,37 +402,36 @@
     const comb = (n2, k) => { let r = 1; for (let i = 0; i < k; i++) r = r * (n2 - i) / (i + 1); return Math.round(r); };
     for (let k = 1; k <= 5; k++) {
       const tv = $('tS' + k), ts = $('tS' + k + 'Sub');
-      if (n < k) { tv.textContent = '\u2014'; ts.textContent = 'needs ' + k + '+ settled'; continue; }
+      if (n < k) { tv.textContent = '—'; tv.style.color = 'var(--ink)'; ts.textContent = 'needs ' + k + '+ settled'; continue; }
       const bets = comb(n, k);
       const pl = (e[k] || 0) - bets;
       tv.textContent = money(pl);
       tv.style.color = pl >= 0 ? 'var(--green)' : 'var(--red)';
-      ts.textContent = bets.toLocaleString() + ' bets \u00d7 \u00a31 full cover';
+      ts.textContent = bets.toLocaleString() + ' bets × £1 full cover' + (courseFilter ? ' · ' + courseFilter : '');
     }
-    // top-5 acca: strongest composites of the day
-    const top5 = allPicks.slice().sort((a, b) => b.p.v - a.p.v).slice(0, 5);
+    const top5 = picks.slice().sort((a, b) => b.p.v - a.p.v).slice(0, 5);
     if (top5.length === 5) {
-      const legs = top5.map(x => `${esc(x.p.r.horse || '')} ${x.won === null ? '\u00b7' : x.won ? '\u2713' : '\u2717'}`).join(' / ');
+      const legs = top5.map(x => `${esc(x.p.r.horse || '')} ${x.won === null ? '·' : x.won ? '✓' : '✗'}`).join(' / ');
       const settledLegs = top5.filter(x => x.won !== null);
       const lost = top5.some(x => x.won === false);
       const allSettled = settledLegs.length === 5;
       const runningOdds = top5.reduce((a, x) => a * ((x.won === null || x.won) ? x.p.o.d : 1), 1);
       if (lost) {
-        $('tAcca').textContent = '\u2212\u00a31.00';
+        $('tAcca').textContent = '−£1.00';
         $('tAcca').style.color = 'var(--red)';
-        $('tAccaSub').innerHTML = legs + ' \u00b7 a leg went down';
+        $('tAccaSub').innerHTML = legs + ' · a leg went down';
       } else if (allSettled) {
         $('tAcca').textContent = money(runningOdds - 1);
         $('tAcca').style.color = 'var(--green)';
-        $('tAccaSub').innerHTML = legs + ' \u00b7 LANDED at ' + runningOdds.toFixed(1) + '/1 combined';
+        $('tAccaSub').innerHTML = legs + ' · LANDED at ' + runningOdds.toFixed(1) + '/1 combined';
       } else {
         $('tAcca').textContent = '\u00a3' + runningOdds.toFixed(2);
         $('tAcca').style.color = 'var(--ink)';
-        $('tAccaSub').innerHTML = legs + ' \u00b7 potential return if the rest land';
+        $('tAccaSub').innerHTML = legs + ' · potential return if the rest land';
       }
     } else {
-      $('tAcca').textContent = '\u2014';
-      $('tAccaSub').textContent = 'needs 5 qualifying races';
+      $('tAcca').textContent = '—';
+      $('tAccaSub').textContent = 'needs 5 qualifying races' + (courseFilter ? ' at ' + esc(courseFilter) : '');
     }
   }
 
