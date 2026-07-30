@@ -38,6 +38,17 @@ function spDec2(run) {
   const n = Number(s);
   return !isNaN(n) && n > 1 ? n : null;
 }
+function furlongs(dist) {
+  const s = String(dist || '').toLowerCase().replace(/\s/g, '');
+  const m = s.match(/^(?:(\d+)m)?(?:(\d+)f)?/);
+  if (!m) return null;
+  const f = (Number(m[1]) || 0) * 8 + (Number(m[2]) || 0);
+  return f > 0 ? f : null;
+}
+const distBand = (f) => f == null ? null : f <= 6 ? 'sprint' : f <= 8 ? 'mile' : f <= 12 ? 'middle' : 'staying';
+const fieldBand = (n) => n <= 8 ? 'S' : n <= 12 ? 'M' : 'L';
+const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
+const spBandOf = (d) => d < 2 ? 'odds_on' : d < 3 ? 'ev_2' : d < 5 ? 'f2_4' : d < 9 ? 'f4_8' : d < 17 ? 'f8_16' : 'f16p';
 function offMin(off) {
   const m = String(off || '').match(/(\d{1,2}):(\d{2})/);
   if (!m) return 9999;
@@ -72,6 +83,7 @@ export default async function handler(req, res) {
   const wh = await fetchResultsRange(fmt(lookbackStart), fmt(analysisEnd));
   const mapRace = (race) => ({
     course: race.course || '?', date: race.date || '', off: offMin(race.off),
+    dist: race.dist || null, rtype: race.type || '',
     runners: (race.runners || []).map((x) => ({
       horse_id: x.horse_id, horse: x.horse, trainer_id: x.trainer_id, position: x.position,
       rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
@@ -104,6 +116,54 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(502).json({ ok: false, error: 'upstream', detail: String(e) });
   }
+
+  // ---- PAINT tables from the fetched window: market-slot win rates,
+  // icon-rank x odds-band strike rates (rpr+ts ruler), draw thirds ----
+  const slotT = [0, 0, 0, 0];
+  let slotRaces = 0;
+  const rateB = {};   // rank(0-2) -> band -> {runs, wins}
+  const drawT = {};   // course|distBand|fieldBand -> {races, low, mid, high}
+  for (const race of all) {
+    const runners = (race.runners || []).filter((x) => x.horse_id);
+    if (runners.length < 4) continue;
+    const win = runners.find((x) => String(x.position) === '1');
+    const priced = runners.filter((x) => spDec2(x));
+    if (!win || !spDec2(win) || priced.length < 4) continue;
+    const byPrice = priced.slice().sort((a, b) => spDec2(a) - spDec2(b));
+    const wIdx = byPrice.findIndex((x) => x.horse_id === win.horse_id);
+    if (wIdx >= 0) { slotT[Math.min(wIdx, 3)]++; slotRaces++; }
+    // rpr+ts ruler ranks (t14-free: table building must not need the rolling log)
+    const rprs0 = runners.map((x) => parseRt(x.rpr));
+    const tss0 = runners.map((x) => parseRt(x.tsr));
+    const sc0 = {};
+    runners.forEach((x, i) => { sc0[x.horse_id] = relUnit(rprs0[i], rprs0) * 22 + relUnit(tss0[i], tss0) * 13; });
+    const vals0 = [...new Set(Object.values(sc0))].sort((a, b) => b - a);
+    if (vals0.length >= 2) {
+      priced.forEach((x) => {
+        const rk = vals0.filter((q) => q > sc0[x.horse_id]).length;
+        if (rk > 2) return;
+        const cell = ((rateB[rk] ||= {})[spBandOf(spDec2(x))] ||= { runs: 0, wins: 0 });
+        cell.runs++;
+        if (x.horse_id === win.horse_id) cell.wins++;
+      });
+    }
+    if (String(race.rtype || '').toLowerCase() === 'flat') {
+      const db = distBand(furlongs(race.dist));
+      const drawn = runners.filter((x) => Number(x.draw) >= 1);
+      const wd = Number(win.draw);
+      if (db && drawn.length >= 5 && wd >= 1) {
+        const mx = Math.max(...drawn.map((x) => Number(x.draw)));
+        if (mx > 1) {
+          const rel = (wd - 1) / (mx - 1);
+          const key = normCourse(race.course) + '|' + db + '|' + fieldBand(drawn.length);
+          const cell = (drawT[key] ||= { races: 0, low: 0, mid: 0, high: 0 });
+          cell.races++;
+          cell[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high']++;
+        }
+      }
+    }
+  }
+  const slotRate = slotT.map((v) => slotRaces ? v / slotRaces : 0);
 
   // chronological replay with rolling trainer form
   all.sort((a, b) => a.date.localeCompare(b.date) || a.off - b.off);
@@ -175,6 +235,29 @@ export default async function handler(req, res) {
             const rd2 = Math.round(d * 100) / 100;
             if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(rd2); cd.wins.push(rd2); }
             else { c.pl -= 1; totalT.pl -= 1; md.pl -= 1; }
+            // PAINT-top: the horse the PAINT view ranks #1, replayed with window tables
+            const isFlatP = String(race.rtype || '').toLowerCase() === 'flat';
+            const dbP = isFlatP ? distBand(furlongs(race.dist)) : null;
+            const drawnP = runners.filter((x) => Number(x.draw) >= 1);
+            const maxDP = drawnP.length ? Math.max(...drawnP.map((x) => Number(x.draw))) : 0;
+            const dCellP = (dbP && drawnP.length >= 5 && maxDP > 1)
+              ? drawT[normCourse(race.course) + '|' + dbP + '|' + fieldBand(drawnP.length)] : null;
+            let paintPk = null;
+            byPrice.forEach((x, i) => {
+              let p = i <= 2 ? slotRate[i] : slotRate[3] / Math.max(1, byPrice.length - 3);
+              const scP = map[x.horse_id];
+              const rkP = scP != null ? vals.filter((q) => q > scP).length : 99;
+              if (rkP <= 2) {
+                const cell = (rateB[rkP] || {})[spBandOf(spDec2(x))];
+                if (cell && cell.runs >= 30) p = (p + cell.wins / cell.runs) / 2;
+              }
+              if (dCellP && dCellP.races >= 20 && Number(x.draw) >= 1 && maxDP > 1) {
+                const rel = (Number(x.draw) - 1) / (maxDP - 1);
+                const f = (dCellP[rel < 1/3 ? 'low' : rel < 2/3 ? 'mid' : 'high'] / dCellP.races) / (1/3);
+                p *= Math.max(0.7, Math.min(1.4, f));
+              }
+              if (!paintPk || p > paintPk.p) paintPk = { x, p };
+            });
             const pkSc = map[pick.x.horse_id];
             const pkRk = pkSc != null ? vals.filter((q) => q > pkSc).length : 99;
             cd.picks.push({
@@ -182,6 +265,18 @@ export default async function handler(req, res) {
               ic: pkRk <= 2 ? pkRk : null,
               fv: pick.x.horse_id === byPrice[0].horse_id ? 1 : 0,
               ...(won ? {} : { wh: win.horse || '', wsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
+              ...(paintPk ? (() => {
+                const pw = paintPk.x.horse_id === win.horse_id;
+                const psp = Math.round(spDec2(paintPk.x) * 100) / 100;
+                const scPT = map[paintPk.x.horse_id];
+                const rkPT = scPT != null ? vals.filter((q) => q > scPT).length : 99;
+                return {
+                  ph: paintPk.x.horse || '', psp, pwon: pw ? 1 : 0,
+                  pic: rkPT <= 2 ? rkPT : null,
+                  pfv: paintPk.x.horse_id === byPrice[0].horse_id ? 1 : 0,
+                  ...(pw ? {} : { pwh: win.horse || '', pwsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
+                };
+              })() : {}),
             });
             const favWon = byPrice[0].horse_id === win.horse_id;
             const fd = spDec2(byPrice[0]);
