@@ -74,9 +74,10 @@ export default async function handler(req, res) {
   const mapRace = (race) => ({
     course: race.course || '?', date: race.date || '', off: offMin(race.off),
     runners: (race.runners || []).map((x) => ({
-      horse_id: x.horse_id, trainer_id: x.trainer_id, position: x.position,
+      horse_id: x.horse_id, horse: x.horse, trainer_id: x.trainer_id, position: x.position,
       rpr: x.rpr, tsr: x.tsr, sp: x.sp, sp_dec: x.sp_dec,
     })),
+    offRaw: race.off || '',
   });
   if (wh) {
     source = 'warehouse';
@@ -167,13 +168,18 @@ export default async function handler(req, res) {
             const md = ((meets[race.course] ||= {})[race.date] ||= { n: 0, w: 0, pl: 0 });
             const dd = (days[race.date] ||= { n: 0, wins: [] });
             dd.n++;
-            const cd = ((cdays[race.course] ||= {})[race.date] ||= { n: 0, wins: [] });
+            const cd = ((cdays[race.course] ||= {})[race.date] ||= { n: 0, wins: [], picks: [] });
             cd.n++;
             const won = pick.x.horse_id === win.horse_id;
             const d = spDec2(pick.x);
             c.n++; totalT.n++; md.n++;
-            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(Math.round(d * 100) / 100); cd.wins.push(Math.round(d * 100) / 100); }
+            const rd2 = Math.round(d * 100) / 100;
+            if (won) { c.w++; totalT.w++; c.pl += d - 1; totalT.pl += d - 1; md.w++; md.pl += d - 1; dd.wins.push(rd2); cd.wins.push(rd2); }
             else { c.pl -= 1; totalT.pl -= 1; md.pl -= 1; }
+            cd.picks.push({
+              t: race.offRaw, h: pick.x.horse || '', sp: rd2, won: won ? 1 : 0,
+              ...(won ? {} : { wh: win.horse || '', wsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
+            });
             const favWon = byPrice[0].horse_id === win.horse_id;
             const fd = spDec2(byPrice[0]);
             if (favWon) { c.favW++; totalT.favW++; c.favPl += fd - 1; totalT.favPl += fd - 1; }
