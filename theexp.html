@@ -199,7 +199,7 @@
   const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
   (function loadDraw() {
     try {
-      const c = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsdraw:v3') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 10) drawStats = c.v;
     } catch {}
   })();
@@ -476,13 +476,13 @@
     const status = $('backStatus'), totEl = $('backTotal'), rowsEl = $('backRows');
     let merged = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rsexpb:v3') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsexpb:v4') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.total && c.v.total.n > 1000) merged = c.v;
     } catch {}
     if (!merged) {
       const nowD = new Date();
       const months = [];
-      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
       merged = { total: { n: 0, w: 0, pl: 0, favW: 0, favPl: 0 }, courses: {}, meets: {} };
       let done = 0, fails = 0;
@@ -490,7 +490,7 @@
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
-          const r = await fetch('/api/expback?month=' + mo + '&v=2');
+          const r = await fetch('/api/expback?month=' + mo + '&v=7');
           const d = await r.json();
           if (r.ok && d && d.ok) {
             ['n','w','pl','favW','favPl'].forEach(k => { merged.total[k] += d.total[k] || 0; });
@@ -509,10 +509,10 @@
         } catch { fails++; failedMonths.push(mo); }
       }
       status.textContent = fails >= months.length ? 'backtest unavailable — tell Claude'
-        : '12 months ready' + (fails ? ' · failed: ' + failedMonths.join(', ') : '');
-      if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v3', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+        : 'history ready' + (fails ? ' · failed: ' + failedMonths.join(', ') : '');
+      if (merged.total.n > 1000) { try { localStorage.setItem('rsexpb:v4', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
     } else {
-      status.textContent = '12 months ready';
+      status.textContent = 'history ready';
       backData = merged;
       renderBacktest(merged, totEl, rowsEl);
       if (dayPicks.length) renderCourseChips();
@@ -648,7 +648,7 @@
   const bs = $('backStatus');
   if (bs) bs.onclick = () => { try { localStorage.removeItem('rsexpb:v1'); localStorage.removeItem('rsexpb:v2'); } catch {} $('backRows').innerHTML = ''; $('backTotal').innerHTML = ''; buildBacktest(); };
   load();
-  if (!drawStats) setTimeout(() => { try { const c = JSON.parse(localStorage.getItem('rsdraw:v2') || 'null'); if (c && c.v) { drawStats = c.v; load(); } } catch {} }, 8000);
+  if (!drawStats) setTimeout(() => { try { const c = JSON.parse(localStorage.getItem('rsdraw:v3') || 'null'); if (c && c.v) { drawStats = c.v; load(); } } catch {} }, 8000);
   setInterval(() => { if (day === 'today' && !document.hidden) load(); }, 150000);
 })();
 </script>
