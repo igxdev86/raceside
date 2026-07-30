@@ -275,6 +275,7 @@ export default async function handler(req, res) {
                   ph: paintPk.x.horse || '', psp, pwon: pw ? 1 : 0,
                   pic: rkPT <= 2 ? rkPT : null,
                   pfv: paintPk.x.horse_id === byPrice[0].horse_id ? 1 : 0,
+                  psid: paintPk.x.sire_id || null,
                   ...(pw ? {} : { pwh: win.horse || '', pwsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
                 };
               })() : {}),
