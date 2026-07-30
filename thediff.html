@@ -47,25 +47,25 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">THE <b>DIFF</b><small id="hsub">where exp loses \u00b7 what wins instead</small></div>
-    <a class="back" href="/theexp.html">\u2190 the exp</a>
+    <div class="wordmark">THE <b>DIFF</b><small id="hsub">where exp loses · what wins instead</small></div>
+    <a class="back" href="/theexp.html">← the exp</a>
   </header>
 
   <div class="sect">
-    <div class="stl">Red courses \u00b7 the search</div>
-    <div class="status" id="status" title="tap to rebuild">building\u2026</div>
+    <div class="stl">Live picks · validated rules only</div>
+    <div id="pickstatus" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px"></div>
+    <div id="picks"><div class="state"><div class="spinner"></div>waiting for the search…</div></div>
+  </div>
+
+  <div class="sect">
+    <div class="stl">Red courses · the search</div>
+    <div class="status" id="status" title="tap to rebuild">building…</div>
     <div id="summary" style="font-family:var(--mono);font-size:12px;margin-top:8px"></div>
     <div id="courses"></div>
   </div>
 
-  <div class="sect">
-    <div class="stl">Live picks \u00b7 validated rules only</div>
-    <div id="pickstatus" style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px"></div>
-    <div id="picks"><div class="state"><div class="spinner"></div>waiting for the search\u2026</div></div>
-  </div>
-
-  <p class="note">The method, in the open: for every course where the EXP composite lost money over 12 months, ten simple alternative rules are replayed at SP \u2014 favourite, second favourite, top score, top RPR, top Topspeed, biggest parity gap, low draw among the front three, EXP-when-not-favourite, lowest number+draw sum, best trainer form in the market. Each candidate is chosen on the <b>first 8 months only</b> and then marked on the <b>final 4 months it never saw</b>. Only rules profitable in BOTH windows earn a VALIDATED badge and a place in the live picks. Courses where nothing survives say so \u2014 that honesty is the point. Even a validated rule is one split of one year: treat these as leads to keep marking forward, not certainties. \u00a31 level stakes throughout. Not advice.</p>
-  <footer>RACESIDE \u00b7 data: The Racing API</footer>
+  <p class="note">The method, in the open: for every course where the EXP composite lost money over 12 months, ten simple alternative rules are replayed at SP \u2014 favourite, second favourite, top score, top RPR, top Topspeed, biggest parity gap, low draw among the front three, EXP-when-not-favourite, lowest number+draw sum, best trainer form in the market. Each candidate is chosen on the <b>first 8 months only</b> and then marked on the <b>final 4 months it never saw</b>. Only rules profitable in BOTH windows earn a VALIDATED badge and a place in the live picks. Courses where nothing survives say so \u2014 that honesty is the point. Even a validated rule is one split of one year: treat these as leads to keep marking forward, not certainties. £1 level stakes throughout. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
 (() => {
@@ -73,7 +73,7 @@
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const money = (v) => (v >= 0 ? '+' : '\u2212') + '\u00a3' + Math.abs(v).toFixed(2);
+  const money = (v) => (v >= 0 ? '+' : '−') + '£' + Math.abs(v).toFixed(2);
   const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
   const SNAMES = {
@@ -84,7 +84,7 @@
   };
 
   // ---- shared scoring (engine core ruler) ----
-  const parseRt = (v) => { const s = String(v ?? '').trim(); if (!s || s === '-' || s === '\u2013') return NaN; const n = Number(s); return n > 0 ? n : NaN; };
+  const parseRt = (v) => { const s = String(v ?? '').trim(); if (!s || s === '-' || s === '–') return NaN; const n = Number(s); return n > 0 ? n : NaN; };
   function relUnit(v, arr) {
     const ns = arr.filter(x => !isNaN(x));
     if (isNaN(v) || ns.length < 2) return 0.4;
@@ -200,7 +200,7 @@
       monthly = [];
       let done = 0, fails = 0;
       for (const mo of months) {   // chronological: oldest first, so the split is honest
-        status.textContent = 'searching ' + (++done) + '/' + months.length + '\u2026';
+        status.textContent = 'searching ' + (++done) + '/' + months.length + '…';
         try {
           const r = await fetch('/api/diff?month=' + mo + '&v=2');
           const d = await r.json();
@@ -208,10 +208,10 @@
           else fails++;
         } catch { fails++; }
       }
-      status.textContent = fails ? 'search done \u00b7 ' + fails + ' months failed' : 'search done \u00b7 12 months';
+      status.textContent = fails ? 'search done · ' + fails + ' months failed' : 'search done · 12 months';
       if (monthly.length >= 6) { try { localStorage.setItem('rsdiff:v2', JSON.stringify({ t: Date.now(), v: monthly })); } catch {} }
     } else {
-      status.textContent = 'search done \u00b7 cached';
+      status.textContent = 'search done · cached';
     }
     window.__diffMonthly = monthly;
     grade(monthly);
@@ -261,7 +261,7 @@
     box.innerHTML = '';
     const list = Object.entries(verdicts).sort((a, b) => (b[1].validated - a[1].validated) || (a[1].expPl - b[1].expPl));
     const nVal = list.filter(([, v]) => v.validated).length;
-    $('summary').innerHTML = `<b>${list.length}</b> courses where EXP lost \u00b7 <b style="color:var(--green)">${nVal}</b> with a rule that survived the unseen months \u00b7 <b style="color:var(--faint)">${list.length - nVal}</b> where nothing did`;
+    $('summary').innerHTML = `<b>${list.length}</b> courses where EXP lost · <b style="color:var(--green)">${nVal}</b> with a rule that survived the unseen months · <b style="color:var(--faint)">${list.length - nVal}</b> where nothing did`;
     list.forEach(([course, v]) => {
       let inner = `<span class="crs" style="min-width:110px">${esc(course)}</span>` +
         `<span style="color:var(--red);min-width:120px">EXP ${money(v.expPl)} <span style="color:var(--faint)">(${v.expN})</span></span>`;
@@ -348,7 +348,7 @@
       ps.textContent = '';
       return;
     }
-    box.innerHTML = '<div class="state"><div class="spinner"></div>checking today and tomorrow\u2026</div>';
+    box.innerHTML = '<div class="state"><div class="spinner"></div>checking today and tomorrow…</div>';
     let cards = [];
     for (const day of ['today','tomorrow']) {
       for (const tier of ['standard','basic','free']) {
@@ -365,22 +365,27 @@
     let any = 0;
     const vmap = {};
     valCourses.forEach(([c, v]) => { vmap[c.toLowerCase()] = v; });
-    cards.forEach(rc => {
+    let lastDay = null;
+    const ordered = cards.slice().sort((a, b) => (a._day === b._day) ? (Date.parse(a.off_dt || 0) - Date.parse(b.off_dt || 0)) : (a._day === 'tomorrow' ? -1 : 1));
+    ordered.forEach(rc => {
       const v = vmap[String(rc.course || '').toLowerCase()];
       if (!v) return;
       const pk = livePick(rc, v.strat);
       if (!pk) return;
       const o = bestOdds(pk);
+      if (rc._day !== lastDay) {
+        lastDay = rc._day;
+        box.appendChild(el('div', null, `<div style="font-family:var(--sans);font-weight:800;font-size:11px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin:10px 0 2px">${lastDay === 'tomorrow' ? 'Tomorrow' : 'Today'}</div>`));
+      }
       any++;
       box.appendChild(el('div','row pick',
-        `<span style="color:var(--faint);min-width:26px">${rc._day === 'today' ? 'TDY' : 'TMW'}</span>` +
         `<span style="color:var(--blue);font-weight:600;min-width:42px">${esc(rc.off_time || '')}</span>` +
         `<span class="crs" style="min-width:96px">${esc(rc.course || '')}</span>` +
         `<span class="nm">${esc(pk.horse || '')}</span>` +
         `<span style="color:var(--blue);font-weight:600">${o ? esc(o.frac) : ''}</span>` +
-        `<span style="color:var(--faint);font-size:10.5px;width:100%">${esc(SNAMES[v.strat])} \u00b7 unseen-months record ${money(v.testPl)} (${v.testN})</span>`));
+        `<span style="color:var(--faint);font-size:10.5px;width:100%">${esc(SNAMES[v.strat])} · unseen-months record ${money(v.testPl)} (${v.testN})</span>`));
     });
-    ps.textContent = valCourses.length + ' validated course' + (valCourses.length === 1 ? '' : 's') + ' \u00b7 ' + any + ' pick' + (any === 1 ? '' : 's') + ' in the next two days';
+    ps.textContent = valCourses.length + ' validated course' + (valCourses.length === 1 ? '' : 's') + ' · ' + any + ' pick' + (any === 1 ? '' : 's') + ' in the next two days';
     if (!any) box.innerHTML = '<div class="state">No racing at validated courses today or tomorrow \u2014 the picks appear when those tracks race.</div>';
   }
 
