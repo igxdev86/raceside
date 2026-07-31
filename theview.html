@@ -50,6 +50,8 @@
   .pl .nm{font-family:var(--sans);font-weight:600;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pl .no{font-family:var(--mono);font-weight:500;font-size:10.5px;color:var(--faint)}
   .pl .ns{font-family:var(--mono);font-weight:300;font-size:10.5px;color:#E8853D}
+  .pl .jt{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-left:5px;white-space:nowrap}
+  .pl .jt.hot{color:#B8860B;font-weight:600}
   .pl .wp{color:var(--green);font-weight:600;flex:none;font-size:11px}
   .pl .mv{flex:none;font-size:10px}
   .pl .mv.in{color:var(--green)}
@@ -172,6 +174,39 @@
       if (!isNaN(d) && d > 1 && (!best || d > best.d)) best = { d, frac: o.fractional || String(o.decimal) };
     }
     return best;
+  }
+
+  // jockey 14-day strike map, built quietly from a fortnight of results and cached
+  let j14 = null;   // jockey_id -> { r, w }
+  async function buildJ14() {
+    try {
+      const c = JSON.parse(localStorage.getItem('rsj14:v1') || 'null');
+      if (c && Date.now() - c.t < 21600000 && c.v && Object.keys(c.v).length > 50) { j14 = c.v; refresh(); return; }
+    } catch {}
+    const map = {};
+    const end = new Date();
+    const start = new Date(end.getTime() - 14 * 86400000);
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    let skip = 0, total = Infinity, pages = 0;
+    while (skip < total && pages < 20) {
+      let page;
+      try { page = await api('/v1/results', { region: ['gb','ire'], start_date: fmt(start), end_date: fmt(end), limit: 50, skip }); } catch { break; }
+      total = Number(page.total) || 0;
+      (page.results || []).forEach(race => (race.runners || []).forEach(x => {
+        if (!x.jockey_id) return;
+        const s = (map[x.jockey_id] ||= { r: 0, w: 0 });
+        s.r++;
+        if (String(x.position) === '1') s.w++;
+      }));
+      skip += 50; pages++;
+      if (skip < total) await new Promise(ok => setTimeout(ok, 400));
+    }
+    if (Object.keys(map).length > 50) {
+      j14 = map;
+      try { localStorage.setItem('rsj14:v1', JSON.stringify({ t: Date.now(), v: map })); } catch {}
+      buildJ14();
+  refresh();
+    }
   }
 
   async function api(path, params = {}) {
@@ -787,6 +822,17 @@
             const p = drawCell[third] / drawCell.races * 100;
             const cls = p >= 38.3 ? 'dw up' : p <= 28.3 ? 'dw down' : 'dw';
             return `<span class="${cls}" title="${third.toUpperCase()} draws won ${p.toFixed(0)}% of ${drawCell.races} similar races (same course, distance band, field size) \u00b7 33% = no bias">${p.toFixed(0)}%</span>`;
+          })()}${(() => {
+            const t = r.trainer_14_days || {};
+            const tr2 = Number(t.runs), tw = Number(t.wins);
+            const tPct = tr2 > 0 ? Math.round(tw / tr2 * 100) : null;
+            const js = j14 && r.jockey_id ? j14[r.jockey_id] : null;
+            const jPct = js && js.r > 0 ? Math.round(js.w / js.r * 100) : null;
+            if (tPct == null && jPct == null) return '';
+            const cell = (v) => v == null ? '\u2013' : v;
+            const hot = (v, n2) => v != null && v >= 20 && n2 >= 4;
+            const cls2 = (hot(jPct, js ? js.r : 0) || hot(tPct, tr2)) ? 'jt hot' : 'jt';
+            return `<span class="${cls2}" title="last 14 days \u00b7 J: ${esc(r.jockey || '?')} ${js ? js.w + '/' + js.r : 'no rides'} \u00b7 T: ${esc(r.trainer || '?')} ${tr2 > 0 ? tw + '/' + tr2 : 'no runs'}">J${cell(jPct)} T${cell(tPct)}</span>`;
           })()}`);
         if (paintRank && paintRank[r.horse_id] != null) {
           const t = 1 - paintRank[r.horse_id];   // 1 = best
