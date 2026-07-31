@@ -258,17 +258,23 @@ export default async function handler(req, res) {
               }
               if (!paintPk || p > paintPk.p) paintPk = { x, p };
             });
+            // Ranking universe the View uses: unrated horses are excluded entirely.
+            // The engine's ruler floors NaN ratings at 0.4 which would otherwise let
+            // unrated horses squat inside the icon frame and corrupt every rank label.
+            const noRtOf = (x) => isNaN(parseRt(x.rpr)) && isNaN(parseRt(x.tsr));
+            const ratedVals = [...new Set(runners.filter((x) => !noRtOf(x)).map((x) => map[x.horse_id]).filter((v2) => v2 != null))].sort((a, b) => b - a);
+            const rankR = (x) => {
+              if (noRtOf(x)) return 99;
+              const s2 = map[x.horse_id];
+              return s2 == null ? 99 : ratedVals.filter((q) => q > s2).length;
+            };
             // U ghost: non-icon, top-3 of market at 8/1-, priced inside the icons' range,
             // scoring 4+ below the third icon or carrying no ratings (the live View's rule)
             let uPick = null;
             {
-              const noRtOf = (x) => isNaN(parseRt(x.rpr)) && isNaN(parseRt(x.tsr));
-              const iconSps = byPrice.filter((x) => {
-                const scI = map[x.horse_id];
-                return scI != null && !noRtOf(x) && vals.filter((q) => q > scI).length <= 2;
-              }).map((x) => spDec2(x));
+              const iconSps = byPrice.filter((x) => rankR(x) <= 2).map((x) => spDec2(x));
               const maxIconSp = iconSps.length ? Math.max(...iconSps) : null;
-              const cut3 = vals.length >= 3 ? vals[2] : null;
+              const cut3 = ratedVals.length >= 3 ? ratedVals[2] : null;
               if (maxIconSp != null && cut3 != null) {
                 byPrice.forEach((x, i) => {
                   if (i > 2) return;                                   // top-3 of market only
@@ -276,16 +282,13 @@ export default async function handler(req, res) {
                   if (!(d2 <= 9)) return;                              // 8/1 or shorter
                   if (!(d2 <= maxIconSp * 1.1)) return;                // inside the icons' range
                   const scU = map[x.horse_id];
-                  const noRt = noRtOf(x);
-                  const rkU = (scU != null && !noRt) ? vals.filter((q) => q > scU).length : 99;  // unrated can't be an icon (matches the View)
-                  if (rkU <= 2) return;                                // must be non-icon
-                  if (!(scU == null || noRt || scU <= cut3 - 4)) return; // clearly below the frame
+                  if (rankR(x) <= 2) return;                           // must be non-icon (View ranking)
+                  if (!(scU == null || noRtOf(x) || scU <= cut3 - 4)) return; // clearly below the frame
                   if (!uPick || d2 < spDec2(uPick)) uPick = x;         // shortest-priced ghost
                 });
               }
             }
-            const pkSc = map[pick.x.horse_id];
-            const pkRk = pkSc != null ? vals.filter((q) => q > pkSc).length : 99;
+            const pkRk = rankR(pick.x);
             cd.picks.push({
               t: race.offRaw, h: pick.x.horse || '', sp: rd2, won: won ? 1 : 0,
               ic: pkRk <= 2 ? pkRk : null,
@@ -302,8 +305,7 @@ export default async function handler(req, res) {
               ...(paintPk ? (() => {
                 const pw = paintPk.x.horse_id === win.horse_id;
                 const psp = Math.round(spDec2(paintPk.x) * 100) / 100;
-                const scPT = map[paintPk.x.horse_id];
-                const rkPT = scPT != null ? vals.filter((q) => q > scPT).length : 99;
+                const rkPT = rankR(paintPk.x);
                 return {
                   ph: paintPk.x.horse || '', psp, pwon: pw ? 1 : 0,
                   pic: rkPT <= 2 ? rkPT : null,
@@ -336,5 +338,5 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({ ok: true, gen: 3, month: m, source, total: totalT, courses, meets, days, cdays });
+  return res.status(200).json({ ok: true, gen: 4, month: m, source, total: totalT, courses, meets, days, cdays });
 }
