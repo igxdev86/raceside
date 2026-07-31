@@ -199,7 +199,7 @@
       let cls = 'chip' + (pickFilter === val ? ' on' : '');
       if (st && st.n >= 20) cls += st.pl > 0 ? ' pos' : st.pl < 0 ? ' neg' : '';
       b.className = cls;
-      b.textContent = label + (st && st.strike != null ? ' · ' + (st.strike * 100).toFixed(0) + '%' : '');
+      b.textContent = label + (st && st.strike != null ? ' · ' + (st.strike * 100).toFixed(1) + '%' : '');
       if (st) b.title = st.w + '/' + st.n + ' picks won · ' + FOLD.toLowerCase() + 's 12mo: ' + money(st.pl);
       b.onclick = () => { pickFilter = val; renderPickChips(); renderChips(); render(activeDaysMap()); };
       box.appendChild(b);
@@ -355,7 +355,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v14') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v15') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -404,7 +404,7 @@
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (stale === 0 && Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v14', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (stale === 0 && Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v15', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -412,7 +412,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v14'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v15'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
