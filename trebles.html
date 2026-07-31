@@ -275,7 +275,7 @@
     const status = $('status');
     let loaded = null;
     try {
-      const c = JSON.parse(localStorage.getItem('rstreb:v11') || 'null');
+      const c = JSON.parse(localStorage.getItem('rstreb:v12') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v).length > 5) loaded = c.v;
     } catch {}
     if (!loaded) {
@@ -284,7 +284,7 @@
       const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
       loaded = {};
-      let done = 0, fails = 0;
+      let done = 0, fails = 0, stale = 0;
       for (const mo of months.reverse()) {
         status.textContent = 'building ' + (++done) + '/' + months.length + '…';
         try {
@@ -297,6 +297,7 @@
             r = await fetch('/api/expback?month=' + mo + '&v=13&fresh=' + Date.now());
             d = await r.json();
           }
+          if (r.ok && isStale(d)) { stale++; fails++; d = null; }   // still old engine: refuse, never cache
           if (r.ok && d && d.ok && d.cdays && Object.keys(d.cdays).length) {
             Object.entries(d.cdays).forEach(([crs, cm]) => {
               const t = (loaded[crs] ||= {});
@@ -308,13 +309,15 @@
           } else fails++;
         } catch { fails++; }
       }
-      if (fails >= 10 && Object.keys(loaded).length < 3) {
+      if (stale > 0) {
+        status.textContent = stale + ' month(s) still deploying — wait a minute, then tap here to rebuild';
+      } else if (fails >= 10 && Object.keys(loaded).length < 3) {
         status.textContent = 'engine warming up — wait a minute, then tap here to rebuild';
         $('ledger').innerHTML = '<div class="state">The day-level data isn\u2019t deployed to those cached months yet. Tap the line above in a minute to rebuild fresh.</div>';
       } else {
         status.textContent = fails ? '12 months · ' + fails + ' months failed · tap to rebuild' : 'history ready · tap to rebuild';
       }
-      if (Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v11', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
+      if (stale === 0 && Object.keys(loaded).length > 5) { try { localStorage.setItem('rstreb:v12', JSON.stringify({ t: Date.now(), v: loaded })); } catch {} }
     } else {
       status.textContent = 'history ready · tap to rebuild';
       cdaysAll = loaded;
@@ -322,7 +325,7 @@
       render(activeDaysMap());
     }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v11'); } catch {} $('ledger').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v12'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
