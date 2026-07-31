@@ -28,6 +28,23 @@
   .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
   .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
   .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8;background:none;cursor:pointer}
+  .seg{display:flex;gap:0;border:1px solid #3A5490;border-radius:10px;overflow:hidden;margin-bottom:12px}
+  .seg a{flex:1;text-align:center;font-family:var(--mono);font-size:11.5px;padding:9px 4px;color:#8FA3C8;text-decoration:none;border-right:1px solid #3A5490}
+  .seg a:last-child{border-right:0}
+  .seg a.on{background:var(--blue);color:#fff}
+  .sysrow{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-family:var(--mono);font-size:12px}
+  .sysrow:last-child{border-bottom:0}
+  .sysrow.on{background:#EEF3FF;border-radius:8px}
+  .sysrow .nm{flex:1;font-weight:600}
+  .sysrow .sr{color:var(--dim);min-width:52px;text-align:right}
+  .sysrow .pl{min-width:86px;text-align:right;font-weight:600}
+  .crstoggle{font-family:var(--mono);font-size:11.5px;color:var(--blue);background:none;border:0;cursor:pointer;padding:8px 0}
+  details.how{margin-top:14px;color:#8FA3C8}
+  details.how summary{font-family:var(--mono);font-size:11.5px;cursor:pointer;color:#9BB6FF}
+  details.how .inner{margin-top:10px}
+  .todaymini{font-family:var(--mono);font-size:12px;margin-top:8px}
+  .todaymini .line{padding:2.5px 0}
+  .cardstl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
   .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
   .chip.pos{border-color:var(--green);color:#7DE3A8}
   .chip.pos.on{background:var(--green);border-color:var(--green);color:#fff}
@@ -74,9 +91,20 @@
     <a class="back" href="/theexp.html">← the exp</a>
   </header>
 
-  <div id="foldchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
-  <div id="pickchips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
-  <div id="crschips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+  <div class="sect">
+    <div class="cardstl">When to strike</div>
+    <div class="nwbar" id="nwbar" hidden><div class="nwlab"><span id="nwlab1"></span><span id="nwlab2"></span></div><div class="nwtrack"><div class="nwfill" id="nwfill" style="width:0%"></div></div></div>
+    <div class="todaymini" id="todaybox"><span style="color:var(--faint)">today's selections load here once the cards are up…</span></div>
+  </div>
+
+  <div class="sect">
+    <div class="cardstl">Pick your system</div>
+    <div class="seg" id="foldseg"></div>
+    <div id="systems"></div>
+    <button class="crstoggle" id="crstog">Courses: All ▾</button>
+    <div id="crschips" style="display:none;gap:6px;flex-wrap:wrap;padding-top:6px"></div>
+  </div>
+
   <div class="tiles" id="tiles" hidden>
     <div class="tile"><span class="tl">STRIKE RATE</span><span class="tv" id="tSr">—</span><span class="ts" id="tSrSub"></span></div>
     <div class="tile"><span class="tl">TOTAL P/L</span><span class="tv" id="tPl">—</span><span class="ts" id="tPlSub"></span></div>
@@ -85,9 +113,7 @@
     <div class="tile"><span class="tl">BEST / WORST DAY</span><span class="tv" id="tBw">—</span><span class="ts" id="tBwSub"></span></div>
   </div>
 
-  <div class="sect" style="border-left:3px solid var(--gold)">
-    <div style="font-family:var(--mono);font-size:11.5px;color:var(--dim);line-height:1.6"><b style="color:var(--gold)">Read this first:</b> this ledger replays the <b>backtest rule</b> — SP prices and the lean score (RPR, Topspeed, trainer form) that history actually stores. THE EXP's live page uses card prices and the full score with form, freshness and draw. So a day here will NOT match the live page's tiles for the same day — different picks in some races, different prices on all of them, sometimes a different race count. Both are honest; they're answering different questions: the live page marks the full rule forward, this ledger measures the skeleton backward. The most recent day or two can also lag a few hours behind.</div>
-  </div>
+  
 
   <div class="sect">
     <div class="stl">Day by day</div>
@@ -96,7 +122,7 @@
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
-  <p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). UUU tracks the View's ghosts: in each race with a U — a non-icon the market prices like an icon (top-3 of the betting at 8/1 or shorter, inside the icons' odds range, scoring well below the frame or unrated) — the shortest-priced such horse is the selection. SIPA is the PAINT-top selection kept only when its sire strikes 15%+ over 50+ runs — the trend leader with a proven bloodline behind it. SIRE+15 keeps only EXP picks whose sire strikes at 15%+ over 50+ runs (sharing the TOP SIRES build — give it a minute on first use, or open the sires page once). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p>
+  <details class="how"><summary>How this ledger works · read once</summary><div class="inner"><div style="font-family:var(--mono);font-size:11.5px;line-height:1.6;margin-bottom:10px"><b style="color:var(--gold)">Read this first:</b> Read this first:</b> this ledger replays the <b>backtest rule</b> — SP prices and the lean score (RPR, Topspeed, trainer form) that history actually stores. THE EXP's live page uses card prices and the full score with form, freshness and draw. So a day here will NOT match the live page's tiles for the same day — different picks in some races, different prices on all of them, sometimes a different race count. Both are honest; they're answering different questions: the live page marks the full rule forward, this ledger measures the skeleton backward. The most recent day or two can also lag a few hours behind.</div><p class="note">Each day: every EXP pick of the day (the same picks the 12-month backtest makes — market × icon boosts × parity, settled at SP), full-cover multiples of the chosen size at £1 a line (switch fold with the chips above). UUU tracks the View's ghosts: in each race with a U — a non-icon the market prices like an icon (top-3 of the betting at 8/1 or shorter, inside the icons' odds range, scoring well below the frame or unrated) — the shortest-priced such horse is the selection. SIPA is the PAINT-top selection kept only when its sire strikes 15%+ over 50+ runs — the trend leader with a proven bloodline behind it. SIRE+15 keeps only EXP picks whose sire strikes at 15%+ over 50+ runs (sharing the TOP SIRES build — give it a minute on first use, or open the sires page once). The PAINT TOP tab switches the selection itself: the horse the PAINT trend ranks #1 in each race (replayed with slot, icon-band and draw tables built from the data window), not the EXP pick. BETS is C(picks,k) — the day's stake in pounds. Landed bets are every k-way combination drawn entirely from the day's winners; RETURN is their combined payout. The stake varies wildly with the size of the card — a 35-pick Saturday costs £6,545, a quiet Monday £120 — so read the ROI, not just the totals, and remember that fold P/L is the singles edge raised to the fold's power: a few loaded days will dominate everything. Best and worst days tinted. Not advice.</p></div></details>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -116,16 +142,21 @@
   document.getElementById('foldName').textContent = FOLD;
   document.title = 'RACESIDE — ' + FOLD + ' LEDGER';
   (() => {
-    const fb = document.getElementById('foldchips');
+    const fb = document.getElementById('foldseg');
     [[1,'Singles'],[2,'Doubles'],[3,'Trebles'],[4,'4-Folds'],[5,'5-Folds']].forEach(([k, label]) => {
       const a = document.createElement('a');
-      a.className = 'chip' + (k === K ? ' on' : '');
-      a.style.textDecoration = 'none';
+      a.className = (k === K ? 'on' : '');
       a.href = '/trebles.html?k=' + k;
       a.textContent = label;
       fb.appendChild(a);
     });
   })();
+  $('crstog').onclick = () => {
+    const c = $('crschips');
+    const open = c.style.display !== 'none';
+    c.style.display = open ? 'none' : 'flex';
+    $('crstog').textContent = 'Courses: ' + (courseFilter || 'All') + (open ? ' ▾' : ' ▴');
+  };
   let sortKey = 'dt', sortDir = -1;   // newest first by default
   let daysAll = [];
   let courseFilter = '';
@@ -190,19 +221,25 @@
   };
   const passPick = (p) => passPickF(p, pickFilter);
   function renderPickChips() {
-    const box = $('pickchips');
+    const box = $('systems');
     box.innerHTML = '';
     const hasData = Object.keys(cdaysAll).length > 0;
-    PF.forEach(([val, label]) => {
-      const b = document.createElement('button');
-      const st = hasData ? tabStats(val) : null;
-      let cls = 'chip' + (pickFilter === val ? ' on' : '');
-      if (st && st.n >= 20) cls += st.pl > 0 ? ' pos' : st.pl < 0 ? ' neg' : '';
-      b.className = cls;
-      b.textContent = label + (st && st.strike != null ? ' · ' + (st.strike * 100).toFixed(1) + '%' : '');
-      if (st) b.title = st.w + '/' + st.n + ' picks won · ' + FOLD.toLowerCase() + 's 12mo: ' + money(st.pl);
-      b.onclick = () => { pickFilter = val; renderPickChips(); renderChips(); render(activeDaysMap()); };
-      box.appendChild(b);
+    const rows2 = PF.map(([val, label]) => ({ val, label, st: hasData ? tabStats(val) : null }));
+    rows2.sort((a, b) => {
+      const ap = a.st ? a.st.pl : -Infinity, bp = b.st ? b.st.pl : -Infinity;
+      return bp - ap;
+    });
+    rows2.forEach(({ val, label, st }) => {
+      const r = document.createElement('div');
+      r.className = 'sysrow' + (pickFilter === val ? ' on' : '');
+      const plTxt = st && st.n ? money(st.pl) : '—';
+      const plCls = st && st.n >= 20 ? (st.pl > 0 ? 'pos' : st.pl < 0 ? 'neg' : '') : '';
+      r.innerHTML = `<span class="nm">${label}</span>` +
+        `<span class="sr">${st && st.strike != null ? (st.strike * 100).toFixed(1) + '%' : '—'}</span>` +
+        `<span class="pl ${plCls}">${plTxt}</span>`;
+      if (st) r.title = st.w + '/' + st.n + ' picks won · ' + FOLD.toLowerCase() + 's 12mo';
+      r.onclick = () => { pickFilter = val; renderPickChips(); renderChips(); render(activeDaysMap()); };
+      box.appendChild(r);
     });
   }
   const paintMap = (dd) => (dd.picks || []).filter(p => p.ph).map(p => ({
@@ -292,11 +329,31 @@
     });
     return list.map(r => ({ t: r.t, course: r.course, h: r.h, d: r.d, won: r.won, ssp: r.ssp, wh: r.wh, wsp: r.wsp }));
   }
+  function renderTodayCard() {
+    const box = $('todaybox');
+    const tf = todayFiltered();
+    if (tf === null) { box.innerHTML = '<span style="color:var(--faint)">' + (pickFilter === 'paint' || pickFilter === 'sipa' ? 'this system settles from results only — no live card view' : 'today\u2019s selections load here once the cards are up\u2026') + '</span>'; return; }
+    if (!tf.length) { box.innerHTML = '<span style="color:var(--faint)">no qualifying selections today for this system' + (courseFilter ? ' at ' + courseFilter : '') + '</span>'; return; }
+    const settled = tf.filter(r => r.won !== null);
+    const w2 = settled.filter(r => r.won).length;
+    const winsSp = settled.filter(r => r.won).map(r => r.ssp || r.d);
+    const bets2 = combK(tf.length);
+    const pl2 = eK(winsSp) - bets2;
+    const lines = tf.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(p =>
+      `<div class="line">${p.t ? p.t + ' · ' : ''}${courseFilter ? '' : p.course + ' · '}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr2(p.ssp || p.d)}${p.won !== null && p.ssp ? ' SP' : ''} ` +
+      (p.won === null ? '<span style="color:var(--faint)">· later</span>'
+        : p.won ? '<b class="pos">✓</b>'
+        : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr2(p.wsp) : ''}</span>`) +
+      '</div>').join('');
+    box.innerHTML = `<div style="margin-bottom:4px"><b>TODAY</b> · ${tf.length} picks · ${w2} won${settled.length < tf.length ? '…' : ''} · staked £${bets2.toLocaleString()} · <span class="${pl2 >= 0 ? 'pos' : 'neg'}">${money(pl2)}</span>${settled.length < tf.length ? '…' : ''}</div>` +
+      lines +
+      '<div style="color:var(--faint);padding-top:4px">live · card prices until each race settles at SP · not in the tiles or table</div>';
+  }
   async function loadToday() {
     try {
       const r = await fetch('/api/ledgertoday');
       const d = await r.json();
-      if (r.ok && d && d.ok && d.races) { todayRaces = d.races; render(activeDaysMap()); }
+      if (r.ok && d && d.ok && d.races) { todayRaces = d.races; render(activeDaysMap()); renderTodayCard(); }
     } catch {}
   }
   function activeDaysMap() {
@@ -344,7 +401,12 @@
       b.className = cls;
       b.textContent = label;
       if (val && st) b.title = (st.consistent ? 'CONSISTENT · ' : '') + FOLD.toLowerCase() + 's here 12mo: ' + money(st.pl) + ' · ' + st.green + '/' + st.days + ' green days' + (st.consistent ? ' · still profitable without its best day' : '');
-      b.onclick = () => { courseFilter = val; renderChips(); render(activeDaysMap()); };
+      b.onclick = () => {
+        courseFilter = val;
+        const open = $('crschips').style.display !== 'none';
+        $('crstog').textContent = 'Courses: ' + (courseFilter || 'All') + (open ? ' ▴' : ' ▾');
+        renderChips(); render(activeDaysMap());
+      };
       return b;
     };
     box.appendChild(mk('All', '', null));
@@ -484,43 +546,7 @@
         bar.hidden = false;
       }
     })();
-    // pinned TODAY row (live, excluded from tiles and cum)
-    (() => {
-      const tf = todayFiltered();
-      if (!tf || !tf.length) return;
-      const tbody = box.querySelector('tbody');
-      if (!tbody) return;
-      const n2 = tf.length;
-      const settled = tf.filter(r => r.won !== null);
-      const w2 = settled.filter(r => r.won).length;
-      const winsSp = settled.filter(r => r.won).map(r => r.ssp || r.d);
-      const bets2 = combK(n2);
-      const landed2 = combK(w2);
-      const ret2 = eK(winsSp);
-      const tr = document.createElement('tr');
-      tr.className = 'todayrow dayrow';
-      tr.innerHTML = `<td>TODAY · live <span style="color:var(--faint)">▸</span></td><td>${n2}</td><td>${w2}${settled.length < n2 ? '…' : ''}</td>` +
-        `<td>${settled.length ? (w2 / settled.length * 100).toFixed(0) + '%' : '—'}</td>` +
-        `<td>${bets2.toLocaleString()}</td><td>${landed2.toLocaleString()}</td>` +
-        `<td>£${Math.round(ret2).toLocaleString()}</td>` +
-        `<td class="${ret2 - bets2 >= 0 ? 'pos' : 'neg'}">${money(ret2 - bets2)}${settled.length < n2 ? '…' : ''}</td><td>—</td>`;
-      tr.onclick = () => {
-        const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains('subpicks');
-        box.querySelectorAll('tr.subpicks').forEach(x => x.remove());
-        if (open) return;
-        const sub = document.createElement('tr');
-        sub.className = 'subpicks';
-        const lines = tf.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(p =>
-          `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}${courseFilter ? '' : p.course + ' · '}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr2(p.ssp || p.d)}${p.won !== null && p.ssp ? ' SP' : ''} ` +
-          (p.won === null ? '<span style="color:var(--faint)">· runs later</span>'
-            : p.won ? '<b class="pos">✓ won</b>'
-            : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr2(p.wsp) : ''}</span>`) +
-          '</div>').join('');
-        sub.innerHTML = `<td colspan="9" style="text-align:left">${lines}<div style="padding-top:4px;color:var(--faint)">live · card prices until each race settles at SP · excluded from the tiles and Cum</div></td>`;
-        tr.after(sub);
-      };
-      tbody.prepend(tr);
-    })();
+    renderTodayCard();
     const fr = (d2) => {
       const v = d2 - 1;
       if (v <= 0) return 'evens';
