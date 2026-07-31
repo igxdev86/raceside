@@ -55,7 +55,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">TOP <b>SIRES</b><small>progeny records at SP · up to 24 months</small></div>
+    <div class="wordmark">TOP <b>SIRES</b><small>progeny records at SP · 12 months</small></div>
     <a class="back" href="/theview.html">← the view</a>
   </header>
 
@@ -100,7 +100,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rssire:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rssire:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v.sires).length > 200) {
         merged = c.v.sires; baseline = c.v.baseline;
         status.textContent = 'history ready · tap to rebuild';
@@ -110,7 +110,7 @@
     } catch {}
     const nowD = new Date();
     const months = [];
-    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
     merged = {};
     baseline = { runs: 0, wins: 0, exp: 0 };
@@ -135,9 +135,9 @@
       } catch { fails++; }
     }
     status.textContent = (fails ? 'done · ' + fails + ' months failed' : 'history ready') + ' · tap to rebuild';
-    if (Object.keys(merged).length > 200) { try { localStorage.setItem('rssire:v1', JSON.stringify({ t: Date.now(), v: { sires: merged, baseline } })); } catch {} }
+    if (Object.keys(merged).length > 200) { try { localStorage.setItem('rssire:v2', JSON.stringify({ t: Date.now(), v: { sires: merged, baseline } })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rssire:v1'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rssire:v2'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
