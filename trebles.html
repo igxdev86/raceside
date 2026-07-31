@@ -135,13 +135,13 @@
       if (pickFilter === 'sire15' || pickFilter === 'sipa') { renderChips(); render(activeDaysMap()); }
     };
     try {
-      const c = JSON.parse(localStorage.getItem('rssire:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rssire:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.sires && Object.keys(c.v.sires).length > 200) { apply(c.v.sires); return; }
     } catch {}
     // no shared cache yet: quiet background build (same months as the sires page, cached for both)
     const nowD = new Date();
     const months = [];
-    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
     const sires = {};
     const base = { runs: 0, wins: 0, exp: 0 };
@@ -161,7 +161,7 @@
       } catch {}
     }
     if (Object.keys(sires).length > 200) {
-      try { localStorage.setItem('rssire:v1', JSON.stringify({ t: Date.now(), v: { sires, baseline: base } })); } catch {}
+      try { localStorage.setItem('rssire:v2', JSON.stringify({ t: Date.now(), v: { sires, baseline: base } })); } catch {}
     }
     apply(sires);
   }
@@ -281,7 +281,7 @@
     if (!loaded) {
       const nowD = new Date();
       const months = [];
-      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+      const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
       loaded = {};
       let done = 0, fails = 0, stale = 0;
