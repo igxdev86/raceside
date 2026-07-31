@@ -434,9 +434,11 @@
     // likelihood-of-next-winner bar: this view's 12mo pick strike
     (() => {
       const bar = $('nwbar');
-      if (!tot.pk) { bar.hidden = true; }
+      const totPk = daysAll.reduce((a, d) => a + d.n, 0);
+      const totW = daysAll.reduce((a, d) => a + d.w, 0);
+      if (!totPk) { bar.hidden = true; }
       else {
-        const pct = tot.w / tot.pk * 100;
+        const pct = totW / totPk * 100;
         const tf = todayFiltered();
         const next = tf && tf.find(r => r.won === null);
         $('nwlab1').textContent = 'NEXT WINNER LIKELIHOOD ~' + pct.toFixed(0) + '% (12mo strike of this view)';
