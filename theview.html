@@ -200,7 +200,7 @@
   const normCourse = (c) => String(c || '').toLowerCase().replace(/\(.*?\)/g, '').trim();
   async function buildDrawStats() {
     try {
-      const cached = JSON.parse(localStorage.getItem('rsdraw:v3') || 'null');
+      const cached = JSON.parse(localStorage.getItem('rsdraw:v4') || 'null');
       if (cached && Date.now() - cached.t < 86400000 && cached.v && Object.keys(cached.v).length > 10) {
         drawStats = cached.v;
         const ds0 = document.getElementById('drawstamp');
@@ -211,7 +211,7 @@
     } catch {}
     const nowD = new Date();
     const months = [];
-    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
     const merged = {};
     let done = 0, fails = 0;
@@ -234,18 +234,18 @@
     }
     if (ds) ds.textContent = fails >= months.length ? 'draw stats unavailable \u2014 tell Claude' : 'draw stats: 12 mo ready' + (fails ? ' (' + fails + ' months failed)' : '');
     if (Object.keys(merged).length > 10) {
-      try { localStorage.setItem('rsdraw:v3', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
+      try { localStorage.setItem('rsdraw:v4', JSON.stringify({ t: Date.now(), v: merged })); } catch {}
     }
   }
   let yearBase = null;   // pooled 12-month baselines from the strike engine
   async function buildYearBase() {
     try {
-      const c = JSON.parse(localStorage.getItem('rsbase:v4') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsbase:v5') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && c.v.races > 1000) { yearBase = c.v; render(); return; }
     } catch {}
     const nowD = new Date();
     const months = [];
-    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 2, nowD.getUTCMonth() + 1, 1));
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
     while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
     const P = { races: 0, iconWins: 0, cupWins: 0, favWins: 0, spSum: 0, spN: 0, mr: [0,0,0,0], thirds: { low:0, mid:0, high:0 }, flatN: 0, nonIconWins: 0, nonIconFav: 0, rateB: {} };
     for (const mo of months.reverse()) {
@@ -270,7 +270,7 @@
         }
       } catch {}
     }
-    if (P.races > 1000) { try { localStorage.setItem('rsbase:v4', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
+    if (P.races > 1000) { try { localStorage.setItem('rsbase:v5', JSON.stringify({ t: Date.now(), v: P })); } catch {} }
   }
   let drawsMode = false;
   let expMode = false;
@@ -933,7 +933,7 @@
   const pbn = document.getElementById('paintBtn');
   if (pbn) pbn.onclick = () => { paintMode = !paintMode; pbn.classList.toggle('on', paintMode); render(); };
   const dsEl = document.getElementById('drawstamp');
-  if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v3'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
+  if (dsEl) dsEl.onclick = () => { try { localStorage.removeItem('rsdraw:v4'); localStorage.removeItem('rsdraw:v1'); } catch {} drawStats = null; buildDrawStats(); };
 })();
 </script>
 </body>
