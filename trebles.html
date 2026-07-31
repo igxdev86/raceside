@@ -227,6 +227,13 @@
   };
   let cdaysAll = {};   // course -> date -> {n, wins, picks}
   let todayRaces = null;
+  const raceMin = (t) => {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    if (!m) return 9999;
+    let hh = Number(m[1]);
+    if (hh < 10) hh += 12;
+    return hh * 60 + Number(m[2]);
+  };
   const fr2 = (d2) => {
     const v = d2 - 1;
     if (v <= 0) return 'evens';
@@ -335,8 +342,15 @@
       while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
       loaded = {};
       let done = 0, fails = 0, stale = 0;
+      const t0 = Date.now();
       for (const mo of months.reverse()) {
-        status.textContent = 'building ' + (++done) + '/' + months.length + '…';
+        {
+          done++;
+          const elapsed = Date.now() - t0;
+          const left = done > 1 ? Math.ceil((elapsed / (done - 1)) * (months.length - done + 1) / 1000) : null;
+          const eta = left == null ? '' : left >= 90 ? ' · ~' + Math.round(left / 60) + ' min left' : ' · ~' + Math.max(5, Math.ceil(left / 5) * 5) + 's left';
+          status.textContent = 'building ' + done + '/' + months.length + eta + ' — first build is the slow one, cached after';
+        }
         try {
           let r = await fetch('/api/expback?month=' + mo + '&v=14');
           let d = await r.json();
@@ -473,7 +487,7 @@
         if (open) return;
         const sub = document.createElement('tr');
         sub.className = 'subpicks';
-        const lines = tf.map(p =>
+        const lines = tf.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(p =>
           `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}${courseFilter ? '' : p.course + ' · '}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr2(p.ssp || p.d)}${p.won !== null && p.ssp ? ' SP' : ''} ` +
           (p.won === null ? '<span style="color:var(--faint)">· runs later</span>'
             : p.won ? '<b class="pos">✓ won</b>'
@@ -504,6 +518,7 @@
       if (openNext) return;
       const d = rows[Number(tr.dataset.ri)];
       if (!d.picks.length) return;
+      d.picks = d.picks.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t));
       const sub = document.createElement('tr');
       sub.className = 'subpicks';
       const icg = (p) => p.ic === 0 ? '🏆 ' : p.ic === 1 ? '♦️ ' : p.ic === 2 ? '🔹 ' : '';
