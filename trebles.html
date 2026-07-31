@@ -48,6 +48,11 @@
   table{width:100%;min-width:560px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
   tr.dayrow{cursor:pointer}
   .subpicks td{background:#F7F9FC;font-size:11.5px;padding:5px 6px;white-space:normal}
+  tr.todayrow td{background:#EEF3FF;font-weight:600}
+  .nwbar{margin:10px 0 4px}
+  .nwlab{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:4px}
+  .nwtrack{height:8px;border-radius:999px;background:#E7EBF2;overflow:hidden}
+  .nwfill{height:100%;border-radius:999px;background:linear-gradient(90deg,#2456E6,#12A150)}
   th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 6px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
   td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -87,6 +92,7 @@
   <div class="sect">
     <div class="stl">Day by day</div>
     <div class="status" id="status" title="tap to rebuild">building…</div>
+    <div class="nwbar" id="nwbar" hidden><div class="nwlab"><span id="nwlab1"></span><span id="nwlab2"></span></div><div class="nwtrack"><div class="nwfill" id="nwfill" style="width:0%"></div></div></div>
     <div id="ledger"><div class="state"><div class="spinner"></div>replaying the year…</div></div>
   </div>
 
@@ -220,6 +226,50 @@
     return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
   };
   let cdaysAll = {};   // course -> date -> {n, wins, picks}
+  let todayRaces = null;
+  const fr2 = (d2) => {
+    const v = d2 - 1;
+    if (v <= 0) return 'evens';
+    let best = null;
+    for (let q = 1; q <= 20; q++) {
+      const p = Math.round(v * q);
+      if (p < 1) continue;
+      const err = Math.abs(p / q - v);
+      if (!best || err < best.err - 1e-9) best = { p, q, err };
+    }
+    const g = (a, b) => b ? g(b, a % b) : a;
+    const dv = g(best.p, best.q);
+    return (best.p / dv) + '/' + (best.q / dv);
+  };
+  function todayFiltered() {
+    if (!todayRaces) return null;
+    if (pickFilter === 'paint' || pickFilter === 'sipa') return null;   // paint stream settles from results only
+    let list = todayRaces;
+    if (courseFilter) list = list.filter(r => r.course === courseFilter);
+    if (pickFilter === 'uuu') {
+      return list.filter(r => r.uh).map(r => ({ t: r.t, course: r.course, h: r.uh, d: r.ud, sid: r.usid, won: r.uwon, ssp: r.ussp, wh: r.uwh, wsp: r.uwsp }));
+    }
+    list = list.filter(r => {
+      switch (pickFilter) {
+        case 'cup': return r.ic === 0;
+        case 'red': return r.ic === 1;
+        case 'blue': return r.ic === 2;
+        case 'icon': return r.ic != null;
+        case 'non': return r.ic == null;
+        case 'fav': return r.fv === 1;
+        case 'sire15': return sireReady && r.sid && sire15.has(r.sid);
+        default: return true;
+      }
+    });
+    return list.map(r => ({ t: r.t, course: r.course, h: r.h, d: r.d, won: r.won, ssp: r.ssp, wh: r.wh, wsp: r.wsp }));
+  }
+  async function loadToday() {
+    try {
+      const r = await fetch('/api/ledgertoday');
+      const d = await r.json();
+      if (r.ok && d && d.ok && d.races) { todayRaces = d.races; render(activeDaysMap()); }
+    } catch {}
+  }
   function activeDaysMap() {
     const src = courseFilter ? { x: cdaysAll[courseFilter] || {} } : cdaysAll;
     const out = {};
@@ -381,6 +431,57 @@
     });
     html += '</tbody></table></div>';
     box.innerHTML = html;
+    // likelihood-of-next-winner bar: this view's 12mo pick strike
+    (() => {
+      const bar = $('nwbar');
+      if (!tot.pk) { bar.hidden = true; }
+      else {
+        const pct = tot.w / tot.pk * 100;
+        const tf = todayFiltered();
+        const next = tf && tf.find(r => r.won === null);
+        $('nwlab1').textContent = 'NEXT WINNER LIKELIHOOD ~' + pct.toFixed(0) + '% (12mo strike of this view)';
+        $('nwlab2').textContent = next ? 'next: ' + next.t + ' ' + next.course + ' · ' + next.h : '';
+        $('nwfill').style.width = Math.min(100, pct) + '%';
+        bar.hidden = false;
+      }
+    })();
+    // pinned TODAY row (live, excluded from tiles and cum)
+    (() => {
+      const tf = todayFiltered();
+      if (!tf || !tf.length) return;
+      const tbody = box.querySelector('tbody');
+      if (!tbody) return;
+      const n2 = tf.length;
+      const settled = tf.filter(r => r.won !== null);
+      const w2 = settled.filter(r => r.won).length;
+      const winsSp = settled.filter(r => r.won).map(r => r.ssp || r.d);
+      const bets2 = combK(n2);
+      const landed2 = combK(w2);
+      const ret2 = eK(winsSp);
+      const tr = document.createElement('tr');
+      tr.className = 'todayrow dayrow';
+      tr.innerHTML = `<td>TODAY · live <span style="color:var(--faint)">▸</span></td><td>${n2}</td><td>${w2}${settled.length < n2 ? '…' : ''}</td>` +
+        `<td>${settled.length ? (w2 / settled.length * 100).toFixed(0) + '%' : '—'}</td>` +
+        `<td>${bets2.toLocaleString()}</td><td>${landed2.toLocaleString()}</td>` +
+        `<td>£${Math.round(ret2).toLocaleString()}</td>` +
+        `<td class="${ret2 - bets2 >= 0 ? 'pos' : 'neg'}">${money(ret2 - bets2)}${settled.length < n2 ? '…' : ''}</td><td>—</td>`;
+      tr.onclick = () => {
+        const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains('subpicks');
+        box.querySelectorAll('tr.subpicks').forEach(x => x.remove());
+        if (open) return;
+        const sub = document.createElement('tr');
+        sub.className = 'subpicks';
+        const lines = tf.map(p =>
+          `<div style="padding:2px 0">${p.t ? p.t + ' · ' : ''}${courseFilter ? '' : p.course + ' · '}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr2(p.ssp || p.d)}${p.won !== null && p.ssp ? ' SP' : ''} ` +
+          (p.won === null ? '<span style="color:var(--faint)">· runs later</span>'
+            : p.won ? '<b class="pos">✓ won</b>'
+            : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr2(p.wsp) : ''}</span>`) +
+          '</div>').join('');
+        sub.innerHTML = `<td colspan="9" style="text-align:left">${lines}<div style="padding-top:4px;color:var(--faint)">live · card prices until each race settles at SP · excluded from the tiles and Cum</div></td>`;
+        tr.after(sub);
+      };
+      tbody.prepend(tr);
+    })();
     const fr = (d2) => {
       const v = d2 - 1;
       if (v <= 0) return 'evens';
@@ -421,6 +522,8 @@
 
   renderPickChips();
   build();
+  loadToday();
+  setInterval(loadToday, 150000);
 })();
 </script>
 </body>
