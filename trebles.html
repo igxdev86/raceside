@@ -104,8 +104,8 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const money = (v) => (v >= 0 ? '+' : '−') + '£' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const K = Math.min(5, Math.max(2, parseInt(new URLSearchParams(location.search).get('k'), 10) || 3));
-  const FOLD = { 2: 'DOUBLE', 3: 'TREBLE', 4: '4-FOLD', 5: '5-FOLD' }[K];
+  const K = Math.min(5, Math.max(1, parseInt(new URLSearchParams(location.search).get('k'), 10) || 3));
+  const FOLD = { 1: 'SINGLE', 2: 'DOUBLE', 3: 'TREBLE', 4: '4-FOLD', 5: '5-FOLD' }[K];
   const combK = (n) => { if (n < K) return 0; let r = 1; for (let i = 0; i < K; i++) r = r * (n - i) / (i + 1); return Math.round(r); };
   const eK = (wins) => {
     const e = [1];
@@ -117,7 +117,7 @@
   document.title = 'RACESIDE — ' + FOLD + ' LEDGER';
   (() => {
     const fb = document.getElementById('foldchips');
-    [[2,'Doubles'],[3,'Trebles'],[4,'4-Folds'],[5,'5-Folds']].forEach(([k, label]) => {
+    [[1,'Singles'],[2,'Doubles'],[3,'Trebles'],[4,'4-Folds'],[5,'5-Folds']].forEach(([k, label]) => {
       const a = document.createElement('a');
       a.className = 'chip' + (k === K ? ' on' : '');
       a.style.textDecoration = 'none';
