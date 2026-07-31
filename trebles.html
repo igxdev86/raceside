@@ -176,8 +176,8 @@
     ['', 'All picks'], ['cup', '🏆 Cup'], ['red', '♦️ Red'], ['blue', '🔹 Blue'],
     ['icon', 'Any icon'], ['non', 'Non-icon'], ['fav', 'Favourite'], ['paint', 'PAINT TOP'], ['sire15', 'SIRE+15'], ['sipa', 'SIPA'], ['uuu', 'UUU (ghosts)'],
   ];
-  const passPick = (p) => {
-    switch (pickFilter) {
+  const passPickF = (p, F) => {
+    switch (F) {
       case 'cup': return p.ic === 0;
       case 'red': return p.ic === 1;
       case 'blue': return p.ic === 2;
@@ -188,13 +188,19 @@
       default: return true;
     }
   };
+  const passPick = (p) => passPickF(p, pickFilter);
   function renderPickChips() {
     const box = $('pickchips');
     box.innerHTML = '';
+    const hasData = Object.keys(cdaysAll).length > 0;
     PF.forEach(([val, label]) => {
       const b = document.createElement('button');
-      b.className = 'chip' + (pickFilter === val ? ' on' : '');
-      b.textContent = label;
+      const st = hasData ? tabStats(val) : null;
+      let cls = 'chip' + (pickFilter === val ? ' on' : '');
+      if (st && st.n >= 20) cls += st.pl > 0 ? ' pos' : st.pl < 0 ? ' neg' : '';
+      b.className = cls;
+      b.textContent = label + (st && st.strike != null ? ' · ' + (st.strike * 100).toFixed(0) + '%' : '');
+      if (st) b.title = st.w + '/' + st.n + ' picks won · ' + FOLD.toLowerCase() + 's 12mo: ' + money(st.pl);
       b.onclick = () => { pickFilter = val; renderPickChips(); renderChips(); render(activeDaysMap()); };
       box.appendChild(b);
     });
@@ -203,9 +209,10 @@
     t: p.t, h: p.ph, sp: p.psp, won: p.pwon, ic: p.pic ?? null, fv: p.pfv, sid: p.psid ?? null,
     wh: p.pwh, wsp: p.pwsp,
   }));
-  const deriveDay = (dd) => {
-    if ((pickFilter === 'sire15' || pickFilter === 'sipa') && !sireReady) return { n: 0, wins: [], picks: [] };
-    if (pickFilter === 'uuu') {
+  const deriveDay = (dd, f) => {
+    const F = f === undefined ? pickFilter : f;
+    if ((F === 'sire15' || F === 'sipa') && !sireReady) return { n: 0, wins: [], picks: [] };
+    if (F === 'uuu') {
       // UUU is its own selection stream: the ghost the View marks U in each race that has one
       const pk = (dd.picks || []).filter(p => p.uh).map(p => ({
         t: p.t, h: p.uh, sp: p.usp, won: p.uwon, ic: null, fv: null,
@@ -213,18 +220,33 @@
       }));
       return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
     }
-    if (pickFilter === 'sipa') {
+    if (F === 'sipa') {
       const pk = paintMap(dd).filter(p => p.sid && sire15.has(p.sid));
       return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
     }
-    if (pickFilter === 'paint') {
+    if (F === 'paint') {
       // PAINT TOP is its own selection stream: the horse the PAINT view ranks #1 in each race
       const pk = paintMap(dd);
       return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
     }
-    const pk = (dd.picks || []).filter(passPick);
+    const pk = (dd.picks || []).filter(p => passPickF(p, F));
     return { n: pk.length, wins: pk.filter(p => p.won).map(p => p.sp), picks: pk };
   };
+  function tabStats(f) {
+    // whole-view stats for a tab under the current course filter and fold
+    const src2 = courseFilter ? { x: cdaysAll[courseFilter] || {} } : cdaysAll;
+    let n = 0, w = 0, pl = 0;
+    for (const cm of Object.values(src2)) {
+      for (const dd of Object.values(cm)) {
+        const d2 = deriveDay(dd, f);
+        if (!d2.n) continue;
+        n += d2.n; w += d2.wins.length;
+        const bets = combK(d2.n);
+        if (bets) pl += eK(d2.wins) - bets;
+      }
+    }
+    return { n, w, pl, strike: n ? w / n : null };
+  }
   let cdaysAll = {};   // course -> date -> {n, wins, picks}
   let todayRaces = null;
   const raceMin = (t) => {
@@ -308,6 +330,7 @@
     return { pl, days, green, consistent };
   }
   function renderChips() {
+    renderPickChips();
     const box = $('crschips');
     box.innerHTML = '';
     const ranked = Object.entries(cdaysAll)
