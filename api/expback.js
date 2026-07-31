@@ -258,6 +258,32 @@ export default async function handler(req, res) {
               }
               if (!paintPk || p > paintPk.p) paintPk = { x, p };
             });
+            // U ghost: non-icon, top-3 of market at 8/1-, priced inside the icons' range,
+            // scoring 4+ below the third icon or carrying no ratings (the live View's rule)
+            let uPick = null;
+            {
+              const noRtOf = (x) => isNaN(parseRt(x.rpr)) && isNaN(parseRt(x.tsr));
+              const iconSps = byPrice.filter((x) => {
+                const scI = map[x.horse_id];
+                return scI != null && !noRtOf(x) && vals.filter((q) => q > scI).length <= 2;
+              }).map((x) => spDec2(x));
+              const maxIconSp = iconSps.length ? Math.max(...iconSps) : null;
+              const cut3 = vals.length >= 3 ? vals[2] : null;
+              if (maxIconSp != null && cut3 != null) {
+                byPrice.forEach((x, i) => {
+                  if (i > 2) return;                                   // top-3 of market only
+                  const d2 = spDec2(x);
+                  if (!(d2 <= 9)) return;                              // 8/1 or shorter
+                  if (!(d2 <= maxIconSp * 1.1)) return;                // inside the icons' range
+                  const scU = map[x.horse_id];
+                  const noRt = noRtOf(x);
+                  const rkU = (scU != null && !noRt) ? vals.filter((q) => q > scU).length : 99;  // unrated can't be an icon (matches the View)
+                  if (rkU <= 2) return;                                // must be non-icon
+                  if (!(scU == null || noRt || scU <= cut3 - 4)) return; // clearly below the frame
+                  if (!uPick || d2 < spDec2(uPick)) uPick = x;         // shortest-priced ghost
+                });
+              }
+            }
             const pkSc = map[pick.x.horse_id];
             const pkRk = pkSc != null ? vals.filter((q) => q > pkSc).length : 99;
             cd.picks.push({
@@ -266,6 +292,13 @@ export default async function handler(req, res) {
               fv: pick.x.horse_id === byPrice[0].horse_id ? 1 : 0,
               sid: pick.x.sire_id || null,
               ...(won ? {} : { wh: win.horse || '', wsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
+              ...(uPick ? (() => {
+                const uw = uPick.horse_id === win.horse_id;
+                return {
+                  uh: uPick.horse || '', usp: Math.round(spDec2(uPick) * 100) / 100, uwon: uw ? 1 : 0,
+                  ...(uw ? {} : { uwh: win.horse || '', uwsp: Math.round((spDec2(win) || 0) * 100) / 100 }),
+                };
+              })() : {}),
               ...(paintPk ? (() => {
                 const pw = paintPk.x.horse_id === win.horse_id;
                 const psp = Math.round(spDec2(paintPk.x) * 100) / 100;
@@ -303,5 +336,5 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({ ok: true, month: m, source, total: totalT, courses, meets, days, cdays });
+  return res.status(200).json({ ok: true, gen: 3, month: m, source, total: totalT, courses, meets, days, cdays });
 }
