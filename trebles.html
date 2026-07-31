@@ -92,7 +92,7 @@
   </header>
 
   <div class="sect">
-    <div class="cardstl">When to strike</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="cardstl" style="margin-bottom:0">When to strike</span><input type="date" id="rdate" style="font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;color:var(--ink);background:#fff"></div>
     <div class="nwbar" id="nwbar" hidden><div class="nwlab"><span id="nwlab1"></span><span id="nwlab2"></span></div><div class="nwtrack"><div class="nwfill" id="nwfill" style="width:0%"></div></div></div>
     <div class="todaymini" id="todaybox"><span style="color:var(--faint)">today's selections load here once the cards are up…</span></div>
   </div>
@@ -150,6 +150,20 @@
       a.textContent = label;
       fb.appendChild(a);
     });
+  })();
+  (() => {
+    const inp = $('rdate');
+    const today = new Date().toISOString().slice(0, 10);
+    const min = new Date(Date.now() - 363 * 86400000).toISOString().slice(0, 10);
+    inp.setAttribute('min', min);
+    inp.setAttribute('max', today);
+    inp.value = '';
+    inp.onchange = () => {
+      const v = inp.value;
+      replayDate = (v && v !== today) ? v : '';
+      render(activeDaysMap());
+      renderTodayCard();
+    };
   })();
   $('crstog').onclick = () => {
     const c = $('crschips');
@@ -286,6 +300,8 @@
   }
   let cdaysAll = {};   // course -> date -> {n, wins, picks}
   let todayRaces = null;
+  let replayDate = '';        // '' = live today; else YYYY-MM-DD from the calendar
+  let lastAdm = {};
   const raceMin = (t) => {
     const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
     if (!m) return 9999;
@@ -331,6 +347,22 @@
   }
   function renderTodayCard() {
     const box = $('todaybox');
+    if (replayDate) {
+      const dd = lastAdm[replayDate];
+      const d2 = dd ? { n: dd.n, wins: dd.wins, picks: dd.picks } : null;
+      if (!d2 || !d2.n) { box.innerHTML = '<span style="color:var(--faint)">no selections for this system on ' + replayDate + (courseFilter ? ' at ' + courseFilter : '') + '</span>'; return; }
+      const w2 = d2.wins.length;
+      const bets2 = combK(d2.n);
+      const pl2 = eK(d2.wins) - bets2;
+      const lines = d2.picks.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(p =>
+        `<div class="line">${p.t ? p.t + ' · ' : ''}<b>${String(p.h).replace(/</g,'&lt;')}</b> ${fr2(p.sp)} SP ` +
+        (p.won ? '<b class="pos">✓</b>'
+          : `<span class="neg">✗</span> <span style="color:var(--faint)">won: ${String(p.wh || '?').replace(/</g,'&lt;')}${p.wsp ? ' ' + fr2(p.wsp) : ''}</span>`) +
+        '</div>').join('');
+      box.innerHTML = `<div style="margin-bottom:4px"><b>REPLAY · ${replayDate}</b> · ${d2.n} picks · ${w2} won (${(w2 / d2.n * 100).toFixed(0)}%) · staked £${bets2.toLocaleString()} · <span class="${pl2 >= 0 ? 'pos' : 'neg'}">${money(pl2)}</span></div>` +
+        lines + '<div style="color:var(--faint);padding-top:4px">settled at SP · pick the date above · clear it for live today</div>';
+      return;
+    }
     const tf = todayFiltered();
     if (tf === null) { box.innerHTML = '<span style="color:var(--faint)">' + (pickFilter === 'paint' || pickFilter === 'sipa' ? 'this system settles from results only — no live card view' : 'today\u2019s selections load here once the cards are up\u2026') + '</span>'; return; }
     if (!tf.length) { box.innerHTML = '<span style="color:var(--faint)">no qualifying selections today for this system' + (courseFilter ? ' at ' + courseFilter : '') + '</span>'; return; }
@@ -477,6 +509,7 @@
   $('status').onclick = () => { try { localStorage.removeItem('rstreb:v3'); localStorage.removeItem('rstreb:v15'); } catch {} $('ledger').innerHTML = ''; build(); };
 
   function render(daysMap) {
+    lastAdm = daysMap;
     daysAll = Object.entries(daysMap).map(([dt, dd]) => {
       const bets = combK(dd.n);
       const landed = combK(dd.wins.length);
@@ -533,15 +566,21 @@
     // likelihood-of-next-winner bar: this view's 12mo pick strike
     (() => {
       const bar = $('nwbar');
-      const totPk = daysAll.reduce((a, d) => a + d.n, 0);
-      const totW = daysAll.reduce((a, d) => a + d.w, 0);
+      const pool = replayDate ? daysAll.filter(d => d.dt < replayDate) : daysAll;
+      const totPk = pool.reduce((a, d) => a + d.n, 0);
+      const totW = pool.reduce((a, d) => a + d.w, 0);
       if (!totPk) { bar.hidden = true; }
       else {
         const pct = totW / totPk * 100;
-        const tf = todayFiltered();
-        const next = tf && tf.find(r => r.won === null);
-        $('nwlab1').textContent = 'NEXT WINNER LIKELIHOOD ~' + pct.toFixed(0) + '% (12mo strike of this view)';
-        $('nwlab2').textContent = next ? 'next: ' + next.t + ' ' + next.course + ' · ' + next.h : '';
+        if (replayDate) {
+          $('nwlab1').textContent = 'NEXT WINNER LIKELIHOOD ~' + pct.toFixed(0) + '% (strike before this date · ' + pool.length + ' days of history)';
+          $('nwlab2').textContent = 'replaying ' + replayDate;
+        } else {
+          const tf = todayFiltered();
+          const next = tf && tf.find(r => r.won === null);
+          $('nwlab1').textContent = 'NEXT WINNER LIKELIHOOD ~' + pct.toFixed(0) + '% (12mo strike of this view)';
+          $('nwlab2').textContent = next ? 'next: ' + next.t + ' ' + next.course + ' · ' + next.h : '';
+        }
         $('nwfill').style.width = Math.min(100, pct) + '%';
         bar.hidden = false;
       }
