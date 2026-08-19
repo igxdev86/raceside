@@ -92,6 +92,12 @@
   let at = null;
   let day = 'today';
   let source = 'history';
+  // device baseline: first price this phone saw per horse (kept from the earlier page
+  // version) — used as the opening price wherever server capture hasn't got history
+  const devKey = () => 'rsmkt:' + (day === 'tomorrow' ? new Date(Date.now() + 86400000) : new Date()).toISOString().slice(0, 10);
+  let devBase = {};
+  const loadDev = () => { try { const c = JSON.parse(localStorage.getItem(devKey()) || 'null'); devBase = (c && c.v) || {}; } catch { devBase = {}; } };
+  loadDev();
   let view = 'all';     // all | moving | unrun | steam | drift
   const DAYS = [['today','Today'],['tomorrow','Tomorrow']];
   function renderDayChips() {
@@ -151,12 +157,27 @@
       if (!r.ok || !d || !d.ok) throw new Error('bad');
       runners = d.runners || [];
       at = d.at; source = d.source;
+      // keep recording device baselines, and widen server opens with any earlier device sighting
+      loadDev();
+      let changed = false;
+      runners.forEach((x) => {
+        if (devBase[x.id] == null && x.d) { devBase[x.id] = x.d; changed = true; }
+        const db = devBase[x.id];
+        if (db != null && (x.b == null || (x.ticks || 1) <= 1)) { x.b = db; x.devOpen = true; }
+        else if (db != null && db !== x.b && Math.abs(db - x.b) / x.b > 0.02 && source === 'history') {
+          // device saw a price before the server capture began — trust the earlier sighting
+          x.b = db; x.devOpen = true;
+        }
+      });
+      if (changed) { try { localStorage.setItem(devKey(), JSON.stringify({ v: devBase })); } catch {} }
       const ticks = runners.length ? Math.max(...runners.map((x) => x.ticks || 1)) : 0;
       const firsts = runners.filter((x) => x.first).map((x) => Date.parse(x.first));
       const firstAt = firsts.length ? new Date(Math.min(...firsts)) : null;
       $('status').textContent = runners.length + ' runners · ' + (source === 'history'
         ? ticks + ' five-minute snapshots since ' + (firstAt ? firstAt.toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : 'open') + ' · movement = first captured price → now'
-        : 'no captured history yet for this day — live snapshot shown; movement starts once the 5-minute capture has run');
+        : (Object.keys(devBase).length > 20
+            ? 'server capture not running yet — movement shown vs the first price this phone saw today'
+            : 'no captured history yet for this day — live snapshot shown; movement starts once the 5-minute capture has run'));
       render();
     } catch {
       $('status').textContent = 'couldn’t read the market — retrying';
