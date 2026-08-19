@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — MARKET</title>
+<meta name="description" content="Every runner today and how its price has moved.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:860px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  input.search{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;background:none;color:#fff;outline:none;min-width:150px}
+  input.search::placeholder{color:#5C6E96}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px}
+  .tablewrap{overflow-x:auto;margin:8px -15px 0;padding:0 15px}
+  table{width:100%;min-width:600px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 6px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
+  th:first-child,td:first-child,th.l,td.l{text-align:left}
+  td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  tr.settled td{color:var(--faint)}
+  tr.settled td.won{color:var(--green);font-weight:700}
+  .in{color:var(--green);font-weight:700}
+  .out{color:var(--red);font-weight:700}
+  .flat{color:var(--faint)}
+  .mvbar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:4px}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .mini .sect{margin-bottom:0}
+  .mini .line{font-family:var(--mono);font-size:11.5px;padding:3px 0;display:flex;justify-content:space-between;gap:8px}
+  .mini .line span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>MARKET</b><small>every runner today · price movement</small></div>
+    <a class="back" href="/theview.html">← the view</a>
+  </header>
+
+  <div class="chips" id="viewchips"></div>
+  <div class="chips"><input class="search" id="q" placeholder="search horse, jockey, trainer, course…" autocomplete="off"></div>
+
+  <div class="mini">
+    <div class="sect"><div class="stl">Steamers</div><div id="steam" class="status">watching…</div></div>
+    <div class="sect"><div class="stl">Drifters</div><div id="drift" class="status">watching…</div></div>
+  </div>
+
+  <div class="sect">
+    <div class="stl">All runners</div>
+    <div class="status" id="status">first snapshot…</div>
+    <div id="tbl"><div class="state"><div class="spinner"></div>reading the boards…</div></div>
+  </div>
+
+  <p class="note">Movement is measured against the <b>first price this device saw today</b> (your baseline — open the page early for a longer view). Prices are best available across the card's bookmakers, so some movement is one firm pushing out rather than the whole market. <b>Steamers</b> shortened the most in percentage terms; <b>drifters</b> lengthened. Refreshes every 2 minutes; settled races grey out and show the winner. A steamer is the market telling you someone's confident — it is not, on its own, a reason to follow: backed-in horses win more often but at prices that have already absorbed the confidence. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const LS = 'rsmkt:' + dayKey;
+
+  let baseline = {};   // horse_id -> first decimal seen today
+  try { const c = JSON.parse(localStorage.getItem(LS) || 'null'); if (c && c.v) baseline = c.v; } catch {}
+  let runners = [];
+  let at = null;
+  let view = 'all';     // all | moving | unrun | steam | drift
+  let query = '';
+  let sortKey = 'mv', sortDir = 1;   // biggest steamers first by default
+
+  const VIEWS = [['all','All'],['moving','Moving'],['unrun','Not yet run'],['steam','Steamers'],['drift','Drifters']];
+  function renderViewChips() {
+    const box = $('viewchips');
+    box.innerHTML = '';
+    VIEWS.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (view === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { view = v; renderViewChips(); render(); };
+      box.appendChild(b);
+    });
+  }
+  $('q').addEventListener('input', (e) => { query = e.target.value.trim().toLowerCase(); render(); });
+
+  const raceMin = (t) => {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    if (!m) return 9999;
+    let hh = Number(m[1]);
+    if (hh < 10) hh += 12;
+    return hh * 60 + Number(m[2]);
+  };
+  const fr = (d2) => {
+    const v = d2 - 1;
+    if (v <= 0) return 'evens';
+    let best = null;
+    for (let q = 1; q <= 20; q++) {
+      const p = Math.round(v * q);
+      if (p < 1) continue;
+      const err = Math.abs(p / q - v);
+      if (!best || err < best.err - 1e-9) best = { p, q, err };
+    }
+    const g = (a, b) => b ? g(b, a % b) : a;
+    const dv = g(best.p, best.q);
+    return (best.p / dv) + '/' + (best.q / dv);
+  };
+
+  async function poll() {
+    try {
+      const r = await fetch('/api/market');
+      const d = await r.json();
+      if (!r.ok || !d || !d.ok) throw new Error('bad');
+      runners = d.runners || [];
+      at = d.at;
+      let changed = false;
+      runners.forEach((x) => { if (baseline[x.id] == null) { baseline[x.id] = x.d; changed = true; } });
+      if (changed) { try { localStorage.setItem(LS, JSON.stringify({ v: baseline })); } catch {} }
+      $('status').textContent = runners.length + ' runners \u00b7 prices as of ' + new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' \u00b7 movement vs your first look today';
+      render();
+    } catch {
+      $('status').textContent = 'couldn\u2019t read the market \u2014 retrying';
+    }
+  }
+
+  function withMove(x) {
+    const b = baseline[x.id];
+    const mv = b ? (x.d - b) / b * 100 : 0;     // negative = shortened (steamer)
+    return { ...x, b, mv };
+  }
+
+  function render() {
+    if (!runners.length) return;
+    let rows = runners.map(withMove);
+    const movers = rows.filter((x) => x.won === null && Math.abs(x.mv) >= 8);
+    const steam = movers.filter((x) => x.mv < 0).sort((a, b) => a.mv - b.mv).slice(0, 6);
+    const drift = movers.filter((x) => x.mv > 0).sort((a, b) => b.mv - a.mv).slice(0, 6);
+    const miniLine = (x) => `<div class="line"><span>${esc(x.t)} ${esc(x.course)} \u00b7 <b>${esc(x.h)}</b></span><span class="${x.mv < 0 ? 'in' : 'out'}">${fr(x.b)} \u2192 ${fr(x.d)}</span></div>`;
+    $('steam').innerHTML = steam.length ? steam.map(miniLine).join('') : '<span class="status">nothing moving in 8%+ yet</span>';
+    $('drift').innerHTML = drift.length ? drift.map(miniLine).join('') : '<span class="status">nothing drifting 8%+ yet</span>';
+
+    if (view === 'moving') rows = rows.filter((x) => Math.abs(x.mv) >= 5);
+    else if (view === 'unrun') rows = rows.filter((x) => x.won === null);
+    else if (view === 'steam') rows = rows.filter((x) => x.mv <= -5);
+    else if (view === 'drift') rows = rows.filter((x) => x.mv >= 5);
+    if (query) rows = rows.filter((x) => [x.h, x.j, x.tr, x.course].some((s) => String(s).toLowerCase().includes(query)));
+    rows.sort((a, b) => {
+      const v = (x) => sortKey === 't' ? raceMin(x.t) : sortKey === 'h' || sortKey === 'course' ? String(x[sortKey]) : x[sortKey];
+      const av = v(a), bv = v(b);
+      const r = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+      return sortDir * r || raceMin(a.t) - raceMin(b.t);
+    });
+    const th = (k, label, left) => `<th class="${left ? 'l' : ''}" data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' \u25be' : ' \u25b4') : ''}</th>`;
+    let html = '<div class="tablewrap"><table><thead><tr>' +
+      th('t','Time', true) + th('course','Course', true) + th('h','Horse', true) + th('rank','Mkt') + th('b','Open') + th('d','Now') + th('mv','Move') + th('won','Result') +
+      '</tr></thead><tbody>';
+    const maxAbs = Math.max(8, ...rows.map((x) => Math.abs(x.mv)));
+    rows.forEach((x) => {
+      const cls = x.mv <= -5 ? 'in' : x.mv >= 5 ? 'out' : 'flat';
+      const w = Math.min(40, Math.abs(x.mv) / maxAbs * 40);
+      const bar = Math.abs(x.mv) >= 2 ? `<span class="mvbar" style="width:${w}px;background:${x.mv < 0 ? 'var(--green)' : 'var(--red)'}"></span>` : '';
+      const res = x.won === null ? '' : x.won ? '\u2713 WON' : '\u2717';
+      html += `<tr class="${x.won === null ? '' : 'settled'}"><td class="l">${esc(x.t)}</td><td class="l">${esc(x.course)}</td>` +
+        `<td class="l"><b>${esc(x.h)}</b><br><span style="color:var(--faint);font-size:10.5px">${esc(x.j)} \u00b7 ${esc(x.tr)}</span></td>` +
+        `<td>${x.rank}/${x.n}</td><td>${x.b ? fr(x.b) : '\u2014'}</td><td><b>${fr(x.d)}</b></td>` +
+        `<td class="${cls}">${x.mv > 0 ? '+' : ''}${x.mv.toFixed(0)}%${bar}</td>` +
+        `<td class="${x.won ? 'won' : ''}">${res}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    $('tbl').innerHTML = html;
+    $('tbl').querySelectorAll('th').forEach((t) => t.onclick = () => {
+      const k = t.dataset.k;
+      if (sortKey === k) sortDir *= -1;
+      else { sortKey = k; sortDir = (k === 'mv' || k === 't' || k === 'h' || k === 'course' || k === 'rank') ? 1 : -1; }
+      render();
+    });
+  }
+
+  renderViewChips();
+  poll();
+  setInterval(poll, 120000);
+})();
+</script>
+</body>
+</html>
