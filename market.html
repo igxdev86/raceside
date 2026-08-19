@@ -61,10 +61,11 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">THE <b>MARKET</b><small>every runner today · price movement</small></div>
+    <div class="wordmark">THE <b>MARKET</b><small>every runner · price movement · 5-minute ticks</small></div>
     <a class="back" href="/theview.html">← the view</a>
   </header>
 
+  <div class="chips" id="daychips"></div>
   <div class="chips" id="viewchips"></div>
   <div class="chips"><input class="search" id="q" placeholder="search horse, jockey, trainer, course…" autocomplete="off"></div>
 
@@ -79,7 +80,7 @@
     <div id="tbl"><div class="state"><div class="spinner"></div>reading the boards…</div></div>
   </div>
 
-  <p class="note">Movement is measured against the <b>first price this device saw today</b> (your baseline — open the page early for a longer view). Prices are best available across the card's bookmakers, so some movement is one firm pushing out rather than the whole market. <b>Steamers</b> shortened the most in percentage terms; <b>drifters</b> lengthened. Refreshes every 2 minutes; settled races grey out and show the winner. A steamer is the market telling you someone's confident — it is not, on its own, a reason to follow: backed-in horses win more often but at prices that have already absorbed the confidence. Not advice.</p>
+  <p class="note">Movement is measured from the <b>first price captured</b> for each horse — the server snapshots every runner’s best price every 5 minutes for today and tomorrow, so everyone sees the same full history (tomorrow’s markets usually open the afternoon before; the Tomorrow tab captures from the moment prices exist). Sparklines trace each horse’s path. Prices are best available across the card's bookmakers, so some movement is one firm pushing out rather than the whole market. <b>Steamers</b> shortened the most in percentage terms; <b>drifters</b> lengthened. Refreshes every 2 minutes; settled races grey out and show the winner. A steamer is the market telling you someone's confident — it is not, on its own, a reason to follow: backed-in horses win more often but at prices that have already absorbed the confidence. Not advice.</p>
   <footer>RACESIDE · data: The Racing API</footer>
 </div>
 <script>
@@ -87,14 +88,23 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  const dayKey = new Date().toISOString().slice(0, 10);
-  const LS = 'rsmkt:' + dayKey;
-
-  let baseline = {};   // horse_id -> first decimal seen today
-  try { const c = JSON.parse(localStorage.getItem(LS) || 'null'); if (c && c.v) baseline = c.v; } catch {}
   let runners = [];
   let at = null;
+  let day = 'today';
+  let source = 'history';
   let view = 'all';     // all | moving | unrun | steam | drift
+  const DAYS = [['today','Today'],['tomorrow','Tomorrow']];
+  function renderDayChips() {
+    const box = $('daychips');
+    box.innerHTML = '';
+    DAYS.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (day === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { day = v; runners = []; renderDayChips(); $('tbl').innerHTML = '<div class="state"><div class="spinner"></div>reading the boards…</div>'; poll(); };
+      box.appendChild(b);
+    });
+  }
   let query = '';
   let sortKey = 'mv', sortDir = 1;   // biggest steamers first by default
 
@@ -136,26 +146,37 @@
 
   async function poll() {
     try {
-      const r = await fetch('/api/market');
+      const r = await fetch('/api/markethist?day=' + day);
       const d = await r.json();
       if (!r.ok || !d || !d.ok) throw new Error('bad');
       runners = d.runners || [];
-      at = d.at;
-      let changed = false;
-      runners.forEach((x) => { if (baseline[x.id] == null) { baseline[x.id] = x.d; changed = true; } });
-      if (changed) { try { localStorage.setItem(LS, JSON.stringify({ v: baseline })); } catch {} }
-      $('status').textContent = runners.length + ' runners \u00b7 prices as of ' + new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' \u00b7 movement vs your first look today';
+      at = d.at; source = d.source;
+      const ticks = runners.length ? Math.max(...runners.map((x) => x.ticks || 1)) : 0;
+      const firsts = runners.filter((x) => x.first).map((x) => Date.parse(x.first));
+      const firstAt = firsts.length ? new Date(Math.min(...firsts)) : null;
+      $('status').textContent = runners.length + ' runners · ' + (source === 'history'
+        ? ticks + ' five-minute snapshots since ' + (firstAt ? firstAt.toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : 'open') + ' · movement = first captured price → now'
+        : 'no captured history yet for this day — live snapshot shown; movement starts once the 5-minute capture has run');
       render();
     } catch {
-      $('status').textContent = 'couldn\u2019t read the market \u2014 retrying';
+      $('status').textContent = 'couldn’t read the market — retrying';
     }
   }
 
   function withMove(x) {
-    const b = baseline[x.id];
+    const b = x.b;
     const mv = b ? (x.d - b) / b * 100 : 0;     // negative = shortened (steamer)
-    return { ...x, b, mv };
+    return { ...x, mv };
   }
+  const spark = (pts) => {
+    if (!pts || pts.length < 2) return '';
+    const w = 44, hgt = 12;
+    const mx = Math.max(...pts), mn = Math.min(...pts);
+    const span = mx - mn || 1;
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + (i / (pts.length - 1) * w).toFixed(1) + ',' + (hgt - (p - mn) / span * hgt).toFixed(1)).join(' ');
+    const col = pts[pts.length - 1] < pts[0] ? 'var(--green)' : pts[pts.length - 1] > pts[0] ? 'var(--red)' : 'var(--faint)';
+    return `<svg width="${w}" height="${hgt}" style="vertical-align:middle;margin-left:6px"><path d="${d}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`;
+  };
 
   function render() {
     if (!runners.length) return;
@@ -163,7 +184,7 @@
     const movers = rows.filter((x) => x.won === null && Math.abs(x.mv) >= 8);
     const steam = movers.filter((x) => x.mv < 0).sort((a, b) => a.mv - b.mv).slice(0, 6);
     const drift = movers.filter((x) => x.mv > 0).sort((a, b) => b.mv - a.mv).slice(0, 6);
-    const miniLine = (x) => `<div class="line"><span>${esc(x.t)} ${esc(x.course)} \u00b7 <b>${esc(x.h)}</b></span><span class="${x.mv < 0 ? 'in' : 'out'}">${fr(x.b)} \u2192 ${fr(x.d)}</span></div>`;
+    const miniLine = (x) => `<div class="line"><span>${esc(x.t)} ${esc(x.course)} · <b>${esc(x.h)}</b></span><span class="${x.mv < 0 ? 'in' : 'out'}">${fr(x.b)} → ${fr(x.d)}</span></div>`;
     $('steam').innerHTML = steam.length ? steam.map(miniLine).join('') : '<span class="status">nothing moving in 8%+ yet</span>';
     $('drift').innerHTML = drift.length ? drift.map(miniLine).join('') : '<span class="status">nothing drifting 8%+ yet</span>';
 
@@ -178,7 +199,7 @@
       const r = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
       return sortDir * r || raceMin(a.t) - raceMin(b.t);
     });
-    const th = (k, label, left) => `<th class="${left ? 'l' : ''}" data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' \u25be' : ' \u25b4') : ''}</th>`;
+    const th = (k, label, left) => `<th class="${left ? 'l' : ''}" data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
       th('t','Time', true) + th('course','Course', true) + th('h','Horse', true) + th('rank','Mkt') + th('b','Open') + th('d','Now') + th('mv','Move') + th('won','Result') +
       '</tr></thead><tbody>';
@@ -187,11 +208,11 @@
       const cls = x.mv <= -5 ? 'in' : x.mv >= 5 ? 'out' : 'flat';
       const w = Math.min(40, Math.abs(x.mv) / maxAbs * 40);
       const bar = Math.abs(x.mv) >= 2 ? `<span class="mvbar" style="width:${w}px;background:${x.mv < 0 ? 'var(--green)' : 'var(--red)'}"></span>` : '';
-      const res = x.won === null ? '' : x.won ? '\u2713 WON' : '\u2717';
+      const res = x.won === null ? '' : x.won ? '✓ WON' : '✗';
       html += `<tr class="${x.won === null ? '' : 'settled'}"><td class="l">${esc(x.t)}</td><td class="l">${esc(x.course)}</td>` +
-        `<td class="l"><b>${esc(x.h)}</b><br><span style="color:var(--faint);font-size:10.5px">${esc(x.j)} \u00b7 ${esc(x.tr)}</span></td>` +
-        `<td>${x.rank}/${x.n}</td><td>${x.b ? fr(x.b) : '\u2014'}</td><td><b>${fr(x.d)}</b></td>` +
-        `<td class="${cls}">${x.mv > 0 ? '+' : ''}${x.mv.toFixed(0)}%${bar}</td>` +
+        `<td class="l"><b>${esc(x.h)}</b><br><span style="color:var(--faint);font-size:10.5px">${esc(x.j)} · ${esc(x.tr)}</span></td>` +
+        `<td>${x.rank}/${x.n}</td><td>${x.b ? fr(x.b) : '—'}</td><td><b>${fr(x.d)}</b></td>` +
+        `<td class="${cls}">${x.mv > 0 ? '+' : ''}${x.mv.toFixed(0)}%${bar}${spark(x.spark)}</td>` +
         `<td class="${x.won ? 'won' : ''}">${res}</td></tr>`;
     });
     html += '</tbody></table></div>';
@@ -204,6 +225,7 @@
     });
   }
 
+  renderDayChips();
   renderViewChips();
   poll();
   setInterval(poll, 120000);
