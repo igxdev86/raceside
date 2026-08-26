@@ -5,7 +5,9 @@
 // the all-sires baseline to compare against), plus flat/jumps and distance-band splits.
 // Warehouse-first when rows carry sire (newer ingests); API fallback otherwise.
 
-import { fetchResultsRange } from '../lib/db.js';
+import { fetchResultsRange, monthGet, monthPut } from '../lib/db.js';
+
+const STORE_KEY = 'people:v3';
 
 export const config = { maxDuration: 60 };
 
@@ -41,6 +43,12 @@ export default async function handler(req, res) {
   const end = monthEnd < now ? monthEnd : now;
   const isCompleteMonth = monthEnd < now;
   if (start > now) return res.status(400).json({ ok: false, error: 'future-month' });
+  // stored answer first: complete months forever, current month if under 6h old
+  const stored = await monthGet(STORE_KEY, m);
+  if (stored && (isCompleteMonth || Date.now() - Date.parse(stored.updated_at) < 21600000)) {
+    res.setHeader('Cache-Control', isCompleteMonth ? 's-maxage=2592000, stale-while-revalidate=5184000' : 's-maxage=3600');
+    return res.status(200).json({ ...stored.data, source: 'store' });
+  }
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
 
   const races = [];
@@ -113,9 +121,11 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
     : 's-maxage=21600, stale-while-revalidate=86400');
-  return res.status(200).json({
+  const body = {
     ok: true, month: m, source,
     baseline: { runs: allRuns, wins: allWins, exp: Math.round(allExp * 100) / 100 },
     jockeys, trainers,
-  });
+  };
+  await monthPut(STORE_KEY, m, body);   // store for everyone; best-effort
+  return res.status(200).json(body);
 }
