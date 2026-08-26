@@ -170,6 +170,26 @@
     if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, horse: tom[0].h, odds: tom[0].d, today: false };
     return null;
   }
+  const BANDS = [['oddson','odds-on'],['ev2','evs–2/1'],['f2_4','2–4/1'],['f4_8','4–8/1'],['f8_16','8–16/1'],['f16p','16/1+']];
+  function oddsProfile(x, baseAE) {
+    const ob = x.s.ob || {};
+    const cells = BANDS.map(([k, label]) => {
+      const b = ob[k];
+      if (!b || b.r < 30) return null;                        // 30+ rides in a band before it speaks
+      const ae = b.e ? b.w / b.e : 0;
+      return { label, r: b.r, w: b.w, strike: b.w / b.r, ae, rel: baseAE ? ae / baseAE : 1 };
+    }).filter(Boolean);
+    if (!cells.length) return '';
+    const best = cells.reduce((a, c) => c.rel > a.rel ? c : a, cells[0]);
+    const line = cells.map(c => {
+      const star = c === best && c.rel > 1.05;
+      const col = c.rel > 1.05 ? 'var(--green)' : c.rel < 0.95 ? 'var(--red)' : 'var(--dim)';
+      return `<span style="white-space:nowrap">${c.label} <b style="color:${col}">${(c.strike * 100).toFixed(0)}%</b><span style="color:var(--faint)"> (${c.ae.toFixed(2)}${star ? ' ★' : ''})</span></span>`;
+    }).join(' · ');
+    return `<div style="padding-top:6px;border-top:1px dashed var(--line);margin-top:6px"><b>Odds profile</b> · where they beat the market (★ = best band)` +
+      `<br><span style="font-size:11px">${line}</span>` +
+      `<br><span style="color:var(--faint)">strike falls as odds rise for everyone — the bracketed A/E is the real signal: above the ${baseAE ? baseAE.toFixed(2) : '—'} baseline means their mounts in that price range outrun the market’s expectation · bands under 30 rides stay silent</span></div>`;
+  }
   function ridesHtml(x, baseAE) {
     if (!upcoming) return '<div style="color:var(--faint);padding-top:6px">loading upcoming rides…</div>';
     const key = who === 'jockeys' ? 'jid' : 'tid';
@@ -207,7 +227,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v2') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsjt:v3') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
         status.textContent = 'history ready · tap to rebuild';
@@ -225,7 +245,7 @@
     for (const mo of months.reverse()) {
       status.textContent = 'building ' + (++done) + '/' + months.length + '…';
       try {
-        const r = await fetch('/api/people?month=' + mo + '&v=2');
+        const r = await fetch('/api/people?month=' + mo + '&v=3');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           ['runs','wins','exp'].forEach(k => { baseline[k] += (d.baseline || {})[k] || 0; });
@@ -234,6 +254,11 @@
               const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, plc: 0, pl: 0, exp: 0,
                 flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, mm: 0, mw: 0 });
               t.runs += s.runs; t.wins += s.wins; t.plc += (s.plc || 0); t.pl += s.pl; t.exp += s.exp;
+              t.ob = t.ob || {};
+              for (const [bk2, ob] of Object.entries(s.ob || {})) {
+                const tb = (t.ob[bk2] ||= { r: 0, w: 0, e: 0 });
+                tb.r += ob.r; tb.w += ob.w; tb.e += ob.e;
+              }
               if (s.runs >= 10) { t.mm++; if (s.wins > 0) t.mw++; }   // busy month; did it produce a winner?
               ['flat','jumps'].forEach(k => { t[k].runs += s[k].runs; t[k].wins += s[k].wins; });
             }
@@ -243,9 +268,9 @@
       } catch { fails++; }
     }
     status.textContent = (fails ? 'done · ' + fails + ' months failed' : 'history ready') + ' · tap to rebuild';
-    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v3', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v2'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v3'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
@@ -306,9 +331,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
