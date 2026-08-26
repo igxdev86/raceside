@@ -360,7 +360,7 @@
   function renderTable() {
     if (!merged) return;
     const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
-    $('baseline').innerHTML = 'ALL SIRES: ' + baseline.runs.toLocaleString() + ' runs · ' + baseline.wins.toLocaleString() + ' wins' +
+    $('baseline').innerHTML = 'ALL RIDES: ' + baseline.runs.toLocaleString() + ' runs · ' + baseline.wins.toLocaleString() + ' wins' +
       (baseAE ? ' · baseline A/E <b>' + baseAE.toFixed(2) + '</b> (the break-even mark — the overround lives in it)' : '');
     let list = Object.entries(merged[who] || {}).map(([id, s]) => {
       const nr = nextRideOf(id);
