@@ -124,7 +124,7 @@
   let recent = null, recentP = null;
   function getRecent() {
     if (recent) return Promise.resolve(recent);
-    if (!recentP) recentP = fetch('/api/recentform').then(r => r.json()).then(d => (recent = (d && d.ok) ? d : { jockeys: {}, trainers: {} })).catch(() => (recent = { jockeys: {}, trainers: {} }));
+    if (!recentP) recentP = fetch('/api/recentform?v=2').then(r => r.json()).then(d => (recent = (d && d.ok) ? d : { jockeys: {}, trainers: {} })).catch(() => (recent = { jockeys: {}, trainers: {} }));
     return recentP;
   }
   function getUpcoming() {
@@ -170,6 +170,42 @@
     if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, horse: tom[0].h, odds: tom[0].d, today: false };
     return null;
   }
+  // GB & IRE racecourse coordinates (approx) for travel estimates
+  const CRS = {
+    'aintree':[53.48,-2.94],'ascot':[51.41,-0.68],'ayr':[55.46,-4.62],'bangor-on-dee':[52.99,-2.91],'bath':[51.43,-2.42],
+    'beverley':[53.86,-0.44],'brighton':[50.83,-0.11],'carlisle':[54.87,-2.92],'cartmel':[54.20,-2.95],'catterick':[54.36,-1.65],
+    'chelmsford':[51.71,0.51],'cheltenham':[51.92,-2.06],'chepstow':[51.65,-2.66],'chester':[53.19,-2.91],'doncaster':[53.51,-1.11],
+    'down royal':[54.47,-6.13],'downpatrick':[54.34,-5.72],'epsom':[51.31,-0.26],'exeter':[50.63,-3.44],'fakenham':[52.82,0.84],
+    'ffos las':[51.72,-4.24],'fontwell':[50.86,-0.65],'goodwood':[50.90,-0.75],'hamilton':[55.78,-4.05],'haydock':[53.48,-2.62],
+    'hereford':[52.07,-2.72],'hexham':[54.96,-2.11],'huntingdon':[52.34,-0.24],'kelso':[55.60,-2.44],'kempton':[51.42,-0.40],
+    'leicester':[52.59,-1.04],'lingfield':[51.17,-0.01],'ludlow':[52.39,-2.72],'market rasen':[53.39,-0.32],'musselburgh':[55.94,-3.04],
+    'newbury':[51.40,-1.31],'newcastle':[55.07,-1.62],'newmarket':[52.24,0.38],'newton abbot':[50.53,-3.60],'nottingham':[52.93,-1.10],
+    'perth':[56.44,-3.45],'plumpton':[50.92,-0.06],'pontefract':[53.70,-1.32],'redcar':[54.62,-1.07],'ripon':[54.13,-1.51],
+    'salisbury':[51.06,-1.86],'sandown':[51.37,-0.36],'sedgefield':[54.67,-1.45],'southwell':[53.07,-0.95],'stratford':[52.19,-1.72],
+    'taunton':[51.00,-3.09],'thirsk':[54.23,-1.35],'uttoxeter':[52.89,-1.85],'warwick':[52.28,-1.60],'wetherby':[53.93,-1.38],
+    'wincanton':[51.06,-2.40],'windsor':[51.49,-0.63],'wolverhampton':[52.59,-2.13],'worcester':[52.20,-2.23],'yarmouth':[52.62,1.74],
+    'york':[53.96,-1.09],'curragh':[53.17,-6.85],'leopardstown':[53.27,-6.19],'naas':[53.22,-6.66],'fairyhouse':[53.47,-6.46],
+    'galway':[53.30,-8.99],'listowel':[52.45,-9.48],'punchestown':[53.19,-6.63],'cork':[52.05,-8.62],'tipperary':[52.47,-8.19],
+    'gowran park':[52.63,-7.06],'navan':[53.68,-6.72],'dundalk':[54.02,-6.38],'killarney':[52.06,-9.51],'tramore':[52.17,-7.13],
+    'ballinrobe':[53.63,-9.23],'bellewstown':[53.63,-6.36],'clonmel':[52.35,-7.71],'kilbeggan':[53.37,-7.51],'laytown':[53.68,-6.24],
+    'limerick':[52.53,-8.72],'roscommon':[53.63,-8.19],'sligo':[54.28,-8.46],'thurles':[52.68,-7.82],'wexford':[52.35,-6.50],
+    'downroyal':[54.47,-6.13],'newcastle (aw)':[55.07,-1.62],'kempton (aw)':[51.42,-0.40],'wolverhampton (aw)':[52.59,-2.13],
+    'lingfield (aw)':[51.17,-0.01],'southwell (aw)':[53.07,-0.95],'chelmsford (aw)':[51.71,0.51],'chelmsford city':[51.71,0.51],
+  };
+  const crsKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/,'').replace(/\s+/g,' ').trim();
+  function travelMins(fromC, toC) {
+    const a = CRS[crsKey(fromC)] || CRS[String(fromC || '').toLowerCase().trim()];
+    const b = CRS[crsKey(toC)] || CRS[String(toC || '').toLowerCase().trim()];
+    if (!a || !b) return null;
+    const R = 6371, toR = (x) => x * Math.PI / 180;
+    const dLat = toR(b[0] - a[0]), dLon = toR(b[1] - a[1]);
+    const q = Math.sin(dLat/2)**2 + Math.cos(toR(a[0])) * Math.cos(toR(b[0])) * Math.sin(dLon/2)**2;
+    const km = 2 * R * Math.asin(Math.sqrt(q));
+    if (km < 2) return 0;
+    const roadKm = km * 1.3;                       // winding-road factor
+    return Math.round(roadKm / 80 * 60);           // ~80 km/h (50 mph) door to door
+  }
+  const fmtMins = (m) => m == null ? null : m === 0 ? 'same track' : (m >= 60 ? Math.floor(m/60) + 'h' + String(m%60).padStart(2,'0') : m + 'min');
   const BANDS = [['oddson','odds-on'],['ev2','evs–2/1'],['f2_4','2–4/1'],['f4_8','4–8/1'],['f8_16','8–16/1'],['f16p','16/1+']];
   function oddsProfile(x, baseAE) {
     const ob = x.s.ob || {};
@@ -287,6 +323,14 @@
         strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
         nx: nr ? nr.sort : 99999, nxLabel: nr ? nr.label : '—', nxToday: nr ? nr.today : false,
         nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null,
+        ...((() => {
+          const rf = recent && recent[who] && recent[who][id];
+          const from = rf && rf.ydCourse;
+          const to = nr && nr.today ? nr.label.replace(/^\S+\s/, '') : null;   // today's course from the label
+          if (!from || !to) return { tv: 99999, tvLabel: '—', tvFrom: null };
+          const m2 = travelMins(from, to);
+          return { tv: m2 == null ? 99998 : m2, tvLabel: m2 == null ? from + ' → ?' : (m2 === 0 ? 'same track' : '~' + fmtMins(m2)), tvFrom: from, tvTo: to };
+        })()),
       };
     }).filter(x => x.runs >= minRuns && (!steadyOnly || x.steady));
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
@@ -297,7 +341,7 @@
     });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
-      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
+      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('tv','Travel') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
       th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
       const aeCls = baseAE && x.ae > baseAE * 1.05 ? 'pos' : baseAE && x.ae < baseAE * 0.95 ? 'neg' : '';
@@ -306,6 +350,7 @@
       html += `<tr class="sirerow" data-i="${i}"><td>${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <span style="color:var(--dim)">' + x.nxOdds + '</span>' : '') : '—'}</td>` +
+        `<td class="l" style="text-align:left;color:${x.tv >= 99998 ? 'var(--faint)' : x.tv >= 210 ? 'var(--red)' : x.tv >= 120 ? '#C4652E' : 'var(--dim)'}" title="${x.tvFrom ? 'rode at ' + x.tvFrom + ' yesterday' + (x.tvTo ? ' → ' + x.tvTo + ' today · straight-line ×1.3 at ~50mph — an estimate' : '') : 'no ride yesterday or no ride today'}">${x.tvLabel}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
         `<td>${(x.plcPct * 100).toFixed(1)}%</td>` +
         `<td>${(x.strike * 100).toFixed(1)}%</td>` +
@@ -318,7 +363,7 @@
     $('tbl').querySelectorAll('th').forEach(t => t.onclick = () => {
       const k = t.dataset.k;
       if (sortKey === k) sortDir *= -1;
-      else { sortKey = k; sortDir = (k === 'name' || k === 'nx' || k === 'nxHorse') ? 1 : -1; }
+      else { sortKey = k; sortDir = (k === 'name' || k === 'nx' || k === 'nxHorse' || k === 'tv') ? 1 : -1; }
       renderTable();
     });
     $('tbl').querySelectorAll('tr.sirerow').forEach(tr => tr.onclick = () => {
@@ -331,9 +376,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="11">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="11">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
