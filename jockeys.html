@@ -211,12 +211,15 @@
       return { ...r, js, ts, pr, jae, tae, pae, tilt, win, rk: rankScoreOf(r.jid, r.tid) };
     }).sort((a, b) => raceSort === 'rank'
       ? ((b.rk ? b.rk.score : -1) - (a.rk ? a.rk.score : -1)) || ((b.win || 0) - (a.win || 0))
-      : ((b.win || 0) - (a.win || 0)));
+      : raceSort === 'odds'
+        ? ((a.d || 9999) - (b.d || 9999))
+        : ((b.win || 0) - (a.win || 0)));
     const aeChip = (label, v) => v == null ? '' :
       `<span style="color:${bA && v > bA * 1.05 ? 'var(--green)' : bA && v < bA * 0.95 ? 'var(--red)' : 'var(--dim)'}">${label} ${v.toFixed(2)}</span>`;
     let html = '<div class="chips" style="margin:2px 0 6px">' +
       '<button class="chip' + (raceSort === 'win' ? ' on' : '') + '" data-rs="win">by win chance</button>' +
       '<button class="chip' + (raceSort === 'rank' ? ' on' : '') + '" data-rs="rank">by rank score</button>' +
+      '<button class="chip' + (raceSort === 'odds' ? ' on' : '') + '" data-rs="odds">by odds</button>' +
       '</div>' +
       '<div class="status" style="cursor:default;margin-bottom:2px">win % = the market\u2019s stripped chance tilted by the people (jockey 40% · trainer 40% · pairing 20%, by A/E vs baseline). The horse\u2019s form is shown, not double-counted — it already lives in the price.</div>';
     rows.forEach(r => {
