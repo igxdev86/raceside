@@ -7,7 +7,7 @@
 
 import { fetchResultsRange, monthGet, monthPut } from '../lib/db.js';
 
-const STORE_KEY = 'people:v4';
+const STORE_KEY = 'people:v5';
 
 export const config = { maxDuration: 60 };
 
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const jockeys = {}, trainers = {};
+  const jockeys = {}, trainers = {}, pairs = {};
   let allRuns = 0, allWins = 0, allExp = 0;
   const spBandOf = (d) => d < 2 ? 'oddson' : d < 3 ? 'ev2' : d < 5 ? 'f2_4' : d < 9 ? 'f4_8' : d < 17 ? 'f8_16' : 'f16p';
   const crsKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
@@ -127,9 +127,17 @@ export default async function handler(req, res) {
       }
       if (x.jockey_id) tally(jockeys, x.jockey_id, x.jockey, isFlat, won, placed, d, ck);
       if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, placed, d, ck);
+      if (x.jockey_id && x.trainer_id) {
+        const pk = x.jockey_id + '|' + x.trainer_id;
+        const pr = (pairs[pk] ||= { j: x.jockey || '?', t: x.trainer || '?', r: 0, w: 0, e: 0, pl: 0 });
+        pr.r++;
+        pr.e += 1 / d;
+        if (won) { pr.w++; pr.pl += d - 1; } else pr.pl -= 1;
+      }
     }
   }
   for (const cb of Object.values(baseC)) cb.exp = Math.round(cb.exp * 100) / 100;
+  for (const pr of Object.values(pairs)) { pr.e = Math.round(pr.e * 100) / 100; pr.pl = Math.round(pr.pl * 100) / 100; }
   for (const b of [jockeys, trainers]) for (const s of Object.values(b)) {
     s.pl = Math.round(s.pl * 100) / 100; s.exp = Math.round(s.exp * 100) / 100;
     for (const ob of Object.values(s.ob)) ob.e = Math.round(ob.e * 100) / 100;
@@ -143,7 +151,7 @@ export default async function handler(req, res) {
     ok: true, month: m, source,
     baseline: { runs: allRuns, wins: allWins, exp: Math.round(allExp * 100) / 100 },
     baselineC: baseC,
-    jockeys, trainers,
+    jockeys, trainers, pairs,
   };
   await monthPut(STORE_KEY, m, body);   // store for everyone; best-effort
   return res.status(200).json(body);
