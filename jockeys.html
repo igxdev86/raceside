@@ -111,6 +111,37 @@
   }
   $('q').addEventListener('input', (e) => { query = e.target.value.trim().toLowerCase(); renderTable(); });
 
+  // upcoming rides (today + tomorrow), fetched once on first expansion
+  let upcoming = null, upcomingP = null;
+  function getUpcoming() {
+    if (upcoming) return Promise.resolve(upcoming);
+    if (!upcomingP) upcomingP = fetch('/api/upcoming').then(r => r.json()).then(d => { upcoming = (d && d.ok && d.rides) || []; return upcoming; }).catch(() => (upcoming = []));
+    return upcomingP;
+  }
+  const raceMin = (t) => {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    if (!m) return 9999;
+    let hh = Number(m[1]);
+    if (hh < 10) hh += 12;
+    return hh * 60 + Number(m[2]);
+  };
+  function ridesHtml(x, baseAE) {
+    if (!upcoming) return '<div style="color:var(--faint);padding-top:6px">loading upcoming rides…</div>';
+    const key = who === 'jockeys' ? 'jid' : 'tid';
+    const mine = upcoming.filter(r => r[key] === x.id)
+      .sort((a, b) => a.date.localeCompare(b.date) || raceMin(a.t) - raceMin(b.t));
+    if (!mine.length) return '<div style="color:var(--faint);padding-top:6px">no declared rides today or tomorrow</div>';
+    const ratio = baseAE && x.ae ? Math.max(0.5, Math.min(1.6, x.ae / baseAE)) : 1;
+    const lines = mine.map(r => {
+      const adj = Math.max(1, Math.min(90, r.mp * ratio));
+      return `<div style="padding:3px 0">${r.day === 'tomorrow' ? 'Tom ' : ''}${r.t} ${r.course.replace(/</g,'&lt;')} · <b>${r.h.replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>` +
+        `<br><span style="color:var(--dim)">market ${r.mp.toFixed(0)}% → <b>${adj.toFixed(0)}%</b></span> ` +
+        `<span style="display:inline-block;height:6px;width:${Math.round(adj)}px;max-width:90px;border-radius:3px;background:${adj >= r.mp ? 'var(--green)' : 'var(--red)'};vertical-align:middle;margin-left:4px"></span></div>`;
+    }).join('');
+    return '<div style="padding-top:6px"><b>Upcoming rides</b> · likelihood = market chance × their A/E vs baseline (' + ratio.toFixed(2) + '×)</div>' + lines +
+      '<div style="color:var(--faint);padding-top:4px">the market number is each race\u2019s stripped win chance; the bold number tilts it by how this ' + (who === 'jockeys' ? 'jockey' : 'trainer') + '\u2019s mounts have historically run vs market expectation over 12 months · not advice</div>';
+  }
+
   async function build() {
     const status = $('status');
     try {
@@ -197,8 +228,13 @@
       const pcs = (o) => o.runs ? o.wins + '/' + o.runs + ' (' + (o.wins / o.runs * 100).toFixed(1) + '%)' : '—';
       const sub = document.createElement('tr');
       sub.className = 'subrow';
-      sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}</td>`;
+      const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
+      const xr = { ...x, id: x.id };
+      sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
+      if (!upcoming) getUpcoming().then(() => {
+        if (sub.isConnected) sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
+      });
     });
   }
 
