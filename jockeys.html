@@ -60,24 +60,14 @@
   </header>
 
   <div class="chips" id="whochips"></div>
+  <div class="chips" id="racechips" style="flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px"></div>
   <div class="chips" id="minchips"></div>
   <div class="chips"><input class="search" id="q" placeholder="search name…" autocomplete="off"></div>
 
   <div class="sect">
     <div class="stl">The table</div>
     <div class="status" id="status" title="tap to rebuild">building…</div>
-    <details style="margin-top:6px">
-      <summary style="font-family:var(--mono);font-size:11px;color:var(--gold);cursor:pointer;letter-spacing:.05em">COLOUR KEY — what everything means</summary>
-      <div style="font-size:12px;line-height:1.7;padding:8px 2px 2px;color:var(--ink)">
-        <b>Name colour — temperature</b> (last 3 weeks vs their own 12-month rhythm):<br>
-        <span style="color:#0E8A44;font-weight:700">deep green</span> flying · <span style="color:#3FA05C;font-weight:700">light green</span> warm · plain = normal or under 4 recent rides · <span style="color:#C4652E;font-weight:700">amber</span> cooling · <span style="color:#D7263D;font-weight:700">red</span> cold (deep drought for their strike). Cold is <b>not</b> “due” — red is a warning light, never a value signal.<br>
-        <b style="color:var(--gold)">● gold dot</b> = steady: 200+ rides, busy in 9+ months, a winner in <b>every</b> busy month — never goes missing.<br>
-        <b>Next ride</b>: <span style="color:var(--blue);font-weight:600">blue</span> today · grey tomorrow · — not booked. <b>Travel</b>: grey short hop · <span style="color:#C4652E;font-weight:600">amber</span> 2–3½ h from yesterday’s track · <span style="color:#D7263D;font-weight:600">red</span> 3½ h+ haul (estimate).<br>
-        <b>A/E</b>: <span style="color:#12A150;font-weight:700">green</span> above baseline — mounts win more than their prices predicted (market underrates them) · <span style="color:#D7263D;font-weight:700">red</span> below — market over-bets them. This is the money column; strike measures fame.<br>
-        <b>Odds profile</b> (tap a name): same green/red per price band · ★ = their best band, where the market misprices them most.<br>
-        <span style="color:var(--dim)">The pattern worth scanning for: green name + gold ● + green A/E + blue next ride — in-form, reliable, underrated, going to post shortly. Odds in their ★ band completes it.</span>
-      </div>
-    </details>
+    <div class="status" style="cursor:default">name colour = current temperature vs their own 12-month rhythm · <span style="color:#0E8A44;font-weight:600">green hot</span> (winning recently, short drought) · <span style="color:#D7263D;font-weight:600">red cold</span> (deep drought, below their norm) · cold is not "due"</div>
     <div id="baseline" style="font-family:var(--mono);font-size:11.5px;margin-top:6px;color:var(--dim)"></div>
     <div id="tbl"><div class="state"><div class="spinner"></div>gathering the bloodlines…</div></div>
   </div>
@@ -94,6 +84,42 @@
   let who = 'jockeys';   // jockeys | trainers
   let minRuns = 100;
   let steadyOnly = false;
+  let raceFilter = null;   // { day, t, course } or null = all
+  function renderRaceChips() {
+    const box = $('racechips');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!upcoming || !upcoming.length) return;
+    const seen = {};
+    const races = [];
+    upcoming.forEach(r => {
+      const key = r.day + '|' + r.t + '|' + r.course;
+      if (!seen[key]) { seen[key] = 1; races.push({ day: r.day, t: r.t, course: r.course }); }
+    });
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    races.sort((a, b) => (a.day === b.day ? 0 : a.day === 'today' ? -1 : 1) || raceMin(a.t) - raceMin(b.t));
+    const live = races.filter(r => r.day === 'tomorrow' || raceMin(r.t) >= nowMin - 10);
+    const all = document.createElement('button');
+    all.className = 'chip' + (raceFilter ? '' : ' on');
+    all.textContent = 'All races';
+    all.onclick = () => { raceFilter = null; renderRaceChips(); renderTable(); };
+    box.appendChild(all);
+    live.forEach(r => {
+      const on = raceFilter && raceFilter.day === r.day && raceFilter.t === r.t && raceFilter.course === r.course;
+      const b = document.createElement('button');
+      b.className = 'chip' + (on ? ' on' : '');
+      b.style.flex = '0 0 auto';
+      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course;
+      b.onclick = () => { raceFilter = on ? null : r; renderRaceChips(); renderTable(); };
+      box.appendChild(b);
+    });
+  }
+  function rideInRace(id) {
+    if (!raceFilter || !upcoming) return null;
+    const key = who === 'jockeys' ? 'jid' : 'tid';
+    return upcoming.find(r => r[key] === id && r.day === raceFilter.day && r.t === raceFilter.t && r.course === raceFilter.course) || null;
+  }
   const WHO = [['jockeys','Jockeys'],['trainers','Trainers']];
   function renderWhoChips() {
     const box = $('whochips');
@@ -331,6 +357,14 @@
         })()),
       };
     }).filter(x => x.runs >= minRuns && (!steadyOnly || x.steady));
+    if (raceFilter) {
+      list = list.map(x => {
+        const ride = rideInRace(x.id);
+        if (!ride) return null;
+        return { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
+          nxHorse: ride.h, nxOdds: ride.d };
+      }).filter(Boolean);
+    }
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
     list.sort((a, b) => {
       const v = (x) => sortKey === 'nxHorse' ? (x.nxHorse || '￿') : x[sortKey];
@@ -385,9 +419,9 @@
   renderWhoChips();
   renderMinChips();
   build();
-  getUpcoming().then(() => renderTable());
+  getUpcoming().then(() => { renderRaceChips(); renderTable(); });
   getRecent().then(() => renderTable());
-  setInterval(() => { if (upcoming) renderTable(); }, 180000);   // keep "next" fresh as races go off
+  setInterval(() => { if (upcoming) { renderRaceChips(); renderTable(); } }, 180000);   // keep "next" fresh as races go off
 })();
 </script>
 </body>
