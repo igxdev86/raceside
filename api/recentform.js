@@ -45,19 +45,21 @@ export default async function handler(req, res) {
   }
   races.sort((a, b) => String(a.date).localeCompare(String(b.date)) || offMin(a.off) - offMin(b.off));
   const J = {}, T = {};
-  const touch = (bucket, id, won, date) => {
-    const s = (bucket[id] ||= { r: 0, w: 0, since: 0, lastWin: null });
+  const yd = new Date(end.getTime() - 86400000).toISOString().slice(0, 10);
+  const touch = (bucket, id, won, date, course) => {
+    const s = (bucket[id] ||= { r: 0, w: 0, since: 0, lastWin: null, ydCourse: null });
     s.r++;
     if (won) { s.w++; s.since = 0; s.lastWin = date; }
     else s.since++;
+    if (date === yd) s.ydCourse = course;   // races walk in time order, so this ends as yesterday's LAST course
   };
   for (const race of races) {
     for (const x of race.runners || []) {
       const won = String(x.position) === '1';
-      if (x.jockey_id) touch(J, x.jockey_id, won, race.date);
-      if (x.trainer_id) touch(T, x.trainer_id, won, race.date);
+      if (x.jockey_id) touch(J, x.jockey_id, won, race.date, race.course || null);
+      if (x.trainer_id) touch(T, x.trainer_id, won, race.date, race.course || null);
     }
   }
   res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=21600');
-  return res.status(200).json({ ok: true, window: 21, from: fmt(start), to: fmt(end), jockeys: J, trainers: T });
+  return res.status(200).json({ ok: true, window: 21, from: fmt(start), to: fmt(end), yesterday: yd, jockeys: J, trainers: T });
 }
