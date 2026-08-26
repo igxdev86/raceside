@@ -113,6 +113,12 @@
 
   // upcoming rides (today + tomorrow), fetched once on first expansion
   let upcoming = null, upcomingP = null;
+  let recent = null, recentP = null;
+  function getRecent() {
+    if (recent) return Promise.resolve(recent);
+    if (!recentP) recentP = fetch('/api/recentform').then(r => r.json()).then(d => (recent = (d && d.ok) ? d : { jockeys: {}, trainers: {} })).catch(() => (recent = { jockeys: {}, trainers: {} }));
+    return recentP;
+  }
   function getUpcoming() {
     if (upcoming) return Promise.resolve(upcoming);
     if (!upcomingP) upcomingP = fetch('/api/upcoming').then(r => r.json()).then(d => { upcoming = (d && d.ok && d.rides) || []; return upcoming; }).catch(() => (upcoming = []));
@@ -138,7 +144,24 @@
         `<br><span style="color:var(--dim)">market ${r.mp.toFixed(0)}% → <b>${adj.toFixed(0)}%</b></span> ` +
         `<span style="display:inline-block;height:6px;width:${Math.round(adj)}px;max-width:90px;border-radius:3px;background:${adj >= r.mp ? 'var(--green)' : 'var(--red)'};vertical-align:middle;margin-left:4px"></span></div>`;
     }).join('');
-    return '<div style="padding-top:6px"><b>Upcoming rides</b> · likelihood = market chance × their A/E vs baseline (' + ratio.toFixed(2) + '×)</div>' + lines +
+    // win expectancy: rhythm from 12mo strike, current run from recent form, booked-rides chance
+    const p = x.strike;
+    let expect = '';
+    if (p > 0) {
+      const every = Math.round(1 / p);
+      const k = mine.length;
+      const atLeast = k ? (1 - Math.pow(1 - p, k)) * 100 : null;
+      const rf = recent && recent[who] && recent[who][x.id];
+      const run = rf ? (rf.w > 0
+        ? rf.since + ' since their last winner (' + (rf.lastWin || '?') + ')'
+        : 'no winner in ' + rf.r + ' rides over 3 weeks')
+        : (recent ? 'no recent rides found' : 'checking recent form\u2026');
+      expect = '<div style="padding-top:6px;border-top:1px dashed var(--line);margin-top:6px"><b>Win expectancy</b> \u00b7 strikes ' + (p * 100).toFixed(1) + '% \u2192 a winner roughly every <b>' + every + '</b> rides' +
+        (atLeast != null ? ' \u00b7 booked ' + k + ' \u2192 <b>' + atLeast.toFixed(0) + '%</b> chance of at least one winner' : '') +
+        '<br><span style="color:var(--dim)">current run: ' + run + '</span>' +
+        '<br><span style="color:var(--faint)">a long run doesn\u2019t make a win due \u2014 each ride is a fresh ~' + (p * 100).toFixed(0) + '% coin; the booked-rides number is the honest one</span></div>';
+    }
+    return expect + '<div style="padding-top:6px"><b>Upcoming rides</b> · likelihood = market chance × their A/E vs baseline (' + ratio.toFixed(2) + '×)</div>' + lines +
       '<div style="color:var(--faint);padding-top:4px">the market number is each race\u2019s stripped win chance; the bold number tilts it by how this ' + (who === 'jockeys' ? 'jockey' : 'trainer') + '\u2019s mounts have historically run vs market expectation over 12 months · not advice</div>';
   }
 
@@ -232,9 +255,9 @@
       const xr = { ...x, id: x.id };
       sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      if (!upcoming) getUpcoming().then(() => {
-        if (sub.isConnected) sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
-      });
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
+      if (!upcoming) getUpcoming().then(refill);
+      if (!recent) getRecent().then(refill);
     });
   }
 
