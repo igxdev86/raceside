@@ -158,9 +158,9 @@
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const mine = upcoming.filter(r => r[key] === id);
     const today = mine.filter(r => r.day === 'today' && raceMin(r.t) >= nowMin - 5).sort((a, b) => raceMin(a.t) - raceMin(b.t));
-    if (today.length) return { sort: raceMin(today[0].t), label: today[0].t + ' ' + today[0].course, today: true };
+    if (today.length) return { sort: raceMin(today[0].t), label: today[0].t + ' ' + today[0].course, horse: today[0].h, odds: today[0].d, today: true };
     const tom = mine.filter(r => r.day === 'tomorrow').sort((a, b) => raceMin(a.t) - raceMin(b.t));
-    if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, today: false };
+    if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, horse: tom[0].h, odds: tom[0].d, today: false };
     return null;
   }
   function ridesHtml(x, baseAE) {
@@ -250,23 +250,25 @@
         id, name: s.name, runs: s.runs, wins: s.wins,
         strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
         nx: nr ? nr.sort : 99999, nxLabel: nr ? nr.label : '—', nxToday: nr ? nr.today : false,
+        nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null,
       };
     }).filter(x => x.runs >= minRuns);
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
     list.sort((a, b) => {
-      const v = (x) => x[sortKey];
+      const v = (x) => sortKey === 'nxHorse' ? (x.nxHorse || '￿') : x[sortKey];
       const r = typeof v(a) === 'string' ? v(a).localeCompare(v(b)) : v(a) - v(b);
       return sortDir * r;
     });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
-      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('runs','Runs') + th('wins','Wins') + th('strike','Strike') +
+      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('runs','Runs') + th('wins','Wins') + th('strike','Strike') +
       th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
       const aeCls = baseAE && x.ae > baseAE * 1.05 ? 'pos' : baseAE && x.ae < baseAE * 0.95 ? 'neg' : '';
       const hc = heatColor(heatOf(x));
       html += `<tr class="sirerow" data-i="${i}"><td><b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
+        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <span style="color:var(--dim)">' + x.nxOdds + '</span>' : '') : '—'}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
         `<td>${(x.strike * 100).toFixed(1)}%</td>` +
         `<td class="${x.pl >= 0 ? 'pos' : 'neg'}">${money(x.pl)}</td>` +
@@ -278,7 +280,7 @@
     $('tbl').querySelectorAll('th').forEach(t => t.onclick = () => {
       const k = t.dataset.k;
       if (sortKey === k) sortDir *= -1;
-      else { sortKey = k; sortDir = (k === 'name' || k === 'nx') ? 1 : -1; }
+      else { sortKey = k; sortDir = (k === 'name' || k === 'nx' || k === 'nxHorse') ? 1 : -1; }
       renderTable();
     });
     $('tbl').querySelectorAll('tr.sirerow').forEach(tr => tr.onclick = () => {
@@ -291,9 +293,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="8">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="9">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="8">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="9">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
