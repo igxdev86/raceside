@@ -76,10 +76,11 @@ export default async function handler(req, res) {
 
   const jockeys = {}, trainers = {};
   let allRuns = 0, allWins = 0, allExp = 0;
-  const tally = (bucket, id, name, isFlat, won, d) => {
-    const s = (bucket[id] ||= { name: name || '?', runs: 0, wins: 0, pl: 0, exp: 0, flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 } });
+  const tally = (bucket, id, name, isFlat, won, placed, d) => {
+    const s = (bucket[id] ||= { name: name || '?', runs: 0, wins: 0, plc: 0, pl: 0, exp: 0, flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 } });
     s.runs++;
     s.exp += 1 / d;
+    if (placed) s.plc++;
     if (won) { s.wins++; s.pl += d - 1; } else s.pl -= 1;
     const leg = isFlat ? s.flat : s.jumps;
     leg.runs++;
@@ -91,10 +92,12 @@ export default async function handler(req, res) {
       if (!x.horse_id) continue;
       const d = spDec2(x);
       if (!d) continue;
-      const won = String(x.position) === '1';
+      const pos = parseInt(x.position, 10);
+      const won = pos === 1;
+      const placed = pos >= 1 && pos <= 3;
       allRuns++; allWins += won ? 1 : 0; allExp += 1 / d;
-      if (x.jockey_id) tally(jockeys, x.jockey_id, x.jockey, isFlat, won, d);
-      if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, d);
+      if (x.jockey_id) tally(jockeys, x.jockey_id, x.jockey, isFlat, won, placed, d);
+      if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, placed, d);
     }
   }
   for (const b of [jockeys, trainers]) for (const s of Object.values(b)) { s.pl = Math.round(s.pl * 100) / 100; s.exp = Math.round(s.exp * 100) / 100; }
