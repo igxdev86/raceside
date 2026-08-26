@@ -9,7 +9,7 @@ import { monthGetAll } from '../lib/db.js';
 
 export const config = { maxDuration: 30 };
 
-const STORE_KEY = 'people:v4';
+const STORE_KEY = 'people:v5';
 
 export default async function handler(req, res) {
   const now = new Date();
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
   });
 
   const merged = { jockeys: {}, trainers: {} };
+  const pairs = {};
   const baseline = { runs: 0, wins: 0, exp: 0 };
   const baselineC = {};
   for (const m of months) {
@@ -40,6 +41,10 @@ export default async function handler(req, res) {
     for (const [ck, cb] of Object.entries(d.baselineC || {})) {
       const t = (baselineC[ck] ||= { runs: 0, wins: 0, exp: 0 });
       t.runs += cb.runs; t.wins += cb.wins; t.exp += cb.exp;
+    }
+    for (const [pk, pr] of Object.entries(d.pairs || {})) {
+      const t = (pairs[pk] ||= { j: pr.j, t: pr.t, r: 0, w: 0, e: 0, pl: 0 });
+      t.r += pr.r; t.w += pr.w; t.e += pr.e; t.pl += pr.pl;
     }
     for (const bk of ['jockeys', 'trainers']) {
       for (const [id, s] of Object.entries(d[bk] || {})) {
@@ -67,5 +72,6 @@ export default async function handler(req, res) {
 
   res.setHeader('Cache-Control', missing.length ? 'no-store' : 's-maxage=3600, stale-while-revalidate=21600');
   baselineC && Object.values(baselineC).forEach((cb) => { cb.exp = Math.round(cb.exp * 100) / 100; });
-  return res.status(200).json({ ok: true, months, missing, monthsStored: months.length - missing.length, baseline, baselineC, jockeys: merged.jockeys, trainers: merged.trainers });
+  for (const pr of Object.values(pairs)) { pr.e = Math.round(pr.e * 100) / 100; pr.pl = Math.round(pr.pl * 100) / 100; }
+  return res.status(200).json({ ok: true, months, missing, monthsStored: months.length - missing.length, baseline, baselineC, jockeys: merged.jockeys, trainers: merged.trainers, pairs });
 }
