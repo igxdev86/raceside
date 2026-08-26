@@ -160,6 +160,50 @@
       renderPairs();
     });
   }
+  function renderRaceView() {
+    if (!raceFilter) {
+      $('tbl').innerHTML = '<div class="status" style="cursor:default;padding:10px 0">pick a race tab above — the race view combines horse, jockey, trainer and the pairing into one win likelihood per runner</div>';
+      return;
+    }
+    if (!upcoming) { $('tbl').innerHTML = '<div class="status">loading rides…</div>'; return; }
+    const rides = upcoming.filter(r => r.day === raceFilter.day && r.t === raceFilter.t && r.course === raceFilter.course);
+    const bA = baseline.exp ? baseline.wins / baseline.exp : null;
+    const pairs = merged.pairs || {};
+    const rows = rides.map(r => {
+      const js = merged.jockeys[r.jid], ts = merged.trainers[r.tid];
+      const jae = js && js.exp ? js.wins / js.exp : null;
+      const tae = ts && ts.exp ? ts.wins / ts.exp : null;
+      const pr = (r.jid && r.tid) ? pairs[r.jid + '|' + r.tid] : null;
+      const pae = pr && pr.r >= 10 && pr.e ? pr.w / pr.e : null;
+      const ratio = (v) => (v != null && bA) ? Math.max(0.6, Math.min(1.6, v / bA)) : 1;
+      // people tilt: jockey 40% + trainer 40% + pairing 20%, geometric, clamped
+      const tilt = Math.max(0.5, Math.min(1.8, Math.pow(ratio(jae), 0.4) * Math.pow(ratio(tae), 0.4) * Math.pow(ratio(pae), 0.2)));
+      const win = r.mp ? Math.max(0.5, Math.min(92, r.mp * tilt)) : null;
+      return { ...r, js, ts, pr, jae, tae, pae, tilt, win };
+    }).sort((a, b) => (b.win || 0) - (a.win || 0));
+    const aeChip = (label, v) => v == null ? '' :
+      `<span style="color:${bA && v > bA * 1.05 ? 'var(--green)' : bA && v < bA * 0.95 ? 'var(--red)' : 'var(--dim)'}">${label} ${v.toFixed(2)}</span>`;
+    let html = '<div class="status" style="cursor:default;margin-bottom:2px">win % = the market\u2019s stripped chance tilted by the people (jockey 40% · trainer 40% · pairing 20%, by A/E vs baseline). The horse\u2019s form is shown, not double-counted — it already lives in the price.</div>';
+    rows.forEach(r => {
+      const jhc = heatColor(heatFor('jockeys', r.jid));
+      const thc = heatColor(heatFor('trainers', r.tid));
+      const barW = r.win ? Math.round(Math.min(100, r.win) * 1.6) : 0;
+      const up = r.win != null && r.mp != null && r.win > r.mp + 0.4;
+      const dn = r.win != null && r.mp != null && r.win < r.mp - 0.4;
+      html += `<div style="padding:9px 0;border-bottom:1px solid var(--line)">` +
+        `<div><b>${String(r.h).replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>` +
+        `${r.form ? ' <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)" title="recent form, latest on the right">' + String(r.form).replace(/</g,'&lt;') + '</span>' : ''}</div>` +
+        `<div style="font-size:11.5px;margin-top:2px"><span${jhc ? ' style="color:' + jhc + ';font-weight:600"' : ''}>${String(r.jockey).replace(/</g,'&lt;')}</span>` +
+        ` · <span${thc ? ' style="color:' + thc + ';font-weight:600"' : ''}>${String(r.trainer).replace(/</g,'&lt;')}</span>` +
+        `${r.pr ? ' · <span style="color:var(--dim)">together ' + r.pr.w + '/' + r.pr.r + '</span>' : ' · <span style="color:var(--faint)">first pairing</span>'}</div>` +
+        `<div style="font-size:10.5px;font-family:var(--mono);margin-top:2px">${[aeChip('J', r.jae), aeChip('T', r.tae), aeChip('J+T', r.pae)].filter(Boolean).join(' · ')}</div>` +
+        `<div style="margin-top:4px;font-family:var(--mono);font-size:11.5px">market ${r.mp != null ? r.mp.toFixed(0) : '?'}% → <b style="color:${up ? 'var(--green)' : dn ? 'var(--red)' : 'var(--ink)'}">${r.win != null ? r.win.toFixed(0) : '?'}%</b>` +
+        `<span style="display:inline-block;height:7px;width:${barW}px;max-width:70%;border-radius:3px;background:${up ? 'var(--green)' : dn ? 'var(--red)' : 'var(--dim)'};opacity:.85;vertical-align:middle;margin-left:6px"></span></div>` +
+        `</div>`;
+    });
+    html += '<div class="status" style="cursor:default;margin-top:6px">green = the people lift it above the market\u2019s number · red = they drag it below · the sum won\u2019t be exactly 100% — tilts don\u2019t rebalance the race · not advice</div>';
+    $('tbl').innerHTML = html;
+  }
   function renderRaceChips() {
     const box = $('racechips');
     if (!box) return;
@@ -206,7 +250,7 @@
     const key = who === 'jockeys' ? 'jid' : 'tid';
     return upcoming.find(r => r[key] === id && r.day === raceFilter.day && r.t === raceFilter.t && r.course === raceFilter.course) || null;
   }
-  const WHO = [['jockeys','Jockeys'],['trainers','Trainers'],['pairs','J+T']];
+  const WHO = [['jockeys','Jockeys'],['trainers','Trainers'],['pairs','J+T'],['race','Race view']];
   function renderWhoChips() {
     const box = $('whochips');
     box.innerHTML = '';
@@ -436,6 +480,7 @@
     $('baseline').innerHTML = 'ALL RIDES: ' + baseline.runs.toLocaleString() + ' runs · ' + baseline.wins.toLocaleString() + ' wins' +
       (baseAE ? ' · baseline A/E <b>' + baseAE.toFixed(2) + '</b> (the break-even mark — the overround lives in it)' : '');
     if (who === 'pairs') { renderPairs(); return; }
+    if (who === 'race') { renderRaceView(); return; }
     let list = Object.entries(merged[who] || {}).map(([id, s]) => {
       const nr = nextRideOf(id);
       // steady: 200+ rides, busy (10+ rides) in 9+ months, and a winner in EVERY busy month
