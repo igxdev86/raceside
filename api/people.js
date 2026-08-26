@@ -76,10 +76,15 @@ export default async function handler(req, res) {
 
   const jockeys = {}, trainers = {};
   let allRuns = 0, allWins = 0, allExp = 0;
+  const spBandOf = (d) => d < 2 ? 'oddson' : d < 3 ? 'ev2' : d < 5 ? 'f2_4' : d < 9 ? 'f4_8' : d < 17 ? 'f8_16' : 'f16p';
   const tally = (bucket, id, name, isFlat, won, placed, d) => {
-    const s = (bucket[id] ||= { name: name || '?', runs: 0, wins: 0, plc: 0, pl: 0, exp: 0, flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 } });
+    const s = (bucket[id] ||= { name: name || '?', runs: 0, wins: 0, plc: 0, pl: 0, exp: 0, flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, ob: {} });
     s.runs++;
     s.exp += 1 / d;
+    const ob = (s.ob[spBandOf(d)] ||= { r: 0, w: 0, e: 0 });
+    ob.r++;
+    ob.e += 1 / d;
+    if (won) ob.w++;
     if (placed) s.plc++;
     if (won) { s.wins++; s.pl += d - 1; } else s.pl -= 1;
     const leg = isFlat ? s.flat : s.jumps;
@@ -100,7 +105,10 @@ export default async function handler(req, res) {
       if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, placed, d);
     }
   }
-  for (const b of [jockeys, trainers]) for (const s of Object.values(b)) { s.pl = Math.round(s.pl * 100) / 100; s.exp = Math.round(s.exp * 100) / 100; }
+  for (const b of [jockeys, trainers]) for (const s of Object.values(b)) {
+    s.pl = Math.round(s.pl * 100) / 100; s.exp = Math.round(s.exp * 100) / 100;
+    for (const ob of Object.values(s.ob)) ob.e = Math.round(ob.e * 100) / 100;
+  }
 
   res.setHeader('Cache-Control', isCompleteMonth
     ? 's-maxage=2592000, stale-while-revalidate=5184000'
