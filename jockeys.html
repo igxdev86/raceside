@@ -77,6 +77,7 @@
         <b>A/E</b>: <span style="color:#12A150;font-weight:700">green</span> above baseline — mounts win more than their prices predicted (market underrates them) · <span style="color:#D7263D;font-weight:700">red</span> below — market over-bets them. This is the money column; strike measures fame.<br>
         <b>Odds profile</b> (tap a name): same green/red per price band · ★ = their best band, where the market misprices them most.<br>
         <b>Sorting names</b>: the Jockey/Trainer column sorts by <b>win chance</b>, not A–Z — their next ride’s market probability tilted by their A/E (no ride booked → ranked by strike).<br>
+        <b>J+T tab</b>: both names carry their own temperature — <span style="color:#0E8A44;font-weight:700">green + green</span> = rider and yard both hot · mixed = one flying, one cold · the pair’s stats stay 12-month.<br>
         <b>Race tabs</b>: tap a race to see only its riders · gold ▣ chip switches stats to that course’s 12-month record (small samples — read Runs first).<br>
         <span style="color:var(--dim)">The scan: green name + gold ● + green A/E + blue next ride — in-form, reliable, underrated, going to post shortly. Odds in their ★ band completes it.</span>
       </div>
@@ -112,14 +113,15 @@
         const pr = (r.jid && r.tid) ? pairs[r.jid + '|' + r.tid] : null;
         const pae = pr && pr.e ? pr.w / pr.e : 0;
         const ratio3 = (pr && pr.r >= 10 && baseAE2) ? Math.max(0.5, Math.min(1.6, pae / baseAE2)) : 1;
-        return { j: r.jockey || '?', t: r.trainer || '?', h: r.h, d: r.d,
+        return { j: r.jockey || '?', t: r.trainer || '?', jid: r.jid, tid: r.tid, h: r.h, d: r.d,
           r: pr ? pr.r : 0, w: pr ? pr.w : 0, strike: pr && pr.r ? pr.w / pr.r : 0,
           pl: pr ? pr.pl : 0, ae: pae, first: !pr, likely: r.mp ? (r.mp / 100) * ratio3 : 0 };
       });
     } else {
-      rows = Object.values(pairs).filter(pr => pr.r >= 20).map(pr => ({
-        j: pr.j, t: pr.t, h: null, d: null, r: pr.r, w: pr.w, strike: pr.w / pr.r, pl: pr.pl, ae: pr.e ? pr.w / pr.e : 0, first: false, likely: pr.w / pr.r,
-      }));
+      rows = Object.entries(pairs).filter(([, pr]) => pr.r >= 20).map(([pk, pr]) => {
+        const [jid, tid] = pk.split('|');
+        return { j: pr.j, t: pr.t, jid, tid, h: null, d: null, r: pr.r, w: pr.w, strike: pr.w / pr.r, pl: pr.pl, ae: pr.e ? pr.w / pr.e : 0, first: false, likely: pr.w / pr.r };
+      });
     }
     rows.sort((a, b) => {
       const v = (x) => (pSortKey === 'j' || pSortKey === 't') ? (x.likely || 0) : typeof x[pSortKey] === 'string' ? x[pSortKey] : (x[pSortKey] || 0);
@@ -138,7 +140,10 @@
       '</tr></thead><tbody>';
     rows.slice(0, 250).forEach(x => {
       const aeCls = baseAE2 && x.ae > baseAE2 * 1.05 ? 'pos' : baseAE2 && x.ae < baseAE2 * 0.95 && x.r > 0 ? 'neg' : '';
-      html += `<tr><td class="l"><b>${String(x.j).replace(/</g,'&lt;')}</b></td><td class="l">${String(x.t).replace(/</g,'&lt;')}</td>` +
+      const jhc = heatColor(heatFor('jockeys', x.jid));
+      const thc = heatColor(heatFor('trainers', x.tid));
+      html += `<tr><td class="l"><b${jhc ? ' style="color:' + jhc + '"' : ''}>${String(x.j).replace(/</g,'&lt;')}</b></td>` +
+        `<td class="l"><b${thc ? ' style="color:' + thc + '"' : ''}>${String(x.t).replace(/</g,'&lt;')}</b></td>` +
         (raceFilter ? `<td class="l">${x.h ? String(x.h).replace(/</g,'&lt;') : '—'}</td><td>${x.d != null ? x.d : '—'}</td>` : '') +
         (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
           `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
@@ -260,6 +265,18 @@
   // temperature: recent 21-day form vs their own 12-month rhythm, cooled by drought depth.
   // green = hot (recent strike at/above their norm, short drought) · red = cold.
   // Deliberately NOT "due": a long drought paints red, never green.
+  function heatFor(kind, id) {
+    if (!recent || !merged || !merged[kind]) return null;
+    const s = merged[kind][id];
+    if (!s || !s.runs) return null;
+    const p = s.wins / s.runs;
+    if (!p) return null;
+    const rf = recent[kind] && recent[kind][id];
+    if (!rf || rf.r < 4) return null;
+    const recentRatio = rf.r >= 8 ? (rf.w / rf.r) / p : 1;
+    const droughtRatio = rf.since * p;
+    return Math.max(0, Math.min(2, recentRatio - 0.3 * Math.max(0, droughtRatio - 1)));
+  }
   function heatOf(x) {
     const p = x.strike;
     if (!p || !recent) return null;
