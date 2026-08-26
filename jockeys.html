@@ -160,6 +160,34 @@
       renderPairs();
     });
   }
+  // percentile standing in the ranking tables (A/E among qualified entries)
+  let rankMaps = null;
+  function buildRankMaps() {
+    if (rankMaps || !merged) return;
+    const mk = (bucket, minR) => {
+      const list = Object.entries(bucket || {})
+        .filter(([, s]) => s.runs >= minR || s.r >= minR)
+        .map(([id, s]) => ({ id, ae: (s.exp || s.e) ? (s.wins != null ? s.wins : s.w) / (s.exp || s.e) : 0 }))
+        .sort((a, b) => b.ae - a.ae);
+      const map = {};
+      const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? Math.round((1 - i / (n - 1)) * 100) : 50; });
+      map._n = n;
+      return map;
+    };
+    rankMaps = { j: mk(merged.jockeys, 100), t: mk(merged.trainers, 100), p: mk(merged.pairs, 20) };
+  }
+  function rankScoreOf(jid, tid) {
+    buildRankMaps();
+    if (!rankMaps) return null;
+    const parts = [];
+    if (jid && rankMaps.j[jid] != null) parts.push(rankMaps.j[jid]);
+    if (tid && rankMaps.t[tid] != null) parts.push(rankMaps.t[tid]);
+    const pk = jid && tid ? jid + '|' + tid : null;
+    if (pk && rankMaps.p[pk] != null) parts.push(rankMaps.p[pk]);
+    if (!parts.length) return null;
+    return { score: Math.round(parts.reduce((a, b) => a + b, 0) / parts.length), n: parts.length };
+  }
   function renderRaceView() {
     if (!raceFilter) {
       $('tbl').innerHTML = '<div class="status" style="cursor:default;padding:10px 0">pick a race tab above — the race view combines horse, jockey, trainer and the pairing into one win likelihood per runner</div>';
@@ -179,7 +207,7 @@
       // people tilt: jockey 40% + trainer 40% + pairing 20%, geometric, clamped
       const tilt = Math.max(0.5, Math.min(1.8, Math.pow(ratio(jae), 0.4) * Math.pow(ratio(tae), 0.4) * Math.pow(ratio(pae), 0.2)));
       const win = r.mp ? Math.max(0.5, Math.min(92, r.mp * tilt)) : null;
-      return { ...r, js, ts, pr, jae, tae, pae, tilt, win };
+      return { ...r, js, ts, pr, jae, tae, pae, tilt, win, rk: rankScoreOf(r.jid, r.tid) };
     }).sort((a, b) => (b.win || 0) - (a.win || 0));
     const aeChip = (label, v) => v == null ? '' :
       `<span style="color:${bA && v > bA * 1.05 ? 'var(--green)' : bA && v < bA * 0.95 ? 'var(--red)' : 'var(--dim)'}">${label} ${v.toFixed(2)}</span>`;
@@ -197,11 +225,12 @@
         ` · <span${thc ? ' style="color:' + thc + ';font-weight:600"' : ''}>${String(r.trainer).replace(/</g,'&lt;')}</span>` +
         `${r.pr ? ' · <span style="color:var(--dim)">together ' + r.pr.w + '/' + r.pr.r + '</span>' : ' · <span style="color:var(--faint)">first pairing</span>'}</div>` +
         `<div style="font-size:10.5px;font-family:var(--mono);margin-top:2px">${[aeChip('J', r.jae), aeChip('T', r.tae), aeChip('J+T', r.pae)].filter(Boolean).join(' · ')}</div>` +
+        `${r.rk ? '<div style="font-size:10.5px;font-family:var(--mono);margin-top:2px">RANK SCORE <b style="color:' + (r.rk.score >= 70 ? 'var(--green)' : r.rk.score <= 35 ? 'var(--red)' : 'var(--dim)') + '">' + r.rk.score + '</b><span style="color:var(--faint)">/100 · avg standing of ' + r.rk.n + ' table position' + (r.rk.n > 1 ? 's' : '') + '</span></div>' : ''}` +
         `<div style="margin-top:4px;font-family:var(--mono);font-size:11.5px">market ${r.mp != null ? r.mp.toFixed(0) : '?'}% → <b style="color:${up ? 'var(--green)' : dn ? 'var(--red)' : 'var(--ink)'}">${r.win != null ? r.win.toFixed(0) : '?'}%</b>` +
         `<span style="display:inline-block;height:7px;width:${barW}px;max-width:70%;border-radius:3px;background:${up ? 'var(--green)' : dn ? 'var(--red)' : 'var(--dim)'};opacity:.85;vertical-align:middle;margin-left:6px"></span></div>` +
         `</div>`;
     });
-    html += '<div class="status" style="cursor:default;margin-top:6px">green = the people lift it above the market\u2019s number · red = they drag it below · the sum won\u2019t be exactly 100% — tilts don\u2019t rebalance the race · not advice</div>';
+    html += '<div class="status" style="cursor:default;margin-top:6px">RANK SCORE = where this runner\u2019s people sit in the ranking tables (percentile by A/E: jockeys/trainers need 100+ runs, pairs 20+; average of what qualifies). It measures <b>who they are</b>, table-wide — the win % measures <b>this race</b>. A 90-score pilot on a 40/1 shot is still ~2%. · green = the people lift it above the market\u2019s number · red = they drag it below · the sum won\u2019t be exactly 100% — tilts don\u2019t rebalance the race · not advice</div>';
     $('tbl').innerHTML = html;
   }
   function renderRaceChips() {
