@@ -45,6 +45,7 @@ export default async function handler(req, res) {
           rank: i + 1, n: priced.length,
           jid: p.x.jockey_id || null, tid: p.x.trainer_id || null,
           jockey: p.x.jockey || '', trainer: p.x.trainer || '',
+          form: String(p.x.form || '').slice(-6),
         });
       });
     });
