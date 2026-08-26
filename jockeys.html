@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — JOCKEYS & TRAINERS</title>
+<meta name="description" content="Every jockey and trainer: runs, wins, SP economics and A/E against the market.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:860px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  input.search{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;background:none;color:#fff;outline:none;min-width:150px}
+  input.search::placeholder{color:#5C6E96}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-family:var(--sans);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px;cursor:pointer}
+  .tablewrap{overflow-x:auto;margin:8px -15px 0;padding:0 15px}
+  table{width:100%;min-width:620px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px 6px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  tr.sirerow{cursor:pointer}
+  .subrow td{background:#F7F9FC;font-size:11.5px;white-space:normal;text-align:left}
+  .pos{color:var(--green);font-weight:600}
+  .neg{color:var(--red);font-weight:600}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">J <b>&amp; T</b><small>jockeys and trainers at SP · 12 months</small></div>
+    <a class="back" href="/theview.html">← the view</a>
+  </header>
+
+  <div class="chips" id="whochips"></div>
+  <div class="chips" id="minchips"></div>
+  <div class="chips"><input class="search" id="q" placeholder="search name…" autocomplete="off"></div>
+
+  <div class="sect">
+    <div class="stl">The table</div>
+    <div class="status" id="status" title="tap to rebuild">building…</div>
+    <div id="baseline" style="font-family:var(--mono);font-size:11.5px;margin-top:6px;color:var(--dim)"></div>
+    <div id="tbl"><div class="state"><div class="spinner"></div>gathering the bloodlines…</div></div>
+  </div>
+
+  <p class="note">Every GB/IRE ride and run over 12 months, settled at SP with £1 level stakes. <b>A/E</b> is actual wins divided by market-expected wins (the sum of 1/SP across the progeny's runs). The overround lives inside that expectation, so the break-even A/E sits below 1.0 — judge each sire against the ALL-SIRES baseline shown above the table, not against 1.0. An A/E meaningfully above baseline on hundreds of rides means the market persistently underrates that person's mounts; the ROI column says whether that was backable. Tap a row for the flat/jumps split. Small samples lie — the min-runs chips exist for a reason. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const money = (v) => (v >= 0 ? '+' : '−') + '£' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  let who = 'jockeys';   // jockeys | trainers
+  let minRuns = 100;
+  const WHO = [['jockeys','Jockeys'],['trainers','Trainers']];
+  function renderWhoChips() {
+    const box = $('whochips');
+    box.innerHTML = '';
+    WHO.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (who === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { who = v; renderWhoChips(); renderTable(); };
+      box.appendChild(b);
+    });
+  }
+  let query = '';
+  let sortKey = 'pl', sortDir = -1;
+  let merged = null, baseline = null;
+
+  const MIN = [[50, '50+ runs'], [100, '100+ runs'], [200, '200+ runs'], [400, '400+ runs']];
+  function renderMinChips() {
+    const box = $('minchips');
+    box.innerHTML = '';
+    MIN.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (minRuns === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { minRuns = v; renderMinChips(); renderTable(); };
+      box.appendChild(b);
+    });
+  }
+  $('q').addEventListener('input', (e) => { query = e.target.value.trim().toLowerCase(); renderTable(); });
+
+  async function build() {
+    const status = $('status');
+    try {
+      const c = JSON.parse(localStorage.getItem('rsjt:v1') || 'null');
+      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
+        merged = c.v; baseline = c.v.baseline;
+        status.textContent = 'history ready · tap to rebuild';
+        renderTable();
+        return;
+      }
+    } catch {}
+    const nowD = new Date();
+    const months = [];
+    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
+    while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
+    merged = { jockeys: {}, trainers: {} };
+    baseline = { runs: 0, wins: 0, exp: 0 };
+    let done = 0, fails = 0;
+    for (const mo of months.reverse()) {
+      status.textContent = 'building ' + (++done) + '/' + months.length + '…';
+      try {
+        const r = await fetch('/api/people?month=' + mo);
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          ['runs','wins','exp'].forEach(k => { baseline[k] += (d.baseline || {})[k] || 0; });
+          for (const bk of ['jockeys','trainers']) {
+            for (const [id, s] of Object.entries(d[bk] || {})) {
+              const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, pl: 0, exp: 0,
+                flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 } });
+              t.runs += s.runs; t.wins += s.wins; t.pl += s.pl; t.exp += s.exp;
+              ['flat','jumps'].forEach(k => { t[k].runs += s[k].runs; t[k].wins += s[k].wins; });
+            }
+          }
+          renderTable();
+        } else fails++;
+      } catch { fails++; }
+    }
+    status.textContent = (fails ? 'done · ' + fails + ' months failed' : 'history ready') + ' · tap to rebuild';
+    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+  }
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v1'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+
+  function renderTable() {
+    if (!merged) return;
+    const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
+    $('baseline').innerHTML = 'ALL SIRES: ' + baseline.runs.toLocaleString() + ' runs · ' + baseline.wins.toLocaleString() + ' wins' +
+      (baseAE ? ' · baseline A/E <b>' + baseAE.toFixed(2) + '</b> (the break-even mark — the overround lives in it)' : '');
+    let list = Object.entries(merged[who] || {}).map(([id, s]) => ({
+      id, name: s.name, runs: s.runs, wins: s.wins,
+      strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
+    })).filter(x => x.runs >= minRuns);
+    if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
+    list.sort((a, b) => {
+      const v = (x) => x[sortKey];
+      const r = typeof v(a) === 'string' ? v(a).localeCompare(v(b)) : v(a) - v(b);
+      return sortDir * r;
+    });
+    const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
+    let html = '<div class="tablewrap"><table><thead><tr>' +
+      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('runs','Runs') + th('wins','Wins') + th('strike','Strike') +
+      th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
+    list.slice(0, 250).forEach((x, i) => {
+      const aeCls = baseAE && x.ae > baseAE * 1.05 ? 'pos' : baseAE && x.ae < baseAE * 0.95 ? 'neg' : '';
+      html += `<tr class="sirerow" data-i="${i}"><td><b>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
+        `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
+        `<td>${(x.strike * 100).toFixed(1)}%</td>` +
+        `<td class="${x.pl >= 0 ? 'pos' : 'neg'}">${money(x.pl)}</td>` +
+        `<td class="${x.roi >= 0 ? 'pos' : 'neg'}">${(x.roi * 100).toFixed(1)}%</td>` +
+        `<td class="${aeCls}">${x.ae.toFixed(2)}</td></tr>`;
+    });
+    html += '</tbody></table></div>' + (list.length > 250 ? '<div class="status">showing top 250 of ' + list.length + ' — tighten the filter or search</div>' : '');
+    $('tbl').innerHTML = html;
+    $('tbl').querySelectorAll('th').forEach(t => t.onclick = () => {
+      const k = t.dataset.k;
+      if (sortKey === k) sortDir *= -1;
+      else { sortKey = k; sortDir = k === 'name' ? 1 : -1; }
+      renderTable();
+    });
+    $('tbl').querySelectorAll('tr.sirerow').forEach(tr => tr.onclick = () => {
+      const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains('subrow');
+      $('tbl').querySelectorAll('tr.subrow').forEach(r => r.remove());
+      if (open) return;
+      const x = list[Number(tr.dataset.i)];
+      const pcs = (o) => o.runs ? o.wins + '/' + o.runs + ' (' + (o.wins / o.runs * 100).toFixed(1) + '%)' : '—';
+      const sub = document.createElement('tr');
+      sub.className = 'subrow';
+      sub.innerHTML = `<td colspan="7">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}</td>`;
+      tr.after(sub);
+    });
+  }
+
+  renderWhoChips();
+  renderMinChips();
+  build();
+})();
+</script>
+</body>
+</html>
