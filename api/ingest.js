@@ -62,7 +62,7 @@ export default async function handler(req, res) {
           runners: (race.runners || []).map((x) => ({
             horse_id: x.horse_id, horse: x.horse, trainer_id: x.trainer_id,
             position: x.position, draw: x.draw, number: x.number,
-            rpr: x.rpr, tsr: x.tsr, or: x.or, sp: x.sp, sp_dec: x.sp_dec, sire: x.sire, sire_id: x.sire_id,
+            rpr: x.rpr, tsr: x.tsr, or: x.or, sp: x.sp, sp_dec: x.sp_dec, sire: x.sire, sire_id: x.sire_id, jockey: x.jockey, jockey_id: x.jockey_id,
           })),
         });
       }
