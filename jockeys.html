@@ -188,6 +188,7 @@
     if (!parts.length) return null;
     return { score: Math.round(parts.reduce((a, b) => a + b, 0) / parts.length), n: parts.length };
   }
+  let raceSort = 'win';   // 'win' | 'rank'
   function renderRaceView() {
     if (!raceFilter) {
       $('tbl').innerHTML = '<div class="status" style="cursor:default;padding:10px 0">pick a race tab above — the race view combines horse, jockey, trainer and the pairing into one win likelihood per runner</div>';
@@ -208,10 +209,16 @@
       const tilt = Math.max(0.5, Math.min(1.8, Math.pow(ratio(jae), 0.4) * Math.pow(ratio(tae), 0.4) * Math.pow(ratio(pae), 0.2)));
       const win = r.mp ? Math.max(0.5, Math.min(92, r.mp * tilt)) : null;
       return { ...r, js, ts, pr, jae, tae, pae, tilt, win, rk: rankScoreOf(r.jid, r.tid) };
-    }).sort((a, b) => (b.win || 0) - (a.win || 0));
+    }).sort((a, b) => raceSort === 'rank'
+      ? ((b.rk ? b.rk.score : -1) - (a.rk ? a.rk.score : -1)) || ((b.win || 0) - (a.win || 0))
+      : ((b.win || 0) - (a.win || 0)));
     const aeChip = (label, v) => v == null ? '' :
       `<span style="color:${bA && v > bA * 1.05 ? 'var(--green)' : bA && v < bA * 0.95 ? 'var(--red)' : 'var(--dim)'}">${label} ${v.toFixed(2)}</span>`;
-    let html = '<div class="status" style="cursor:default;margin-bottom:2px">win % = the market\u2019s stripped chance tilted by the people (jockey 40% · trainer 40% · pairing 20%, by A/E vs baseline). The horse\u2019s form is shown, not double-counted — it already lives in the price.</div>';
+    let html = '<div class="chips" style="margin:2px 0 6px">' +
+      '<button class="chip' + (raceSort === 'win' ? ' on' : '') + '" data-rs="win">by win chance</button>' +
+      '<button class="chip' + (raceSort === 'rank' ? ' on' : '') + '" data-rs="rank">by rank score</button>' +
+      '</div>' +
+      '<div class="status" style="cursor:default;margin-bottom:2px">win % = the market\u2019s stripped chance tilted by the people (jockey 40% · trainer 40% · pairing 20%, by A/E vs baseline). The horse\u2019s form is shown, not double-counted — it already lives in the price.</div>';
     rows.forEach(r => {
       const jhc = heatColor(heatFor('jockeys', r.jid));
       const thc = heatColor(heatFor('trainers', r.tid));
@@ -232,6 +239,7 @@
     });
     html += '<div class="status" style="cursor:default;margin-top:6px">RANK SCORE = where this runner\u2019s people sit in the ranking tables (percentile by A/E: jockeys/trainers need 100+ runs, pairs 20+; average of what qualifies). It measures <b>who they are</b>, table-wide — the win % measures <b>this race</b>. A 90-score pilot on a 40/1 shot is still ~2%. · green = the people lift it above the market\u2019s number · red = they drag it below · the sum won\u2019t be exactly 100% — tilts don\u2019t rebalance the race · not advice</div>';
     $('tbl').innerHTML = html;
+    $('tbl').querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { raceSort = b.dataset.rs; renderRaceView(); });
   }
   function renderRaceChips() {
     const box = $('racechips');
