@@ -247,7 +247,7 @@
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     races.sort((a, b) => (a.day === b.day ? 0 : a.day === 'today' ? -1 : 1) || raceMin(a.t) - raceMin(b.t));
-    const live = races.filter(r => r.day === 'tomorrow' || raceMin(r.t) >= nowMin - 10);
+    const live = races;   // all of today's races stay selectable — earlier ones grey out for post-race analysis
     const all = document.createElement('button');
     all.className = 'chip' + (raceFilter ? '' : ' on');
     all.textContent = 'All races';
@@ -265,10 +265,12 @@
     }
     live.forEach(r => {
       const on = raceFilter && raceFilter.day === r.day && raceFilter.t === r.t && raceFilter.course === r.course;
+      const past = r.day === 'today' && raceMin(r.t) < nowMin - 10;
       const b = document.createElement('button');
       b.className = 'chip' + (on ? ' on' : '');
       b.style.flex = '0 0 auto';
-      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course;
+      if (past && !on) b.style.opacity = '0.55';
+      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course + (past ? ' ✓' : '');
       b.onclick = () => { raceFilter = on ? null : r; renderRaceChips(); renderTable(); };
       box.appendChild(b);
     });
