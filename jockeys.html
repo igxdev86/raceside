@@ -85,6 +85,7 @@
   let minRuns = 100;
   let steadyOnly = false;
   let raceFilter = null;   // { day, t, course } or null = all
+  let courseStats = false; // when a race is chosen: stats become that person's record AT that course
   function renderRaceChips() {
     const box = $('racechips');
     if (!box) return;
@@ -103,8 +104,18 @@
     const all = document.createElement('button');
     all.className = 'chip' + (raceFilter ? '' : ' on');
     all.textContent = 'All races';
-    all.onclick = () => { raceFilter = null; renderRaceChips(); renderTable(); };
+    all.onclick = () => { raceFilter = null; courseStats = false; renderRaceChips(); renderTable(); };
     box.appendChild(all);
+    if (raceFilter) {
+      const cs = document.createElement('button');
+      cs.className = 'chip' + (courseStats ? ' on' : '');
+      cs.style.flex = '0 0 auto';
+      cs.style.borderColor = 'var(--gold)';
+      cs.textContent = '▣ At ' + raceFilter.course;
+      cs.title = 'switch the stats columns to each person\u2019s 12-month record at ' + raceFilter.course + ' only';
+      cs.onclick = () => { courseStats = !courseStats; renderRaceChips(); renderTable(); };
+      box.appendChild(cs);
+    }
     live.forEach(r => {
       const on = raceFilter && raceFilter.day === r.day && raceFilter.t === r.t && raceFilter.course === r.course;
       const b = document.createElement('button');
@@ -115,6 +126,7 @@
       box.appendChild(b);
     });
   }
+  const csKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
   function rideInRace(id) {
     if (!raceFilter || !upcoming) return null;
     const key = who === 'jockeys' ? 'jid' : 'tid';
@@ -300,7 +312,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v4') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsjt:v5') || 'null');
       if (c && Date.now() - c.t < 3600000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
         status.textContent = 'stored history · tap to rebuild';
@@ -320,17 +332,17 @@
       // first-ever warmup (or a fresh current month): compute the gaps once, server stores them for everyone
       for (let i2 = 0; i2 < d.missing.length; i2++) {
         status.textContent = 'building the store ' + (i2 + 1) + '/' + d.missing.length + ' (one-off — stored for every visit after)…';
-        try { await fetch('/api/people?month=' + d.missing[i2] + '&v=3'); } catch {}
+        try { await fetch('/api/people?month=' + d.missing[i2] + '&v=4'); } catch {}
       }
       d = await one() || d;
     }
-    merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, baseline: d.baseline };
+    merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, baseline: d.baseline, baselineC: d.baselineC || {} };
     baseline = d.baseline || { runs: 0, wins: 0, exp: 0 };
     status.textContent = (d.missing && d.missing.length ? d.monthsStored + '/' + d.months.length + ' months stored · ' : 'stored history · ') + 'tap to rebuild';
     renderTable();
-    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v4', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v5', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v4'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v5'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
@@ -356,13 +368,23 @@
           return { tv: m2 == null ? 99998 : m2, tvLabel: m2 == null ? from + ' → ?' : (m2 === 0 ? 'same track' : '~' + fmtMins(m2)), tvFrom: from, tvTo: to };
         })()),
       };
-    }).filter(x => x.runs >= minRuns && (!steadyOnly || x.steady));
+    }).filter(x => ((raceFilter && courseStats) ? true : x.runs >= minRuns) && (!steadyOnly || x.steady));
     if (raceFilter) {
+      const ck = csKey(raceFilter.course);
+      const cBase = merged.baselineC && merged.baselineC[ck];
+      const cBaseAE = cBase && cBase.exp ? cBase.wins / cBase.exp : (baseline.exp ? baseline.wins / baseline.exp : null);
       list = list.map(x => {
         const ride = rideInRace(x.id);
         if (!ride) return null;
-        return { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
+        let y = { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
           nxHorse: ride.h, nxOdds: ride.d };
+        if (courseStats) {
+          const cb = (x.s.cs || {})[ck];
+          if (!cb || !cb.r) y = { ...y, runs: 0, wins: 0, plc: 0, plcPct: 0, strike: 0, pl: 0, roi: 0, ae: 0, courseMode: true, cAE: cBaseAE };
+          else y = { ...y, runs: cb.r, wins: cb.w, plc: cb.p, plcPct: cb.p / cb.r, strike: cb.w / cb.r,
+            pl: Math.round(cb.pl * 100) / 100, roi: cb.pl / cb.r, ae: cb.e ? cb.w / cb.e : 0, courseMode: true, cAE: cBaseAE };
+        }
+        return y;
       }).filter(Boolean);
     }
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
@@ -376,7 +398,8 @@
       th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('tv','Travel') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
       th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
-      const aeCls = baseAE && x.ae > baseAE * 1.05 ? 'pos' : baseAE && x.ae < baseAE * 0.95 ? 'neg' : '';
+      const rowBase = (x.courseMode && x.cAE) ? x.cAE : baseAE;
+      const aeCls = rowBase && x.ae > rowBase * 1.05 ? 'pos' : rowBase && x.ae < rowBase * 0.95 ? 'neg' : '';
       const hc = heatColor(heatOf(x));
       const sd = x.steady ? '<span style="color:var(--gold)" title="steady: a winner in every busy month">● </span>' : '';
       html += `<tr class="sirerow" data-i="${i}"><td>${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
@@ -391,6 +414,9 @@
         `<td class="${aeCls}">${x.ae.toFixed(2)}</td></tr>`;
     });
     html += '</tbody></table></div>' + (list.length > 250 ? '<div class="status">showing top 250 of ' + list.length + ' — tighten the filter or search</div>' : '');
+    if (raceFilter && courseStats) {
+      html = '<div class="status" style="cursor:default;margin-bottom:2px">stats = 12-month record at <b>' + raceFilter.course.replace(/</g,'&lt;') + '</b> only · A/E vs this course\u2019s own baseline · samples are small — read Runs before believing a percentage</div>' + html;
+    }
     $('tbl').innerHTML = html;
     $('tbl').querySelectorAll('th').forEach(t => t.onclick = () => {
       const k = t.dataset.k;
