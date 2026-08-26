@@ -263,50 +263,37 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v3') || 'null');
-      if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
+      const c = JSON.parse(localStorage.getItem('rsjt:v4') || 'null');
+      if (c && Date.now() - c.t < 3600000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
-        status.textContent = 'history ready · tap to rebuild';
+        status.textContent = 'stored history · tap to rebuild';
         renderTable();
         return;
       }
     } catch {}
-    const nowD = new Date();
-    const months = [];
-    const cur = new Date(Date.UTC(nowD.getUTCFullYear() - 1, nowD.getUTCMonth() + 1, 1));
-    while (cur <= nowD) { months.push(cur.toISOString().slice(0, 7)); cur.setUTCMonth(cur.getUTCMonth() + 1); }
-    merged = { jockeys: {}, trainers: {} };
-    baseline = { runs: 0, wins: 0, exp: 0 };
-    let done = 0, fails = 0;
-    for (const mo of months.reverse()) {
-      status.textContent = 'building ' + (++done) + '/' + months.length + '…';
-      try {
-        const r = await fetch('/api/people?month=' + mo + '&v=3');
-        const d = await r.json();
-        if (r.ok && d && d.ok) {
-          ['runs','wins','exp'].forEach(k => { baseline[k] += (d.baseline || {})[k] || 0; });
-          for (const bk of ['jockeys','trainers']) {
-            for (const [id, s] of Object.entries(d[bk] || {})) {
-              const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, plc: 0, pl: 0, exp: 0,
-                flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, mm: 0, mw: 0 });
-              t.runs += s.runs; t.wins += s.wins; t.plc += (s.plc || 0); t.pl += s.pl; t.exp += s.exp;
-              t.ob = t.ob || {};
-              for (const [bk2, ob] of Object.entries(s.ob || {})) {
-                const tb = (t.ob[bk2] ||= { r: 0, w: 0, e: 0 });
-                tb.r += ob.r; tb.w += ob.w; tb.e += ob.e;
-              }
-              if (s.runs >= 10) { t.mm++; if (s.wins > 0) t.mw++; }   // busy month; did it produce a winner?
-              ['flat','jumps'].forEach(k => { t[k].runs += s[k].runs; t[k].wins += s[k].wins; });
-            }
-          }
-          renderTable();
-        } else fails++;
-      } catch { fails++; }
+    status.textContent = 'loading stored history…';
+    const one = async () => {
+      const r = await fetch('/api/peopleall');
+      const d = await r.json();
+      return (r.ok && d && d.ok) ? d : null;
+    };
+    let d = await one();
+    if (!d) { status.textContent = 'store unreachable — tap to retry'; return; }
+    if (d.missing && d.missing.length) {
+      // first-ever warmup (or a fresh current month): compute the gaps once, server stores them for everyone
+      for (let i2 = 0; i2 < d.missing.length; i2++) {
+        status.textContent = 'building the store ' + (i2 + 1) + '/' + d.missing.length + ' (one-off — stored for every visit after)…';
+        try { await fetch('/api/people?month=' + d.missing[i2] + '&v=3'); } catch {}
+      }
+      d = await one() || d;
     }
-    status.textContent = (fails ? 'done · ' + fails + ' months failed' : 'history ready') + ' · tap to rebuild';
-    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v3', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, baseline: d.baseline };
+    baseline = d.baseline || { runs: 0, wins: 0, exp: 0 };
+    status.textContent = (d.missing && d.missing.length ? d.monthsStored + '/' + d.months.length + ' months stored · ' : 'stored history · ') + 'tap to rebuild';
+    renderTable();
+    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v4', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v3'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v4'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
