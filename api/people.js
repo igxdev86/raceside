@@ -7,7 +7,7 @@
 
 import { fetchResultsRange, monthGet, monthPut } from '../lib/db.js';
 
-const STORE_KEY = 'people:v3';
+const STORE_KEY = 'people:v4';
 
 export const config = { maxDuration: 60 };
 
@@ -85,7 +85,8 @@ export default async function handler(req, res) {
   const jockeys = {}, trainers = {};
   let allRuns = 0, allWins = 0, allExp = 0;
   const spBandOf = (d) => d < 2 ? 'oddson' : d < 3 ? 'ev2' : d < 5 ? 'f2_4' : d < 9 ? 'f4_8' : d < 17 ? 'f8_16' : 'f16p';
-  const tally = (bucket, id, name, isFlat, won, placed, d) => {
+  const crsKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
+  const tally = (bucket, id, name, isFlat, won, placed, d, ck) => {
     const s = (bucket[id] ||= { name: name || '?', runs: 0, wins: 0, plc: 0, pl: 0, exp: 0, flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, ob: {} });
     s.runs++;
     s.exp += 1 / d;
@@ -93,14 +94,24 @@ export default async function handler(req, res) {
     ob.r++;
     ob.e += 1 / d;
     if (won) ob.w++;
+    if (ck) {
+      s.cs = s.cs || {};
+      const cb = (s.cs[ck] ||= { r: 0, w: 0, p: 0, e: 0, pl: 0 });
+      cb.r++;
+      cb.e += 1 / d;
+      if (placed) cb.p++;
+      if (won) { cb.w++; cb.pl += d - 1; } else cb.pl -= 1;
+    }
     if (placed) s.plc++;
     if (won) { s.wins++; s.pl += d - 1; } else s.pl -= 1;
     const leg = isFlat ? s.flat : s.jumps;
     leg.runs++;
     if (won) leg.wins++;
   };
+  const baseC = {};
   for (const race of races) {
     const isFlat = String(race.type || '').toLowerCase() === 'flat';
+    const ck = crsKey(race.course);
     for (const x of race.runners || []) {
       if (!x.horse_id) continue;
       const d = spDec2(x);
@@ -109,13 +120,20 @@ export default async function handler(req, res) {
       const won = pos === 1;
       const placed = pos >= 1 && pos <= 3;
       allRuns++; allWins += won ? 1 : 0; allExp += 1 / d;
-      if (x.jockey_id) tally(jockeys, x.jockey_id, x.jockey, isFlat, won, placed, d);
-      if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, placed, d);
+      if (ck) {
+        const cb = (baseC[ck] ||= { runs: 0, wins: 0, exp: 0 });
+        cb.runs++; cb.exp += 1 / d;
+        if (won) cb.wins++;
+      }
+      if (x.jockey_id) tally(jockeys, x.jockey_id, x.jockey, isFlat, won, placed, d, ck);
+      if (x.trainer_id) tally(trainers, x.trainer_id, x.trainer, isFlat, won, placed, d, ck);
     }
   }
+  for (const cb of Object.values(baseC)) cb.exp = Math.round(cb.exp * 100) / 100;
   for (const b of [jockeys, trainers]) for (const s of Object.values(b)) {
     s.pl = Math.round(s.pl * 100) / 100; s.exp = Math.round(s.exp * 100) / 100;
     for (const ob of Object.values(s.ob)) ob.e = Math.round(ob.e * 100) / 100;
+    for (const cb of Object.values(s.cs || {})) { cb.e = Math.round(cb.e * 100) / 100; cb.pl = Math.round(cb.pl * 100) / 100; }
   }
 
   res.setHeader('Cache-Control', isCompleteMonth
@@ -124,6 +142,7 @@ export default async function handler(req, res) {
   const body = {
     ok: true, month: m, source,
     baseline: { runs: allRuns, wins: allWins, exp: Math.round(allExp * 100) / 100 },
+    baselineC: baseC,
     jockeys, trainers,
   };
   await monthPut(STORE_KEY, m, body);   // store for everyone; best-effort
