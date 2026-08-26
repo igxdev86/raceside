@@ -82,6 +82,7 @@
 
   let who = 'jockeys';   // jockeys | trainers
   let minRuns = 100;
+  let steadyOnly = false;
   const WHO = [['jockeys','Jockeys'],['trainers','Trainers']];
   function renderWhoChips() {
     const box = $('whochips');
@@ -93,6 +94,12 @@
       b.onclick = () => { who = v; renderWhoChips(); renderTable(); };
       box.appendChild(b);
     });
+    const sb = document.createElement('button');
+    sb.className = 'chip' + (steadyOnly ? ' on' : '');
+    sb.textContent = '● Steady';
+    sb.title = 'steady = 200+ rides, busy in 9+ months, and a winner in every busy month — never goes missing';
+    sb.onclick = () => { steadyOnly = !steadyOnly; renderWhoChips(); renderTable(); };
+    box.appendChild(sb);
   }
   let query = '';
   let sortKey = 'pl', sortDir = -1;
@@ -200,7 +207,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v1') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsjt:v2') || 'null');
       if (c && Date.now() - c.t < 86400000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
         status.textContent = 'history ready · tap to rebuild';
@@ -218,15 +225,16 @@
     for (const mo of months.reverse()) {
       status.textContent = 'building ' + (++done) + '/' + months.length + '…';
       try {
-        const r = await fetch('/api/people?month=' + mo);
+        const r = await fetch('/api/people?month=' + mo + '&v=2');
         const d = await r.json();
         if (r.ok && d && d.ok) {
           ['runs','wins','exp'].forEach(k => { baseline[k] += (d.baseline || {})[k] || 0; });
           for (const bk of ['jockeys','trainers']) {
             for (const [id, s] of Object.entries(d[bk] || {})) {
-              const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, pl: 0, exp: 0,
-                flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 } });
-              t.runs += s.runs; t.wins += s.wins; t.pl += s.pl; t.exp += s.exp;
+              const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, plc: 0, pl: 0, exp: 0,
+                flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, mm: 0, mw: 0 });
+              t.runs += s.runs; t.wins += s.wins; t.plc += (s.plc || 0); t.pl += s.pl; t.exp += s.exp;
+              if (s.runs >= 10) { t.mm++; if (s.wins > 0) t.mw++; }   // busy month; did it produce a winner?
               ['flat','jumps'].forEach(k => { t[k].runs += s[k].runs; t[k].wins += s[k].wins; });
             }
           }
@@ -235,9 +243,9 @@
       } catch { fails++; }
     }
     status.textContent = (fails ? 'done · ' + fails + ' months failed' : 'history ready') + ' · tap to rebuild';
-    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v1', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    if (Object.keys(merged.jockeys).length > 100) { merged.baseline = baseline; try { localStorage.setItem('rsjt:v2', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v1'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v2'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
@@ -246,13 +254,16 @@
       (baseAE ? ' · baseline A/E <b>' + baseAE.toFixed(2) + '</b> (the break-even mark — the overround lives in it)' : '');
     let list = Object.entries(merged[who] || {}).map(([id, s]) => {
       const nr = nextRideOf(id);
+      // steady: 200+ rides, busy (10+ rides) in 9+ months, and a winner in EVERY busy month
+      const steady = s.runs >= 200 && (s.mm || 0) >= 9 && s.mw === s.mm;
       return {
-        id, name: s.name, runs: s.runs, wins: s.wins,
+        id, name: s.name, runs: s.runs, wins: s.wins, plc: s.plc || 0,
+        plcPct: (s.plc || 0) / s.runs, steady,
         strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
         nx: nr ? nr.sort : 99999, nxLabel: nr ? nr.label : '—', nxToday: nr ? nr.today : false,
         nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null,
       };
-    }).filter(x => x.runs >= minRuns);
+    }).filter(x => x.runs >= minRuns && (!steadyOnly || x.steady));
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
     list.sort((a, b) => {
       const v = (x) => sortKey === 'nxHorse' ? (x.nxHorse || '￿') : x[sortKey];
@@ -261,15 +272,17 @@
     });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
-      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('runs','Runs') + th('wins','Wins') + th('strike','Strike') +
+      th('name', who === 'jockeys' ? 'Jockey' : 'Trainer') + th('nx','Next ride') + th('nxHorse','On') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
       th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
       const aeCls = baseAE && x.ae > baseAE * 1.05 ? 'pos' : baseAE && x.ae < baseAE * 0.95 ? 'neg' : '';
       const hc = heatColor(heatOf(x));
-      html += `<tr class="sirerow" data-i="${i}"><td><b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
+      const sd = x.steady ? '<span style="color:var(--gold)" title="steady: a winner in every busy month">● </span>' : '';
+      html += `<tr class="sirerow" data-i="${i}"><td>${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <span style="color:var(--dim)">' + x.nxOdds + '</span>' : '') : '—'}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
+        `<td>${(x.plcPct * 100).toFixed(1)}%</td>` +
         `<td>${(x.strike * 100).toFixed(1)}%</td>` +
         `<td class="${x.pl >= 0 ? 'pos' : 'neg'}">${money(x.pl)}</td>` +
         `<td class="${x.roi >= 0 ? 'pos' : 'neg'}">${(x.roi * 100).toFixed(1)}%</td>` +
@@ -293,9 +306,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="9">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="9">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="10">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
