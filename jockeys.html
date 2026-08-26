@@ -99,6 +99,59 @@
   let steadyOnly = false;
   let raceFilter = null;   // { day, t, course } or null = all
   let courseStats = false; // when a race is chosen: stats become that person's record AT that course
+  let pSortKey = 'ae', pSortDir = -1;
+  function renderPairs() {
+    const pairs = merged.pairs || {};
+    const baseAE2 = baseline.exp ? baseline.wins / baseline.exp : null;
+    let rows;
+    if (raceFilter) {
+      const key = raceFilter;
+      const rides = (upcoming || []).filter(r => r.day === key.day && r.t === key.t && r.course === key.course);
+      rows = rides.map(r => {
+        const pr = (r.jid && r.tid) ? pairs[r.jid + '|' + r.tid] : null;
+        return { j: r.jockey || '?', t: r.trainer || '?', h: r.h, d: r.d,
+          r: pr ? pr.r : 0, w: pr ? pr.w : 0, strike: pr && pr.r ? pr.w / pr.r : 0,
+          pl: pr ? pr.pl : 0, ae: pr && pr.e ? pr.w / pr.e : 0, first: !pr };
+      });
+    } else {
+      rows = Object.values(pairs).filter(pr => pr.r >= 20).map(pr => ({
+        j: pr.j, t: pr.t, h: null, d: null, r: pr.r, w: pr.w, strike: pr.w / pr.r, pl: pr.pl, ae: pr.e ? pr.w / pr.e : 0, first: false,
+      }));
+    }
+    rows.sort((a, b) => {
+      const v = (x) => typeof x[pSortKey] === 'string' ? x[pSortKey] : (x[pSortKey] || 0);
+      const av = v(a), bv = v(b);
+      const rr = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+      return pSortDir * rr;
+    });
+    const th2 = (k, label, left) => `<th class="${left ? 'l' : ''}" data-pk="${k}">${label}${pSortKey === k ? (pSortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
+    let html = '<div class="status" style="cursor:default;margin-bottom:2px">' +
+      (raceFilter ? 'each runner\u2019s jockey\u2013trainer partnership, 12 months everywhere' : 'all partnerships with 20+ runs, 12 months') +
+      ' · A/E vs the ' + (baseAE2 ? baseAE2.toFixed(2) : '—') + ' baseline · “first pairing” = no run together in 12 months</div>' +
+      '<div class="tablewrap"><table><thead><tr>' +
+      th2('j','Jockey', true) + th2('t','Trainer', true) +
+      (raceFilter ? th2('h','On', true) + th2('d','Odds') : '') +
+      th2('r','Runs') + th2('w','Wins') + th2('strike','Strike') + th2('pl','£1 P/L') + th2('ae','A/E') +
+      '</tr></thead><tbody>';
+    rows.slice(0, 250).forEach(x => {
+      const aeCls = baseAE2 && x.ae > baseAE2 * 1.05 ? 'pos' : baseAE2 && x.ae < baseAE2 * 0.95 && x.r > 0 ? 'neg' : '';
+      html += `<tr><td class="l"><b>${String(x.j).replace(/</g,'&lt;')}</b></td><td class="l">${String(x.t).replace(/</g,'&lt;')}</td>` +
+        (raceFilter ? `<td class="l">${x.h ? String(x.h).replace(/</g,'&lt;') : '—'}</td><td>${x.d != null ? x.d : '—'}</td>` : '') +
+        (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
+          `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
+          `<td style="color:${x.pl > 0 ? 'var(--green)' : x.pl < 0 ? 'var(--red)' : 'var(--dim)'}">${x.pl >= 0 ? '+' : '−'}£${Math.abs(x.pl).toFixed(2)}</td>` +
+          `<td class="${aeCls}">${x.ae.toFixed(2)}</td>`) + '</tr>';
+    });
+    html += '</tbody></table></div>';
+    $('tbl').innerHTML = html;
+    $('tbl').querySelectorAll('th').forEach(t2 => t2.onclick = () => {
+      const k = t2.dataset.pk;
+      if (!k) return;
+      if (pSortKey === k) pSortDir *= -1;
+      else { pSortKey = k; pSortDir = (k === 'j' || k === 't' || k === 'h') ? 1 : -1; }
+      renderPairs();
+    });
+  }
   function renderRaceChips() {
     const box = $('racechips');
     if (!box) return;
@@ -145,7 +198,7 @@
     const key = who === 'jockeys' ? 'jid' : 'tid';
     return upcoming.find(r => r[key] === id && r.day === raceFilter.day && r.t === raceFilter.t && r.course === raceFilter.course) || null;
   }
-  const WHO = [['jockeys','Jockeys'],['trainers','Trainers']];
+  const WHO = [['jockeys','Jockeys'],['trainers','Trainers'],['pairs','J+T']];
   function renderWhoChips() {
     const box = $('whochips');
     box.innerHTML = '';
@@ -325,7 +378,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v5') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsjt:v6') || 'null');
       if (c && Date.now() - c.t < 3600000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
         status.textContent = 'stored history · tap to rebuild';
@@ -345,23 +398,24 @@
       // first-ever warmup (or a fresh current month): compute the gaps once, server stores them for everyone
       for (let i2 = 0; i2 < d.missing.length; i2++) {
         status.textContent = 'building the store ' + (i2 + 1) + '/' + d.missing.length + ' (one-off — stored for every visit after)…';
-        try { await fetch('/api/people?month=' + d.missing[i2] + '&v=4'); } catch {}
+        try { await fetch('/api/people?month=' + d.missing[i2] + '&v=5'); } catch {}
       }
       d = await one() || d;
     }
-    merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, baseline: d.baseline, baselineC: d.baselineC || {} };
+    merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, pairs: d.pairs || {}, baseline: d.baseline, baselineC: d.baselineC || {} };
     baseline = d.baseline || { runs: 0, wins: 0, exp: 0 };
     status.textContent = (d.missing && d.missing.length ? d.monthsStored + '/' + d.months.length + ' months stored · ' : 'stored history · ') + 'tap to rebuild';
     renderTable();
-    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v5', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v6', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v5'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v6'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
     const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
     $('baseline').innerHTML = 'ALL RIDES: ' + baseline.runs.toLocaleString() + ' runs · ' + baseline.wins.toLocaleString() + ' wins' +
       (baseAE ? ' · baseline A/E <b>' + baseAE.toFixed(2) + '</b> (the break-even mark — the overround lives in it)' : '');
+    if (who === 'pairs') { renderPairs(); return; }
     let list = Object.entries(merged[who] || {}).map(([id, s]) => {
       const nr = nextRideOf(id);
       // steady: 200+ rides, busy (10+ rides) in 9+ months, and a winner in EVERY busy month
