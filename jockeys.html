@@ -76,6 +76,7 @@
         <b>Next ride</b>: <span style="color:var(--blue);font-weight:600">blue</span> today · grey tomorrow · — not booked. <b>Travel</b>: grey short hop · <span style="color:#C4652E;font-weight:600">amber</span> 2–3½ h from yesterday’s track · <span style="color:#D7263D;font-weight:600">red</span> 3½ h+ haul (estimate).<br>
         <b>A/E</b>: <span style="color:#12A150;font-weight:700">green</span> above baseline — mounts win more than their prices predicted (market underrates them) · <span style="color:#D7263D;font-weight:700">red</span> below — market over-bets them. This is the money column; strike measures fame.<br>
         <b>Odds profile</b> (tap a name): same green/red per price band · ★ = their best band, where the market misprices them most.<br>
+        <b>Chart under a name</b>: their monthly strike over 12 months, like a price chart · <span style="color:#12A150">▲</span>/<span style="color:#D7263D">▼</span> = last 3 months vs their year, in percentage points · months with under 5 rides leave a gap.<br>
         <b>Sorting names</b>: the Jockey/Trainer column sorts by <b>win chance</b>, not A–Z — their next ride’s market probability tilted by their A/E (no ride booked → ranked by strike).<br>
         <b>J+T tab</b>: both names carry their own temperature — <span style="color:#0E8A44;font-weight:700">green + green</span> = rider and yard both hot · mixed = one flying, one cold · the pair’s stats stay 12-month.<br>
         <b>Race tabs</b>: tap a race to see only its riders · gold ▣ chip switches stats to that course’s 12-month record (small samples — read Runs first).<br>
@@ -484,7 +485,7 @@
   async function build() {
     const status = $('status');
     try {
-      const c = JSON.parse(localStorage.getItem('rsjt:v6') || 'null');
+      const c = JSON.parse(localStorage.getItem('rsjt:v7') || 'null');
       if (c && Date.now() - c.t < 3600000 && c.v && Object.keys(c.v.jockeys || {}).length > 100) {
         merged = c.v; baseline = c.v.baseline;
         status.textContent = 'stored history · tap to rebuild';
@@ -494,7 +495,7 @@
     } catch {}
     status.textContent = 'loading stored history…';
     const one = async () => {
-      const r = await fetch('/api/peopleall');
+      const r = await fetch('/api/peopleall?v=2');
       const d = await r.json();
       return (r.ok && d && d.ok) ? d : null;
     };
@@ -512,9 +513,9 @@
     baseline = d.baseline || { runs: 0, wins: 0, exp: 0 };
     status.textContent = (d.missing && d.missing.length ? d.monthsStored + '/' + d.months.length + ' months stored · ' : 'stored history · ') + 'tap to rebuild';
     renderTable();
-    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v6', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
+    if (Object.keys(merged.jockeys).length > 100) { try { localStorage.setItem('rsjt:v7', JSON.stringify({ t: Date.now(), v: merged })); } catch {} }
   }
-  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v6'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
+  $('status').onclick = () => { try { localStorage.removeItem('rsjt:v7'); } catch {} merged = null; $('tbl').innerHTML = ''; build(); };
 
   function renderTable() {
     if (!merged) return;
@@ -582,8 +583,35 @@
       const rowBase = (x.courseMode && x.cAE) ? x.cAE : baseAE;
       const aeCls = rowBase && x.ae > rowBase * 1.05 ? 'pos' : rowBase && x.ae < rowBase * 0.95 ? 'neg' : '';
       const hc = heatColor(heatOf(x));
+      const ticker = (() => {
+        const mo = x.s.mo;
+        if (!mo || mo.length < 6) return '';
+        const pts = mo.map(([r2, w2]) => r2 >= 5 ? w2 / r2 : null);
+        if (pts.filter(v => v != null).length < 4) return '';
+        const w = 64, hh = 13;
+        const vals = pts.filter(v => v != null);
+        const mx = Math.max(...vals, 0.01), mn = Math.min(...vals);
+        const span = mx - mn || 0.01;
+        let path = '', started = false;
+        pts.forEach((v, i2) => {
+          if (v == null) { started = false; return; }
+          const px = (i2 / (pts.length - 1) * w).toFixed(1);
+          const py = (hh - 1.5 - (v - mn) / span * (hh - 3)).toFixed(1);
+          path += (started ? 'L' : 'M') + px + ',' + py + ' ';
+          started = true;
+        });
+        // ticker move: last 3 months vs the year
+        let r3 = 0, w3 = 0;
+        mo.slice(-3).forEach(([r2, w2]) => { r3 += r2; w3 += w2; });
+        const yrS = x.s.wins / x.s.runs;
+        const rec = r3 >= 12 ? w3 / r3 : null;
+        const diff = rec != null ? (rec - yrS) * 100 : null;
+        const col = diff == null ? 'var(--faint)' : diff > 1.5 ? 'var(--green)' : diff < -1.5 ? 'var(--red)' : 'var(--faint)';
+        const tick = diff == null ? '' : `<span style="font-size:9px;color:${col}">${diff > 0 ? '▲' : diff < 0 ? '▼' : ''}${Math.abs(diff).toFixed(1)}</span>`;
+        return `<div style="margin-top:1px;line-height:1"><svg width="${w}" height="${hh}"><path d="${path.trim()}" fill="none" stroke="${col}" stroke-width="1.3"/></svg> ${tick}</div>`;
+      })();
       const sd = x.steady ? '<span style="color:var(--gold)" title="steady: a winner in every busy month">● </span>' : '';
-      html += `<tr class="sirerow" data-i="${i}"><td>${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span></td>` +
+      html += `<tr class="sirerow" data-i="${i}"><td>${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span>${ticker}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <span style="color:var(--dim)">' + x.nxOdds + '</span>' : '') : '—'}</td>` +
         `<td class="l" style="text-align:left;color:${x.tv >= 99998 ? 'var(--faint)' : x.tv >= 210 ? 'var(--red)' : x.tv >= 120 ? '#C4652E' : 'var(--dim)'}" title="${x.tvFrom ? 'rode at ' + x.tvFrom + ' yesterday' + (x.tvTo ? ' → ' + x.tvTo + ' today · straight-line ×1.3 at ~50mph — an estimate' : '') : 'no ride yesterday or no ride today'}">${x.tvLabel}</td>` +
