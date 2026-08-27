@@ -103,6 +103,18 @@
       mine: { races: 0, wins: 0 }, fav: { races: 0, wins: 0 }, nRaces: races.length };
     const posN = (r) => { const n = parseInt(r.pos, 10); return isNaN(n) ? 99 : n; };
     const paidPlaces = (fieldN, raceName) => fieldN < 5 ? 1 : fieldN <= 7 ? 2 : (fieldN >= 16 && /handicap/i.test(raceName || '')) ? 4 : 3;
+    const estTricast = (field, posOf) => {
+      // Harville from overround-stripped SPs of the actual 1-2-3, with a 15% deduction — mirrors how the computed tricast is built
+      const withSp = field.filter(r => r.d > 1);
+      if (withSp.length < 4) return null;
+      const book = withSp.reduce((a, r) => a + 1 / r.d, 0);
+      const q = {};
+      withSp.forEach(r => { q[r.h] = (1 / r.d) / book; });
+      const f1 = field.find(r => posOf(r) === 1), f2 = field.find(r => posOf(r) === 2), f3 = field.find(r => posOf(r) === 3);
+      if (!f1 || !f2 || !f3 || q[f1.h] == null || q[f2.h] == null || q[f3.h] == null) return null;
+      const p = q[f1.h] * (q[f2.h] / (1 - q[f1.h])) * (q[f3.h] / (1 - q[f1.h] - q[f2.h]));
+      return p > 0 ? (1 / p) * 0.85 : null;
+    };
     races.forEach(rc => {
       const field = rc.runners;
       const orVals = field.map(r => r.ofr).filter(v => v != null);
@@ -154,10 +166,15 @@
           const second = top3.some(x => posN(x.r) === 2);
           if (first && second) { D.deep3.cfHits++; D.deep3.cfRet += rc.csf; }
         }
-        if (rc.trc > 0) {
-          D.deep3.tcRaces++;
+        {
           const sweep123 = [1, 2, 3].every(pp2 => top3.some(x => posN(x.r) === pp2));
-          if (sweep123) { D.deep3.tcHits++; D.deep3.tcRet += rc.trc; }
+          let div = rc.trc > 0 ? rc.trc : null, estd = false;
+          if (div == null && field.length >= 8) { div = estTricast(field, (r) => posN(r)); if (div != null) estd = true; }
+          if (div != null) {
+            D.deep3.tcRaces++;
+            if (estd) D.deep3.tcEst = (D.deep3.tcEst || 0) + 1;
+            if (sweep123) { D.deep3.tcHits++; D.deep3.tcRet += div; }
+          }
         }
         const pp = paidPlaces(field.length, rc.name);
         const avail = Math.min(3, pp);
@@ -204,7 +221,7 @@
     const digests = [];
     for (let i = 0; i < dates.length; i++) {
       const dt = dates[i];
-      const lsKey = 'rspd:v7:' + dt;
+      const lsKey = 'rspd:v8:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
@@ -227,7 +244,7 @@
     digests.forEach(({ dig }) => {
       ['minus', 'flat', 'plus'].forEach(b => { agg.bands[b].r += dig.bands[b].r; agg.bands[b].w += dig.bands[b].w; agg.bands[b].e += dig.bands[b].e; });
       ['deep', 'deep3'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; agg[k].expSum += dig[k].expSum; });
-      agg.deep3.slots += dig.deep3.slots || 0; agg.deep3.sweeps += dig.deep3.sweeps || 0; agg.deep3.avail += dig.deep3.avail || 0; agg.deep3.ret += dig.deep3.ret || 0; agg.deep3.cfRaces += dig.deep3.cfRaces || 0; agg.deep3.cfHits += dig.deep3.cfHits || 0; agg.deep3.cfRet += dig.deep3.cfRet || 0; agg.deep3.tcRaces += dig.deep3.tcRaces || 0; agg.deep3.tcHits += dig.deep3.tcHits || 0; agg.deep3.tcRet += dig.deep3.tcRet || 0;
+      agg.deep3.slots += dig.deep3.slots || 0; agg.deep3.sweeps += dig.deep3.sweeps || 0; agg.deep3.avail += dig.deep3.avail || 0; agg.deep3.ret += dig.deep3.ret || 0; agg.deep3.cfRaces += dig.deep3.cfRaces || 0; agg.deep3.cfHits += dig.deep3.cfHits || 0; agg.deep3.cfRet += dig.deep3.cfRet || 0; agg.deep3.tcRaces += dig.deep3.tcRaces || 0; agg.deep3.tcHits += dig.deep3.tcHits || 0; agg.deep3.tcRet += dig.deep3.tcRet || 0; agg.deep3.tcEst = (agg.deep3.tcEst || 0) + (dig.deep3.tcEst || 0);
       ['mine', 'fav'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; });
     });
     const line = (label, b) => b.r ? `<div class="row"><span class="n">${label}</span><span class="v">${b.w} wins from ${b.r} runners \u00b7 ${(b.w / b.r * 100).toFixed(1)}% \u00b7 SPs implied ${(b.e / b.r * 100).toFixed(1)}% \u00b7 A/E ${(b.w / b.e).toFixed(2)}</span></div>` : '';
@@ -239,7 +256,7 @@
       (agg.deep3.races ? `<div class="row"><span class="n"><b>\u2026and how they placed</b></span><span class="v">the trio took <b>${agg.deep3.slots} of ${agg.deep3.avail}</b> paid places (each-way rules) \u00b7 ${agg.deep3.avail ? (agg.deep3.slots / agg.deep3.avail * 100).toFixed(1) : '0.0'}% \u00b7 filled every paid place in <b>${agg.deep3.sweeps}</b> races \u00b7 ${(agg.deep3.sweeps / agg.deep3.races * 100).toFixed(1)}%</span></div>` : '') +
       (agg.deep3.races ? (() => { const staked = agg.deep3.races * 3; const pl = agg.deep3.ret - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 win on each of the trio</b> (\u00a33 a race)</span><span class="v">staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${agg.deep3.ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 settled at SP</span></div>`; })() : '') +
         (agg.deep3.cfRaces ? (() => { const staked = agg.deep3.cfRaces * 6; const pl = agg.deep3.cfRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination forecast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${agg.deep3.cfHits} of ${agg.deep3.cfRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${agg.deep3.cfRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 CSF dividends \u00b7 races missing a CSF skipped</span></div>`; })() : '') +
-        ((() => { if (!agg.deep3.tcRaces) return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b></span><span class="v" style="color:var(--faint)">no tricast dividends found in this data \u2014 either none declared or the feed doesn\u2019t carry them; if this persists across days, tell the builder</span></div>`; const staked = agg.deep3.tcRaces * 6; const pl = agg.deep3.tcRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${agg.deep3.tcHits} of ${agg.deep3.tcRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${agg.deep3.tcRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 tricast dividends \u00b7 races without one skipped</span></div>`; })()) +
+        ((() => { if (!agg.deep3.tcRaces) return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b></span><span class="v" style="color:var(--faint)">no tricast dividends found in this data \u2014 either none declared or the feed doesn\u2019t carry them; if this persists across days, tell the builder</span></div>`; const staked = agg.deep3.tcRaces * 6; const pl = agg.deep3.tcRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${agg.deep3.tcHits} of ${agg.deep3.tcRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${agg.deep3.tcRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 ${(agg.deep3.tcEst || 0)} of ${agg.deep3.tcRaces} dividends estimated from SP (Harville, 15% off) where the feed had none \u00b7 8+ runner races only</span></div>`; })()) +
       (agg.mine.races ? `<div class="row"><span class="n"><b>my model\u2019s pick</b></span><span class="v"><b>won ${agg.mine.wins} of ${agg.mine.races} \u00b7 ${(agg.mine.wins / agg.mine.races * 100).toFixed(1)}%</b> \u00b7 market favourite ${agg.fav.wins} \u00b7 ${(agg.fav.wins / agg.fav.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
     const dayRows = digests.map(({ dt, dig }) => {
       const mp = dig.mine.races ? (dig.mine.wins / dig.mine.races * 100).toFixed(0) : '\u2014';
@@ -309,6 +326,18 @@
     let deep3 = { races: 0, wins: 0, expSum: 0, slots: 0, sweeps: 0, avail: 0, ret: 0, cfRaces: 0, cfHits: 0, cfRet: 0, tcRaces: 0, tcHits: 0, tcRet: 0 };   // any of the 3 most-minus runners
     const posN = (r) => { const n = parseInt(r.pos, 10); return isNaN(n) ? 99 : n; };
     const paidPlaces = (fieldN, raceName) => fieldN < 5 ? 1 : fieldN <= 7 ? 2 : (fieldN >= 16 && /handicap/i.test(raceName || '')) ? 4 : 3;
+    const estTricast = (field, posOf) => {
+      // Harville from overround-stripped SPs of the actual 1-2-3, with a 15% deduction — mirrors how the computed tricast is built
+      const withSp = field.filter(r => r.d > 1);
+      if (withSp.length < 4) return null;
+      const book = withSp.reduce((a, r) => a + 1 / r.d, 0);
+      const q = {};
+      withSp.forEach(r => { q[r.h] = (1 / r.d) / book; });
+      const f1 = field.find(r => posOf(r) === 1), f2 = field.find(r => posOf(r) === 2), f3 = field.find(r => posOf(r) === 3);
+      if (!f1 || !f2 || !f3 || q[f1.h] == null || q[f2.h] == null || q[f3.h] == null) return null;
+      const p = q[f1.h] * (q[f2.h] / (1 - q[f1.h])) * (q[f3.h] / (1 - q[f1.h] - q[f2.h]));
+      return p > 0 ? (1 / p) * 0.85 : null;
+    };
     let mine = { races: 0, wins: 0 }, fav = { races: 0, wins: 0 };   // my top pick vs the market favourite   // the most-minus runner of each race
     const tiles = races.map(rc => {
       const priced = priceRace(rc.runners).sort((a, b) => edgeOf(a) - edgeOf(b));
@@ -341,10 +370,15 @@
           const second = top3.some(x => posN(x.r) === 2);
           if (first && second) { deep3.cfHits++; deep3.cfRet += rc.csf; }
         }
-        if (rc.trc > 0) {
-          deep3.tcRaces++;
+        {
           const sweep123 = [1, 2, 3].every(pp2 => top3.some(x => posN(x.r) === pp2));
-          if (sweep123) { deep3.tcHits++; deep3.tcRet += rc.trc; }
+          let div = rc.trc > 0 ? rc.trc : null, estd = false;
+          if (div == null && rc.runners.length >= 8) { div = estTricast(rc.runners, (r) => posN(r)); if (div != null) estd = true; }
+          if (div != null) {
+            deep3.tcRaces++;
+            if (estd) deep3.tcEst = (deep3.tcEst || 0) + 1;
+            if (sweep123) { deep3.tcHits++; deep3.tcRet += div; }
+          }
         }
         const pp = paidPlaces(rc.runners.length, rc.name);
         const avail = Math.min(3, pp);
@@ -377,7 +411,7 @@
         (deep3.races ? `<div class="row"><span class="n"><b>\u2026and how they placed</b></span><span class="v">the trio took <b>${deep3.slots} of ${deep3.avail}</b> paid places (each-way rules by field size) \u00b7 ${deep3.avail ? (deep3.slots / deep3.avail * 100).toFixed(1) : '0.0'}% \u00b7 filled every paid place in <b>${deep3.sweeps}</b> race${deep3.sweeps === 1 ? '' : 's'} \u00b7 ${(deep3.sweeps / deep3.races * 100).toFixed(1)}%</span></div>` : '') +
         (deep3.races ? (() => { const staked = deep3.races * 3; const pl = deep3.ret - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 win on each of the trio</b> (\u00a33 a race)</span><span class="v">staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${deep3.ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 settled at SP</span></div>`; })() : '') +
         (deep3.cfRaces ? (() => { const staked = deep3.cfRaces * 6; const pl = deep3.cfRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination forecast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${deep3.cfHits} of ${deep3.cfRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${deep3.cfRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 CSF dividends \u00b7 races missing a CSF skipped</span></div>`; })() : '') +
-        ((() => { if (!deep3.tcRaces) return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b></span><span class="v" style="color:var(--faint)">no tricast dividends found in this data \u2014 either none declared or the feed doesn\u2019t carry them; if this persists across days, tell the builder</span></div>`; const staked = deep3.tcRaces * 6; const pl = deep3.tcRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${deep3.tcHits} of ${deep3.tcRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${deep3.tcRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 tricast dividends \u00b7 races without one skipped</span></div>`; })()) +
+        ((() => { if (!deep3.tcRaces) return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b></span><span class="v" style="color:var(--faint)">no tricast dividends found in this data \u2014 either none declared or the feed doesn\u2019t carry them; if this persists across days, tell the builder</span></div>`; const staked = deep3.tcRaces * 6; const pl = deep3.tcRet - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 combination tricast on the trio</b> (6 perms \u00b7 \u00a36 a race)</span><span class="v">landed <b>${deep3.tcHits} of ${deep3.tcRaces}</b> \u00b7 staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${deep3.tcRet.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 ${(deep3.tcEst || 0)} of ${deep3.tcRaces} dividends estimated from SP (Harville, 15% off) where the feed had none \u00b7 8+ runner races only</span></div>`; })()) +
         (mine.races ? `<div class="row"><span class="n"><b>my model\u2019s pick (shortest of MINE)</b></span><span class="v"><b>won ${mine.wins} of ${mine.races} races \u00b7 ${(mine.wins / mine.races * 100).toFixed(1)}%</b> \u00b7 the market favourite won ${fav.wins} \u00b7 ${(fav.wins / fav.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
     })();
     $('app').innerHTML = '<div class="grid">' + scoreHtml + tiles.join('') + '</div>';
