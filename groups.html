@@ -136,6 +136,24 @@
     const workhorses = [...people].sort((a, b) => b.runs - a.runs).slice(0, 10)
       .map(p => ({ n: esc(p.name), v: p.runs.toLocaleString() + ' · ' + (p.strike * 100).toFixed(1) + '%' }));
 
+    // where does fire live on the rank ladder?
+    let fireRankTile = '';
+    const fireAll = people.filter(p => p.heat != null && p.heat >= 1.35 && p.rf.r >= 6 && p.rankPct != null);
+    if (fireAll.length >= 5) {
+      const bandDefs2 = [['70+', 70, 101], ['50–69', 50, 70], ['35–49', 35, 50], ['under 35', -1, 35]];
+      const counts = bandDefs2.map(([label, lo, hi]) => ({ label, n: fireAll.filter(p => p.rankPct >= lo && p.rankPct < hi).length }));
+      const modal = counts.reduce((a, b) => b.n > a.n ? b : a, counts[0]);
+      const winners = fireAll.filter(p => p.rf.w > 0);
+      const hiW = winners.length ? winners.reduce((a, b) => b.rankPct > a.rankPct ? b : a, winners[0]) : null;
+      const loW = winners.length ? winners.reduce((a, b) => b.rankPct < a.rankPct ? b : a, winners[0]) : null;
+      const share = (modal.n / fireAll.length * 100).toFixed(0);
+      const rows = counts.map(c => ({ n: 'rank ' + c.label, v: c.n + ' of ' + fireAll.length + (c === modal ? ' ◀ most often' : ''), cls: c === modal ? 'gold' : '' }));
+      if (hiW) rows.push({ n: 'highest-ranked winner', v: esc(hiW.name) + ' (' + hiW.rankPct.toFixed(0) + ')', cls: 'pos' });
+      if (loW && loW !== hiW) rows.push({ n: 'lowest-ranked winner', v: esc(loW.name) + ' (' + loW.rankPct.toFixed(0) + ')', cls: 'neg' });
+      fireRankTile = tile('WHEN THEY’RE ON FIRE — WHAT RANK?',
+        'the rank scores of everyone currently on fire · more often than not: <b>rank ' + modal.label + '</b> (' + share + '%) · if fire were random the four bands would split evenly — a lean says form clusters there',
+        rows);
+    }
     // mount quality vs rank: do high-ranked people sit on higher-rated horses?
     let mountTiles = '';
     const withOr = people.filter(p => p.rankPct != null && p.avgOr != null);
@@ -185,6 +203,7 @@
       tile('SLIDERS', 'last 3 months at least 2.5pt below their year', sliders) +
       tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
       pairsTile +
+      fireRankTile +
       mountTiles +
       tile('THE WORKHORSES', 'most rides in 12 months · volume, whatever the glamour', workhorses) +
       '</div>';
