@@ -115,7 +115,7 @@
         const pr = (r.jid && r.tid) ? pairs[r.jid + '|' + r.tid] : null;
         const pae = pr && pr.e ? pr.w / pr.e : 0;
         const ratio3 = (pr && pr.r >= 10 && baseAE2) ? Math.max(0.5, Math.min(1.6, pae / baseAE2)) : 1;
-        return { j: r.jockey || '?', t: r.trainer || '?', jid: r.jid, tid: r.tid, h: r.h, d: r.d,
+        return { j: r.jockey || '?', t: r.trainer || '?', jid: r.jid, tid: r.tid, h: r.h, d: r.d, ofr: r.ofr, lbs: r.lbs,
           r: pr ? pr.r : 0, w: pr ? pr.w : 0, strike: pr && pr.r ? pr.w / pr.r : 0,
           pl: pr ? pr.pl : 0, ae: pae, first: !pr, likely: r.mp ? (r.mp / 100) * ratio3 : 0 };
       });
@@ -146,7 +146,7 @@
       const thc = heatColor(heatFor('trainers', x.tid));
       html += `<tr><td class="l"><b${jhc ? ' style="color:' + jhc + '"' : ''}>${String(x.j).replace(/</g,'&lt;')}</b></td>` +
         `<td class="l"><b${thc ? ' style="color:' + thc + '"' : ''}>${String(x.t).replace(/</g,'&lt;')}</b></td>` +
-        (raceFilter ? `<td class="l">${x.h ? String(x.h).replace(/</g,'&lt;') : '—'}</td><td>${x.d != null ? x.d : '—'}</td>` : '') +
+        (raceFilter ? `<td class="l">${x.h ? String(x.h).replace(/</g,'&lt;') + orWt(x.ofr, x.lbs) : '—'}</td><td><b style="color:var(--blue)">${x.d != null ? x.d : '—'}</b></td>` : '') +
         (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
           `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
           `<td style="color:${x.pl > 0 ? 'var(--green)' : x.pl < 0 ? 'var(--red)' : 'var(--dim)'}">${x.pl >= 0 ? '+' : '−'}£${Math.abs(x.pl).toFixed(2)}</td>` +
@@ -232,7 +232,7 @@
       const up = r.win != null && r.mp != null && r.win > r.mp + 0.4;
       const dn = r.win != null && r.mp != null && r.win < r.mp - 0.4;
       html += `<div style="padding:9px 0;border-bottom:1px solid var(--line)">` +
-        `<div><b>${String(r.h).replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>${r.ofr ? ' <span style="font-family:var(--mono);font-size:10px;color:var(--dim);font-weight:600" title="official rating">OR' + r.ofr + '</span>' : ''}` +
+        `<div><b>${String(r.h).replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>${orWt(r.ofr, r.lbs)}` +
         `${r.form ? ' <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)" title="recent form, latest on the right">' + String(r.form).replace(/</g,'&lt;') + '</span>' : ''}</div>` +
         `<div style="font-size:11.5px;margin-top:2px"><span${jhc ? ' style="color:' + jhc + ';font-weight:600"' : ''}>${String(r.jockey).replace(/</g,'&lt;')}</span>` +
         ` · <span${thc ? ' style="color:' + thc + ';font-weight:600"' : ''}>${String(r.trainer).replace(/</g,'&lt;')}</span>` +
@@ -289,6 +289,14 @@
       box.appendChild(b);
     });
   }
+  const wtOf = (lbs) => lbs ? Math.floor(lbs / 14) + '-' + (lbs % 14) : null;
+  const orWt = (ofr, lbs) => {
+    const bits = [];
+    if (ofr) bits.push('OR' + ofr);
+    const w = wtOf(lbs);
+    if (w) bits.push(w);
+    return bits.length ? ' <span style="font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:600" title="official rating · weight carried (st-lb)">' + bits.join(' · ') + '</span>' : '';
+  };
   const csKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
   function rideInRace(id) {
     if (!raceFilter || !upcoming) return null;
@@ -407,9 +415,9 @@
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const mine = upcoming.filter(r => r[key] === id);
     const today = mine.filter(r => r.day === 'today' && raceMin(r.t) >= nowMin - 5).sort((a, b) => raceMin(a.t) - raceMin(b.t));
-    if (today.length) return { sort: raceMin(today[0].t), label: today[0].t + ' ' + today[0].course, horse: today[0].h, odds: today[0].d, mp: today[0].mp, ofr: today[0].ofr, today: true };
+    if (today.length) return { sort: raceMin(today[0].t), label: today[0].t + ' ' + today[0].course, horse: today[0].h, odds: today[0].d, mp: today[0].mp, ofr: today[0].ofr, lbs: today[0].lbs, today: true };
     const tom = mine.filter(r => r.day === 'tomorrow').sort((a, b) => raceMin(a.t) - raceMin(b.t));
-    if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, horse: tom[0].h, odds: tom[0].d, mp: tom[0].mp, ofr: tom[0].ofr, today: false };
+    if (tom.length) return { sort: 2000 + raceMin(tom[0].t), label: 'Tom ' + tom[0].t + ' ' + tom[0].course, horse: tom[0].h, odds: tom[0].d, mp: tom[0].mp, ofr: tom[0].ofr, lbs: tom[0].lbs, today: false };
     return null;
   }
   // GB & IRE racecourse coordinates (approx) for travel estimates
@@ -560,7 +568,7 @@
         strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
         rscore, rpos, rn,
         nx: nr ? nr.sort : 99999, nxLabel: nr ? nr.label : '—', nxToday: nr ? nr.today : false,
-        nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null, nxOfr: nr ? nr.ofr : null,
+        nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null, nxOfr: nr ? nr.ofr : null, nxLbs: nr ? nr.lbs : null,
         likely: (() => {
           const bA = baseline.exp ? baseline.wins / baseline.exp : null;
           const ratio = bA && s.exp ? Math.max(0.5, Math.min(1.6, (s.wins / s.exp) / bA)) : 1;
@@ -586,7 +594,7 @@
         const bA2 = baseline.exp ? baseline.wins / baseline.exp : null;
         const ratio2 = bA2 && x.s.exp ? Math.max(0.5, Math.min(1.6, (x.s.wins / x.s.exp) / bA2)) : 1;
         let y = { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
-          nxHorse: ride.h, nxOdds: ride.d, nxOfr: ride.ofr, likely: ride.mp ? (ride.mp / 100) * ratio2 : 0 };
+          nxHorse: ride.h, nxOdds: ride.d, nxOfr: ride.ofr, nxLbs: ride.lbs, likely: ride.mp ? (ride.mp / 100) * ratio2 : 0 };
         if (courseStats) {
           const cb = (x.s.cs || {})[ck];
           if (!cb || !cb.r) y = { ...y, runs: 0, wins: 0, plc: 0, plcPct: 0, strike: 0, pl: 0, roi: 0, ae: 0, courseMode: true, cAE: cBaseAE };
@@ -641,7 +649,7 @@
       const rb = x.rpos != null ? `<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 4px;border-radius:4px;margin-right:4px;color:#fff;background:${x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : '#8A93A3'}" title="ranked ${x.rpos} of ${x.rn} in the ${who === 'jockeys' ? 'jockey' : 'trainer'} table by A/E (12 months, 100+ runs) · score ${x.rscore}/100">#${x.rpos}</span>` : '';
       html += `<tr class="sirerow" data-i="${i}"><td>${rb}${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span>${ticker}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
-        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') + (x.nxOfr ? ' <span style="font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:600" title="official rating">OR' + x.nxOfr + '</span>' : '') : '—'}</td>` +
+        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') + orWt(x.nxOfr, x.nxLbs) : '—'}</td>` +
         `<td class="l" style="text-align:left;color:${x.tv >= 99998 ? 'var(--faint)' : x.tv >= 210 ? 'var(--red)' : x.tv >= 120 ? '#C4652E' : 'var(--dim)'}" title="${x.tvFrom ? 'rode at ' + x.tvFrom + ' yesterday' + (x.tvTo ? ' → ' + x.tvTo + ' today · straight-line ×1.3 at ~50mph — an estimate' : '') : 'no ride yesterday or no ride today'}">${x.tvLabel}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
         `<td>${(x.plcPct * 100).toFixed(1)}%</td>` +
