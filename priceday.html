@@ -69,6 +69,12 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const ordinal = (p) => {
+    const n = parseInt(p, 10);
+    if (isNaN(n)) return p;   // PU, F, UR, BD and friends stay as codes
+    const s = n % 100;
+    return n + (s >= 11 && s <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][Math.min(n % 10, 4) % 4] || 'th');
+  };
   const fmtOdds = (d) => !(d > 1) ? '\u2014' : d >= 21 ? String(Math.round(d)) : d >= 10 ? d.toFixed(0) : d.toFixed(1);
   const qd = new URLSearchParams(location.search).get('d');
   const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') ? qd : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -182,7 +188,7 @@
       if (!dig) {
         $('app').innerHTML = `<div class="state"><div class="spinner"></div>pricing ${dt} \u2014 day ${i + 1} of ${dates.length}\u2026<br><span style="font-size:11px">first run walks the month; after that it\u2019s cached</span></div>`;
         try {
-          const r = await fetch('/api/priceday?date=' + dt);
+          const r = await fetch('/api/priceday?v=2&date=' + dt);
           const dd2 = await r.json();
           if (dd2 && dd2.ok) {
             dig = digestDay(dd2, pj, pt);
@@ -220,7 +226,7 @@
   async function main() {
     let store = null, day = null;
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?date=' + date)]);
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=2&date=' + date)]);
       store = await r1.json();
       day = await r2.json();
       if (!store.ok || !day.ok) throw new Error('bad');
@@ -310,7 +316,7 @@
         }
         const cls = x.r.won ? 'pos' : e !== 999 && e <= -0.25 ? 'neg' : e !== 999 && e >= 0.25 ? 'pos' : '';
         return `<div class="row${x.r.won ? ' won' : ''}"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b>${x.r.ofr != null ? ' <span style="font-size:10px;' + (x.r.ofr === maxOr ? 'color:var(--blue);font-weight:800' : 'color:var(--faint)') + '">OR' + x.r.ofr + '</span>' : ''}${(() => { const w = wrOf(x); if (w == null) return ''; const topW = w === maxWr; return '<br><span style="font-size:10px;' + (topW ? 'color:var(--blue);font-weight:800' : 'color:var(--dim)') + '" title="weight-adjusted rating \u00b7 blue bold = highest in the race">WR' + w + (x.adv ? ' (' + (x.adv > 0 ? '+' : '') + x.adv + ')' : '') + '</span>'; })()}</span>` +
-          `<span class="v ${cls}">${e !== 999 ? (e > 0 ? '+' : '') + Math.round(e * 100) + '%' : '\u2014'} \u00b7 SP ${x.r.d != null ? fmtOdds(x.r.d) : '\u2014'} \u00b7 MINE ${fmtOdds(1 / x.p)}${x.r.won ? ' \u00b7 \u2713 WON' : ''}</span></div>`;
+          `<span class="v ${cls}">${e !== 999 ? (e > 0 ? '+' : '') + Math.round(e * 100) + '%' : '\u2014'} \u00b7 SP ${x.r.d != null ? fmtOdds(x.r.d) : '\u2014'} \u00b7 MINE ${fmtOdds(1 / x.p)}${x.r.won ? ' \u00b7 \u2713 WON' : (x.r.pos ? ' \u00b7 ' + ordinal(x.r.pos) : '')}</span></div>`;
       }).join('');
       return `<div class="tile"><h2>${esc(rc.t)} ${esc(rc.course)}</h2><div class="sub">ranked by disagreement, minus to plus \u00b7 winner ticked</div>${rows}</div>`;
     });
