@@ -15,9 +15,10 @@ export default async function handler(req, res) {
     const d = await r.json();
     const winners = [];
     (d.results || []).forEach((race) => {
-      if (!['gb', 'ire'].includes(String(race.region || '').toLowerCase())) return;
+      const region = String(race.region || '').toLowerCase();
+      if (region && !['gb', 'ire'].includes(region)) return;   // only filter when the field exists
       const w = (race.runners || []).find((x) => String(x.position) === '1');
-      if (w) winners.push({ t: race.off || '', course: race.course || '?', h: w.horse || '', sp: w.sp || '' });
+      if (w) winners.push({ t: race.off || race.off_time || '', course: race.course || '?', h: w.horse || '', sp: w.sp || '' });
     });
     res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
     return res.status(200).json({ ok: true, winners });
