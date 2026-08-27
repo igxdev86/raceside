@@ -170,7 +170,8 @@
         const run = raceMin(t) < nowM - 2;
         const priced = priceRace(field);
         const anyResult = run && priced.some(x => won[wKey(t, course, x.r.h)]);
-        const rows = priced.sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
+        const edgeOf = (x) => { const mkt2 = x.r.d; if (!(mkt2 > 1)) return 999; return (x.p - 1 / mkt2) / (1 / mkt2); };
+        const rows = priced.sort((a, b) => edgeOf(a) - edgeOf(b)).map(x => {
           const w = won[wKey(t, course, x.r.h)] || 0;
           const mine = 1 / x.p;
           const mkt = x.r.d;
@@ -181,7 +182,7 @@
           return `<div class="row"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b></span>` +
             `<span class="v ${cls}" title="my price vs the market\u2019s \u00b7 % = how much likelier my model rates it than the raw market price implies">MINE ${fmtOdds(mine)} \u00b7 MKT ${mkt != null ? mkt : '\u2014'}${tag}${w ? ' \u00b7 \u2713 WON' : ''}</span></div>`;
         }).join('');
-        return `<div class="tile"><h2>${esc(t)} ${esc(course)}${run ? '' : ' \u00b7 to come'}</h2><div class="sub">${run ? (anyResult ? 'run \u00b7 winner ticked' : 'run \u00b7 result not in yet') : 'my odds vs market \u00b7 green = my model rates it 25%+ likelier than the price'}</div>${rows}</div>`;
+        return `<div class="tile"><h2>${esc(t)} ${esc(course)}${run ? '' : ' \u00b7 to come'}</h2><div class="sub">${run ? (anyResult ? 'run \u00b7 winner ticked' : 'run \u00b7 result not in yet') : 'ranked by disagreement, minus to plus \u00b7 green = my model rates it 25%+ likelier than the price'}</div>${rows}</div>`;
       });
       $('app').innerHTML = '<div class="grid">' + boardHtml + tiles.join('') + '</div>';
     }
