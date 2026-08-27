@@ -69,7 +69,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   let who = 'jockeys';
-  let store = null, recent = null, upcoming = null;
+  let store = null, recent = null, upcoming = null, todayResults = null;
 
   function renderWho() {
     const box = $('who');
@@ -185,6 +185,66 @@
     } else {
       mountTiles = tile('MOUNT QUALITY BY RANK', 'collecting mount ratings — this fills in within 3 hours of deploy as the form store refreshes', []);
     }
+    // shared: build annotated rows for one race's field
+    const pctB2 = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i2) => { map[x.id] = n > 1 ? (1 - i2 / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pjS = pctB2(store.jockeys), ptS = pctB2(store.trainers);
+    const clmS = (nm) => { const m2 = String(nm || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
+    function fieldRows(field, wonByHorse) {
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clmS(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      return field.map(r => {
+        const parts = [];
+        if (r.jid && pjS[r.jid] != null) parts.push(pjS[r.jid]);
+        if (r.tid && ptS[r.tid] != null) parts.push(ptS[r.tid]);
+        const sc = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+        const adv = advM[r.h];
+        const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
+        const won = wonByHorse ? wonByHorse[r.h] : null;
+        return { r, sc, adv, sig, won };
+      }).sort((a, b) => a.r.d - b.r.d).slice(0, 14)
+        .map(x => ({
+          n: (x.won ? '✓ ' : '') + (x.sig ? '⚡ ' : '') + '<b style="color:' + (x.sc == null ? 'var(--dim)'
+            : x.sc >= 80 ? '#0B7A3C' : x.sc >= 70 ? '#3FA05C' : x.sc >= 50 ? 'var(--ink)'
+            : x.sc >= 36 ? '#C4652E' : '#D7263D') + '">' + esc(x.r.jockey || '?') + '</b><br><b style="font-size:11px">' + esc(x.r.h) + '</b>',
+          v: (x.sc != null ? 'R' + x.sc : 'R—') +
+            ' · OR ' + (x.r.ofr != null ? x.r.ofr : '—') +
+            ' · WR ' + (x.adv != null ? (x.r.ofr + x.adv) + (x.adv ? ' (' + (x.adv > 0 ? '+' : '') + x.adv + ')' : '') : '—') +
+            ' · ' + x.r.d + (x.won ? ' · WON' : ''),
+          cls: x.won ? 'pos' : x.sig ? 'gold' : x.sc >= 70 ? 'pos' : x.sc != null && x.sc <= 35 ? 'neg' : '',
+        }));
+    }
+    // ---- PREVIOUS RACE: how the signals fared ----
+    let prevTile = '';
+    {
+      const raceMinP = (t) => { const m2 = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m2) return 9999; let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+      const nowP = new Date();
+      const nowMP = nowP.getHours() * 60 + nowP.getMinutes();
+      const done = (upcoming || []).filter(r => r.day === 'today' && raceMinP(r.t) < nowMP - 2);
+      const pickP = done.length ? done.reduce((a, b) => raceMinP(b.t) > raceMinP(a.t) ? b : a) : null;
+      if (pickP) {
+        const fieldP = upcoming.filter(r => r.day === 'today' && r.t === pickP.t && r.course === pickP.course);
+        let wonBy = null, resolved = false;
+        if (todayResults) {
+          wonBy = {};
+          todayResults.forEach(m2 => { if (m2.t === pickP.t && m2.course === pickP.course && m2.won === 1) { wonBy[m2.h] = 1; resolved = true; } });
+        }
+        prevTile = tile('PREVIOUS RACE · ' + esc(pickP.t) + ' ' + esc(pickP.course),
+          (resolved ? 'the winner is ticked — check where it sat on rank, WR and price' : 'result not in yet — the field as the signals saw it') ,
+          fieldRows(fieldP, wonBy));
+      }
+    }
     // ---- NEXT RACE, signal-annotated, jockey-first ----
     let nextTile = '';
     {
@@ -200,43 +260,8 @@
         nextTile = tile('NEXT RACE', 'no races left today' + (tomN ? ' · tomorrow’s card is loaded (' + tomN + ' declared rides) — this tile wakes with the first race' : ''), []);
       } else {
         const field = upcoming.filter(r => r.day === 'today' && r.t === pick.t && r.course === pick.course);
-        const pctB = (bucket) => {
-          const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
-            .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
-          const map = {}; const n = list.length;
-          list.forEach((x, i2) => { map[x.id] = n > 1 ? (1 - i2 / (n - 1)) * 100 : 50; });
-          return map;
-        };
-        const pj2 = pctB(store.jockeys), pt2 = pctB(store.trainers);
-        const clm = (nm) => { const m2 = String(nm || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
-        const okF = field.filter(r => r.ofr != null && r.lbs != null);
-        let advM = {};
-        if (okF.length >= 2) {
-          const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
-          const car = (r) => r.lbs - clm(r.jockey);
-          const topC = car(top);
-          okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
-        }
         const mins = raceMin2(pick.t) - nowM;
-        const rows2 = field.map(r => {
-          const parts = [];
-          if (r.jid && pj2[r.jid] != null) parts.push(pj2[r.jid]);
-          if (r.tid && pt2[r.tid] != null) parts.push(pt2[r.tid]);
-          const sc = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
-          const adv = advM[r.h];
-          const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
-          return { r, sc, adv, sig };
-        }).sort((a, b) => a.r.d - b.r.d).slice(0, 14)
-          .map(x => ({
-            n: (x.sig ? '⚡ ' : '') + '<b style="color:' + (x.sc == null ? 'var(--dim)'
-              : x.sc >= 80 ? '#0B7A3C' : x.sc >= 70 ? '#3FA05C' : x.sc >= 50 ? 'var(--ink)'
-              : x.sc >= 36 ? '#C4652E' : '#D7263D') + '">' + esc(x.r.jockey || '?') + '</b><br><b style="font-size:11px">' + esc(x.r.h) + '</b>',
-            v: (x.sc != null ? 'R' + x.sc : 'R—') +
-              ' · OR ' + (x.r.ofr != null ? x.r.ofr : '—') +
-              ' · WR ' + (x.adv != null ? (x.r.ofr + x.adv) + (x.adv ? ' (' + (x.adv > 0 ? '+' : '') + x.adv + ')' : '') : '—') +
-              ' · ' + x.r.d,
-            cls: x.sig ? 'gold' : x.sc >= 70 ? 'pos' : x.sc != null && x.sc <= 35 ? 'neg' : '',
-          }));
+        const rows2 = fieldRows(field, null);
         nextTile = tile('NEXT RACE · ' + esc(pick.t) + ' ' + esc(pick.course) + (mins >= 0 ? ' · off in ' + mins + 'min' : ''),
           'jockey painted best → worst by rank score · horse below in bold · R rank · OR official rating · WR weight-adjusted (+lb = thrown in) · odds · ⚡ = rank + weights both green', rows2);
       }
@@ -329,6 +354,7 @@
       tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
       pairsTile +
       nextTile +
+      prevTile +
       signalTiles +
       fireRankTile +
       mountTiles +
@@ -348,6 +374,10 @@
       recent = d2 && d2.ok ? d2 : null;
       upcoming = d3 && d3.ok ? (d3.rides || []) : null;
       render();
+      // results for the previous-race tile arrive after first paint
+      fetch('/api/markethist?day=today').then(r => r.json()).then(d => {
+        if (d && d.ok) { todayResults = d.runners || []; render(); }
+      }).catch(() => {});
     } catch {
       $('app').innerHTML = '<div class="state">couldn’t load the groups — pull to retry</div>';
     }
