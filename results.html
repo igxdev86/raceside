@@ -67,6 +67,13 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const wKey = (t, c, hh) => {
+    const tm = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    const tk = tm ? (Number(tm[1]) % 12) + ':' + tm[2] : '';
+    const ck = String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
+    const hk = String(hh || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/, '').replace(/[^a-z0-9]/g, '');
+    return tk + '|' + ck + '|' + hk;
+  };
   const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
 
   async function main() {
@@ -85,7 +92,7 @@
     // winners fetched separately so a slow feed can never block the page
     fetch('/api/todaywinners').then(r => r.json()).then(d => {
       if (d && d.ok) {
-        (d.winners || []).forEach(w => { won[w.t + '|' + w.course + '|' + w.h] = 1; });
+        (d.winners || []).forEach(w => { won[wKey(w.t, w.course, w.h)] = 1; });
         paint();
       }
     }).catch(() => {});
@@ -125,7 +132,7 @@
         const sc = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
         const adv = advM[r.h];
         const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
-        const w = won[r.t + '|' + r.course + '|' + r.h] || 0;
+        const w = won[wKey(r.t, r.course, r.h)] || 0;
         return { r, sc, adv, sig, w };
       }).sort((a, b) => a.r.d - b.r.d);
       const anyResult = rows.some(x => x.w);
