@@ -149,7 +149,8 @@
         (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
           `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
           `<td style="color:${x.pl > 0 ? 'var(--green)' : x.pl < 0 ? 'var(--red)' : 'var(--dim)'}">${x.pl >= 0 ? '+' : '−'}£${Math.abs(x.pl).toFixed(2)}</td>` +
-          `<td class="${aeCls}">${x.ae.toFixed(2)}</td>`) + '</tr>';
+          `<td class="${aeCls}">${x.ae.toFixed(2)}</td>` +
+        `<td style="font-weight:600;color:${x.rscore == null ? 'var(--faint)' : x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : 'var(--dim)'}" title="standing in this table by A/E, 0–100 (needs 100+ runs)">${x.rscore != null ? x.rscore : '—'}</td>`) + '</tr>';
     });
     html += '</tbody></table></div>';
     $('tbl').innerHTML = html;
@@ -510,6 +511,7 @@
       d = await one() || d;
     }
     merged = { jockeys: d.jockeys || {}, trainers: d.trainers || {}, pairs: d.pairs || {}, baseline: d.baseline, baselineC: d.baselineC || {} };
+    rankMaps = null;
     baseline = d.baseline || { runs: 0, wins: 0, exp: 0 };
     status.textContent = (d.missing && d.missing.length ? d.monthsStored + '/' + d.months.length + ' months stored · ' : 'stored history · ') + 'tap to rebuild';
     renderTable();
@@ -525,6 +527,9 @@
     if (who === 'pairs') { renderPairs(); return; }
     if (who === 'race') { renderRaceView(); return; }
     let list = Object.entries(merged[who] || {}).map(([id, s]) => {
+      buildRankMaps();
+      const rkMap = rankMaps ? (who === 'jockeys' ? rankMaps.j : rankMaps.t) : null;
+      const rscore = rkMap && rkMap[id] != null ? rkMap[id] : null;
       const nr = nextRideOf(id);
       // steady: 200+ rides, busy (10+ rides) in 9+ months, and a winner in EVERY busy month
       const steady = s.runs >= 200 && (s.mm || 0) >= 9 && s.mw === s.mm;
@@ -532,6 +537,7 @@
         id, name: s.name, runs: s.runs, wins: s.wins, plc: s.plc || 0,
         plcPct: (s.plc || 0) / s.runs, steady,
         strike: s.wins / s.runs, pl: s.pl, roi: s.pl / s.runs, ae: s.exp ? s.wins / s.exp : 0, s,
+        rscore,
         nx: nr ? nr.sort : 99999, nxLabel: nr ? nr.label : '—', nxToday: nr ? nr.today : false,
         nxHorse: nr ? nr.horse : null, nxOdds: nr ? nr.odds : null,
         likely: (() => {
@@ -571,14 +577,14 @@
     }
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
     list.sort((a, b) => {
-      const v = (x) => sortKey === 'name' ? (x.likely || x.strike / 100) : sortKey === 'nxHorse' ? (x.nxHorse || '￿') : x[sortKey];
+      const v = (x) => sortKey === 'name' ? (x.likely || x.strike / 100) : sortKey === 'nxHorse' ? (x.nxHorse || '￿') : sortKey === 'rscore' ? (x.rscore == null ? -1 : x.rscore) : x[sortKey];
       const r = typeof v(a) === 'string' ? v(a).localeCompare(v(b)) : v(a) - v(b);
       return sortDir * r;
     });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
       th('name', (who === 'jockeys' ? 'Jockey' : 'Trainer') + ' <span style="font-weight:400;color:var(--faint);font-size:9px">by win chance</span>') + th('nx','Next ride') + th('nxHorse','On') + th('tv','Travel') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
-      th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + '</tr></thead><tbody>';
+      th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + th('rscore','Score') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
       const rowBase = (x.courseMode && x.cAE) ? x.cAE : baseAE;
       const aeCls = rowBase && x.ae > rowBase * 1.05 ? 'pos' : rowBase && x.ae < rowBase * 0.95 ? 'neg' : '';
@@ -643,9 +649,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="11">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="12">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="11">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="12">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
