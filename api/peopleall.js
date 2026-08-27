@@ -31,6 +31,8 @@ export default async function handler(req, res) {
 
   const merged = { jockeys: {}, trainers: {} };
   const pairs = {};
+  const monthIdx = {};
+  months.forEach((m, i) => { monthIdx[m] = i; });
   const baseline = { runs: 0, wins: 0, exp: 0 };
   const baselineC = {};
   for (const m of months) {
@@ -51,6 +53,9 @@ export default async function handler(req, res) {
         const t = (merged[bk][id] ||= { name: s.name, runs: 0, wins: 0, plc: 0, pl: 0, exp: 0,
           flat: { runs: 0, wins: 0 }, jumps: { runs: 0, wins: 0 }, ob: {}, mm: 0, mw: 0 });
         t.runs += s.runs; t.wins += s.wins; t.plc += (s.plc || 0); t.pl += s.pl; t.exp += s.exp;
+        t.mo = t.mo || months.map(() => [0, 0]);
+        const mi = monthIdx[m];
+        if (mi != null) { t.mo[mi][0] += s.runs; t.mo[mi][1] += s.wins; }
         ['flat', 'jumps'].forEach((k) => { t[k].runs += s[k].runs; t[k].wins += s[k].wins; });
         for (const [bk2, ob] of Object.entries(s.ob || {})) {
           const tb = (t.ob[bk2] ||= { r: 0, w: 0, e: 0 });
@@ -66,7 +71,10 @@ export default async function handler(req, res) {
     }
   }
   for (const bk of ['jockeys', 'trainers']) {
-    for (const t of Object.values(merged[bk])) { t.pl = Math.round(t.pl * 100) / 100; t.exp = Math.round(t.exp * 100) / 100; }
+    for (const t of Object.values(merged[bk])) {
+      t.pl = Math.round(t.pl * 100) / 100; t.exp = Math.round(t.exp * 100) / 100;
+      if (t.runs < 50) delete t.mo;   // keep the payload sane: charts for 50+ run people only
+    }
   }
   baseline.exp = Math.round(baseline.exp * 100) / 100;
 
