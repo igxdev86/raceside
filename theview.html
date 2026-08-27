@@ -176,6 +176,24 @@
     return best;
   }
 
+  // rank standings (percentile in the 12-month A/E tables) for the R badge
+  let rankMap = null;
+  async function buildRankMap() {
+    try {
+      const c = JSON.parse(localStorage.getItem('rsrank:v1') || 'null');
+      if (c && Date.now() - c.t < 21600000 && c.v && c.v.j) { rankMap = c.v; refresh(); return; }
+    } catch {}
+    try {
+      const r = await fetch('/api/rankmap');
+      const d = await r.json();
+      if (r.ok && d && d.ok) {
+        rankMap = d;
+        try { localStorage.setItem('rsrank:v1', JSON.stringify({ t: Date.now(), v: d })); } catch {}
+        refresh();
+      }
+    } catch {}
+  }
+
   // jockey 14-day strike map, built quietly from a fortnight of results and cached
   let j14 = null;   // jockey_id -> { r, w }
   async function buildJ14() {
@@ -205,6 +223,7 @@
       j14 = map;
       try { localStorage.setItem('rsj14:v1', JSON.stringify({ t: Date.now(), v: map })); } catch {}
       buildJ14();
+  buildRankMap();
   refresh();
     }
   }
@@ -482,6 +501,7 @@
             race_class: race.class, distance: race.dist, type: race.type,
             runners: (race.runners || []).map(x => ({
               horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
+              jockey_id: x.jockey_id, trainer_id: x.trainer_id, jockey: x.jockey, trainer: x.trainer,
               number: x.number, draw: x.draw,
               position: x.position,
               odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
@@ -832,7 +852,18 @@
             const cell = (v) => v == null ? '\u2013' : v;
             const hot = (v, n2) => v != null && v >= 20 && n2 >= 4;
             const cls2 = (hot(jPct, js ? js.r : 0) || hot(tPct, tr2)) ? 'jt hot' : 'jt';
-            return `<span class="${cls2}" title="last 14 days \u00b7 J: ${esc(r.jockey || '?')} ${js ? js.w + '/' + js.r : 'no rides'} \u00b7 T: ${esc(r.trainer || '?')} ${tr2 > 0 ? tw + '/' + tr2 : 'no runs'}">J${cell(jPct)} T${cell(tPct)}</span>`;
+            return `<span class="${cls2}" title="last 14 days \u00b7 J: ${esc(r.jockey || '?')} ${js ? js.w + '/' + js.r : 'no rides'} \u00b7 T: ${esc(r.trainer || '?')} ${tr2 > 0 ? tw + '/' + tr2 : 'no runs'}">J${cell(jPct)} T${cell(tPct)}</span>` + (() => {
+              if (!rankMap) return '';
+              const parts = [];
+              if (r.jockey_id && rankMap.j[r.jockey_id] != null) parts.push(rankMap.j[r.jockey_id]);
+              if (r.trainer_id && rankMap.t[r.trainer_id] != null) parts.push(rankMap.t[r.trainer_id]);
+              const pk = r.jockey_id && r.trainer_id ? r.jockey_id + '|' + r.trainer_id : null;
+              if (pk && rankMap.p[pk] != null) parts.push(rankMap.p[pk]);
+              if (!parts.length) return '';
+              const sc = Math.round(parts.reduce((a2, b2) => a2 + b2, 0) / parts.length);
+              const col = sc >= 70 ? '#0E8A44' : sc <= 35 ? '#D7263D' : 'var(--faint)';
+              return ` <span style="color:${col};font-weight:600" title="rank score ${sc}/100 \u00b7 the people's average standing in the 12-month A/E tables">R${sc}</span>`;
+            })();
           })()}`);
         if (paintRank && paintRank[r.horse_id] != null) {
           const t = 1 - paintRank[r.horse_id];   // 1 = best
