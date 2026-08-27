@@ -46,6 +46,7 @@ export default async function handler(req, res) {
           jid: p.x.jockey_id || null, tid: p.x.trainer_id || null,
           jockey: p.x.jockey || '', trainer: p.x.trainer || '',
           form: String(p.x.form || '').slice(-6),
+          ofr: (() => { const v = parseInt(p.x.ofr != null ? p.x.ofr : (p.x.or != null ? p.x.or : p.x.official_rating), 10); return v >= 1 ? v : null; })(),
         });
       });
     });
