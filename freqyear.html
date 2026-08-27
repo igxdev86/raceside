@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — HOW OFTEN IT WINS</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">HOW <b>OFTEN</b><small>the most-minus runner · win frequency · year to date</small></div>
+    <a class="back" href="/priceday.html">← dated</a>
+  </header>
+
+  <canvas id="chart" style="width:100%;height:280px;background:var(--card);border-radius:12px;display:none"></canvas>
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">Each month: how often the market’s most-disputed horse (deepest minus vs my model) actually won, as “1 in X races”, against what its SPs promised. Actual line ABOVE the promise line = winning less often than priced — the fade signal. The first visit walks the whole year a day at a time and is genuinely slow (leave the tab open; it saves as it goes and resumes if you leave). After that it only prices new days. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const posN = (r) => { const n = parseInt(r.pos, 10); return isNaN(n) ? 99 : n; };
+
+  function digestDeep(dayData, pj, pt) {
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const races = (dayData.races || []).filter(rc => (rc.runners || []).length >= 2);
+    const D = { races: 0, wins: 0, expSum: 0 };
+    races.forEach(rc => {
+      const field = rc.runners;
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const priced = field.map((r, i) => ({ r, p: exps[i] / tot }));
+      const eOf = (x) => x.r.d > 1 ? (x.p - 1 / x.r.d) / (1 / x.r.d) : 999;
+      priced.sort((a, b) => eOf(a) - eOf(b));
+      const deepest = priced.find(x => eOf(x) !== 999);
+      if (deepest && eOf(deepest) < 0) {
+        D.races++;
+        if (deepest.r.won) D.wins++;
+        if (deepest.r.d > 1) D.expSum += 1 / deepest.r.d;
+      }
+    });
+    return D;
+  }
+
+  function drawChart(months) {
+    const cv = $('chart');
+    const done = months.filter(m => m.races > 0);
+    if (!done.length) return;
+    cv.style.display = 'block';
+    const W = cv.clientWidth || 360, H = 280;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    const padL = 38, padR = 10, padT = 26, padB = 30;
+    const xs = (i) => padL + (months.length <= 1 ? 0 : i * (W - padL - padR) / (months.length - 1));
+    const vals = [];
+    done.forEach(m => { vals.push(m.races / Math.max(m.wins, 0.5)); vals.push(m.races / m.expSum); });
+    const yMax = Math.min(Math.max(...vals) * 1.15, 12);
+    const yMin = Math.max(Math.min(...vals) * 0.85, 1);
+    const ys = (v) => padT + (H - padT - padB) * (1 - (Math.min(v, yMax) - yMin) / (yMax - yMin));
+    ctx.font = '10px IBM Plex Mono, monospace';
+    ctx.fillStyle = '#939CAB';
+    for (let g = Math.ceil(yMin); g <= yMax; g++) {
+      ctx.strokeStyle = '#EEF1F5';
+      ctx.beginPath(); ctx.moveTo(padL, ys(g)); ctx.lineTo(W - padR, ys(g)); ctx.stroke();
+      ctx.fillText('1in' + g, 4, ys(g) + 3);
+    }
+    const line = (get, colour, dash) => {
+      ctx.strokeStyle = colour; ctx.lineWidth = 2; ctx.setLineDash(dash || []);
+      ctx.beginPath();
+      let started = false;
+      months.forEach((m, i) => {
+        if (!(m.races > 0)) return;
+        const v = get(m);
+        if (v == null) return;
+        const x = xs(i), y = ys(v);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      });
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    line((m) => m.wins ? m.races / m.wins : yMax, '#D7263D');            // actual
+    line((m) => m.expSum ? m.races / m.expSum : null, '#2456E6', [5, 4]); // SP promise
+    months.forEach((m, i) => {
+      ctx.fillStyle = '#5B6675';
+      ctx.fillText(m.label, xs(i) - 8, H - 10);
+      if (m.races > 0 && m.wins) {
+        ctx.fillStyle = '#D7263D';
+        ctx.beginPath(); ctx.arc(xs(i), ys(m.races / m.wins), 3, 0, 7); ctx.fill();
+      }
+    });
+    ctx.fillStyle = '#D7263D'; ctx.fillText('\u2014 actual (1 in X)', padL, 12);
+    ctx.fillStyle = '#2456E6'; ctx.fillText('- - what SPs promised', padL + 110, 12);
+  }
+
+  async function main() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>loading the store\u2026</div>';
+    let store;
+    try {
+      const r1 = await fetch('/api/peopleall?v=2');
+      store = await r1.json();
+      if (!store.ok) throw new Error('bad');
+    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load the store \u2014 refresh</div>'; return; }
+    const pctB = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const now = new Date();
+    const yEnd = new Date(Date.now() - 86400000);
+    const year = now.getFullYear();
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [];
+    for (let mo = 0; mo <= yEnd.getMonth(); mo++) months.push({ label: monthNames[mo], mo, races: 0, wins: 0, expSum: 0 });
+    const dates = [];
+    for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const renderTable = () => {
+      const rows = months.filter(m => m.races > 0).map(m => {
+        const act = m.wins ? (m.races / m.wins) : null;
+        const promised = m.expSum ? (m.races / m.expSum) : null;
+        const worse = act != null && promised != null && act > promised * 1.05;
+        const better = act != null && promised != null && act < promised * 0.95;
+        return `<div class="row"><span class="n"><b>${m.label}</b> <span style="color:var(--faint)">${m.races} races</span></span>` +
+          `<span class="v ${worse ? 'neg' : better ? 'pos' : ''}">wins <b>1 in ${act ? act.toFixed(1) : '\u2014'}</b> \u00b7 SPs said 1 in ${promised ? promised.toFixed(1) : '\u2014'}</span></div>`;
+      }).join('');
+      $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>MONTH BY MONTH</h2><div class="sub">red = winning less often than the SPs promised (the fade reading) \u00b7 green = beating the promise</div>${rows || '<div class="sub">walking the year\u2026</div>'}</div></div>`;
+      drawChart(months);
+    };
+    let walked = 0;
+    for (const dt of dates) {
+      const mo = Number(dt.slice(5, 7)) - 1;
+      const lsKey = 'rsdeep:v1:' + dt;
+      let dig = null;
+      try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+      if (!dig) {
+        try {
+          const r = await fetch('/api/priceday?v=3&date=' + dt);
+          const dd = await r.json();
+          if (dd && dd.ok) {
+            dig = digestDeep(dd, pj, pt);
+            try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {}
+          }
+        } catch {}
+      }
+      if (dig) { months[mo].races += dig.races; months[mo].wins += dig.wins; months[mo].expSum += dig.expSum; }
+      walked++;
+      if (walked % 7 === 0 || walked === dates.length) renderTable();
+      if (walked % 15 === 0) {
+        const el = document.createElement('div');
+      }
+    }
+    renderTable();
+  }
+  main();
+})();
+</script>
+</body>
+</html>
