@@ -124,8 +124,15 @@
     const edgeOf = (x) => { const mkt = x.r.d; if (!(mkt > 1)) return 999; return (x.p - 1 / mkt) / (1 / mkt); };
     // day scoreboard: where did the winners come from?
     let bands = { minus: { r: 0, w: 0 }, flat: { r: 0, w: 0 }, plus: { r: 0, w: 0 } };
+    let deep = { races: 0, wins: 0, expSum: 0 };   // the most-minus runner of each race
     const tiles = races.map(rc => {
       const priced = priceRace(rc.runners).sort((a, b) => edgeOf(a) - edgeOf(b));
+      const deepest = priced.find(x => edgeOf(x) !== 999);
+      if (deepest && edgeOf(deepest) < 0) {
+        deep.races++;
+        if (deepest.r.won) deep.wins++;
+        if (deepest.r.d > 1) deep.expSum += 1 / deepest.r.d;
+      }
       const rows = priced.map(x => {
         const e = edgeOf(x);
         if (e !== 999) {
@@ -143,7 +150,8 @@
       const line = (label, b) => b.r ? `<div class="row"><span class="n">${label}</span><span class="v">${b.w} wins from ${b.r} runners \u00b7 ${(b.w / b.r * 100).toFixed(1)}%</span></div>` : '';
       return `<div class="tile" style="grid-column:1/-1"><h2>THE DAY\u2019S VERDICT</h2>` +
         `<div class="sub">where the winners came from on the disagreement scale \u00b7 the question that matters: does the plus end win more than its SPs implied, or is the market simply right?</div>` +
-        line('market\u2019s end (\u221225% or deeper)', bands.minus) + line('agreement (\u00b125%)', bands.flat) + line('my model\u2019s end (+25% or better)', bands.plus) + `</div>`;
+        line('market\u2019s end (\u221225% or deeper)', bands.minus) + line('agreement (\u00b125%)', bands.flat) + line('my model\u2019s end (+25% or better)', bands.plus) +
+        (deep.races ? `<div class="row"><span class="n"><b>the most-minus runner of each race</b></span><span class="v"><b>won ${deep.wins} of ${deep.races} \u00b7 ${(deep.wins / deep.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${(deep.expSum / deep.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
     })();
     $('app').innerHTML = '<div class="grid">' + scoreHtml + tiles.join('') + '</div>';
   }
