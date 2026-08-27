@@ -156,17 +156,15 @@
           const mkt = x.r.d;
           if (!(mkt > 1)) return;
           const mp = 1 / mkt;
-          board.push({ t, course, j: x.r.jockey || '?', h: x.r.h, mine: 1 / x.p, mkt, diff: mp - x.p });
+          board.push({ t, course, j: x.r.jockey || '?', h: x.r.h, mine: 1 / x.p, mkt, edge: (x.p - mp) / mp });
         });
       });
-      board.sort((a, b) => b.diff - a.diff);
+      board.sort((a, b) => a.edge - b.edge);   // -50% \u2026 -10% \u2026 +2% \u2026 +15%
       const rowB = (x) => `<div class="row"><span class="n"><b>${esc(x.j)}</b><br><b style="font-size:11px">${esc(x.h)}</b> <span style="color:var(--faint)">${esc(x.t)} ${esc(x.course)}</span></span>` +
-        `<span class="v ${x.diff > 0 ? 'neg' : 'pos'}">MKT ${x.mkt} \u00b7 MINE ${fmtOdds(x.mine)} \u00b7 ${x.diff > 0 ? '+' : ''}${Math.round(x.diff * 100)}pt</span></div>`;
+        `<span class="v ${x.edge <= -0.25 ? 'neg' : x.edge >= 0.25 ? 'pos' : ''}">${x.edge > 0 ? '+' : ''}${Math.round(x.edge * 100)}% \u00b7 MKT ${x.mkt} \u00b7 MINE ${fmtOdds(x.mine)}</span></div>`;
       const boardHtml = board.length ? `<div class="tile" style="grid-column:1/-1"><h2>THE DISAGREEMENT BOARD</h2>` +
-        `<div class="sub">every runner still to race, ranked by how much more the market believes than my model does \u00b7 pt = market win% minus mine \u00b7 top of the list = being bet hardest against my price \u00b7 bottom = my model\u2019s biggest fancies the market ignores \u00b7 the market knows form, going and money \u2014 most of the top rows are my blind spots, but watch whether they win as often as their prices claim</div>` +
-        board.slice(0, 12).map(rowB).join('') +
-        (board.length > 24 ? `<div class="sub" style="margin-top:8px">\u2026and my side of the argument \u2014 the ones I rate far more than the price:</div>` + board.slice(-8).reverse().map(rowB).join('') : '') +
-        `</div>` : '';
+        `<div class="sub">every runner still to race, ranked by the same % as the race tiles \u2014 my win chance vs the market\u2019s, low to high \u00b7 top (deep minus) = being bet hardest against my odds \u00b7 bottom (plus) = my model\u2019s fancies the market ignores \u00b7 the market knows form, going and money \u2014 watch whether each end wins as often as its price claims</div>` +
+        board.map(rowB).join('') + `</div>` : '';
       const tiles = races.map(([key, field]) => {
         const [t, course] = key.split('|');
         const run = raceMin(t) < nowM - 2;
