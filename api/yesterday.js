@@ -57,6 +57,10 @@ export default async function handler(req, res) {
       sp: win.x.sp || '', d: win.d, favRank, n: priced.length,
       jockey: win.x.jockey || '', jid: win.x.jockey_id || null,
       trainer: win.x.trainer || '', tid: win.x.trainer_id || null,
+      field: rs.filter((p) => p.x.jockey_id || p.x.trainer_id).map((p) => ({
+        jid: p.x.jockey_id || null, tid: p.x.trainer_id || null, d: p.d,
+        won: String(p.x.position) === '1' ? 1 : 0,
+      })),
     });
     for (const { x, d: dd } of rs) {
       const won = String(x.position) === '1';
