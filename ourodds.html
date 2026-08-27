@@ -38,6 +38,7 @@
   .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
   .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
   .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
   .row .v{white-space:nowrap;color:var(--dim)}
   .pos{color:var(--green)!important;font-weight:700}
@@ -179,7 +180,7 @@
           const edge = mp ? (x.p - mp) / mp : null;
           const cls = w ? 'pos' : edge != null && edge >= 0.25 ? 'pos' : edge != null && edge <= -0.25 ? 'neg' : '';
           const tag = edge == null ? '' : ' \u00b7 ' + (edge > 0 ? '+' : '') + Math.round(edge * 100) + '%';
-          return `<div class="row"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b></span>` +
+          return `<div class="row${w ? ' won' : ''}"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b></span>` +
             `<span class="v ${cls}" title="my price vs the market\u2019s \u00b7 % = how much likelier my model rates it than the raw market price implies">MINE ${fmtOdds(mine)} \u00b7 MKT ${mkt != null ? mkt : '\u2014'}${tag}${w ? ' \u00b7 \u2713 WON' : ''}</span></div>`;
         }).join('');
         return `<div class="tile"><h2>${esc(t)} ${esc(course)}${run ? '' : ' \u00b7 to come'}</h2><div class="sub">${run ? (anyResult ? 'run \u00b7 winner ticked' : 'run \u00b7 result not in yet') : 'ranked by disagreement, minus to plus \u00b7 green = my model rates it 25%+ likelier than the price'}</div>${rows}</div>`;
