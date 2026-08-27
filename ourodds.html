@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE PRICE</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>PRICE</b><small>my odds vs the market’s · every race today</small></div>
+    <a class="back" href="/results.html">← results</a>
+  </header>
+
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">MY ODDS are priced from this site’s own signals — the people’s 12-month standings, the weight-adjusted ratings and the official ratings, softmaxed within each race. Nothing else: no form, no going, no market. That makes them honestly independent and honestly crude. Expect the market to be right more often — it knows things this model doesn’t. The green rows are where my model rates a horse meaningfully more likely than the price says; they are the study, not tips. Run races keep the winner ticked so the model is graded in public all afternoon. Judge it at SP over weeks, not on one race. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const wKey = (t, c, hh) => {
+    const tm = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    const tk = tm ? (Number(tm[1]) % 12) + ':' + tm[2] : '';
+    const ck = String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
+    const hk = String(hh || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/, '').replace(/[^a-z0-9]/g, '');
+    return tk + '|' + ck + '|' + hk;
+  };
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+  const fmtOdds = (d) => {
+    if (!(d > 1)) return '\u2014';
+    return d >= 21 ? Math.round(d) : d >= 10 ? d.toFixed(0) : d.toFixed(1);
+  };
+
+  async function main() {
+    let store = null, up = null;
+    try {
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=3')]);
+      store = await r1.json();
+      up = await r2.json();
+      if (!store.ok || !up.ok) throw new Error('bad');
+    } catch {
+      $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 pull to retry</div>';
+      return;
+    }
+    const rides = up.rides || [];
+    const won = {};
+    fetch('/api/todaywinners').then(r => r.json()).then(d => {
+      if (d && d.ok) { (d.winners || []).forEach(w => { won[wKey(w.t, w.course, w.h)] = 1; }); paint(); }
+    }).catch(() => {});
+
+    const pctB = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const now = new Date();
+    const nowM = now.getHours() * 60 + now.getMinutes();
+
+    const byRace = {};
+    rides.filter(r => r.day === 'today').forEach(r => { (byRace[r.t + '|' + r.course] ||= []).push(r); });
+    // upcoming races soonest-first, then run races newest-first
+    const races = Object.entries(byRace).sort((a, b) => {
+      const ma = raceMin(a[1][0].t), mb = raceMin(b[1][0].t);
+      const da = ma >= nowM - 2 ? 0 : 1, db = mb >= nowM - 2 ? 0 : 1;
+      if (da !== db) return da - db;
+      return da === 0 ? ma - mb : mb - ma;
+    });
+    if (!races.length) { $('app').innerHTML = '<div class="state">no races today</div>'; return; }
+
+    function priceRace(field) {
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        const adv = advM[r.h] || 0;
+        // strength: people rank (\u00b150 \u2192 \u00b10.8), OR vs field (per 20lb \u2192 0.6), weight edge (per 10lb \u2192 0.5)
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * adv / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      return field.map((r, i) => ({ r, p: exps[i] / tot }));
+    }
+
+    function paint() {
+      const tiles = races.map(([key, field]) => {
+        const [t, course] = key.split('|');
+        const run = raceMin(t) < nowM - 2;
+        const priced = priceRace(field);
+        const anyResult = run && priced.some(x => won[wKey(t, course, x.r.h)]);
+        const rows = priced.sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
+          const w = won[wKey(t, course, x.r.h)] || 0;
+          const mine = 1 / x.p;
+          const mkt = x.r.d;
+          const mp = mkt > 1 ? (1 / mkt) : null;   // raw market prob (overround left in \u2014 stated below)
+          const edge = mp ? (x.p - mp) / mp : null;
+          const cls = w ? 'pos' : edge != null && edge >= 0.25 ? 'pos' : edge != null && edge <= -0.25 ? 'neg' : '';
+          const tag = edge == null ? '' : ' \u00b7 ' + (edge > 0 ? '+' : '') + Math.round(edge * 100) + '%';
+          return `<div class="row"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b></span>` +
+            `<span class="v ${cls}" title="my price vs the market\u2019s \u00b7 % = how much likelier my model rates it than the raw market price implies">MINE ${fmtOdds(mine)} \u00b7 MKT ${mkt != null ? mkt : '\u2014'}${tag}${w ? ' \u00b7 \u2713 WON' : ''}</span></div>`;
+        }).join('');
+        return `<div class="tile"><h2>${esc(t)} ${esc(course)}${run ? '' : ' \u00b7 to come'}</h2><div class="sub">${run ? (anyResult ? 'run \u00b7 winner ticked' : 'run \u00b7 result not in yet') : 'my odds vs market \u00b7 green = my model rates it 25%+ likelier than the price'}</div>${rows}</div>`;
+      });
+      $('app').innerHTML = '<div class="grid">' + tiles.join('') + '</div>';
+    }
+    paint();
+  }
+  main();
+  setInterval(main, 180000);
+})();
+</script>
+</body>
+</html>
