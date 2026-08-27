@@ -332,10 +332,28 @@
 
   // upcoming rides (today + tomorrow), fetched once on first expansion
   let upcoming = null, upcomingP = null;
-  let recent = null, recentP = null;
+  let recent = null, recentP = null, recentTries = 0;
   function getRecent() {
     if (recent) return Promise.resolve(recent);
-    if (!recentP) recentP = fetch('/api/recentform?v=2').then(r => r.json()).then(d => (recent = (d && d.ok) ? d : { jockeys: {}, trainers: {} })).catch(() => (recent = { jockeys: {}, trainers: {} }));
+    if (!recentP) {
+      try {
+        const c = JSON.parse(localStorage.getItem('rsrf:v1') || 'null');
+        if (c && Date.now() - c.t < 3600000 && c.v && c.v.jockeys) { recent = c.v; return Promise.resolve(recent); }
+      } catch {}
+      recentP = fetch('/api/recentform?v=3').then(r => r.json()).then(d => {
+        if (d && d.ok) {
+          recent = d;
+          try { localStorage.setItem('rsrf:v1', JSON.stringify({ t: Date.now(), v: d })); } catch {}
+          renderTable();
+        } else throw new Error('bad');
+        return recent;
+      }).catch(() => {
+        // don't give up on colours for the session — retry quietly up to twice
+        recentP = null;
+        if (recentTries++ < 2) setTimeout(() => getRecent(), 15000);
+        return null;
+      });
+    }
     return recentP;
   }
   function getUpcoming() {
