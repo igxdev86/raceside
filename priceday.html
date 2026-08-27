@@ -125,7 +125,8 @@
     // day scoreboard: where did the winners come from?
     let bands = { minus: { r: 0, w: 0, e: 0 }, flat: { r: 0, w: 0, e: 0 }, plus: { r: 0, w: 0, e: 0 } };
     let deep = { races: 0, wins: 0, expSum: 0 };
-    let deep3 = { races: 0, wins: 0, expSum: 0 };   // any of the 3 most-minus runners   // the most-minus runner of each race
+    let deep3 = { races: 0, wins: 0, expSum: 0 };   // any of the 3 most-minus runners
+    let mine = { races: 0, wins: 0 }, fav = { races: 0, wins: 0 };   // my top pick vs the market favourite   // the most-minus runner of each race
     const tiles = races.map(rc => {
       const priced = priceRace(rc.runners).sort((a, b) => edgeOf(a) - edgeOf(b));
       const deepest = priced.find(x => edgeOf(x) !== 999);
@@ -133,6 +134,14 @@
         deep.races++;
         if (deepest.r.won) deep.wins++;
         if (deepest.r.d > 1) deep.expSum += 1 / deepest.r.d;
+      }
+      const withSp = priced.filter(x => x.r.d > 1);
+      if (withSp.length >= 2) {
+        const myPick = withSp.reduce((a, b) => b.p > a.p ? b : a, withSp[0]);
+        const mktFav = withSp.reduce((a, b) => b.r.d < a.r.d ? b : a, withSp[0]);
+        mine.races++; fav.races++;
+        if (myPick.r.won) mine.wins++;
+        if (mktFav.r.won) fav.wins++;
       }
       const top3 = priced.filter(x => edgeOf(x) !== 999 && edgeOf(x) < 0).slice(0, 3);
       if (top3.length === 3) {
@@ -160,7 +169,8 @@
         `<div class="sub">counts are RUNNERS pooled across every race, not races \u00b7 A/E above 1.00 = the band beat what its SPs promised \u00b7 one day wobbles \u2014 read across a week \u00b7 the question that matters: does the plus end win more than its SPs implied, or is the market simply right?</div>` +
         line('market\u2019s end (\u221225% or deeper)', bands.minus) + line('agreement (\u00b125%)', bands.flat) + line('my model\u2019s end (+25% or better)', bands.plus) +
         (deep.races ? `<div class="row"><span class="n"><b>the most-minus runner of each race</b></span><span class="v"><b>won ${deep.wins} of ${deep.races} \u00b7 ${(deep.wins / deep.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${(deep.expSum / deep.races * 100).toFixed(1)}%</span></div>` : '') +
-        (deep3.races ? `<div class="row"><span class="n"><b>the 3 most-minus runners of each race</b></span><span class="v"><b>one of them won ${deep3.wins} of ${deep3.races} races \u00b7 ${(deep3.wins / deep3.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${Math.min(100, deep3.expSum / deep3.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
+        (deep3.races ? `<div class="row"><span class="n"><b>the 3 most-minus runners of each race</b></span><span class="v"><b>one of them won ${deep3.wins} of ${deep3.races} races \u00b7 ${(deep3.wins / deep3.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${Math.min(100, deep3.expSum / deep3.races * 100).toFixed(1)}%</span></div>` : '') +
+        (mine.races ? `<div class="row"><span class="n"><b>my model\u2019s pick (shortest of MINE)</b></span><span class="v"><b>won ${mine.wins} of ${mine.races} races \u00b7 ${(mine.wins / mine.races * 100).toFixed(1)}%</b> \u00b7 the market favourite won ${fav.wins} \u00b7 ${(fav.wins / fav.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
     })();
     $('app').innerHTML = '<div class="grid">' + scoreHtml + tiles.join('') + '</div>';
   }
