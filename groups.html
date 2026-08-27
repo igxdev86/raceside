@@ -185,6 +185,53 @@
     } else {
       mountTiles = tile('MOUNT QUALITY BY RANK', 'collecting mount ratings — this fills in within 3 hours of deploy as the form store refreshes', []);
     }
+    // ---- NEXT RACE, signal-annotated ----
+    let nextTile = '';
+    if (upcoming && upcoming.length) {
+      const raceMin2 = (t) => { const m2 = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m2) return 9999; let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+      const now2 = new Date();
+      const nowM = now2.getHours() * 60 + now2.getMinutes();
+      const todayRaces = upcoming.filter(r => r.day === 'today' && raceMin2(r.t) >= nowM - 2);
+      const pick = todayRaces.length ? todayRaces.reduce((a, b) => raceMin2(b.t) < raceMin2(a.t) ? b : a) : null;
+      if (pick) {
+        const field = upcoming.filter(r => r.day === 'today' && r.t === pick.t && r.course === pick.course);
+        // rank + WR for the field (uses maps built below via hoisted fn) — inline minimal
+        const pctB = (bucket) => {
+          const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+            .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+          const map = {}; const n = list.length;
+          list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+          return map;
+        };
+        const pj2 = pctB(store.jockeys), pt2 = pctB(store.trainers);
+        const clm = (nm) => { const m2 = String(nm || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
+        const okF = field.filter(r => r.ofr != null && r.lbs != null);
+        let advM = {};
+        if (okF.length >= 2) {
+          const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+          const car = (r) => r.lbs - clm(r.jockey);
+          const topC = car(top);
+          okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+        }
+        const mins = raceMin2(pick.t) - nowM;
+        const rows2 = field.map(r => {
+          const parts = [];
+          if (r.jid && pj2[r.jid] != null) parts.push(pj2[r.jid]);
+          if (r.tid && pt2[r.tid] != null) parts.push(pt2[r.tid]);
+          const sc = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+          const adv = advM[r.h];
+          const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
+          return { r, sc, adv, sig };
+        }).sort((a, b) => a.r.d - b.r.d).slice(0, 12)
+          .map(x => ({
+            n: (x.sig ? '⚡ ' : '') + esc(x.r.h),
+            v: (x.sc != null ? 'R' + x.sc : '—') + (x.adv != null && Math.abs(x.adv) >= 2 ? ' · ' + (x.adv > 0 ? '+' : '') + x.adv + 'lb' : '') + ' · ' + x.r.d,
+            cls: x.sig ? 'gold' : x.sc >= 70 ? 'pos' : x.sc != null && x.sc <= 35 ? 'neg' : '',
+          }));
+        nextTile = tile('NEXT RACE · ' + esc(pick.t) + ' ' + esc(pick.course) + (mins >= 0 ? ' · off in ' + mins + 'min' : ''),
+          'the field by price with rank score, weight edge and the ⚡ stacked signal · refreshes with the page', rows2);
+      }
+    }
     // ---- TODAY'S SIGNAL BOARD: cross-correlations across rank, OR, WR and the market ----
     let signalTiles = '';
     if (upcoming && upcoming.length > 60) {
@@ -272,6 +319,7 @@
       tile('SLIDERS', 'last 3 months at least 2.5pt below their year', sliders) +
       tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
       pairsTile +
+      nextTile +
       signalTiles +
       fireRankTile +
       mountTiles +
@@ -296,6 +344,7 @@
     }
   }
   main();
+  setInterval(() => { if (store) render(); }, 120000);
 })();
 </script>
 </body>
