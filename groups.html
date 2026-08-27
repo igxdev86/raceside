@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — GROUPS</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>GROUPS</b><small>who belongs where · 12 months + this fortnight</small></div>
+    <a class="back" href="/jockeys.html">← j&amp;t</a>
+  </header>
+
+  <div class="chips" id="who"></div>
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">Membership rules are printed under each group name. The Underrated and The Overbet are the money groups (12-month A/E, big samples only). On Fire and Stone Cold are this fortnight against each person’s own rhythm — temperature, not destiny, and cold is never “due”. Climbers and Sliders compare the last 3 months to the year. Tap any name’s page on the J&amp;T table for the full record. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  let who = 'jockeys';
+  let store = null, recent = null;
+
+  function renderWho() {
+    const box = $('who');
+    box.innerHTML = '';
+    [['jockeys','Jockeys'],['trainers','Trainers']].forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (who === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { who = v; renderWho(); render(); };
+      box.appendChild(b);
+    });
+  }
+
+  const heatOf = (s, rf) => {
+    if (!s || !s.runs || !rf || rf.r < 4) return null;
+    const p = s.wins / s.runs;
+    if (!p) return null;
+    const recentRatio = rf.r >= 8 ? (rf.w / rf.r) / p : 1;
+    return Math.max(0, Math.min(2, recentRatio - 0.3 * Math.max(0, rf.since * p - 1)));
+  };
+
+  function render() {
+    if (!store) return;
+    const bucket = store[who] || {};
+    const rBucket = (recent && recent[who]) || {};
+    const baseAE = store.baseline && store.baseline.exp ? store.baseline.wins / store.baseline.exp : null;
+    const people = Object.entries(bucket).map(([id, s]) => {
+      const rf = rBucket[id];
+      const ae = s.exp ? s.wins / s.exp : 0;
+      let m3r = 0, m3w = 0;
+      (s.mo || []).slice(-3).forEach(([r2, w2]) => { m3r += r2; m3w += w2; });
+      const steady = s.runs >= 200 && (s.mm || 0) >= 9 && s.mw === s.mm;
+      return { id, name: s.name, runs: s.runs, wins: s.wins, strike: s.wins / s.runs, ae,
+        heat: heatOf(s, rf), rf,
+        move: m3r >= 25 ? (m3w / m3r - s.wins / s.runs) * 100 : null, steady };
+    });
+
+    const tile = (title, sub, rows) => {
+      let h2 = `<div class="tile"><h2>${title}</h2><div class="sub">${sub}</div>`;
+      h2 += rows.length ? rows.map(r => `<div class="row"><span class="n">${r.n}</span><span class="v ${r.cls || ''}">${r.v}</span></div>`).join('')
+        : '<div class="sub">nobody qualifies right now</div>';
+      return h2 + '</div>';
+    };
+    const big = people.filter(p => p.runs >= 200);
+
+    const underrated = [...big].filter(p => baseAE && p.ae > baseAE).sort((a, b) => b.ae - a.ae).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: p.ae.toFixed(2) + ' · ' + p.runs.toLocaleString(), cls: 'pos' }));
+    const overbet = [...big].filter(p => baseAE && p.ae < baseAE && p.ae > 0).sort((a, b) => a.ae - b.ae).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: p.ae.toFixed(2) + ' · ' + p.runs.toLocaleString(), cls: 'neg' }));
+    const fire = people.filter(p => p.heat != null && p.heat >= 1.35 && p.rf.r >= 6).sort((a, b) => b.heat - a.heat).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: p.rf.w + '/' + p.rf.r + ' this fortnight', cls: 'pos' }));
+    const cold = people.filter(p => p.heat != null && p.heat <= 0.5 && p.runs >= 100).sort((a, b) => a.heat - b.heat).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: p.rf.since + ' since a winner', cls: 'neg' }));
+    const climbers = people.filter(p => p.move != null && p.move >= 2.5 && p.runs >= 100).sort((a, b) => b.move - a.move).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: '▲' + p.move.toFixed(1) + 'pt', cls: 'pos' }));
+    const sliders = people.filter(p => p.move != null && p.move <= -2.5 && p.runs >= 100).sort((a, b) => a.move - b.move).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: '▼' + Math.abs(p.move).toFixed(1) + 'pt', cls: 'neg' }));
+    const steady = people.filter(p => p.steady).sort((a, b) => b.ae - a.ae).slice(0, 12)
+      .map(p => ({ n: esc(p.name), v: (p.strike * 100).toFixed(1) + '% · A/E ' + p.ae.toFixed(2), cls: 'gold' }));
+    const workhorses = [...people].sort((a, b) => b.runs - a.runs).slice(0, 10)
+      .map(p => ({ n: esc(p.name), v: p.runs.toLocaleString() + ' · ' + (p.strike * 100).toFixed(1) + '%' }));
+
+    let pairsTile = '';
+    if (store.pairs) {
+      const prs = Object.values(store.pairs).filter(pr => pr.r >= 30 && pr.e > 0)
+        .map(pr => ({ ...pr, ae: pr.w / pr.e })).filter(pr => baseAE && pr.ae > baseAE * 1.1)
+        .sort((a, b) => b.ae - a.ae).slice(0, 10);
+      pairsTile = tile('GOLDEN PARTNERSHIPS', 'jockey–trainer pairs · 30+ runs together · A/E 10%+ above baseline',
+        prs.map(pr => ({ n: esc(pr.j) + ' × ' + esc(pr.t), v: pr.w + '/' + pr.r + ' · ' + pr.ae.toFixed(2), cls: 'pos' })));
+    }
+
+    $('app').innerHTML = '<div class="grid">' +
+      tile('THE UNDERRATED', '12-month A/E above the ' + (baseAE ? baseAE.toFixed(2) : '—') + ' baseline · 200+ runs · the market pays too much to bet against them', underrated) +
+      tile('THE OVERBET', '12-month A/E below baseline · 200+ runs · fame priced in, results not delivering it', overbet) +
+      tile('ON FIRE', 'this fortnight far above their own rhythm · 6+ recent rides', fire) +
+      tile('STONE COLD', 'deep drought for their strike rate · temperature, not destiny — cold is not due', cold) +
+      tile('CLIMBERS', 'last 3 months at least 2.5pt above their year · 25+ recent rides', climbers) +
+      tile('SLIDERS', 'last 3 months at least 2.5pt below their year', sliders) +
+      tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
+      pairsTile +
+      tile('THE WORKHORSES', 'most rides in 12 months · volume, whatever the glamour', workhorses) +
+      '</div>';
+  }
+
+  async function main() {
+    renderWho();
+    try {
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=3')]);
+      const d1 = await r1.json();
+      const d2 = await r2.json().catch(() => null);
+      if (!r1.ok || !d1.ok) throw new Error('bad');
+      store = d1;
+      recent = d2 && d2.ok ? d2 : null;
+      render();
+    } catch {
+      $('app').innerHTML = '<div class="state">couldn’t load the groups — pull to retry</div>';
+    }
+  }
+  main();
+})();
+</script>
+</body>
+</html>
