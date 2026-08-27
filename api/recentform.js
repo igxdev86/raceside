@@ -3,6 +3,8 @@
 // reports rides/runs in the window, wins, rides since their last win (capped at the
 // window edge), and the date of that last win. Feeds the J&T "win expectancy" line.
 
+import { monthGet, monthPut } from '../lib/db.js';
+
 export const config = { maxDuration: 60 };
 
 function offMin(off) {
@@ -18,13 +20,19 @@ export default async function handler(req, res) {
   const pass = process.env.RACING_API_PASSWORD;
   if (!user || !pass) return res.status(500).json({ ok: false, error: 'no-credentials' });
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
+  // stored answer first: recomputed at most every 3 hours, shared by everyone
+  const stored = await monthGet('recentform', 'latest');
+  if (stored && Date.now() - Date.parse(stored.updated_at) < 10800000) {
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=10800');
+    return res.status(200).json({ ...stored.data, source: 'store' });
+  }
   const end = new Date();
-  const start = new Date(end.getTime() - 21 * 86400000);
+  const start = new Date(end.getTime() - 14 * 86400000);
   const fmt = (d) => d.toISOString().slice(0, 10);
   const races = [];
   let skip = 0, total = Infinity, pages = 0;
   try {
-    while (skip < total && pages < 30) {
+    while (skip < total && pages < 20) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire&start_date=${fmt(start)}&end_date=${fmt(end)}&limit=50&skip=${skip}`;
       let r, attempts = 0;
       for (;;) {
@@ -38,7 +46,7 @@ export default async function handler(req, res) {
       total = Number(page.total) || 0;
       for (const race of page.results || []) races.push(race);
       skip += 50; pages++;
-      if (skip < total) await new Promise((ok) => setTimeout(ok, 500));
+      if (skip < total) await new Promise((ok) => setTimeout(ok, 300));
     }
   } catch (e) {
     return res.status(502).json({ ok: false, error: String(e) });
@@ -60,6 +68,8 @@ export default async function handler(req, res) {
       if (x.trainer_id) touch(T, x.trainer_id, won, race.date, race.course || null);
     }
   }
-  res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=21600');
-  return res.status(200).json({ ok: true, window: 21, from: fmt(start), to: fmt(end), yesterday: yd, jockeys: J, trainers: T });
+  const body = { ok: true, window: 14, from: fmt(start), to: fmt(end), yesterday: yd, jockeys: J, trainers: T };
+  await monthPut('recentform', 'latest', body);
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=10800');
+  return res.status(200).json(body);
 }
