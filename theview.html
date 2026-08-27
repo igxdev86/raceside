@@ -56,7 +56,7 @@
   .pl .mv{flex:none;font-size:10px}
   .pl .mv.in{color:var(--green)}
   .pl .mv.out{color:var(--red)}
-  .pl .od{color:var(--blue);font-weight:600;flex:none}
+  .pl .od{color:var(--blue);font-weight:800;font-size:1.06em;flex:none}
   .pl .sc{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right}
   .pl .pr{color:var(--faint);font-size:10.5px;flex:none;min-width:34px;text-align:right;font-style:italic}
   .pl .pr.up{color:var(--green);font-weight:600}
@@ -502,6 +502,7 @@
             runners: (race.runners || []).map(x => ({
               horse_id: x.horse_id, horse: x.horse, rpr: x.rpr, ts: x.tsr,
               jockey_id: x.jockey_id, trainer_id: x.trainer_id, jockey: x.jockey, trainer: x.trainer,
+              ofr: x.or,
               number: x.number, draw: x.draw,
               position: x.position,
               odds: (Number(x.sp_dec) > 1) ? [{ decimal: x.sp_dec, fractional: x.sp || String(x.sp_dec) }] : [],
@@ -832,7 +833,7 @@
           prHtml = `<span class="${cls}" title="parity: the score this price implies · gap ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}">${par.toFixed(1)}</span>`;
         }
         const plRow = el('div','pl' + (expMode && expId === r.horse_id ? ' exp' : ''),
-          `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${unTag}${favTag}</span>` +
+          `<span class="ic">${ic}</span><span class="nm"${dimStyle}><span class="no">${esc(String(r.number || '') )}${isFlat && r.draw ? ' (' + esc(String(r.draw)) + ')' : ''}${(() => { const n = parseInt(r.number, 10), dr = parseInt(r.draw, 10); return (isFlat && n >= 1 && dr >= 1) ? ` <span class="ns">- ${n + dr}</span>` : ''; })()}</span> ${esc(r.horse || '')}${(() => { const orv = parseInt(r.ofr, 10); return orv >= 1 ? ` <span style="font-family:var(--mono);font-size:9.5px;color:var(--faint)" title="official rating">OR${orv}</span>` : ''; })()}${unTag}${favTag}</span>` +
           `${wp != null ? `<span class="wp">${wp}%</span>` : ''}` +
           `${(() => { const mv = moves[r.horse_id]; if (!mv) return ''; const up = mv.to < mv.from; return `<span class="mv ${up ? 'in' : 'out'}" title="${mv.from.toFixed(2)} → ${mv.to.toFixed(2)} since last refresh">${up ? '▲' : '▼'}</span>`; })()}` +
           `<span class="od">${o ? esc(o.frac) : '—'}</span><span class="sc">${(() => { if (texF) { const tv = texOf(r.horse_id); if (tv != null) return tv.toFixed(1); } if (sc == null) return ''; const sm = sumOf(r); return (drawsMode && sm != null) ? (sc - sm).toFixed(1) : sc.toFixed(1); })()}</span>${prHtml}${(() => {
