@@ -375,8 +375,8 @@
       upcoming = d3 && d3.ok ? (d3.rides || []) : null;
       render();
       // results for the previous-race tile arrive after first paint
-      fetch('/api/markethist?day=today').then(r => r.json()).then(d => {
-        if (d && d.ok) { todayResults = d.runners || []; render(); }
+      fetch('/api/todaywinners').then(r => r.json()).then(d => {
+        if (d && d.ok) { todayResults = (d.winners || []).map(w => ({ ...w, won: 1 })); render(); }
       }).catch(() => {});
     } catch {
       $('app').innerHTML = '<div class="state">couldn’t load the groups — pull to retry</div>';
