@@ -140,6 +140,30 @@
         const b = bands.find(b2 => sc >= b2.lo && sc < b2.hi);
         if (b) { b.r++; b.w += f.won; if (f.d) b.e += 1 / f.d; }
       }));
+      // single-table bandings: which table did the work?
+      const soloBands = (pctMap, idKey) => {
+        const bs = [
+          { label: '70+', lo: 70, hi: 101, r: 0, w: 0, e: 0 },
+          { label: '50–69', lo: 50, hi: 70, r: 0, w: 0, e: 0 },
+          { label: '35–49', lo: 35, hi: 50, r: 0, w: 0, e: 0 },
+          { label: 'under 35', lo: -1, hi: 35, r: 0, w: 0, e: 0 },
+        ];
+        races.forEach(rc => (rc.field || []).forEach(f => {
+          const id = f[idKey];
+          const sc = id != null ? pctMap[id] : null;
+          if (sc == null) return;
+          const b = bs.find(b2 => sc >= b2.lo && sc < b2.hi);
+          if (b) { b.r++; b.w += f.won; if (f.d) b.e += 1 / f.d; }
+        }));
+        return bs;
+      };
+      const soloTbl = (title, bs) => '<div style="margin-top:10px;font-weight:700;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)">' + title + '</div>' +
+        '<div class="tablewrap"><table><thead><tr><th class="l">Band</th><th>Runners</th><th>Wins</th><th>Strike</th><th>SP exp</th><th>Day A/E</th></tr></thead><tbody>' +
+        bs.map(b => {
+          const ae = b.e ? b.w / b.e : null;
+          const cls = ae != null && ae > 1.15 ? 'pos' : ae != null && ae < 0.7 && b.r >= 20 ? 'neg' : '';
+          return `<tr><td class="l"><b>${b.label}</b></td><td>${b.r}</td><td>${b.w}</td><td>${b.r ? (b.w / b.r * 100).toFixed(1) : 0}%</td><td>${b.e.toFixed(1)}</td><td class="${cls}">${ae != null ? ae.toFixed(2) : '—'}</td></tr>`;
+        }).join('') + '</tbody></table></div>';
       const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
       const wAvg = avg(winScores), fAvg = avg(fieldScores);
       if (fieldScores.length > 50) {
@@ -154,6 +178,8 @@
           }).join('') +
           (unscored.r ? `<tr><td class="l" style="color:var(--faint)">unscored</td><td style="color:var(--faint)">${unscored.r}</td><td style="color:var(--faint)">${unscored.w}</td><td colspan="3" style="color:var(--faint);text-align:left">people below the qualification bars</td></tr>` : '') +
           '</tbody></table></div>' +
+          soloTbl('By the jockey table alone', soloBands(pj, 'jid')) +
+          soloTbl('By the trainer table alone', soloBands(pt, 'tid')) +
           '<div class="status" style="margin-top:6px">Day A/E = that band’s wins vs what its SPs predicted. One day swings hard — the honest question is whether the 70+ band beats its SPs <b>over weeks</b>. This section is the daily instalment of that answer.</div></div>';
       }
     }
