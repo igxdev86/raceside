@@ -47,6 +47,12 @@ export default async function handler(req, res) {
           jockey: p.x.jockey || '', trainer: p.x.trainer || '',
           form: String(p.x.form || '').slice(-6),
           ofr: (() => { const v = parseInt(p.x.ofr != null ? p.x.ofr : (p.x.or != null ? p.x.or : p.x.official_rating), 10); return v >= 1 ? v : null; })(),
+          lbs: (() => {
+            const v = parseInt(p.x.lbs, 10);
+            if (v >= 80 && v <= 200) return v;
+            const m = String(p.x.weight || '').match(/^(\d{1,2})-(\d{1,2})$/);
+            return m ? Number(m[1]) * 14 + Number(m[2]) : null;
+          })(),
         });
       });
     });
