@@ -147,6 +147,26 @@
     }
 
     function paint() {
+      // disagreement board: every runner still to race, ranked by how hard the market backs it vs my price
+      const board = [];
+      races.forEach(([key, field]) => {
+        const [t, course] = key.split('|');
+        if (raceMin(t) < nowM - 2) return;   // only races being bet right now
+        priceRace(field).forEach(x => {
+          const mkt = x.r.d;
+          if (!(mkt > 1)) return;
+          const mp = 1 / mkt;
+          board.push({ t, course, j: x.r.jockey || '?', h: x.r.h, mine: 1 / x.p, mkt, diff: mp - x.p });
+        });
+      });
+      board.sort((a, b) => b.diff - a.diff);
+      const rowB = (x) => `<div class="row"><span class="n"><b>${esc(x.j)}</b><br><b style="font-size:11px">${esc(x.h)}</b> <span style="color:var(--faint)">${esc(x.t)} ${esc(x.course)}</span></span>` +
+        `<span class="v ${x.diff > 0 ? 'neg' : 'pos'}">MKT ${x.mkt} \u00b7 MINE ${fmtOdds(x.mine)} \u00b7 ${x.diff > 0 ? '+' : ''}${Math.round(x.diff * 100)}pt</span></div>`;
+      const boardHtml = board.length ? `<div class="tile" style="grid-column:1/-1"><h2>THE DISAGREEMENT BOARD</h2>` +
+        `<div class="sub">every runner still to race, ranked by how much more the market believes than my model does \u00b7 pt = market win% minus mine \u00b7 top of the list = being bet hardest against my price \u00b7 bottom = my model\u2019s biggest fancies the market ignores \u00b7 the market knows form, going and money \u2014 most of the top rows are my blind spots, but watch whether they win as often as their prices claim</div>` +
+        board.slice(0, 12).map(rowB).join('') +
+        (board.length > 24 ? `<div class="sub" style="margin-top:8px">\u2026and my side of the argument \u2014 the ones I rate far more than the price:</div>` + board.slice(-8).reverse().map(rowB).join('') : '') +
+        `</div>` : '';
       const tiles = races.map(([key, field]) => {
         const [t, course] = key.split('|');
         const run = raceMin(t) < nowM - 2;
@@ -165,7 +185,7 @@
         }).join('');
         return `<div class="tile"><h2>${esc(t)} ${esc(course)}${run ? '' : ' \u00b7 to come'}</h2><div class="sub">${run ? (anyResult ? 'run \u00b7 winner ticked' : 'run \u00b7 result not in yet') : 'my odds vs market \u00b7 green = my model rates it 25%+ likelier than the price'}</div>${rows}</div>`;
       });
-      $('app').innerHTML = '<div class="grid">' + tiles.join('') + '</div>';
+      $('app').innerHTML = '<div class="grid">' + boardHtml + tiles.join('') + '</div>';
     }
     paint();
   }
