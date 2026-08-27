@@ -103,6 +103,61 @@
     const jRows = personRows(d.jockeys || {}, (yr && yr.jockeys) || {});
     const tRows = personRows(d.trainers || {}, (yr && yr.trainers) || {});
 
+    // ---- rank score vs the results: the daily mini-exam of the tables ----
+    const mkPct = (bucket, minR) => {
+      const list = Object.entries(bucket || {})
+        .filter(([, s]) => (s.runs || s.r || 0) >= minR)
+        .map(([id, s]) => ({ id, ae: (s.exp || s.e) ? ((s.wins != null ? s.wins : s.w) / (s.exp || s.e)) : 0 }))
+        .sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    let rankSect = '';
+    if (yr) {
+      const pj = mkPct(yr.jockeys, 100), pt = mkPct(yr.trainers, 100), pp = mkPct(yr.pairs || {}, 20);
+      const scoreOf = (jid, tid) => {
+        const parts = [];
+        if (jid && pj[jid] != null) parts.push(pj[jid]);
+        if (tid && pt[tid] != null) parts.push(pt[tid]);
+        const pk = jid && tid ? jid + '|' + tid : null;
+        if (pk && pp[pk] != null) parts.push(pp[pk]);
+        return parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+      };
+      const bands = [
+        { label: '70+', lo: 70, hi: 101, r: 0, w: 0, e: 0 },
+        { label: '50–69', lo: 50, hi: 70, r: 0, w: 0, e: 0 },
+        { label: '35–49', lo: 35, hi: 50, r: 0, w: 0, e: 0 },
+        { label: 'under 35', lo: -1, hi: 35, r: 0, w: 0, e: 0 },
+      ];
+      let unscored = { r: 0, w: 0 };
+      let winScores = [], fieldScores = [];
+      races.forEach(rc => (rc.field || []).forEach(f => {
+        const sc = scoreOf(f.jid, f.tid);
+        if (sc == null) { unscored.r++; unscored.w += f.won; return; }
+        fieldScores.push(sc);
+        if (f.won) winScores.push(sc);
+        const b = bands.find(b2 => sc >= b2.lo && sc < b2.hi);
+        if (b) { b.r++; b.w += f.won; if (f.d) b.e += 1 / f.d; }
+      }));
+      const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+      const wAvg = avg(winScores), fAvg = avg(fieldScores);
+      if (fieldScores.length > 50) {
+        rankSect = '<div class="sect"><div class="stl">Rank score vs the results</div>' +
+          `<div class="trend">Winners averaged <b>${wAvg != null ? wAvg.toFixed(0) : '—'}</b>/100 · the whole field averaged <b>${fAvg != null ? fAvg.toFixed(0) : '—'}</b>` +
+          (wAvg != null && fAvg != null ? (wAvg - fAvg > 3 ? ' — the tables’ people out-delivered the field yesterday' : wAvg - fAvg < -3 ? ' — the tables’ people under-delivered yesterday' : ' — no separation yesterday') : '') + '</div>' +
+          '<div class="tablewrap"><table><thead><tr><th class="l">Score band</th><th>Runners</th><th>Wins</th><th>Strike</th><th>SP expected</th><th>Day A/E</th></tr></thead><tbody>' +
+          bands.map(b => {
+            const ae = b.e ? b.w / b.e : null;
+            const cls = ae != null && ae > 1.15 ? 'pos' : ae != null && ae < 0.7 && b.r >= 20 ? 'neg' : '';
+            return `<tr><td class="l"><b>${b.label}</b></td><td>${b.r}</td><td>${b.w}</td><td>${b.r ? (b.w / b.r * 100).toFixed(1) : 0}%</td><td>${b.e.toFixed(1)}</td><td class="${cls}">${ae != null ? ae.toFixed(2) : '—'}</td></tr>`;
+          }).join('') +
+          (unscored.r ? `<tr><td class="l" style="color:var(--faint)">unscored</td><td style="color:var(--faint)">${unscored.r}</td><td style="color:var(--faint)">${unscored.w}</td><td colspan="3" style="color:var(--faint);text-align:left">people below the qualification bars</td></tr>` : '') +
+          '</tbody></table></div>' +
+          '<div class="status" style="margin-top:6px">Day A/E = that band’s wins vs what its SPs predicted. One day swings hard — the honest question is whether the 70+ band beats its SPs <b>over weeks</b>. This section is the daily instalment of that answer.</div></div>';
+      }
+    }
+
     // trends: multiple-winner days, over-norm days, favourite behaviour
     const trends = [];
     const multi = (rows, label) => rows.filter(x => x.w >= 2).slice(0, 6)
@@ -131,6 +186,7 @@
       `<div class="tile"><div class="v">${nR ? (favW / nR * 100).toFixed(0) : 0}%</div><div class="l">favourites won</div></div>` +
       `<div class="tile"><div class="v">${avgSp ? avgSp.toFixed(1) : '—'}</div><div class="l">avg winner SP (dec)</div></div>` +
       '</div>';
+    html += rankSect;
     html += '<div class="sect"><div class="stl">The day’s trends</div>' + (trends.length ? trends.map(t => `<div class="trend">${t}</div>`).join('') : '<div class="status">quiet day</div>') + '</div>';
     html += '<div class="sect"><div class="stl">Jockeys yesterday</div>' + tbl(jRows) + '</div>';
     html += '<div class="sect"><div class="stl">Trainers yesterday</div>' + tbl(tRows) + '</div>';
