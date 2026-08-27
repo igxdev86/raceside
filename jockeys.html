@@ -80,6 +80,7 @@
         <b>Chart under a name</b>: their monthly strike over 12 months, like a price chart · <span style="color:#12A150">▲</span>/<span style="color:#D7263D">▼</span> = last 3 months vs their year, in percentage points · months with under 5 rides leave a gap.<br>
         <b>Sorting names</b>: the Jockey/Trainer column sorts by <b>win chance</b>, not A–Z — their next ride’s market probability tilted by their A/E (no ride booked → ranked by strike).<br>
         <b>J+T tab</b>: both names carry their own temperature — <span style="color:#0E8A44;font-weight:700">green + green</span> = rider and yard both hot · mixed = one flying, one cold · the pair’s stats stay 12-month.<br>
+        <b>WR</b> = weight-adjusted rating: OR plus every pound received beyond the ratings gap to the race’s top-rated horse, claims deducted · <span style="color:#12A150;font-weight:700">green +2lb or better</span> = thrown in well · shows only when a race is selected.<br>
         <b>Race tabs</b>: tap a race to see only its riders · gold ▣ chip switches stats to that course’s 12-month record (small samples — read Runs first).<br>
         <span style="color:var(--dim)">The scan: green name + gold ● + green A/E + blue next ride — in-form, reliable, underrated, going to post shortly. Odds in their ★ band completes it.</span>
       </div>
@@ -142,7 +143,7 @@
       ' · A/E vs the ' + (baseAE2 ? baseAE2.toFixed(2) : '—') + ' baseline · “first pairing” = no run together in 12 months</div>' +
       '<div class="tablewrap"><table><thead><tr>' +
       th2('j','Jockey', true) + th2('t','Trainer', true) +
-      (raceFilter ? th2('h','On', true) + th2('ofr','OR') + th2('lbs','Wt') + th2('eff','Eff') + th2('d','Odds') : '') +
+      (raceFilter ? th2('h','On', true) + th2('ofr','OR') + th2('lbs','Wt') + th2('eff','WR') + th2('d','Odds') : '') +
       th2('r','Runs') + th2('w','Wins') + th2('strike','Strike') + th2('pl','£1 P/L') + th2('ae','A/E') +
       '</tr></thead><tbody>';
     rows.slice(0, 250).forEach(x => {
@@ -611,6 +612,8 @@
     }).filter(x => ((raceFilter && courseStats) ? true : x.runs >= minRuns) && (!steadyOnly || x.steady));
     if (raceFilter) {
       const ck = csKey(raceFilter.course);
+      const rrAll = (upcoming || []).filter(r2 => r2.day === raceFilter.day && r2.t === raceFilter.t && r2.course === raceFilter.course);
+      const wrMap = effMap(rrAll.map(r2 => ({ ...r2, jockeyName: r2.jockey })));
       const cBase = merged.baselineC && merged.baselineC[ck];
       const cBaseAE = cBase && cBase.exp ? cBase.wins / cBase.exp : (baseline.exp ? baseline.wins / baseline.exp : null);
       list = list.map(x => {
@@ -619,7 +622,10 @@
         const bA2 = baseline.exp ? baseline.wins / baseline.exp : null;
         const ratio2 = bA2 && x.s.exp ? Math.max(0.5, Math.min(1.6, (x.s.wins / x.s.exp) / bA2)) : 1;
         let y = { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
-          nxHorse: ride.h, nxOdds: ride.d, nxOfr: ride.ofr, nxLbs: ride.lbs, likely: ride.mp ? (ride.mp / 100) * ratio2 : 0 };
+          nxHorse: ride.h, nxOdds: ride.d, nxOfr: ride.ofr, nxLbs: ride.lbs,
+          wr: (wrMap[ride.h] && wrMap[ride.h].eff != null) ? wrMap[ride.h].eff : null,
+          wrAdv: (wrMap[ride.h] && wrMap[ride.h].adv != null) ? wrMap[ride.h].adv : null,
+          likely: ride.mp ? (ride.mp / 100) * ratio2 : 0 };
         if (courseStats) {
           const cb = (x.s.cs || {})[ck];
           if (!cb || !cb.r) y = { ...y, runs: 0, wins: 0, plc: 0, plcPct: 0, strike: 0, pl: 0, roi: 0, ae: 0, courseMode: true, cAE: cBaseAE };
@@ -631,13 +637,13 @@
     }
     if (query) list = list.filter(x => x.name.toLowerCase().includes(query));
     list.sort((a, b) => {
-      const v = (x) => sortKey === 'name' ? (x.likely || x.strike / 100) : sortKey === 'nxHorse' ? (x.nxHorse || '￿') : sortKey === 'rscore' ? (x.rscore == null ? -1 : x.rscore) : (sortKey === 'nxOfr' || sortKey === 'nxLbs') ? (x[sortKey] != null ? x[sortKey] : -1) : x[sortKey];
+      const v = (x) => sortKey === 'name' ? (x.likely || x.strike / 100) : sortKey === 'nxHorse' ? (x.nxHorse || '￿') : sortKey === 'rscore' ? (x.rscore == null ? -1 : x.rscore) : (sortKey === 'nxOfr' || sortKey === 'nxLbs' || sortKey === 'wr') ? (x[sortKey] != null ? x[sortKey] : -1) : x[sortKey];
       const r = typeof v(a) === 'string' ? v(a).localeCompare(v(b)) : v(a) - v(b);
       return sortDir * r;
     });
     const th = (k, label) => `<th data-k="${k}">${label}${sortKey === k ? (sortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="tablewrap"><table><thead><tr>' +
-      th('name', (who === 'jockeys' ? 'Jockey' : 'Trainer') + ' <span style="font-weight:400;color:var(--faint);font-size:9px">by win chance</span>') + th('nx','Next ride') + th('nxHorse','On') + th('nxOfr','OR') + th('nxLbs','Wt') + th('tv','Travel') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
+      th('name', (who === 'jockeys' ? 'Jockey' : 'Trainer') + ' <span style="font-weight:400;color:var(--faint);font-size:9px">by win chance</span>') + th('nx','Next ride') + th('nxHorse','On') + th('nxOfr','OR') + th('nxLbs','Wt') + th('wr','WR') + th('tv','Travel') + th('runs','Runs') + th('wins','Wins') + th('plcPct','Placed') + th('strike','Strike') +
       th('pl','£1 P/L') + th('roi','ROI') + th('ae','A/E') + th('rscore','Score') + '</tr></thead><tbody>';
     list.slice(0, 250).forEach((x, i) => {
       const rowBase = (x.courseMode && x.cAE) ? x.cAE : baseAE;
@@ -677,6 +683,7 @@
         `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') : '—'}</td>` +
         `<td style="${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxOfr != null ? x.nxOfr : '—'}</td>` +
         `<td style="${x.nxToday ? '' : 'color:var(--faint)'}">${wtOf(x.nxLbs) || '—'}</td>` +
+        `<td>${(() => { if (x.wr == null) return '—'; const col = x.wrAdv >= 2 ? 'var(--green)' : x.wrAdv <= -2 ? 'var(--red)' : 'var(--dim)'; return `<b style="color:${col}" title="weight-adjusted rating vs the race's top-rated horse (claims off) · +N = thrown in well">${x.wr}${x.wrAdv ? ' (' + (x.wrAdv > 0 ? '+' : '') + x.wrAdv + ')' : ''}</b>`; })()}</td>` +
         `<td class="l" style="text-align:left;color:${x.tv >= 99998 ? 'var(--faint)' : x.tv >= 210 ? 'var(--red)' : x.tv >= 120 ? '#C4652E' : 'var(--dim)'}" title="${x.tvFrom ? 'rode at ' + x.tvFrom + ' yesterday' + (x.tvTo ? ' → ' + x.tvTo + ' today · straight-line ×1.3 at ~50mph — an estimate' : '') : 'no ride yesterday or no ride today'}">${x.tvLabel}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
         `<td>${(x.plcPct * 100).toFixed(1)}%</td>` +
@@ -706,9 +713,9 @@
       sub.className = 'subrow';
       const baseAE = baseline.exp ? baseline.wins / baseline.exp : null;
       const xr = { ...x, id: x.id };
-      sub.innerHTML = `<td colspan="14">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
+      sub.innerHTML = `<td colspan="15">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`;
       tr.after(sub);
-      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="14">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
+      const refill = () => { if (sub.isConnected) sub.innerHTML = `<td colspan="15">flat ${pcs(x.s.flat)} · jumps ${pcs(x.s.jumps)}${oddsProfile(x, baseAE)}${ridesHtml(xr, baseAE)}</td>`; };
       if (!upcoming) getUpcoming().then(refill);
       if (!recent) getRecent().then(refill);
     });
