@@ -304,7 +304,7 @@
           if (x.r.d > 1) bands[band].e += 1 / x.r.d;
         }
         const cls = x.r.won ? 'pos' : e !== 999 && e <= -0.25 ? 'neg' : e !== 999 && e >= 0.25 ? 'pos' : '';
-        return `<div class="row${x.r.won ? ' won' : ''}"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b></span>` +
+        return `<div class="row${x.r.won ? ' won' : ''}"><span class="n"><b>${esc(x.r.jockey || '?')}</b><br><b style="font-size:11px">${esc(x.r.h)}</b>${x.r.ofr != null ? ' <span style="color:var(--faint);font-size:10px">OR' + x.r.ofr + '</span>' : ''}</span>` +
           `<span class="v ${cls}">${e !== 999 ? (e > 0 ? '+' : '') + Math.round(e * 100) + '%' : '\u2014'} \u00b7 SP ${x.r.d != null ? fmtOdds(x.r.d) : '\u2014'} \u00b7 MINE ${fmtOdds(1 / x.p)}${x.r.won ? ' \u00b7 \u2713 WON' : ''}</span></div>`;
       }).join('');
       return `<div class="tile"><h2>${esc(rc.t)} ${esc(rc.course)}</h2><div class="sub">ranked by disagreement, minus to plus \u00b7 winner ticked</div>${rows}</div>`;
