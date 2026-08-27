@@ -104,8 +104,12 @@
       const steady = s.runs >= 200 && (s.mm || 0) >= 9 && s.mw === s.mm;
       return { id, name: s.name, runs: s.runs, wins: s.wins, strike: s.wins / s.runs, ae,
         heat: heatOf(s, rf), rf,
+        avgOr: rf && rf.orN >= 8 ? rf.orSum / rf.orN : null,
         move: m3r >= 25 ? (m3w / m3r - s.wins / s.runs) * 100 : null, steady };
     });
+    // rank-score percentiles within this bucket (A/E, 100+ runs)
+    const ranked = people.filter(p => p.runs >= 100).sort((a, b) => b.ae - a.ae);
+    ranked.forEach((p, i) => { p.rankPct = ranked.length > 1 ? (1 - i / (ranked.length - 1)) * 100 : 50; });
 
     const tile = (title, sub, rows) => {
       let h2 = `<div class="tile"><h2>${title}</h2><div class="sub">${sub}</div>`;
@@ -132,6 +136,37 @@
     const workhorses = [...people].sort((a, b) => b.runs - a.runs).slice(0, 10)
       .map(p => ({ n: esc(p.name), v: p.runs.toLocaleString() + ' · ' + (p.strike * 100).toFixed(1) + '%' }));
 
+    // mount quality vs rank: do high-ranked people sit on higher-rated horses?
+    let mountTiles = '';
+    const withOr = people.filter(p => p.rankPct != null && p.avgOr != null);
+    if (withOr.length >= 20) {
+      const bandDefs = [['70+', 70, 101], ['50–69', 50, 70], ['35–49', 35, 50], ['under 35', -1, 35]];
+      const bandRows = bandDefs.map(([label, lo, hi]) => {
+        const members = withOr.filter(p => p.rankPct >= lo && p.rankPct < hi);
+        if (!members.length) return null;
+        const avg = members.reduce((a, p) => a + p.avgOr, 0) / members.length;
+        return { label, avg, n: members.length };
+      }).filter(Boolean);
+      const top = bandRows[0], bot = bandRows[bandRows.length - 1];
+      const verdict = top && bot && bandRows.length >= 3
+        ? (top.avg - bot.avg >= 3
+          ? `yes — more often than not, high-ranked ${who} sit on better-rated horses (avg OR ${top.avg.toFixed(0)} vs ${bot.avg.toFixed(0)})`
+          : top.avg - bot.avg <= -3
+            ? `no — the high-ranked actually ride lower-rated stock here (${top.avg.toFixed(0)} vs ${bot.avg.toFixed(0)})`
+            : `barely — mount quality is similar across rank bands (${top.avg.toFixed(0)} vs ${bot.avg.toFixed(0)}), so their edge isn’t just better horses`)
+        : '';
+      mountTiles = tile('MOUNT QUALITY BY RANK', 'avg official rating of mounts this fortnight, by rank-score band · 8+ rated rides each · ' + verdict,
+        bandRows.map(b => ({ n: 'rank ' + b.label + ' <span style="color:var(--faint)">(' + b.n + ' ' + who + ')</span>', v: 'avg OR ' + b.avg.toFixed(0) })));
+      const medOr = [...withOr].sort((a, b) => a.avgOr - b.avgOr)[Math.floor(withOr.length / 2)].avgOr;
+      const punch = withOr.filter(p => p.rankPct >= 70 && p.avgOr < medOr).sort((a, b) => b.ae - a.ae).slice(0, 8)
+        .map(p => ({ n: esc(p.name), v: 'A/E ' + p.ae.toFixed(2) + ' · OR ' + p.avgOr.toFixed(0), cls: 'pos' }));
+      const spoons = withOr.filter(p => p.rankPct <= 35 && p.avgOr > medOr).sort((a, b) => a.ae - b.ae).slice(0, 8)
+        .map(p => ({ n: esc(p.name), v: 'A/E ' + p.ae.toFixed(2) + ' · OR ' + p.avgOr.toFixed(0), cls: 'neg' }));
+      mountTiles += tile('PUNCHING ABOVE THE SADDLE', 'rank 70+ on below-median rated horses · beating the market without the ammunition — the value profile', punch);
+      mountTiles += tile('CARRIED BY THE HORSES', 'rank 35-or-under on above-median rated horses · good stock, poor delivery vs price', spoons);
+    } else {
+      mountTiles = tile('MOUNT QUALITY BY RANK', 'collecting mount ratings — this fills in within 3 hours of deploy as the form store refreshes', []);
+    }
     let pairsTile = '';
     if (store.pairs) {
       const prs = Object.values(store.pairs).filter(pr => pr.r >= 30 && pr.e > 0)
@@ -150,6 +185,7 @@
       tile('SLIDERS', 'last 3 months at least 2.5pt below their year', sliders) +
       tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
       pairsTile +
+      mountTiles +
       tile('THE WORKHORSES', 'most rides in 12 months · volume, whatever the glamour', workhorses) +
       '</div>';
   }
@@ -157,7 +193,7 @@
   async function main() {
     renderWho();
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=3')]);
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=4')]);
       const d1 = await r1.json();
       const d2 = await r2.json().catch(() => null);
       if (!r1.ok || !d1.ok) throw new Error('bad');
