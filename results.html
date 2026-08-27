@@ -38,6 +38,8 @@
   .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
   .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
   .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
   .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
   .row .v{white-space:nowrap;color:var(--dim)}
