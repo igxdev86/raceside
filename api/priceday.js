@@ -64,6 +64,7 @@ export default async function handler(req, res) {
       lbs: lbsOf(x),
       d: spDec(x),
       won: String(x.position) === '1' ? 1 : 0,
+      pos: x.position != null && String(x.position) !== '' ? String(x.position) : null,
     })),
   }));
   res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=86400');
