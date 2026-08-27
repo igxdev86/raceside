@@ -57,6 +57,7 @@
     <a class="back" href="/ourodds.html">← today</a>
   </header>
 
+  <div class="chips" id="tabs"></div>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
   <p class="note">The whole day priced by the site’s model — people’s 12-month standings, weight-adjusted and official ratings, softmaxed per race — and settled against SP. Rows ranked by disagreement, minus to plus; every winner ticked. One honesty flag: the 12-month store already contains this day’s month, so the model has faintly “seen” the day it’s pricing — fine for reading patterns, and the live page (today’s) is the clean version of this exam. Change the date in the address bar: ?d=YYYY-MM-DD. Not advice.</p>
@@ -70,6 +71,150 @@
   const fmtOdds = (d) => !(d > 1) ? '\u2014' : d >= 21 ? String(Math.round(d)) : d >= 10 ? d.toFixed(0) : d.toFixed(1);
   const qd = new URLSearchParams(location.search).get('d');
   const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') ? qd : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  let mode = 'day';
+  function renderTabs() {
+    const box = $('tabs');
+    const monthName = new Date().toLocaleString('en-GB', { month: 'long' });
+    box.innerHTML = '';
+    [['day', date], ['month', monthName + ' so far']].forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (mode === v ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { mode = v; renderTabs(); mode === 'day' ? main() : monthMain(); };
+      box.appendChild(b);
+    });
+  }
+
+  function digestDay(dayData, pj, pt) {
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const races = (dayData.races || []).filter(rc => (rc.runners || []).length >= 2);
+    const D = { bands: { minus: { r: 0, w: 0, e: 0 }, flat: { r: 0, w: 0, e: 0 }, plus: { r: 0, w: 0, e: 0 } },
+      deep: { races: 0, wins: 0, expSum: 0 }, deep3: { races: 0, wins: 0, expSum: 0 },
+      mine: { races: 0, wins: 0 }, fav: { races: 0, wins: 0 }, nRaces: races.length };
+    races.forEach(rc => {
+      const field = rc.runners;
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const priced = field.map((r, i) => ({ r, p: exps[i] / tot }));
+      const eOf = (x) => x.r.d > 1 ? (x.p - 1 / x.r.d) / (1 / x.r.d) : 999;
+      priced.sort((a, b) => eOf(a) - eOf(b));
+      priced.forEach(x => {
+        const e = eOf(x);
+        if (e === 999) return;
+        const band = e <= -0.25 ? 'minus' : e >= 0.25 ? 'plus' : 'flat';
+        D.bands[band].r++;
+        if (x.r.won) D.bands[band].w++;
+        D.bands[band].e += 1 / x.r.d;
+      });
+      const deepest = priced.find(x => eOf(x) !== 999);
+      if (deepest && eOf(deepest) < 0) {
+        D.deep.races++;
+        if (deepest.r.won) D.deep.wins++;
+        if (deepest.r.d > 1) D.deep.expSum += 1 / deepest.r.d;
+      }
+      const top3 = priced.filter(x => eOf(x) !== 999 && eOf(x) < 0).slice(0, 3);
+      if (top3.length === 3) {
+        D.deep3.races++;
+        if (top3.some(x => x.r.won)) D.deep3.wins++;
+        top3.forEach(x => { D.deep3.expSum += 1 / x.r.d; });
+      }
+      const withSp = priced.filter(x => x.r.d > 1);
+      if (withSp.length >= 2) {
+        const myPick = withSp.reduce((a, b) => b.p > a.p ? b : a, withSp[0]);
+        const mktFav = withSp.reduce((a, b) => b.r.d < a.r.d ? b : a, withSp[0]);
+        D.mine.races++; D.fav.races++;
+        if (myPick.r.won) D.mine.wins++;
+        if (mktFav.r.won) D.fav.wins++;
+      }
+    });
+    return D;
+  }
+
+  async function monthMain() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing the month\u2026</div>';
+    let store2;
+    try {
+      const r1 = await fetch('/api/peopleall?v=2');
+      store2 = await r1.json();
+      if (!store2.ok) throw new Error('bad');
+    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load the store</div>'; return; }
+    const pctB2 = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB2(store2.jockeys), pt = pctB2(store2.trainers);
+    const nowD = new Date();
+    const y = nowD.getFullYear(), mo = nowD.getMonth();
+    const lastDone = new Date(Date.now() - 86400000);
+    const endDay = (lastDone.getFullYear() === y && lastDone.getMonth() === mo) ? lastDone.getDate() : 0;
+    if (!endDay) { $('app').innerHTML = '<div class="state">no completed days in this month yet</div>'; return; }
+    const dates = [];
+    for (let dd = 1; dd <= endDay; dd++) dates.push(`${y}-${String(mo + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`);
+    const digests = [];
+    for (let i = 0; i < dates.length; i++) {
+      const dt = dates[i];
+      const lsKey = 'rspd:v1:' + dt;
+      let dig = null;
+      try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+      if (!dig) {
+        $('app').innerHTML = `<div class="state"><div class="spinner"></div>pricing ${dt} \u2014 day ${i + 1} of ${dates.length}\u2026<br><span style="font-size:11px">first run walks the month; after that it\u2019s cached</span></div>`;
+        try {
+          const r = await fetch('/api/priceday?date=' + dt);
+          const dd2 = await r.json();
+          if (dd2 && dd2.ok) {
+            dig = digestDay(dd2, pj, pt);
+            try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {}
+          }
+        } catch {}
+      }
+      if (dig && dig.nRaces) digests.push({ dt, dig });
+    }
+    if (!digests.length) { $('app').innerHTML = '<div class="state">no priced days yet this month</div>'; return; }
+    const agg = { bands: { minus: { r: 0, w: 0, e: 0 }, flat: { r: 0, w: 0, e: 0 }, plus: { r: 0, w: 0, e: 0 } },
+      deep: { races: 0, wins: 0, expSum: 0 }, deep3: { races: 0, wins: 0, expSum: 0 },
+      mine: { races: 0, wins: 0 }, fav: { races: 0, wins: 0 } };
+    digests.forEach(({ dig }) => {
+      ['minus', 'flat', 'plus'].forEach(b => { agg.bands[b].r += dig.bands[b].r; agg.bands[b].w += dig.bands[b].w; agg.bands[b].e += dig.bands[b].e; });
+      ['deep', 'deep3'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; agg[k].expSum += dig[k].expSum; });
+      ['mine', 'fav'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; });
+    });
+    const line = (label, b) => b.r ? `<div class="row"><span class="n">${label}</span><span class="v">${b.w} wins from ${b.r} runners \u00b7 ${(b.w / b.r * 100).toFixed(1)}% \u00b7 SPs implied ${(b.e / b.r * 100).toFixed(1)}% \u00b7 A/E ${(b.w / b.e).toFixed(2)}</span></div>` : '';
+    const verdict = `<div class="tile" style="grid-column:1/-1"><h2>THE MONTH SO FAR \u00b7 ${digests.length} days</h2>` +
+      `<div class="sub">every day of the month priced and pooled \u00b7 runners, not races, in the band lines \u00b7 the sample a single day can\u2019t give</div>` +
+      line('market\u2019s end (\u221225% or deeper)', agg.bands.minus) + line('agreement (\u00b125%)', agg.bands.flat) + line('my model\u2019s end (+25% or better)', agg.bands.plus) +
+      (agg.deep.races ? `<div class="row"><span class="n"><b>most-minus runner of each race</b></span><span class="v"><b>won ${agg.deep.wins} of ${agg.deep.races} \u00b7 ${(agg.deep.wins / agg.deep.races * 100).toFixed(1)}%</b> \u00b7 SPs implied ${(agg.deep.expSum / agg.deep.races * 100).toFixed(1)}%</span></div>` : '') +
+      (agg.deep3.races ? `<div class="row"><span class="n"><b>3 most-minus of each race</b></span><span class="v"><b>one won ${agg.deep3.wins} of ${agg.deep3.races} races \u00b7 ${(agg.deep3.wins / agg.deep3.races * 100).toFixed(1)}%</b> \u00b7 SPs implied ${Math.min(100, agg.deep3.expSum / agg.deep3.races * 100).toFixed(1)}%</span></div>` : '') +
+      (agg.mine.races ? `<div class="row"><span class="n"><b>my model\u2019s pick</b></span><span class="v"><b>won ${agg.mine.wins} of ${agg.mine.races} \u00b7 ${(agg.mine.wins / agg.mine.races * 100).toFixed(1)}%</b> \u00b7 market favourite ${agg.fav.wins} \u00b7 ${(agg.fav.wins / agg.fav.races * 100).toFixed(1)}%</span></div>` : '') + `</div>`;
+    const dayRows = digests.map(({ dt, dig }) => {
+      const mp = dig.mine.races ? (dig.mine.wins / dig.mine.races * 100).toFixed(0) : '\u2014';
+      const fp = dig.fav.races ? (dig.fav.wins / dig.fav.races * 100).toFixed(0) : '\u2014';
+      const pae = dig.bands.plus.e > 0 ? (dig.bands.plus.w / dig.bands.plus.e).toFixed(2) : '\u2014';
+      return `<div class="row"><span class="n"><a href="?d=${dt}" style="text-decoration:none;font-weight:600">${dt}</a> <span style="color:var(--faint)">${dig.nRaces} races</span></span><span class="v">pick ${mp}% \u00b7 fav ${fp}% \u00b7 plus-band A/E ${pae}</span></div>`;
+    }).join('');
+    $('app').innerHTML = '<div class="grid">' + verdict + `<div class="tile" style="grid-column:1/-1"><h2>DAY BY DAY</h2><div class="sub">tap a date for its full page \u00b7 plus-band A/E is the number to watch wobble</div>${dayRows}</div>` + '</div>';
+  }
 
   async function main() {
     let store = null, day = null;
@@ -174,6 +319,7 @@
     })();
     $('app').innerHTML = '<div class="grid">' + scoreHtml + tiles.join('') + '</div>';
   }
+  renderTabs();
   main();
 })();
 </script>
