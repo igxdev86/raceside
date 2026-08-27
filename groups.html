@@ -185,22 +185,26 @@
     } else {
       mountTiles = tile('MOUNT QUALITY BY RANK', 'collecting mount ratings — this fills in within 3 hours of deploy as the form store refreshes', []);
     }
-    // ---- NEXT RACE, signal-annotated ----
+    // ---- NEXT RACE, signal-annotated, jockey-first ----
     let nextTile = '';
-    if (upcoming && upcoming.length) {
+    {
       const raceMin2 = (t) => { const m2 = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m2) return 9999; let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
       const now2 = new Date();
       const nowM = now2.getHours() * 60 + now2.getMinutes();
-      const todayRaces = upcoming.filter(r => r.day === 'today' && raceMin2(r.t) >= nowM - 2);
+      const todayRaces = (upcoming || []).filter(r => r.day === 'today' && raceMin2(r.t) >= nowM - 2);
       const pick = todayRaces.length ? todayRaces.reduce((a, b) => raceMin2(b.t) < raceMin2(a.t) ? b : a) : null;
-      if (pick) {
+      if (!upcoming) {
+        nextTile = tile('NEXT RACE', 'rides feed unavailable right now — refresh in a minute', []);
+      } else if (!pick) {
+        const tomN = upcoming.filter(r => r.day === 'tomorrow').length;
+        nextTile = tile('NEXT RACE', 'no races left today' + (tomN ? ' · tomorrow’s card is loaded (' + tomN + ' declared rides) — this tile wakes with the first race' : ''), []);
+      } else {
         const field = upcoming.filter(r => r.day === 'today' && r.t === pick.t && r.course === pick.course);
-        // rank + WR for the field (uses maps built below via hoisted fn) — inline minimal
         const pctB = (bucket) => {
           const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
             .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
           const map = {}; const n = list.length;
-          list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+          list.forEach((x, i2) => { map[x.id] = n > 1 ? (1 - i2 / (n - 1)) * 100 : 50; });
           return map;
         };
         const pj2 = pctB(store.jockeys), pt2 = pctB(store.trainers);
@@ -222,14 +226,14 @@
           const adv = advM[r.h];
           const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
           return { r, sc, adv, sig };
-        }).sort((a, b) => a.r.d - b.r.d).slice(0, 12)
+        }).sort((a, b) => a.r.d - b.r.d).slice(0, 14)
           .map(x => ({
-            n: (x.sig ? '⚡ ' : '') + esc(x.r.h),
+            n: (x.sig ? '⚡ ' : '') + '<b>' + esc(x.r.jockey || '?') + '</b> <span style="color:var(--faint)">' + esc(x.r.h) + '</span>',
             v: (x.sc != null ? 'R' + x.sc : '—') + (x.adv != null && Math.abs(x.adv) >= 2 ? ' · ' + (x.adv > 0 ? '+' : '') + x.adv + 'lb' : '') + ' · ' + x.r.d,
             cls: x.sig ? 'gold' : x.sc >= 70 ? 'pos' : x.sc != null && x.sc <= 35 ? 'neg' : '',
           }));
         nextTile = tile('NEXT RACE · ' + esc(pick.t) + ' ' + esc(pick.course) + (mins >= 0 ? ' · off in ' + mins + 'min' : ''),
-          'the field by price with rank score, weight edge and the ⚡ stacked signal · refreshes with the page', rows2);
+          'jockey first, horse beside · by price · R = people rank, ±lb = weight edge, ⚡ = both green', rows2);
       }
     }
     // ---- TODAY'S SIGNAL BOARD: cross-correlations across rank, OR, WR and the market ----
@@ -330,7 +334,7 @@
   async function main() {
     renderWho();
     try {
-      const [r1, r2, r3] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=4'), fetch('/api/upcoming?v=2')]);
+      const [r1, r2, r3] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=4'), fetch('/api/upcoming?v=3')]);
       const d1 = await r1.json();
       const d2 = await r2.json().catch(() => null);
       const d3 = await r3.json().catch(() => null);
