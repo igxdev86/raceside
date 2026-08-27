@@ -115,7 +115,7 @@
         const pr = (r.jid && r.tid) ? pairs[r.jid + '|' + r.tid] : null;
         const pae = pr && pr.e ? pr.w / pr.e : 0;
         const ratio3 = (pr && pr.r >= 10 && baseAE2) ? Math.max(0.5, Math.min(1.6, pae / baseAE2)) : 1;
-        return { j: r.jockey || '?', t: r.trainer || '?', jid: r.jid, tid: r.tid, h: r.h, d: r.d, ofr: r.ofr, lbs: r.lbs,
+        return { j: r.jockey || '?', t: r.trainer || '?', jid: r.jid, tid: r.tid, h: r.h, d: r.d, ofr: r.ofr, lbs: r.lbs, jockeyName: r.jockey,
           r: pr ? pr.r : 0, w: pr ? pr.w : 0, strike: pr && pr.r ? pr.w / pr.r : 0,
           pl: pr ? pr.pl : 0, ae: pae, first: !pr, likely: r.mp ? (r.mp / 100) * ratio3 : 0 };
       });
@@ -125,21 +125,24 @@
         return { j: pr.j, t: pr.t, jid, tid, h: null, d: null, r: pr.r, w: pr.w, strike: pr.w / pr.r, pl: pr.pl, ae: pr.e ? pr.w / pr.e : 0, first: false, likely: pr.w / pr.r };
       });
     }
+    const eMapSort = raceFilter ? effMap(rows) : {};
     rows.sort((a, b) => {
       const v = (x) => (pSortKey === 'j' || pSortKey === 't') ? (x.likely || 0)
         : (pSortKey === 'ofr' || pSortKey === 'lbs') ? (x[pSortKey] != null ? x[pSortKey] : -1)
+        : pSortKey === 'eff' ? ((eMapSort[x.h] && eMapSort[x.h].eff) != null ? eMapSort[x.h].eff : -1)
         : typeof x[pSortKey] === 'string' ? x[pSortKey] : (x[pSortKey] || 0);
       const av = v(a), bv = v(b);
       const rr = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
       return pSortDir * rr;
     });
+    const eMap = raceFilter ? effMap(rows) : {};
     const th2 = (k, label, left) => `<th class="${left ? 'l' : ''}" data-pk="${k}">${label}${pSortKey === k ? (pSortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="status" style="cursor:default;margin-bottom:2px">' +
       (raceFilter ? 'each runner\u2019s jockey\u2013trainer partnership, 12 months everywhere' : 'all partnerships with 20+ runs, 12 months') +
       ' · A/E vs the ' + (baseAE2 ? baseAE2.toFixed(2) : '—') + ' baseline · “first pairing” = no run together in 12 months</div>' +
       '<div class="tablewrap"><table><thead><tr>' +
       th2('j','Jockey', true) + th2('t','Trainer', true) +
-      (raceFilter ? th2('h','On', true) + th2('ofr','OR') + th2('lbs','Wt') + th2('d','Odds') : '') +
+      (raceFilter ? th2('h','On', true) + th2('ofr','OR') + th2('lbs','Wt') + th2('eff','Eff') + th2('d','Odds') : '') +
       th2('r','Runs') + th2('w','Wins') + th2('strike','Strike') + th2('pl','£1 P/L') + th2('ae','A/E') +
       '</tr></thead><tbody>';
     rows.slice(0, 250).forEach(x => {
@@ -150,6 +153,7 @@
         `<td class="l"><b${thc ? ' style="color:' + thc + '"' : ''}>${String(x.t).replace(/</g,'&lt;')}</b></td>` +
         (raceFilter ? `<td class="l">${x.h ? String(x.h).replace(/</g,'&lt;') : '—'}</td>` +
           `<td>${x.ofr != null ? x.ofr : '—'}</td><td>${wtOf(x.lbs) || '—'}</td>` +
+          `<td>${(() => { const e = eMap[x.h]; if (!e) return '—'; const col = e.adv >= 2 ? 'var(--green)' : e.adv <= -2 ? 'var(--red)' : 'var(--dim)'; return `<b style="color:${col}" title="effective rating vs the top-rated horse, after weight actually carried (claims off) · +N lb = thrown in well">${e.eff}${e.adv ? ' (' + (e.adv > 0 ? '+' : '') + e.adv + ')' : ''}</b>`; })()}</td>` +
           `<td><b style="color:var(--blue)">${x.d != null ? x.d : '—'}</b></td>` : '') +
         (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
           `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
@@ -205,6 +209,7 @@
     const rides = upcoming.filter(r => r.day === raceFilter.day && r.t === raceFilter.t && r.course === raceFilter.course);
     const bA = baseline.exp ? baseline.wins / baseline.exp : null;
     const pairs = merged.pairs || {};
+    const eMapRV = effMap(rides.map(r => ({ ...r, jockeyName: r.jockey })));
     const rows = rides.map(r => {
       const js = merged.jockeys[r.jid], ts = merged.trainers[r.tid];
       const jae = js && js.exp ? js.wins / js.exp : null;
@@ -236,7 +241,7 @@
       const up = r.win != null && r.mp != null && r.win > r.mp + 0.4;
       const dn = r.win != null && r.mp != null && r.win < r.mp - 0.4;
       html += `<div style="padding:9px 0;border-bottom:1px solid var(--line)">` +
-        `<div><b>${String(r.h).replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>${orWt(r.ofr, r.lbs)}` +
+        `<div><b>${String(r.h).replace(/</g,'&lt;')}</b> <span style="color:var(--dim)">${r.d}</span>${orWt(r.ofr, r.lbs)}${(() => { const e = eMapRV[r.h]; if (!e || !e.adv) return ''; const col = e.adv >= 2 ? 'var(--green)' : e.adv <= -2 ? 'var(--red)' : 'var(--dim)'; return ` <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${col}" title="effective rating ${e.eff} vs the top-rated horse after carried weight · positive = thrown in well">${e.adv > 0 ? '+' : ''}${e.adv}lb</span>`; })()}` +
         `${r.form ? ' <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)" title="recent form, latest on the right">' + String(r.form).replace(/</g,'&lt;') + '</span>' : ''}</div>` +
         `<div style="font-size:11.5px;margin-top:2px"><span${jhc ? ' style="color:' + jhc + ';font-weight:600"' : ''}>${String(r.jockey).replace(/</g,'&lt;')}</span>` +
         ` · <span${thc ? ' style="color:' + thc + ';font-weight:600"' : ''}>${String(r.trainer).replace(/</g,'&lt;')}</span>` +
@@ -294,6 +299,22 @@
     });
   }
   const wtOf = (lbs) => lbs ? Math.floor(lbs / 14) + '-' + (lbs % 14) : null;
+  const claimOf = (jname) => { const m2 = String(jname || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
+  // effective rating vs the race's top-rated horse: OR + (top's carried - own carried).
+  // carried = allotted lbs minus the rider's claim. +N = thrown in N lb well vs the top horse.
+  function effMap(rows) {
+    const ok = rows.filter(r => r.ofr != null && r.lbs != null);
+    if (ok.length < 2) return {};
+    const top = ok.reduce((a, b) => (b.ofr > a.ofr ? b : a), ok[0]);
+    const carried = (r) => r.lbs - claimOf(r.jockeyName || r.j || r.jockey);
+    const topC = carried(top);
+    const map = {};
+    ok.forEach(r => {
+      const eff = r.ofr + (topC - carried(r));
+      map[r.h] = { eff, adv: eff - top.ofr };
+    });
+    return map;
+  }
   const orWt = (ofr, lbs) => {
     const bits = [];
     if (ofr) bits.push('OR' + ofr);
