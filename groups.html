@@ -211,7 +211,7 @@
         const sc = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
         const adv = advM[r.h];
         const sig = sc != null && sc >= 70 && adv != null && adv >= 2;
-        const won = wonByHorse ? wonByHorse[r.h] : null;
+        const won = wonByHorse ? wonByHorse[String(r.h || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/, '').replace(/[^a-z0-9]/g, '')] : null;
         return { r, sc, adv, sig, won };
       }).sort((a, b) => a.r.d - b.r.d).slice(0, 14)
         .map(x => ({
@@ -238,7 +238,21 @@
         let wonBy = null, resolved = false;
         if (todayResults) {
           wonBy = {};
-          todayResults.forEach(m2 => { if (m2.t === pickP.t && m2.course === pickP.course && m2.won === 1) { wonBy[m2.h] = 1; resolved = true; } });
+          const wk = (t, c, hh) => {
+            const tm = String(t || '').match(/(\d{1,2}):(\d{2})/);
+            const tk = tm ? (Number(tm[1]) % 12) + ':' + tm[2] : '';
+            const ck = String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
+            const hk = String(hh || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/, '').replace(/[^a-z0-9]/g, '');
+            return tk + '|' + ck + '|' + hk;
+          };
+          const raceK = wk(pickP.t, pickP.course, '').slice(0, -1);
+          todayResults.forEach(m2 => {
+            if (m2.won === 1 && wk(m2.t, m2.course, '').slice(0, -1) === raceK) {
+              // store by fuzzy horse key; lookup below uses the same
+              wonBy[wk('0:00', 'x', m2.h).split('|')[2]] = 1;
+              resolved = true;
+            }
+          });
         }
         prevTile = tile('PREVIOUS RACE · ' + esc(pickP.t) + ' ' + esc(pickP.course) + ' <a href="/results.html" style="font-weight:600;font-size:10px;color:var(--blue);text-decoration:none;letter-spacing:0">all results →</a>',
           (resolved ? 'the winner is ticked — check where it sat on rank, WR and price' : 'result not in yet — the field as the signals saw it') ,
