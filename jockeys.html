@@ -314,7 +314,7 @@
     box.appendChild(sb);
   }
   let query = '';
-  let sortKey = 'pl', sortDir = -1;
+  let sortKey = 'rscore', sortDir = -1;   // default: best-scored people first
   let merged = null, baseline = null;
 
   const MIN = [[50, '50+ runs'], [100, '100+ runs'], [200, '200+ runs'], [400, '400+ runs']];
@@ -641,7 +641,7 @@
       const rb = x.rpos != null ? `<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 4px;border-radius:4px;margin-right:4px;color:#fff;background:${x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : '#8A93A3'}" title="ranked ${x.rpos} of ${x.rn} in the ${who === 'jockeys' ? 'jockey' : 'trainer'} table by A/E (12 months, 100+ runs) · score ${x.rscore}/100">#${x.rpos}</span>` : '';
       html += `<tr class="sirerow" data-i="${i}"><td>${rb}${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span>${ticker}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
-        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <span style="color:var(--dim)">' + x.nxOdds + '</span>' : '') : '—'}</td>` +
+        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') : '—'}</td>` +
         `<td class="l" style="text-align:left;color:${x.tv >= 99998 ? 'var(--faint)' : x.tv >= 210 ? 'var(--red)' : x.tv >= 120 ? '#C4652E' : 'var(--dim)'}" title="${x.tvFrom ? 'rode at ' + x.tvFrom + ' yesterday' + (x.tvTo ? ' → ' + x.tvTo + ' today · straight-line ×1.3 at ~50mph — an estimate' : '') : 'no ride yesterday or no ride today'}">${x.tvLabel}</td>` +
         `<td>${x.runs.toLocaleString()}</td><td>${x.wins.toLocaleString()}</td>` +
         `<td>${(x.plcPct * 100).toFixed(1)}%</td>` +
