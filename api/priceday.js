@@ -56,6 +56,7 @@ export default async function handler(req, res) {
     course: race.course || '?',
     name: race.race_name || '',
     csf: (() => { const v = parseFloat(String(race.tote_csf || '').replace(/[\u00a3,]/g, '')); return v > 0 ? v : null; })(),
+    trc: (() => { const v = parseFloat(String(race.tote_tricast || '').replace(/[\u00a3,]/g, '')); return v > 0 ? v : null; })(),
     runners: (race.runners || []).map((x) => ({
       h: x.horse || '?',
       jockey: x.jockey || '',
