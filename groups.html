@@ -230,12 +230,15 @@
           .map(x => ({
             n: (x.sig ? '⚡ ' : '') + '<b style="color:' + (x.sc == null ? 'var(--dim)'
               : x.sc >= 80 ? '#0B7A3C' : x.sc >= 70 ? '#3FA05C' : x.sc >= 50 ? 'var(--ink)'
-              : x.sc >= 36 ? '#C4652E' : '#D7263D') + '">' + esc(x.r.jockey || '?') + '</b> <span style="color:var(--faint)">' + esc(x.r.h) + '</span>',
-            v: (x.sc != null ? 'R' + x.sc : '—') + (x.adv != null && Math.abs(x.adv) >= 2 ? ' · ' + (x.adv > 0 ? '+' : '') + x.adv + 'lb' : '') + ' · ' + x.r.d,
+              : x.sc >= 36 ? '#C4652E' : '#D7263D') + '">' + esc(x.r.jockey || '?') + '</b><br><b style="font-size:11px">' + esc(x.r.h) + '</b>',
+            v: (x.sc != null ? 'R' + x.sc : 'R—') +
+              ' · OR ' + (x.r.ofr != null ? x.r.ofr : '—') +
+              ' · WR ' + (x.adv != null ? (x.r.ofr + x.adv) + (x.adv ? ' (' + (x.adv > 0 ? '+' : '') + x.adv + ')' : '') : '—') +
+              ' · ' + x.r.d,
             cls: x.sig ? 'gold' : x.sc >= 70 ? 'pos' : x.sc != null && x.sc <= 35 ? 'neg' : '',
           }));
         nextTile = tile('NEXT RACE · ' + esc(pick.t) + ' ' + esc(pick.course) + (mins >= 0 ? ' · off in ' + mins + 'min' : ''),
-          'jockey painted best → worst by rank score (deep green 80+ → red 35-under) · by price · ±lb = weight edge, ⚡ = rank + weights both green', rows2);
+          'jockey painted best → worst by rank score · horse below in bold · R rank · OR official rating · WR weight-adjusted (+lb = thrown in) · odds · ⚡ = rank + weights both green', rows2);
       }
     }
     // ---- TODAY'S SIGNAL BOARD: cross-correlations across rank, OR, WR and the market ----
