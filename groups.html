@@ -69,7 +69,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   let who = 'jockeys';
-  let store = null, recent = null;
+  let store = null, recent = null, upcoming = null;
 
   function renderWho() {
     const box = $('who');
@@ -185,6 +185,75 @@
     } else {
       mountTiles = tile('MOUNT QUALITY BY RANK', 'collecting mount ratings — this fills in within 3 hours of deploy as the form store refreshes', []);
     }
+    // ---- TODAY'S SIGNAL BOARD: cross-correlations across rank, OR, WR and the market ----
+    let signalTiles = '';
+    if (upcoming && upcoming.length > 60) {
+      const pctBoth = (bucket) => {
+        const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+          .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+        const map = {}; const n = list.length;
+        list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+        return map;
+      };
+      const pjAll = pctBoth(store.jockeys), ptAll = pctBoth(store.trainers);
+      const claim2 = (nm) => { const m2 = String(nm || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
+      // per-race WR advantage
+      const byRace = {};
+      upcoming.forEach(r => { (byRace[r.day + '|' + r.t + '|' + r.course] ||= []).push(r); });
+      const runners = [];
+      Object.values(byRace).forEach(rr => {
+        const ok = rr.filter(r => r.ofr != null && r.lbs != null);
+        let adv = {};
+        if (ok.length >= 2) {
+          const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]);
+          const carried = (r) => r.lbs - claim2(r.jockey);
+          const topC = carried(top);
+          ok.forEach(r => { adv[r.h + r.t] = (r.ofr + (topC - carried(r))) - top.ofr; });
+        }
+        rr.forEach(r => {
+          const parts = [];
+          if (r.jid && pjAll[r.jid] != null) parts.push(pjAll[r.jid]);
+          if (r.tid && ptAll[r.tid] != null) parts.push(ptAll[r.tid]);
+          runners.push({ ...r, score: parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null,
+            wrAdv: adv[r.h + r.t] != null ? adv[r.h + r.t] : null });
+        });
+      });
+      const pearson = (xs, ys) => {
+        const n = xs.length;
+        if (n < 30) return null;
+        const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+        let sxy = 0, sxx = 0, syy = 0;
+        for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+        return (sxx && syy) ? sxy / Math.sqrt(sxx * syy) : null;
+      };
+      const word = (r) => r == null ? '—' : Math.abs(r) < 0.1 ? 'nothing' : Math.abs(r) < 0.25 ? 'weak' : Math.abs(r) < 0.45 ? 'moderate' : 'strong';
+      const corr = (label, fx, fy, reading) => {
+        const pairsD = runners.filter(r => fx(r) != null && fy(r) != null);
+        const r = pearson(pairsD.map(fx), pairsD.map(fy));
+        const cls = r != null && Math.abs(r) >= 0.25 ? (r > 0 ? 'pos' : 'neg') : '';
+        return { n: label + ' <span style="color:var(--faint)">(' + pairsD.length + ')</span>', v: (r != null ? r.toFixed(2) : '—') + ' · ' + word(r), cls, r };
+      };
+      const c1 = corr('rank × WR advantage', r => r.score, r => r.wrAdv);
+      const c2 = corr('rank × mount OR', r => r.score, r => r.ofr);
+      const c3 = corr('rank × market chance', r => r.score, r => r.mp);
+      const c4 = corr('WR advantage × market chance', r => r.wrAdv, r => r.mp);
+      const c5 = corr('mount OR × market chance', r => r.ofr, r => r.mp);
+      const readings = [];
+      if (c1.r != null) readings.push(c1.r >= 0.15 ? 'high-ranked people are on the well-in horses today — the two signals overlap, don’t double-count them'
+        : c1.r <= -0.15 ? 'the well-in horses carry the LOWER-ranked people today — when both line up green on one runner it’s genuinely rare, look hard'
+        : 'rank and WR are independent today — a runner green on both carries two separate pieces of evidence');
+      if (c3.r != null) readings.push(Math.abs(c3.r) < 0.25 ? 'rank barely shows in the prices — the market is not charging for people quality, which is where your A/E edge lives' : 'the market already prices people quality in today');
+      signalTiles = tile('TODAY’S CORRELATIONS', 'Pearson r across every runner today+tomorrow · what travels with what · ' + readings.join(' · '),
+        [c1, c2, c3, c4, c5]);
+      const stacked = runners.filter(r => r.score >= 70 && r.wrAdv != null && r.wrAdv >= 2 && r.mp >= 6)
+        .sort((a, b) => (b.score + b.wrAdv * 5) - (a.score + a.wrAdv * 5)).slice(0, 8)
+        .map(r => ({ n: esc(r.h) + ' <span style="color:var(--faint)">' + (r.day === 'tomorrow' ? 'Tom ' : '') + esc(r.t) + ' ' + esc(r.course) + '</span>', v: 'R' + r.score.toFixed(0) + ' · +' + r.wrAdv + 'lb · ' + r.d, cls: 'pos' }));
+      signalTiles += tile('SIGNALS STACKED', 'runners where rank 70+ AND thrown in 2lb+ AND a live market chance · the strongest look-for list this data can build', stacked);
+      const contra = runners.filter(r => r.wrAdv != null && r.wrAdv >= 3 && r.score != null && r.score <= 35)
+        .sort((a, b) => b.wrAdv - a.wrAdv).slice(0, 8)
+        .map(r => ({ n: esc(r.h) + ' <span style="color:var(--faint)">' + (r.day === 'tomorrow' ? 'Tom ' : '') + esc(r.t) + ' ' + esc(r.course) + '</span>', v: '+' + r.wrAdv + 'lb but R' + r.score.toFixed(0), cls: 'neg' }));
+      signalTiles += tile('WELL IN, BADLY CREWED', 'thrown in 3lb+ at the weights but rank 35-or-under people · the handicapper’s gift in the wrong hands — watch whether the weights or the people win', contra);
+    }
     let pairsTile = '';
     if (store.pairs) {
       const prs = Object.values(store.pairs).filter(pr => pr.r >= 30 && pr.e > 0)
@@ -203,6 +272,7 @@
       tile('SLIDERS', 'last 3 months at least 2.5pt below their year', sliders) +
       tile('THE STEADY', 'a winner in every busy month · the never-go-missing club', steady) +
       pairsTile +
+      signalTiles +
       fireRankTile +
       mountTiles +
       tile('THE WORKHORSES', 'most rides in 12 months · volume, whatever the glamour', workhorses) +
@@ -212,12 +282,14 @@
   async function main() {
     renderWho();
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=4')]);
+      const [r1, r2, r3] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/recentform?v=4'), fetch('/api/upcoming?v=2')]);
       const d1 = await r1.json();
       const d2 = await r2.json().catch(() => null);
+      const d3 = await r3.json().catch(() => null);
       if (!r1.ok || !d1.ok) throw new Error('bad');
       store = d1;
       recent = d2 && d2.ok ? d2 : null;
+      upcoming = d3 && d3.ok ? (d3.rides || []) : null;
       render();
     } catch {
       $('app').innerHTML = '<div class="state">couldn’t load the groups — pull to retry</div>';
