@@ -77,6 +77,16 @@
     const s = n % 100;
     return n + (s >= 11 && s <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][Math.min(n % 10, 4) % 4] || 'th');
   };
+  const deepLines = (d) => {
+    if (!d.races) return '';
+    const ret = d.ret || 0;
+    const pl = ret - d.races;
+    const roi = pl / d.races * 100;
+    const col = pl >= 0 ? 'var(--green)' : 'var(--red)';
+    const every = d.wins ? (d.races / d.wins) : null;
+    return `<div class="row"><span class="n"><b>\u00a31 win on the most-minus runner</b> (\u00a31 a race)</span><span class="v">staked \u00a3${d.races.toFixed(0)} \u00b7 back \u00a3${ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 settled at SP</span></div>` +
+      `<div class="row"><span class="n"><b>how often it wins</b></span><span class="v">${every ? '<b>1 in ' + every.toFixed(1) + '</b> races' : 'no wins yet'} \u00b7 its SPs said 1 in ${d.expSum ? (d.races / d.expSum).toFixed(1) : '\u2014'}</span></div>`;
+  };
   const comboLines = (src) => [4, 5, 6].map(N => {
     const S = (src.deepN || {})[N];
     if (!S) return '';
@@ -167,7 +177,7 @@
       const deepest = priced.find(x => eOf(x) !== 999);
       if (deepest && eOf(deepest) < 0) {
         D.deep.races++;
-        if (deepest.r.won) D.deep.wins++;
+        if (deepest.r.won) { D.deep.wins++; if (deepest.r.d > 1) D.deep.ret = (D.deep.ret || 0) + deepest.r.d; }
         if (deepest.r.d > 1) D.deep.expSum += 1 / deepest.r.d;
       }
       const top3 = priced.filter(x => eOf(x) !== 999 && eOf(x) < 0).slice(0, 3);
@@ -255,7 +265,7 @@
     const digests = [];
     for (let i = 0; i < dates.length; i++) {
       const dt = dates[i];
-      const lsKey = 'rspd:v9:' + dt;
+      const lsKey = 'rspd:v10:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
@@ -278,7 +288,7 @@
       deepN: { 4: { cfRaces: 0, cfHits: 0, cfRet: 0, tcRaces: 0, tcHits: 0, tcRet: 0, tcEst: 0 }, 5: { cfRaces: 0, cfHits: 0, cfRet: 0, tcRaces: 0, tcHits: 0, tcRet: 0, tcEst: 0 }, 6: { cfRaces: 0, cfHits: 0, cfRet: 0, tcRaces: 0, tcHits: 0, tcRet: 0, tcEst: 0 } } };
     digests.forEach(({ dig }) => {
       ['minus', 'flat', 'plus'].forEach(b => { agg.bands[b].r += dig.bands[b].r; agg.bands[b].w += dig.bands[b].w; agg.bands[b].e += dig.bands[b].e; });
-      ['deep', 'deep3'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; agg[k].expSum += dig[k].expSum; });
+      ['deep', 'deep3'].forEach(k => { agg[k].races += dig[k].races; agg[k].wins += dig[k].wins; agg[k].expSum += dig[k].expSum; }); agg.deep.ret = (agg.deep.ret || 0) + (dig.deep.ret || 0);
       agg.deep3.slots += dig.deep3.slots || 0; agg.deep3.sweeps += dig.deep3.sweeps || 0; agg.deep3.avail += dig.deep3.avail || 0; agg.deep3.ret += dig.deep3.ret || 0; agg.deep3.cfRaces += dig.deep3.cfRaces || 0; agg.deep3.cfHits += dig.deep3.cfHits || 0; agg.deep3.cfRet += dig.deep3.cfRet || 0; agg.deep3.tcRaces += dig.deep3.tcRaces || 0; agg.deep3.tcHits += dig.deep3.tcHits || 0; agg.deep3.tcRet += dig.deep3.tcRet || 0; agg.deep3.tcEst = (agg.deep3.tcEst || 0) + (dig.deep3.tcEst || 0);
       [4, 5, 6].forEach(N => { const s = (dig.deepN || {})[N]; if (!s) return; const t = agg.deepN[N];
         ['cfRaces','cfHits','cfRet','tcRaces','tcHits','tcRet','tcEst'].forEach(k => { t[k] += s[k] || 0; }); });
@@ -288,7 +298,7 @@
     const verdict = `<div class="tile" style="grid-column:1/-1"><h2>THE MONTH SO FAR \u00b7 ${digests.length} days</h2>` +
       `<div class="sub">every day of the month priced and pooled \u00b7 runners, not races, in the band lines \u00b7 the sample a single day can\u2019t give</div>` +
       line('market\u2019s end (\u221225% or deeper)', agg.bands.minus) + line('agreement (\u00b125%)', agg.bands.flat) + line('my model\u2019s end (+25% or better)', agg.bands.plus) +
-      (agg.deep.races ? `<div class="row"><span class="n"><b>most-minus runner of each race</b></span><span class="v"><b>won ${agg.deep.wins} of ${agg.deep.races} \u00b7 ${(agg.deep.wins / agg.deep.races * 100).toFixed(1)}%</b> \u00b7 SPs implied ${(agg.deep.expSum / agg.deep.races * 100).toFixed(1)}%</span></div>` : '') +
+      (agg.deep.races ? `<div class="row"><span class="n"><b>most-minus runner of each race</b></span><span class="v"><b>won ${agg.deep.wins} of ${agg.deep.races} \u00b7 ${(agg.deep.wins / agg.deep.races * 100).toFixed(1)}%</b> \u00b7 SPs implied ${(agg.deep.expSum / agg.deep.races * 100).toFixed(1)}%</span></div>` : '') + deepLines(agg.deep) +
       (agg.deep3.races ? `<div class="row"><span class="n"><b>3 most-minus of each race</b> <span style="color:var(--faint)">(races with 3+ minus runners)</span></span><span class="v"><b>one won ${agg.deep3.wins} of ${agg.deep3.races} races \u00b7 ${(agg.deep3.wins / agg.deep3.races * 100).toFixed(1)}%</b> \u00b7 SPs implied ${Math.min(100, agg.deep3.expSum / agg.deep3.races * 100).toFixed(1)}%</span></div>` : '') +
       (agg.deep3.races ? `<div class="row"><span class="n"><b>\u2026and how they placed</b></span><span class="v">the trio took <b>${agg.deep3.slots} of ${agg.deep3.avail}</b> paid places (each-way rules) \u00b7 ${agg.deep3.avail ? (agg.deep3.slots / agg.deep3.avail * 100).toFixed(1) : '0.0'}% \u00b7 filled every paid place in <b>${agg.deep3.sweeps}</b> races \u00b7 ${(agg.deep3.sweeps / agg.deep3.races * 100).toFixed(1)}%</span></div>` : '') +
       (agg.deep3.races ? (() => { const staked = agg.deep3.races * 3; const pl = agg.deep3.ret - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 win on each of the trio</b> (\u00a33 a race)</span><span class="v">staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${agg.deep3.ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 settled at SP</span></div>`; })() : '') +
@@ -386,7 +396,7 @@
       const deepest = priced.find(x => edgeOf(x) !== 999);
       if (deepest && edgeOf(deepest) < 0) {
         deep.races++;
-        if (deepest.r.won) deep.wins++;
+        if (deepest.r.won) { deep.wins++; if (deepest.r.d > 1) deep.ret = (deep.ret || 0) + deepest.r.d; }
         if (deepest.r.d > 1) deep.expSum += 1 / deepest.r.d;
       }
       const withSp = priced.filter(x => x.r.d > 1);
@@ -463,7 +473,7 @@
       return `<div class="tile" style="grid-column:1/-1"><h2>THE DAY\u2019S VERDICT</h2>` +
         `<div class="sub">counts are RUNNERS pooled across every race, not races \u00b7 A/E above 1.00 = the band beat what its SPs promised \u00b7 one day wobbles \u2014 read across a week \u00b7 the question that matters: does the plus end win more than its SPs implied, or is the market simply right?</div>` +
         line('market\u2019s end (\u221225% or deeper)', bands.minus) + line('agreement (\u00b125%)', bands.flat) + line('my model\u2019s end (+25% or better)', bands.plus) +
-        (deep.races ? `<div class="row"><span class="n"><b>the most-minus runner of each race</b></span><span class="v"><b>won ${deep.wins} of ${deep.races} \u00b7 ${(deep.wins / deep.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${(deep.expSum / deep.races * 100).toFixed(1)}%</span></div>` : '') +
+        (deep.races ? `<div class="row"><span class="n"><b>the most-minus runner of each race</b></span><span class="v"><b>won ${deep.wins} of ${deep.races} \u00b7 ${(deep.wins / deep.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${(deep.expSum / deep.races * 100).toFixed(1)}%</span></div>` : '') + deepLines(deep) +
         (deep3.races ? `<div class="row"><span class="n"><b>the 3 most-minus runners of each race</b> <span style="color:var(--faint)">(only races with 3+ minus runners count)</span></span><span class="v"><b>one of them won ${deep3.wins} of ${deep3.races} races \u00b7 ${(deep3.wins / deep3.races * 100).toFixed(1)}%</b> \u00b7 their SPs implied ${Math.min(100, deep3.expSum / deep3.races * 100).toFixed(1)}%</span></div>` : '') +
         (deep3.races ? `<div class="row"><span class="n"><b>\u2026and how they placed</b></span><span class="v">the trio took <b>${deep3.slots} of ${deep3.avail}</b> paid places (each-way rules by field size) \u00b7 ${deep3.avail ? (deep3.slots / deep3.avail * 100).toFixed(1) : '0.0'}% \u00b7 filled every paid place in <b>${deep3.sweeps}</b> race${deep3.sweeps === 1 ? '' : 's'} \u00b7 ${(deep3.sweeps / deep3.races * 100).toFixed(1)}%</span></div>` : '') +
         (deep3.races ? (() => { const staked = deep3.races * 3; const pl = deep3.ret - staked; const roi = pl / staked * 100; const col = pl >= 0 ? 'var(--green)' : 'var(--red)'; return `<div class="row"><span class="n"><b>\u00a31 win on each of the trio</b> (\u00a33 a race)</span><span class="v">staked \u00a3${staked.toFixed(0)} \u00b7 returned \u00a3${deep3.ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl).toFixed(2)} \u00b7 ROI ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 settled at SP</span></div>`; })() : '') +
