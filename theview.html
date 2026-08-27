@@ -780,6 +780,20 @@
         return oa.d - ob.d;
       });
       // EXP: composite expectation from everything learned —
+      // weight-adjusted rating advantage per runner (vs the race's top-rated, claims off)
+      const wrAdvMap = (() => {
+        const claim2 = (nm) => { const m2 = String(nm || '').match(/\((\d)\)/); return m2 ? Number(m2[1]) : 0; };
+        const orOf = (r) => { const v = parseInt(r.ofr != null ? r.ofr : (r.or != null ? r.or : r.official_rating), 10); return v >= 1 && v <= 200 ? v : null; };
+        const lbsOf = (r) => { const v = parseInt(r.lbs, 10); if (v >= 80 && v <= 200) return v; const m2 = String(r.weight || '').match(/^(\d{1,2})-(\d{1,2})$/); return m2 ? Number(m2[1]) * 14 + Number(m2[2]) : null; };
+        const ok = rs.filter(r => r.horse_id && orOf(r) != null && lbsOf(r) != null);
+        if (ok.length < 2) return {};
+        const top = ok.reduce((a, b) => orOf(b) > orOf(a) ? b : a, ok[0]);
+        const carried = (r) => lbsOf(r) - claim2(r.jockey);
+        const topC = carried(top);
+        const map = {};
+        ok.forEach(r => { map[r.horse_id] = (orOf(r) + (topC - carried(r))) - orOf(top); });
+        return map;
+      })();
       // market probability (the strongest signal), icon status, draw bias, value-shaped parity
       let expId = null;
       if (expMode || w) {
@@ -863,7 +877,11 @@
               if (!parts.length) return '';
               const sc = Math.round(parts.reduce((a2, b2) => a2 + b2, 0) / parts.length);
               const col = sc >= 70 ? '#0E8A44' : sc <= 35 ? '#D7263D' : 'var(--faint)';
-              return ` <span style="color:${col};font-weight:600" title="rank score ${sc}/100 \u00b7 the people's average standing in the 12-month A/E tables">R${sc}</span>`;
+              const adv = wrAdvMap[r.horse_id];
+              const sig = sc >= 70 && adv != null && adv >= 2
+                ? `<span style="color:var(--gold);font-weight:700" title="SIGNAL: rank 70+ people AND thrown in ${adv}lb at the weights \u2014 the stacked pattern">\u26a1</span> ` : '';
+              const advTag = adv != null && Math.abs(adv) >= 2 ? ` <span style="color:${adv > 0 ? '#0E8A44' : '#D7263D'};font-weight:600" title="weight-adjusted rating vs the race's top horse, claims off">${adv > 0 ? '+' : ''}${adv}lb</span>` : '';
+              return ` ${sig}<span style="color:${col};font-weight:600" title="rank score ${sc}/100 \u00b7 the people's average standing in the 12-month A/E tables">R${sc}</span>${advTag}`;
             })();
           })()}`);
         if (paintRank && paintRank[r.horse_id] != null) {
