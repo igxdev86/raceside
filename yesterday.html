@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — YESTERDAY</title>
+<meta name="description" content="Yesterday's winners and who out-rode their numbers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:860px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .sect{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:12px}
+  .stl{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+  .status{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px}
+  .tile .v{font-family:var(--mono);font-weight:600;font-size:17px}
+  .tile .l{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+  .tablewrap{overflow-x:auto;margin:0 -15px;padding:0 15px}
+  table{width:100%;min-width:520px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  th{font-family:var(--sans);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-align:right;padding:6px;border-bottom:2px solid var(--line);white-space:nowrap}
+  th.l,td.l{text-align:left}
+  td{padding:5.5px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .pos{color:var(--green);font-weight:700}
+  .neg{color:var(--red);font-weight:700}
+  .trend{padding:4px 0;font-size:13px}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">YESTER<b>DAY</b><small id="subd">the day in winners</small></div>
+    <a class="back" href="/jockeys.html">← j&amp;t</a>
+  </header>
+
+  <div id="app"><div class="state"><div class="spinner"></div>reading yesterday…</div></div>
+
+  <p class="note">One day is a tiny sample — everything here describes what happened, not what will happen. A jockey riding a treble was probably on three good horses; the 12-month columns are there so you can tell a normal day from a genuinely unusual one. Day A/E = winners vs what the day’s SPs predicted — over one card it swings wildly and should. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+  async function main() {
+    let d = null, store = null;
+    try {
+      const [r1, r2] = await Promise.all([fetch('/api/yesterday'), fetch('/api/peopleall')]);
+      d = await r1.json();
+      store = await r2.json().catch(() => null);
+      if (!r1.ok || !d.ok) throw new Error('bad');
+    } catch {
+      $('app').innerHTML = '<div class="state">couldn’t read yesterday — pull to retry</div>';
+      return;
+    }
+    document.getElementById('subd').textContent = d.date + ' · the day in winners';
+    const races = d.races || [];
+    const nR = races.length;
+    const favW = races.filter(r => r.favRank === 1).length;
+    const top3W = races.filter(r => r.favRank && r.favRank <= 3).length;
+    const avgSp = races.length ? races.reduce((a, r) => a + (r.d || 0), 0) / races.filter(r => r.d).length : 0;
+    const bigW = races.filter(r => r.d && r.d >= 11).length;
+
+    const yr = (store && store.ok) ? store : null;
+    const yrAEbase = yr && yr.baseline && yr.baseline.exp ? yr.baseline.wins / yr.baseline.exp : null;
+
+    const personRows = (bucket, yrBucket) => Object.entries(bucket)
+      .map(([id, s]) => {
+        const y = yr && yrBucket[id];
+        const yrStrike = y && y.runs ? y.wins / y.runs : null;
+        const dayAE = s.e ? s.w / s.e : null;
+        return { name: s.name, r: s.r, w: s.w, winSps: s.winSps, dayAE, yrStrike,
+          hot: yrStrike != null && s.r >= 3 && (s.w / s.r) > yrStrike * 1.8 && s.w >= 2,
+          cold: yrStrike != null && s.r >= 5 && s.w === 0 && yrStrike > 0.12 };
+      })
+      .sort((a, b) => b.w - a.w || b.r - a.r);
+
+    const jRows = personRows(d.jockeys || {}, (yr && yr.jockeys) || {});
+    const tRows = personRows(d.trainers || {}, (yr && yr.trainers) || {});
+
+    // trends: multiple-winner days, over-norm days, favourite behaviour
+    const trends = [];
+    const multi = (rows, label) => rows.filter(x => x.w >= 2).slice(0, 6)
+      .forEach(x => trends.push(`<b>${esc(x.name)}</b> ${label} ${x.w} winners from ${x.r} (${x.winSps.map(esc).join(', ')})${x.hot ? ' — well above their usual rate' : ''}`));
+    multi(jRows, 'rode');
+    multi(tRows, 'sent out');
+    if (nR) trends.push(`Favourites won ${favW}/${nR} (${(favW / nR * 100).toFixed(0)}%)${favW / nR > 0.42 ? ' — a chalky day' : favW / nR < 0.28 ? ' — a day for the each-way players' : ' — about typical'}`);
+    if (nR) trends.push(`Top-3 in the market won ${top3W}/${nR} (${(top3W / nR * 100).toFixed(0)}%) · ${bigW} winner${bigW === 1 ? '' : 's'} at 10/1+`);
+    const coldJ = jRows.filter(x => x.cold).slice(0, 4);
+    if (coldJ.length) trends.push('Blank days on busy books: ' + coldJ.map(x => `<b>${esc(x.name)}</b> 0/${x.r}`).join(' · ') + ' — normal variance, not a signal');
+
+    const tbl = (rows) => {
+      let h2 = '<div class="tablewrap"><table><thead><tr><th class="l">Name</th><th>Rides</th><th>Wins</th><th>Day A/E</th><th>12mo strike</th></tr></thead><tbody>';
+      rows.slice(0, 25).forEach(x => {
+        const cls = x.dayAE != null && yrAEbase ? (x.dayAE > yrAEbase * 1.3 ? 'pos' : x.dayAE < yrAEbase * 0.5 && x.r >= 4 ? 'neg' : '') : '';
+        h2 += `<tr><td class="l"><b>${esc(x.name)}</b>${x.hot ? ' <span class="pos">↑</span>' : ''}${x.cold ? ' <span class="neg">↓</span>' : ''}</td>` +
+          `<td>${x.r}</td><td>${x.w}${x.winSps.length ? ' <span style="color:var(--faint)">(' + x.winSps.map(esc).join(', ') + ')</span>' : ''}</td>` +
+          `<td class="${cls}">${x.dayAE != null ? x.dayAE.toFixed(2) : '—'}</td>` +
+          `<td style="color:var(--dim)">${x.yrStrike != null ? (x.yrStrike * 100).toFixed(1) + '%' : '—'}</td></tr>`;
+      });
+      return h2 + '</tbody></table></div>';
+    };
+
+    let html = '<div class="tiles">' +
+      `<div class="tile"><div class="v">${nR}</div><div class="l">races</div></div>` +
+      `<div class="tile"><div class="v">${nR ? (favW / nR * 100).toFixed(0) : 0}%</div><div class="l">favourites won</div></div>` +
+      `<div class="tile"><div class="v">${avgSp ? avgSp.toFixed(1) : '—'}</div><div class="l">avg winner SP (dec)</div></div>` +
+      '</div>';
+    html += '<div class="sect"><div class="stl">The day’s trends</div>' + (trends.length ? trends.map(t => `<div class="trend">${t}</div>`).join('') : '<div class="status">quiet day</div>') + '</div>';
+    html += '<div class="sect"><div class="stl">Jockeys yesterday</div>' + tbl(jRows) + '</div>';
+    html += '<div class="sect"><div class="stl">Trainers yesterday</div>' + tbl(tRows) + '</div>';
+    html += '<div class="sect"><div class="stl">Every winner</div><div class="tablewrap"><table><thead><tr><th class="l">Time</th><th class="l">Course</th><th class="l">Winner</th><th>SP</th><th>Mkt pos</th><th class="l">Jockey</th><th class="l">Trainer</th></tr></thead><tbody>' +
+      races.map(r => `<tr><td class="l">${esc(r.t)}</td><td class="l">${esc(r.course)}</td><td class="l"><b>${esc(r.horse)}</b></td><td>${esc(r.sp)}</td>` +
+        `<td>${r.favRank ? (r.favRank === 1 ? '<b>fav</b>' : r.favRank + '/' + r.n) : '—'}</td>` +
+        `<td class="l">${esc(r.jockey)}</td><td class="l">${esc(r.trainer)}</td></tr>`).join('') +
+      '</tbody></table></div></div>';
+    $('app').innerHTML = html;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
