@@ -202,13 +202,13 @@
     const digests = [];
     for (let i = 0; i < dates.length; i++) {
       const dt = dates[i];
-      const lsKey = 'rspd:v6:' + dt;
+      const lsKey = 'rspd:v7:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
         $('app').innerHTML = `<div class="state"><div class="spinner"></div>pricing ${dt} \u2014 day ${i + 1} of ${dates.length}\u2026<br><span style="font-size:11px">first run walks the month; after that it\u2019s cached</span></div>`;
         try {
-          const r = await fetch('/api/priceday?v=2&date=' + dt);
+          const r = await fetch('/api/priceday?v=3&date=' + dt);
           const dd2 = await r.json();
           if (dd2 && dd2.ok) {
             dig = digestDay(dd2, pj, pt);
@@ -251,7 +251,7 @@
   async function main() {
     let store = null, day = null;
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=2&date=' + date)]);
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=3&date=' + date)]);
       store = await r1.json();
       day = await r2.json();
       if (!store.ok || !day.ok) throw new Error('bad');
