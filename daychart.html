@@ -64,6 +64,7 @@
   <div id="streak" style="font-family:var(--mono);font-size:11px;color:#C9A24B;margin-bottom:8px;letter-spacing:.04em"></div>
   <div id="condlist" style="margin-bottom:10px"></div>
   <div id="grouplist" style="margin-bottom:10px"></div>
+  <div id="triplist" style="margin-bottom:10px"></div>
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
@@ -88,6 +89,7 @@
       .sort((a, b) => raceMin(a.t) - raceMin(b.t));
     const marks = [];
     const groups = { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } };
+    const distB = { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } };
     races.forEach(rc => {
       const field = rc.runners;
       const orVals = field.map(r => r.ofr).filter(v => v != null);
@@ -133,6 +135,8 @@
         gAdd(groups.all);
         if (isTopOr) gAdd(groups.topOr); else if (maxOr != null && deepest.r.ofr != null) gAdd(groups.notTopOr);
         if (isTopWr) gAdd(groups.topWr);
+        const df = rc.dist;
+        if (df > 0) gAdd(df <= 6 ? distB.s6 : df <= 8 ? distB.m78 : df <= 12 ? distB.m912 : distB.l13);
       }
     });
     let lead = 0; while (lead < marks.length && marks[lead] === 0) lead++;
@@ -145,7 +149,7 @@
       else if (seenWin) cur++;
     });
     let maxGap = 0; gaps.forEach(g => { if (g > maxGap) maxGap = g; });
-    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap, gaps, groups };
+    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap, gaps, groups, distB };
   }
 
   async function yearStreak(pj, pt) {
@@ -164,11 +168,16 @@
         if (js && js.state && String(js.state.year) === String(year)) st = js.state;
       } catch {}
     }
+    let stale = null;
+    if (st && !st.D) { stale = st; st = null; }   // old shape (no distance data): render it now, rebuild silently
     if (!st) st = { year, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
+      D: { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } },
       G: { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } } };
+    if (!st.D) st.D = { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } };
 
-    const buildPayload = () => {
-      const dist = st.dist;
+    const buildPayload = (sx) => {
+      sx = sx || st;
+      const dist = sx.dist;
       const totalWaits = Object.values(dist).reduce((a, b) => a + b, 0);
       const ranked = Object.entries(dist).map(([len, c]) => ({ len: Number(len), c })).sort((a, b) => b.c - a.c || a.len - b.len);
       const cond = [];
@@ -176,14 +185,14 @@
         const wins2 = dist[k] || 0;
         let att = 0;
         Object.entries(dist).forEach(([L, c]) => { if (Number(L) >= k) att += c; });
-        if (st.run > k) att += 1;
+        if (sx.run > k) att += 1;
         if (att < 10) break;
         cond.push({ k, wins: wins2, att });
       }
-      const all = st.droughts.slice();
-      if (st.run > 0) all.push({ len: st.run, ended: 'still running' });
+      const all = sx.droughts.slice();
+      if (sx.run > 0) all.push({ len: sx.run, ended: 'still running' });
       all.sort((a, b) => b.len - a.len);
-      return { top: all.filter(d => d.len > 0).slice(0, 10), ranked: ranked.slice(0, 4), totalWaits, cond, G: st.G };
+      return { top: all.filter(d => d.len > 0).slice(0, 10), ranked: ranked.slice(0, 4), totalWaits, cond, G: sx.G, D: sx.D };
     };
 
     const renderAll = (payload) => {
@@ -209,10 +218,12 @@
       paint();
       renderCond(payload.cond);
       renderGroups(payload.G);
+      renderTrips(payload.D);
     };
 
     const hasState = !!st.lastDate;
     if (hasState) renderAll(buildPayload());   // instant, from what we already know
+    else if (stale) renderAll(buildPayload(stale));   // old-shape state paints now; the rebuild below is silent
 
     // silently extend by only the missing days
     const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
@@ -225,12 +236,12 @@
     }
     let walked = 0;
     for (const dt of dates) {
-      const lsKey = 'rsdeepseq:v4:' + dt;
+      const lsKey = 'rsdeepseq:v5:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
         try {
-          const r = await fetch('/api/priceday?v=3&date=' + dt);
+          const r = await fetch('/api/priceday?v=4&date=' + dt);
           const dd = await r.json();
           if (dd && dd.ok) {
             dig = daySeqDigest(dd, pj, pt);
@@ -240,6 +251,9 @@
       }
       if (dig && dig.groups) {
         Object.keys(st.G).forEach(k => { const s = dig.groups[k]; if (s) { st.G[k].n += s.n; st.G[k].w += s.w; st.G[k].e += s.e; } });
+      }
+      if (dig && dig.distB) {
+        Object.keys(st.D).forEach(k => { const s = dig.distB[k]; if (s) { st.D[k].n += s.n; st.D[k].w += s.w; st.D[k].e += s.e; } });
       }
       if (dig && dig.n) {
         if (dig.wins === 0) {
@@ -258,7 +272,7 @@
       st.lastDate = dt;
       walked++;
       // only the first-ever build shows progress; daily top-ups are silent
-      if (!hasState && walked % 10 === 0) box.textContent = 'measuring the year \u2014 ' + Math.round(walked / dates.length * 100) + '%';
+      if (!hasState && !stale && walked % 10 === 0) box.textContent = 'measuring the year \u2014 ' + Math.round(walked / dates.length * 100) + '%';
     }
     try { localStorage.setItem('rsstate:v1', JSON.stringify(st)); } catch {}
     renderAll(buildPayload());
@@ -266,6 +280,22 @@
     try { fetch('/api/yearstate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
   }
 
+  function renderTrips(D) {
+    const el = $('triplist');
+    if (!D) { el.innerHTML = ''; return; }
+    const labels = { s6: 'sprints (5\u20136f)', m78: '7\u20138f', m912: '9\u201312f (middle)', l13: '13f+ (staying)' };
+    const rows = ['s6', 'm78', 'm912', 'l13'].map(k => {
+      const g = D[k];
+      if (!g || !g.n) return '';
+      const s = g.w / g.n * 100;
+      const imp = g.e ? g.e / g.n * 100 : null;
+      const ae = g.e ? g.w / g.e : null;
+      const col = ae != null ? (ae >= 1.05 ? 'pos' : ae <= 0.95 ? 'neg' : '') : '';
+      return `<div class="row"><span class="n">${labels[k]}</span><span class="v ${col}">wins <b>${s.toFixed(1)}%</b> (${g.w}/${g.n}) \u00b7 SPs implied ${imp != null ? imp.toFixed(1) : '\u2014'}% \u00b7 A/E <b>${ae != null ? ae.toFixed(2) : '\u2014'}</b></span></div>`;
+    }).join('');
+    el.innerHTML = rows ? `<div class="tile"><h2>WHERE IT WINS \u2014 BY TRIP</h2>` +
+      `<div class="sub">the most-minus runner by race distance \u00b7 strike varies with field size and price by trip, so A/E is again the honest column \u00b7 sprints have bigger fields and longer prices; don\u2019t read raw strike across rows</div>${rows}</div>` : '';
+  }
   function renderGroups(G) {
     const el = $('grouplist');
     if (!G || !G.all || !G.all.n) { el.innerHTML = ''; return; }
@@ -311,7 +341,7 @@
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing ' + esc(date) + '\u2026</div>';
     let store, day;
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=3&date=' + date)]);
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=4&date=' + date)]);
       store = await r1.json(); day = await r2.json();
       if (!store.ok || !day.ok) throw new Error('bad');
     } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load ' + esc(date) + '</div>'; return; }
@@ -356,14 +386,20 @@
       priced.sort((a, b) => eOf(a) - eOf(b));
       const deepest = priced.find(x => eOf(x) !== 999);
       if (!deepest || eOf(deepest) >= 0) return;
-      const won = !!deepest.r.won;
+      const orVals3 = field.map(r => r.ofr).filter(v => v != null);
+      const maxOr3 = orVals3.length ? Math.max(...orVals3) : null;
       seq.push({ t: rc.t, course: rc.course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest),
-        won: !!deepest.r.won, exp: deepest.r.d > 1 ? 1 / deepest.r.d : 0 });
+        won: !!deepest.r.won, exp: deepest.r.d > 1 ? 1 / deepest.r.d : 0,
+        isTopOr: maxOr3 != null && deepest.r.ofr === maxOr3 });
     });
     if (!seq.length) { $('app').innerHTML = '<div class="state">no qualifying races on ' + esc(date) + '</div>'; return; }
+    let filterTopOr = false;
+    const render = () => {
+    const view = filterTopOr ? seq.filter(s => s.isTopOr) : seq;
+    if (!view.length) { $('chart').style.display = 'none'; $('app').innerHTML = '<div class="state">no races where the most-minus runner is also top OR on ' + esc(date) + '</div>'; return; }
     let cw = 0, ce = 0;
-    seq.forEach(s => { cw += s.won ? 1 : 0; ce += s.exp; s.cumW = cw; s.cumE = ce; });
-    const totW = cw, totE = ce, n = seq.length;
+    view.forEach(s => { cw += s.won ? 1 : 0; ce += s.exp; s.cumW = cw; s.cumE = ce; });
+    const totW = cw, totE = ce, n = view.length;
 
     // chart: cumulative wins (solid) vs SP-promised (dashed)
     const cv = $('chart');
@@ -384,24 +420,24 @@
       ctx.fillStyle = '#939CAB'; ctx.fillText(String(g), 8, ys(g) + 3);
     }
     ctx.strokeStyle = '#2456E6'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-    ctx.beginPath(); ctx.moveTo(xs(0), ys(seq[0].cumE));
-    seq.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumE)));
+    ctx.beginPath(); ctx.moveTo(xs(0), ys(view[0].cumE));
+    view.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumE)));
     ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = '#101418'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(xs(0), ys(seq[0].cumW));
-    seq.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumW)));
+    ctx.beginPath(); ctx.moveTo(xs(0), ys(view[0].cumW));
+    view.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumW)));
     ctx.stroke();
-    seq.forEach((s, i) => {
+    view.forEach((s, i) => {
       if (s.won) { ctx.fillStyle = '#12A150'; ctx.beginPath(); ctx.arc(xs(i), ys(s.cumW), 4, 0, 7); ctx.fill(); }
     });
     ctx.fillStyle = '#101418'; ctx.fillText('— wins so far', padL, 12);
     ctx.fillStyle = '#2456E6'; ctx.fillText('- - SPs promised', padL + 92, 12);
     ctx.fillStyle = '#5B6675';
-    ctx.fillText(seq[0].t, padL, H - 8);
-    ctx.fillText(seq[n - 1].t, W - padR - 30, H - 8);
+    ctx.fillText(view[0].t, padL, H - 8);
+    ctx.fillText(view[n - 1].t, W - padR - 30, H - 8);
 
     // rows: won/lost + evolving 1-in-X
-    const rows = seq.map((s, i) =>
+    const rows = view.map((s, i) =>
       `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)}</span>` +
       `<span class="v ${s.won ? 'pos' : ''}">${s.won ? '✓' : '×'} ${s.cumW}/${i + 1}</span></div>`
     ).join('');
@@ -409,6 +445,24 @@
     const oneInSp = totE ? (n / totE).toFixed(1) : '—';
     $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>RACE BY RACE · ${totW} wins from ${n} · 1 in ${oneInDay}</h2>` +
       `<div class="sub">SPs promised 1 in ${oneInSp} · each row shows the running count and the evolving “1 in X”</div>${rows}</div></div>`;
+    };
+    // filter chips
+    const chipBar = document.createElement('div');
+    chipBar.style.cssText = 'display:flex;gap:6px;margin:0 0 10px';
+    const mkChip = (label, on) => { const c = document.createElement('button'); c.textContent = label;
+      c.style.cssText = 'font-family:inherit;font-size:11px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ' + (on ? '#2456E6;background:#2456E6;color:#fff' : '#3A5490;background:transparent;color:#8FA3C8');
+      return c; };
+    const paintChips = () => {
+      chipBar.innerHTML = '';
+      const a = mkChip('ALL RACES', !filterTopOr), b = mkChip('TOP OR ONLY', filterTopOr);
+      a.onclick = () => { filterTopOr = false; paintChips(); render(); };
+      b.onclick = () => { filterTopOr = true; paintChips(); render(); };
+      chipBar.appendChild(a); chipBar.appendChild(b);
+    };
+    const cal2 = $('cal');
+    if (cal2 && cal2.parentNode && !document.getElementById('chipbar')) { chipBar.id = 'chipbar'; cal2.parentNode.insertBefore(chipBar, cal2.nextSibling); }
+    paintChips();
+    render();
   }
   main();
 })();
