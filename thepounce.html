@@ -328,7 +328,12 @@
         const paintToday = () => {
           const box = $('todaywins');
           if (!box) return;
-          if (!ranAll.length) { box.innerHTML = ''; return; }
+          if (!ranAll.length && !allUp.length) { box.innerHTML = ''; return; }
+          if (!ranAll.length) {
+            box.innerHTML = `<div class="tile" style="margin:10px 0"><h2>TODAY SO FAR</h2><div class="sub">nothing run yet</div>` +
+              `<div class="row"><span class="n"><b>still to run</b></span><span class="v">${allUp.length} race${allUp.length === 1 ? '' : 's'} \u00b7 ${picks2.length} of them top OR</span></div></div>`;
+            return;
+          }
           const tally = (list) => {
             let w = 0, settled = 0;
             list.forEach(p7 => { const e7 = effOf(p7); if (e7.v !== undefined) { settled++; if (e7.v === 1) w++; } });
@@ -338,9 +343,11 @@
           const b = tally(ranAll.filter(p7 => p7.isTop));
           const line3 = (label, s2) => `<div class="row"><span class="n"><b>${label}</b></span>` +
             `<span class="v"><b>${s2.w}</b> win${s2.w === 1 ? '' : 's'} of ${s2.settled} settled${s2.pending ? ' \u00b7 ' + s2.pending + ' pending' : ''}</span></div>`;
+          const leftAll = allUp.length, leftTop = picks2.length;
           box.innerHTML = `<div class="tile" style="margin:10px 0"><h2>TODAY SO FAR</h2>` +
             `<div class="sub">settled by the winners feed and your marks \u00b7 pending = result not in yet</div>` +
-            line3('most-minus \u00b7 all races', a) + line3('minus + top OR', b) + `</div>`;
+            line3('most-minus \u00b7 all races', a) + line3('minus + top OR', b) +
+            `<div class="row"><span class="n"><b>still to run</b></span><span class="v">${leftAll} race${leftAll === 1 ? '' : 's'} \u00b7 ${leftTop} of them top OR</span></div>` + `</div>`;
         };
         const paintRan = () => {
           paintToday();
