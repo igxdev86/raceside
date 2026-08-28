@@ -103,7 +103,17 @@
   let who = 'jockeys';   // jockeys | trainers
   let minRuns = 100;
   let steadyOnly = false;
-  let raceFilter = null;   // { day, t, course } or null = all
+  let raceFilter = null;
+  const winMap = {};
+  const nameN2 = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
+  const rkeyN2 = (t, c) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); const hh = m ? Number(m[1]) % 12 : 0; return hh + ':' + (m ? m[2] : '00') + '|' + String(c || '').toLowerCase().replace(/\s*\(aw\)\s*/i, '').replace(/[^a-z]/g, ''); };
+  const winnerFor = (t, c) => winMap[rkeyN2(t, c)];
+  fetch('/api/todaywinners').then(r => r.json()).then(d => {
+    if (d && d.ok) { (d.winners || []).forEach(w => { winMap[rkeyN2(w.t, w.course)] = { raw: w.h, n: nameN2(w.h) }; });
+      if (typeof renderRaceChips === 'function') renderRaceChips();
+      if (typeof renderTable === 'function') renderTable();
+    }
+  }).catch(() => {});   // { day, t, course } or null = all
   let courseStats = false; // when a race is chosen: stats become that person's record AT that course
   let pSortKey = 'j', pSortDir = -1;
   function renderPairs() {
@@ -295,7 +305,8 @@
       b.className = 'chip' + (on ? ' on' : '');
       b.style.flex = '0 0 auto';
       if (past && !on) b.style.opacity = '0.55';
-      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course + (past ? ' ✓' : '');
+      const w2 = past ? winnerFor(r.t, r.course) : null;
+      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course + (past ? (w2 ? ' ✓ ' + w2.raw : ' ✓') : '');
       b.onclick = () => { raceFilter = on ? null : r; renderRaceChips(); renderTable(); };
       box.appendChild(b);
     });
@@ -622,7 +633,9 @@
         if (!ride) return null;
         const bA2 = baseline.exp ? baseline.wins / baseline.exp : null;
         const ratio2 = bA2 && x.s.exp ? Math.max(0.5, Math.min(1.6, (x.s.wins / x.s.exp) / bA2)) : 1;
+        const wn2 = ride.day === 'today' ? winnerFor(ride.t, ride.course) : null;
         let y = { ...x, nx: ride.d, nxLabel: (ride.day === 'tomorrow' ? 'Tom ' : '') + ride.t + ' ' + ride.course, nxToday: ride.day === 'today',
+          won: wn2 ? (wn2.n === nameN2(ride.h) ? 1 : 0) : null,
           nxHorse: ride.h, nxOdds: ride.d, nxOfr: ride.ofr, nxLbs: ride.lbs,
           wr: (wrMap[ride.h] && wrMap[ride.h].eff != null) ? wrMap[ride.h].eff : null,
           wrAdv: (wrMap[ride.h] && wrMap[ride.h].adv != null) ? wrMap[ride.h].adv : null,
@@ -681,7 +694,7 @@
       const rb = x.rpos != null ? `<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 4px;border-radius:4px;margin-right:4px;color:#fff;background:${x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : '#8A93A3'}" title="ranked ${x.rpos} of ${x.rn} in the ${who === 'jockeys' ? 'jockey' : 'trainer'} table by A/E (12 months, 100+ runs) · score ${x.rscore}/100">#${x.rpos}</span>` : '';
       html += `<tr class="sirerow" data-i="${i}"><td>${rb}${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span>${ticker}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
-        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxHorse ? x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') : '—'}</td>` +
+        `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}${x.won === 1 ? ';background:#E7F6EC' : ''}">${x.nxHorse ? (x.won === 1 ? '<b style="color:var(--green)">✓ </b>' : '') + x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') + (x.won === 0 ? ' <small style="color:var(--faint)">beaten</small>' : '') : '—'}</td>` +
         `<td style="${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxOfr != null ? x.nxOfr : '—'}</td>` +
         `<td style="${x.nxToday ? '' : 'color:var(--faint)'}">${wtOf(x.nxLbs) || '—'}</td>` +
         `<td>${(() => { if (x.wr == null) return '—'; const col = x.wrAdv >= 2 ? 'var(--green)' : x.wrAdv <= -2 ? 'var(--red)' : 'var(--dim)'; return `<b style="color:${col}" title="weight-adjusted rating vs the race's top-rated horse (claims off) · +N = thrown in well">${x.wr}${x.wrAdv ? ' (' + (x.wrAdv > 0 ? '+' : '') + x.wrAdv + ')' : ''}</b>`; })()}</td>` +
