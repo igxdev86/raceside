@@ -10,9 +10,10 @@ function supa() {
   return { url: url.replace(/\/$/, ''), key };
 }
 
-const K = 'yearstate:v1';
+const KEYS = ['yearstate:v1', 'mgstate:v1'];
 
 export default async function handler(req, res) {
+  const K = KEYS.includes(String(req.query.k)) ? String(req.query.k) : KEYS[0];
   const s = supa();
   if (!s) return res.status(200).json({ ok: true, state: null });
   const headers = { apikey: s.key, Authorization: `Bearer ${s.key}`, 'Content-Type': 'application/json' };
