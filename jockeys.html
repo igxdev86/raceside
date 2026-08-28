@@ -117,6 +117,20 @@
   let courseStats = false; // when a race is chosen: stats become that person's record AT that course
   let pSortKey = 'j', pSortDir = -1;
   function renderPairs() {
+    const csPair = !!(raceFilter && courseStats);
+    const ckP = csPair ? csKey(raceFilter.course) : null;
+    const csCellOne = (bucket) => {
+      const cb = csResolve(bucket, ckP);
+      if (!cb || !cb.r) return '<span style="color:var(--gold)">no runs here</span>';
+      const ae2 = cb.e ? (cb.w / cb.e).toFixed(2) : '—';
+      return `${cb.w}/${cb.r} · ${(cb.w / cb.r * 100).toFixed(0)}% · A/E <b>${ae2}</b>`;
+    };
+    const csPairCells = (x) => {
+      const js = ((merged.jockeys || {})[x.jid] || {}).cs;
+      const ts = ((merged.trainers || {})[x.tid] || {}).cs;
+      return `<td class="l" colspan="3" style="text-align:left">J: ${csCellOne(js)}</td>` +
+        `<td class="l" colspan="2" style="text-align:left">T: ${csCellOne(ts)}</td>`;
+    };
     const pairs = merged.pairs || {};
     const baseAE2 = baseline.exp ? baseline.wins / baseline.exp : null;
     let rows;
@@ -150,12 +164,13 @@
     const eMap = raceFilter ? effMap(rows) : {};
     const th2 = (k, label, left) => `<th class="${left ? 'l' : ''}" data-pk="${k}">${label}${pSortKey === k ? (pSortDir === -1 ? ' ▾' : ' ▴') : ''}</th>`;
     let html = '<div class="status" style="cursor:default;margin-bottom:2px">' +
-      (raceFilter ? 'each runner\u2019s jockey\u2013trainer partnership, 12 months everywhere' : 'all partnerships with 20+ runs, 12 months') +
+      (csPair ? 'course form \u2014 no pair-at-course records exist, so each half\u2019s OWN 12-month record at ' + raceFilter.course + ' is shown' : raceFilter ? 'each runner\u2019s jockey\u2013trainer partnership, 12 months everywhere' : 'all partnerships with 20+ runs, 12 months') +
       ' · A/E vs the ' + (baseAE2 ? baseAE2.toFixed(2) : '—') + ' baseline · “first pairing” = no run together in 12 months</div>' +
       '<div class="tablewrap"><table><thead><tr>' +
       th2('j','Jockey', true) + th2('t','Trainer', true) +
       (raceFilter ? th2('h','On', true) + th2('ofr','OR') + th2('lbs','Wt') + th2('eff','WR') + th2('d','Odds') : '') +
-      th2('r','Runs') + th2('w','Wins') + th2('strike','Strike') + th2('pl','£1 P/L') + th2('ae','A/E') +
+      (csPair ? `<th class="l" colspan="3" style="text-align:left">Jockey at ${raceFilter.course}</th><th class="l" colspan="2" style="text-align:left">Trainer at ${raceFilter.course}</th>` :
+        th2('r','Runs') + th2('w','Wins') + th2('strike','Strike') + th2('pl','£1 P/L') + th2('ae','A/E')) +
       '</tr></thead><tbody>';
     rows.slice(0, 250).forEach(x => {
       const aeCls = baseAE2 && x.ae > baseAE2 * 1.05 ? 'pos' : baseAE2 && x.ae < baseAE2 * 0.95 && x.r > 0 ? 'neg' : '';
@@ -168,9 +183,9 @@
           `<td>${(() => { const e = eMap[x.h]; if (!e) return '—'; const col = e.adv >= 2 ? 'var(--green)' : e.adv <= -2 ? 'var(--red)' : 'var(--dim)'; return `<b style="color:${col}" title="effective rating vs the top-rated horse, after weight actually carried (claims off) · +N lb = thrown in well">${e.eff}${e.adv ? ' (' + (e.adv > 0 ? '+' : '') + e.adv + ')' : ''}</b>`; })()}</td>` +
           `<td><b style="color:var(--blue)">${x.d != null ? x.d : '—'}</b></td>` : '') +
         (x.first ? `<td colspan="5" style="color:var(--faint);text-align:left">first pairing in 12 months</td>` :
-          `<td>${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
+          `<td>${csPair ? csPairCells(x) : `${x.r}</td><td>${x.w}</td><td>${(x.strike * 100).toFixed(1)}%</td>` +
           `<td style="color:${x.pl > 0 ? 'var(--green)' : x.pl < 0 ? 'var(--red)' : 'var(--dim)'}">${x.pl >= 0 ? '+' : '−'}£${Math.abs(x.pl).toFixed(2)}</td>` +
-          `<td class="${aeCls}">${x.ae.toFixed(2)}</td>` +
+          `<td class="${aeCls}">${x.ae.toFixed(2)}</td>`}` +
         `<td style="font-weight:600;color:${x.rscore == null ? 'var(--faint)' : x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : 'var(--dim)'}" title="standing in this table by A/E, 0–100 (needs 100+ runs)">${x.rscore != null ? x.rscore : '—'}</td>`) + '</tr>';
     });
     html += '</tbody></table></div>';
