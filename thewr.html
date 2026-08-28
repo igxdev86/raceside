@@ -105,17 +105,19 @@
     const yEnd = new Date(Date.now() - 86400000);
     let st = null;
     try { st = JSON.parse(localStorage.getItem('rswr:v1') || 'null'); } catch {}
+    if (st && Object.values(st.months || {}).some(M => M.n && M.pl === undefined)) st = null;   // pre-ROI state: rebuild
     if (st && String(st.year) !== String(year)) st = null;
     if (!st) {
       try {
         const rs = await fetch('/api/yearstate?k=wrstate:v1');
         const js = await rs.json();
-        if (js && js.state && String(js.state.year) === String(year)) st = js.state;
+        if (js && js.state && String(js.state.year) === String(year)
+            && !Object.values(js.state.months || {}).some(M => M.n && M.pl === undefined)) st = js.state;
       } catch {}
     }
     if (!st) st = { year, lastDate: null, months: {}, miss: [] };
     const fetchDay = async (dt) => {
-      const lsKey = 'rswrd:v1:' + dt;
+      const lsKey = 'rswrd:v2:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
