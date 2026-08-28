@@ -94,6 +94,7 @@
       out.n++;
       if (best.won) out.w++;
       if (best.d > 1) out.e += 1 / best.d;
+      out.pl = (out.pl || 0) + (best.won ? (best.d - 1) : -1);
     });
     return out;
   }
@@ -130,8 +131,8 @@
     };
     const absorb = (dt, dig) => {
       const mo = dt.slice(0, 7);
-      const M = (st.months[mo] = st.months[mo] || { n: 0, w: 0, e: 0 });
-      M.n += dig.n; M.w += dig.w; M.e += dig.e;
+      const M = (st.months[mo] = st.months[mo] || { n: 0, w: 0, e: 0, pl: 0 });
+      M.n += dig.n; M.w += dig.w; M.e += dig.e; M.pl = (M.pl || 0) + (dig.pl || 0);
     };
     if (st.miss && st.miss.length) {
       const still = [];
@@ -158,12 +159,13 @@
     const aug = st.months[String(year) + '-08'];
     const hero = aug ? `<div class="tile" style="margin-bottom:10px"><h2>AUGUST \u00b7 THE TOP-WR HORSE</h2>` +
       `<div style="font-size:26px;font-weight:800;margin-top:6px">${aug.w} winners <span style="color:var(--faint);font-weight:400;font-size:15px">from</span> ${aug.n} races</div>` +
-      `<div class="sub" style="margin-top:6px">strike <b>${aug.n ? (aug.w / aug.n * 100).toFixed(1) : '\u2014'}%</b> \u00b7 SPs implied ${aug.n && aug.e ? (aug.e / aug.n * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${aug.e ? (aug.w / aug.e).toFixed(2) : '\u2014'}</b></div></div>` : '';
+      `<div class="sub" style="margin-top:6px">strike <b>${aug.n ? (aug.w / aug.n * 100).toFixed(1) : '\u2014'}%</b> \u00b7 SPs implied ${aug.n && aug.e ? (aug.e / aug.n * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${aug.e ? (aug.w / aug.e).toFixed(2) : '\u2014'}</b></div>` +
+      `<div class="sub" style="margin-top:4px">\u00a31 on every one at SP: staked \u00a3${aug.n} \u00b7 ${(aug.pl || 0) >= 0 ? 'returned +\u00a3' + (aug.pl || 0).toFixed(2) : 'lost \u2212\u00a3' + Math.abs(aug.pl || 0).toFixed(2)} \u00b7 ROI <b style="color:${(aug.pl || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${aug.n ? ((aug.pl || 0) / aug.n * 100).toFixed(1) : '\u2014'}%</b></div></div>` : '';
     const rows = months.map(([mo, M]) => {
       const ae = M.e ? M.w / M.e : null;
       const col = ae != null ? (ae >= 1.05 ? 'pos' : ae <= 0.95 ? 'neg' : '') : '';
       return `<div class="row"><span class="n"><b>${mo}</b> <span style="color:var(--faint)">${M.n} races</span></span>` +
-        `<span class="v ${col}">${M.w} won \u00b7 ${M.n ? (M.w / M.n * 100).toFixed(1) : '\u2014'}% \u00b7 SPs said ${M.n && M.e ? (M.e / M.n * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${ae != null ? ae.toFixed(2) : '\u2014'}</b></span></div>`;
+        `<span class="v ${col}">${M.w} won \u00b7 ${M.n ? (M.w / M.n * 100).toFixed(1) : '\u2014'}% \u00b7 SPs said ${M.n && M.e ? (M.e / M.n * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${ae != null ? ae.toFixed(2) : '\u2014'}</b> \u00b7 \u00a31 ROI ${M.n ? ((M.pl || 0) / M.n * 100).toFixed(1) : '\u2014'}%</span></div>`;
     }).join('');
     $('app').innerHTML = hero + `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>MONTH BY MONTH</h2>` +
       `<div class="sub">the weights signal against its prices, all year</div>${rows}</div></div>` +
