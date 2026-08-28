@@ -62,6 +62,7 @@
   </header>
 
   <canvas id="chart"  style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
+  <div id="todaywins"></div>
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
@@ -257,6 +258,7 @@
         allUp.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         // picks that already RAN today (API results lag \u2014 markable by hand)
         const ranPicks = [];
+        const ranAll = [];
         Object.entries(byRace).forEach(([key, field]) => {
           const [t, course] = key.split('|');
           if (raceMin(t) >= nowM - 2) return;
@@ -286,9 +288,11 @@
           const deepest = priced.find(x => eOf(x) !== 999);
           if (!deepest || eOf(deepest) >= 0) return;
           const maxOr = orVals.length ? Math.max(...orVals) : null;
-          if (maxOr == null || deepest.r.ofr !== maxOr) return;
-          ranPicks.push({ t, course, h: deepest.r.h, sp: deepest.r.d });
+          const isTop = maxOr != null && deepest.r.ofr === maxOr;
+          ranAll.push({ t, course, h: deepest.r.h, sp: deepest.r.d, isTop });
+          if (isTop) ranPicks.push({ t, course, h: deepest.r.h, sp: deepest.r.d });
         });
+        ranAll.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         ranPicks.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         // auto-settle from the winners feed where it can
         const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
@@ -321,7 +325,25 @@
           if (wn !== undefined) return { v: wn === nameN(p3.h) ? 1 : 0, src: 'auto' };
           return { v: undefined, src: null };
         };
+        const paintToday = () => {
+          const box = $('todaywins');
+          if (!box) return;
+          if (!ranAll.length) { box.innerHTML = ''; return; }
+          const tally = (list) => {
+            let w = 0, settled = 0;
+            list.forEach(p7 => { const e7 = effOf(p7); if (e7.v !== undefined) { settled++; if (e7.v === 1) w++; } });
+            return { w, settled, pending: list.length - settled };
+          };
+          const a = tally(ranAll);
+          const b = tally(ranAll.filter(p7 => p7.isTop));
+          const line3 = (label, s2) => `<div class="row"><span class="n"><b>${label}</b></span>` +
+            `<span class="v"><b>${s2.w}</b> win${s2.w === 1 ? '' : 's'} of ${s2.settled} settled${s2.pending ? ' \u00b7 ' + s2.pending + ' pending' : ''}</span></div>`;
+          box.innerHTML = `<div class="tile" style="margin:10px 0"><h2>TODAY SO FAR</h2>` +
+            `<div class="sub">settled by the winners feed and your marks \u00b7 pending = result not in yet</div>` +
+            line3('most-minus \u00b7 all races', a) + line3('minus + top OR', b) + `</div>`;
+        };
         const paintRan = () => {
+          paintToday();
           if (!ranPicks.length) { ranEl.innerHTML = ''; return; }
           // streak: newest backwards over settled+marked, stop at first unknown
           let streak = null;
