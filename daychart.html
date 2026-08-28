@@ -156,6 +156,14 @@
     let st = null;
     try { st = JSON.parse(localStorage.getItem('rsstate:v1') || 'null'); } catch {}
     if (st && String(st.year) !== String(year)) st = null;
+    if (!st) {
+      // shared copy on the server: any device's finished build seeds this one instantly
+      try {
+        const rs = await fetch('/api/yearstate');
+        const js = await rs.json();
+        if (js && js.state && String(js.state.year) === String(year)) st = js.state;
+      } catch {}
+    }
     if (!st) st = { year, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
       G: { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } } };
 
@@ -250,6 +258,8 @@
     }
     try { localStorage.setItem('rsstate:v1', JSON.stringify(st)); } catch {}
     renderAll(buildPayload());
+    // share the extended state so no other device (or this one, wiped) ever rebuilds
+    try { fetch('/api/yearstate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
   }
 
   function renderGroups(G) {
