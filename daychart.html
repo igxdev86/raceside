@@ -60,6 +60,7 @@
     <a class="back" href="/freqyear.html">← year</a>
   </header>
 
+  <div id="streak" style="font-family:var(--mono);font-size:11px;color:#C9A24B;margin-bottom:8px;letter-spacing:.04em"></div>
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
@@ -76,6 +77,93 @@
   const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
   const qd = new URLSearchParams(location.search).get('d');
   const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') ? qd : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  function daySeqDigest(dayData, pj, pt) {
+    // ordered win/lose sequence of the most-minus runner across the day -> streak fields
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const races = (dayData.races || []).filter(rc => (rc.runners || []).length >= 2)
+      .sort((a, b) => raceMin(a.t) - raceMin(b.t));
+    const marks = [];
+    races.forEach(rc => {
+      const field = rc.runners;
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const priced = field.map((r, i) => ({ r, p: exps[i] / tot }));
+      const eOf = (x) => x.r.d > 1 ? (x.p - 1 / x.r.d) / (1 / x.r.d) : 999;
+      priced.sort((a, b) => eOf(a) - eOf(b));
+      const deepest = priced.find(x => eOf(x) !== 999);
+      if (deepest && eOf(deepest) < 0) marks.push(deepest.r.won ? 1 : 0);
+    });
+    let lead = 0; while (lead < marks.length && marks[lead] === 0) lead++;
+    let trail = 0; while (trail < marks.length && marks[marks.length - 1 - trail] === 0) trail++;
+    let maxGap = 0, cur = 0;
+    marks.forEach(m => { if (m === 0) { cur++; if (cur > maxGap) maxGap = cur; } else cur = 0; });
+    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap };
+  }
+
+  async function yearStreak(pj, pt) {
+    const box = $('streak');
+    const yEnd = new Date(Date.now() - 86400000);
+    const endKey = yEnd.toISOString().slice(0, 10);
+    try {
+      const done = JSON.parse(localStorage.getItem('rsstreak:v1:' + endKey) || 'null');
+      if (done) { box.innerHTML = done; return; }
+    } catch {}
+    const year = new Date().getFullYear();
+    const dates = [];
+    for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
+    let best = 0, bestDate = '', run = 0;
+    let walked = 0;
+    for (const dt of dates) {
+      const lsKey = 'rsdeepseq:v1:' + dt;
+      let dig = null;
+      try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+      if (!dig) {
+        try {
+          const r = await fetch('/api/priceday?v=3&date=' + dt);
+          const dd = await r.json();
+          if (dd && dd.ok) {
+            dig = daySeqDigest(dd, pj, pt);
+            try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {}
+          }
+        } catch {}
+      }
+      if (dig && dig.n) {
+        if (dig.wins === 0) {
+          run += dig.n;
+        } else {
+          const broke = run + dig.lead;
+          if (broke > best) { best = broke; bestDate = dt; }
+          if (dig.maxGap > best) { best = dig.maxGap; bestDate = dt; }
+          run = dig.trail;
+        }
+      }
+      walked++;
+      if (walked % 10 === 0) box.textContent = 'measuring the year\u2019s longest wait \u2014 ' + Math.round(walked / dates.length * 100) + '%';
+    }
+    if (run > best) { best = run; bestDate = 'still running'; }
+    const stamp = best ? ('LONGEST WAIT THIS YEAR: <b>' + best + ' races</b> without a most-minus win' + (bestDate === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + bestDate)) : '';
+    box.innerHTML = stamp;
+    try { localStorage.setItem('rsstreak:v1:' + endKey, JSON.stringify(stamp)); } catch {}
+  }
 
   function initCal() {
     const cal = $('cal');
@@ -177,6 +265,7 @@
     ctx.fillText(seq[n - 1].t, W - padR - 30, H - 8);
 
     // rows: won/lost + evolving 1-in-X
+    yearStreak(pj, pt);
     const rows = seq.map((s, i) =>
       `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)}</span>` +
       `<span class="v ${s.won ? 'pos' : ''}">${s.won ? '✓' : '×'} ${s.cumW}/${i + 1}</span></div>`
