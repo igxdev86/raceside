@@ -298,15 +298,21 @@
       cs.onclick = () => { courseStats = !courseStats; renderRaceChips(); renderTable(); };
       box.appendChild(cs);
     }
-    live.forEach(r => {
+    // next 3 races jump the queue, ahead of the resulted ones
+    const nextThree = live.filter(r => r.day === 'today' && raceMin(r.t) >= nowMin - 10).slice(0, 3);
+    const isNext = (r) => nextThree.some(n2 => n2.t === r.t && n2.course === r.course && n2.day === r.day);
+    const ordered = [...nextThree, ...live.filter(r => !isNext(r))];
+    ordered.forEach(r => {
       const on = raceFilter && raceFilter.day === r.day && raceFilter.t === r.t && raceFilter.course === r.course;
       const past = r.day === 'today' && raceMin(r.t) < nowMin - 10;
+      const nxt = isNext(r);
       const b = document.createElement('button');
       b.className = 'chip' + (on ? ' on' : '');
       b.style.flex = '0 0 auto';
       if (past && !on) b.style.opacity = '0.55';
+      if (nxt && !on) { b.style.borderColor = '#6E8FE8'; b.style.color = '#C7D4F2'; }
       const w2 = past ? winnerFor(r.t, r.course) : null;
-      b.textContent = (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course + (past ? (w2 ? ' ✓ ' + w2.raw : ' ✓') : '');
+      b.textContent = (nxt && ordered[0] === r ? '▸ ' : '') + (r.day === 'tomorrow' ? 'Tom ' : '') + r.t + ' ' + r.course + (past ? (w2 ? ' ✓ ' + w2.raw : ' ✓') : '');
       b.onclick = () => { raceFilter = on ? null : r; renderRaceChips(); renderTable(); };
       box.appendChild(b);
     });
