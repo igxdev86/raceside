@@ -57,14 +57,14 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">THE <b>IDEAS</b><small>ten formulas · applied to today’s card</small></div>
+    <div class="wordmark">THE <b>IDEAS</b><small>twenty-one formulas · applied to today’s card</small></div>
     <a class="back" href="/thepounce.html">← pounce</a>
   </header>
 
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
-  <p class="note">Ten lenses on today’s card, each built from the site’s own data — the model, the ratings, the weights, the people, the pairings. These are screens, not tips: a lens only earns trust when its year-long A/E beats 1.00 on the dated pages. Settled races tick themselves. Not advice.</p>
+  <p class="note">Twenty-one lenses on today’s card, each built from the site’s own data — the model, the ratings, the weights, the people, the pairings. These are screens, not tips: a lens only earns trust when its year-long A/E beats 1.00 on the dated pages. Settled races tick themselves. Not advice.</p>
   <footer>RACESIDE · data: The Racing API · settled at SP</footer>
 </div>
 <script>
@@ -215,11 +215,89 @@
     // 9 MODEL PLUS
     const mp = Object.values(raceInfo).filter(x => x.plus && x.edges[x.plus.h] > 0.10).map(x => ({ r: tag(x.plus), x: '+' + Math.round(x.edges[x.plus.h] * 100) + '%' }));
     T.push(tile('9 \u00b7 MODEL PLUS', 'the opposite lens \u2014 the model rates them ABOVE their price by 10%+ (the value side of the ledger)', sortT(mp)));
-    // 10 THE STACK
+    // ---- second ten ----
+    const pjPct = pj, ptPct = pt;
+    const bestBy = (field, score) => {
+      let best = null, bs = -1e9;
+      field.forEach(r => { const s2 = score(r); if (s2 != null && s2 > bs) { bs = s2; best = r; } });
+      return best ? { r: best, s: bs } : null;
+    };
+    // 11 TOP JOCKEY SCORE
+    const tjs = Object.values(raceInfo).map(x => bestBy(x.field, (r) => pjPct[r.jid] != null ? pjPct[r.jid] : null))
+      .filter(Boolean).map(b => ({ r: tag(b.r), x: 'score ' + Math.round(b.s) }));
+    T.push(tile('10 \u00b7 TOP JOCKEY SCORE', 'each race\u2019s highest-scoring jockey by 12-month A/E percentile \u2014 the person half of the model, jockey side', sortT(tjs)));
+    // 12 TOP TRAINER SCORE
+    const tts = Object.values(raceInfo).map(x => bestBy(x.field, (r) => ptPct[r.tid] != null ? ptPct[r.tid] : null))
+      .filter(Boolean).map(b => ({ r: tag(b.r), x: 'score ' + Math.round(b.s) }));
+    T.push(tile('11 \u00b7 TOP TRAINER SCORE', 'same lens, trainer side \u2014 the yard the numbers rate highest in each race', sortT(tts)));
+    // 13 THE RANK PICK
+    const rp = Object.values(raceInfo).map(x => bestBy(x.field, (r) => {
+      const parts = [];
+      if (pjPct[r.jid] != null) parts.push(pjPct[r.jid]);
+      if (ptPct[r.tid] != null) parts.push(ptPct[r.tid]);
+      return parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+    })).filter(Boolean).map(b => ({ r: tag(b.r), x: 'rank ' + Math.round(b.s) }));
+    T.push(tile('12 \u00b7 THE RANK PICK', 'best combined jockey+trainer score per race \u2014 the people half of the model on its own, no ratings, no weights', sortT(rp)));
+    // 14 HOT HAND
+    const wonJids = {};
+    rides.forEach(r => { if (settleOf(r) === 1) wonJids[r.jid] = r.t; });
+    const nowM2 = new Date().getHours() * 60 + new Date().getMinutes();
+    const hh = rides.filter(r => wonJids[r.jid] !== undefined && raceMin(r.t) > nowM2)
+      .map(r => ({ r: tag(r), x: 'won the ' + wonJids[r.jid] }));
+    T.push(tile('13 \u00b7 HOT HAND', 'jockeys who have already ridden a winner today, on their later rides \u2014 the classic \u201cfollow the hot jockey\u201d (the year pages will say if it\u2019s real)', sortT(hh)));
+    // 15 IN-FORM MONTH
+    const ifm = rides.filter(r => {
+      const s = (store.jockeys || {})[r.jid];
+      if (!s || !s.mo || !s.mo.length || s.runs < 100) return false;
+      const cur = s.mo[s.mo.length - 1];
+      if (!cur || cur[0] < 10) return false;
+      const base = s.wins / s.runs;
+      return base > 0 && (cur[1] / cur[0]) >= base * 1.5;
+    }).map(r => { const s = (store.jockeys || {})[r.jid]; const cur = s.mo[s.mo.length - 1];
+      return { r: tag(r), x: 'this month ' + cur[1] + '/' + cur[0] }; });
+    T.push(tile('14 \u00b7 IN-FORM MONTH', 'jockeys striking 1.5\u00d7 their own 12-month rate this month, 10+ rides \u2014 form, measured against themselves', sortT(ifm)));
+    // 16 DOMINANT FAV
+    const df = Object.values(raceInfo).map(x => {
+      const priced = x.field.filter(r => r.d > 1).sort((a, b) => a.d - b.d);
+      if (priced.length < 2) return null;
+      if (1 / priced[0].d >= 2 * (1 / priced[1].d)) return { r: tag(priced[0]), x: 'next best ' + priced[1].d };
+      return null;
+    }).filter(Boolean);
+    T.push(tile('15 \u00b7 DOMINANT FAV', 'favourites the market rates at least twice as likely as anything else in the race \u2014 the \u201cbanker\u201d shape', sortT(df)));
+    // 17 THE OUTSIDER
+    const out2 = Object.values(raceInfo).map(x => {
+      let best = null;
+      x.field.forEach(r => { const e2 = x.edges[r.h]; if (r.d >= 8 && e2 != null && e2 > 0.10 && (!best || e2 > x.edges[best.h])) best = r; });
+      return best ? { r: tag(best), x: '+' + Math.round(x.edges[best.h] * 100) + '%' } : null;
+    }).filter(Boolean);
+    T.push(tile('16 \u00b7 THE OUTSIDER', 'model-plus at a price \u2014 8.0 or bigger where the model still sees 10%+ more chance than the market', sortT(out2)));
+    // 18 PLACED MACHINE
+    const pm = rides.filter(r => { const s = (store.jockeys || {})[r.jid]; return s && s.runs >= 100 && (s.plc || 0) / s.runs >= 0.40; })
+      .map(r => { const s = (store.jockeys || {})[r.jid]; return { r: tag(r), x: 'placed ' + Math.round((s.plc || 0) / s.runs * 100) + '%' }; });
+    T.push(tile('17 \u00b7 PLACED MACHINE', 'jockeys who hit the frame on 40%+ of 100+ rides \u2014 the each-way temperament', sortT(pm)));
+    // 19 MONEY RIDER
+    const mr = rides.filter(r => { const s = (store.jockeys || {})[r.jid]; return s && s.runs >= 100 && (s.pl || 0) > 0; })
+      .map(r => { const s = (store.jockeys || {})[r.jid]; return { r: tag(r), x: '+\u00a3' + (s.pl || 0).toFixed(0) + ' at SP' }; });
+    T.push(tile('18 \u00b7 MONEY RIDER', 'the rare ones: jockeys in profit to \u00a31 level stakes at SP over 12 months, 100+ rides \u2014 blind backing them beat the book', sortT(mr)));
+    // 20 THE SWERVE
+    const sw = rides.filter(r => { const t2 = (store.trainers || {})[r.tid]; const ae2 = aeOf(t2, 100); return ae2 != null && ae2 <= 0.75 && r.d > 1 && r.d <= 4.0; })
+      .map(r => { const t2 = (store.trainers || {})[r.tid]; return { r, x: 'yard A/E ' + (t2.wins / t2.exp).toFixed(2) }; });
+    T.push(tile('19 \u00b7 THE SWERVE', 'the anti-lens: short-priced runners (\u22644.0) from yards running 25%+ below their prices \u2014 candidates to leave alone, not to back', sortT(sw)));
+    // 20 THE BUSY YARD
+    const yardCount = {};
+    rides.forEach(r => { if (r.tid) yardCount[r.tid] = (yardCount[r.tid] || 0) + 1; });
+    const busyIds = Object.entries(yardCount).filter(([, c]) => c >= 3).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
+    const by2 = busyIds.map(id => {
+      const own = rides.filter(r => r.tid === id && r.d > 1).sort((a, b) => a.d - b.d);
+      if (!own.length) return null;
+      return { r: tag(own[0]), x: (rides.find(r2 => r2.tid === id) || {}).trainer + ' \u00b7 ' + yardCount[id] + ' runners' };
+    }).filter(Boolean);
+    T.push(tile('20 \u00b7 THE BUSY YARD', 'the day\u2019s mob-handed yards (3+ runners) and each one\u2019s shortest-priced horse \u2014 a yard firing numbers at a card is a statement', sortT(by2)));
+    // 21 THE STACK
     const seen2 = {};
     const stack = [];
     rides.forEach(r => { const k = r.h + '|' + r.t + '|' + r.course; if ((tags[k] || 0) >= 3 && !seen2[k]) { seen2[k] = 1; stack.push({ r, x: tags[k] + ' signals' }); } });
-    T.push(tile('10 \u00b7 THE STACK', 'horses qualifying on three or more of the lenses above \u2014 where the signals agree', sortT(stack)));
+    T.push(tile('21 \u00b7 THE STACK', 'horses qualifying on three or more of the twenty lenses above \u2014 where the signals agree (note: some lenses overlap by construction)', sortT(stack)));
 
     $('app').innerHTML = `<div class="grid">${T.join('')}</div>`;
   }
