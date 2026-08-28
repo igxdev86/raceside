@@ -265,7 +265,16 @@
             try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {}
           }
         } catch {}
-        if (!dig) break;   // failed day: stop here and resume from it next visit — never skip a day
+        if (!dig) {
+          for (let att = 0; att < 1 && !dig; att++) {
+            try {
+              const r2 = await fetch('/api/priceday?v=4&date=' + dt);
+              const dd2 = await r2.json();
+              if (dd2 && dd2.ok) { dig = daySeqDigest(dd2, pj, pt); try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {} }
+            } catch {}
+          }
+        }
+        if (!dig) break;   // still failing: stop here and resume from this day next visit
       }
       if (dig && dig.groups) {
         Object.keys(st.G).forEach(k => { const s = dig.groups[k]; if (s) { st.G[k].n += s.n; st.G[k].w += s.w; st.G[k].e += s.e; } });
