@@ -173,12 +173,12 @@
     const endKey = yEnd.toISOString().slice(0, 10);
     const year = new Date().getFullYear();
     let st = null;
-    try { st = JSON.parse(localStorage.getItem('rsstate:v1') || 'null'); } catch {}
+    try { st = JSON.parse(localStorage.getItem('rsstate:v2') || 'null'); } catch {}
     if (st && String(st.year) !== String(year)) st = null;
     if (!st) {
       // shared copy on the server: any device's finished build seeds this one instantly
       try {
-        const rs = await fetch('/api/yearstate');
+        const rs = await fetch('/api/yearstate?k=yearstate:v2');
         const js = await rs.json();
         if (js && js.state && String(js.state.year) === String(year)) st = js.state;
       } catch {}
@@ -248,7 +248,7 @@
     for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
     if (!dates.length) {
       // nothing to extend — still offer our state to the server (it keeps whichever is newer)
-      if (st.lastDate) { try { fetch('/api/yearstate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
+      if (st.lastDate) { try { fetch('/api/yearstate?k=yearstate:v2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
       return;
     }
     let walked = 0;
@@ -265,6 +265,7 @@
             try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {}
           }
         } catch {}
+        if (!dig) break;   // failed day: stop here and resume from it next visit — never skip a day
       }
       if (dig && dig.groups) {
         Object.keys(st.G).forEach(k => { const s = dig.groups[k]; if (s) { st.G[k].n += s.n; st.G[k].w += s.w; st.G[k].e += s.e; } });
@@ -294,10 +295,10 @@
       // only the first-ever build shows progress; daily top-ups are silent
       if (!hasState && !stale && walked % 10 === 0) box.textContent = 'measuring the year \u2014 ' + Math.round(walked / dates.length * 100) + '%';
     }
-    try { localStorage.setItem('rsstate:v1', JSON.stringify(st)); } catch {}
+    try { localStorage.setItem('rsstate:v2', JSON.stringify(st)); } catch {}
     renderAll(buildPayload());
     // share the extended state so no other device (or this one, wiped) ever rebuilds
-    try { fetch('/api/yearstate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+    try { fetch('/api/yearstate?k=yearstate:v2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
   }
 
   function renderTrips(D) {
