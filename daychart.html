@@ -184,6 +184,18 @@
       } catch {}
     }
     let stale = null;
+    if (!st) {
+      // previous-generation state paints the page instantly while the rebuild runs silent
+      try { stale = JSON.parse(localStorage.getItem('rsstate:v1') || 'null'); } catch {}
+      if (stale && String(stale.year) !== String(year)) stale = null;
+      if (!stale) {
+        try {
+          const rs2 = await fetch('/api/yearstate?k=yearstate:v1');
+          const js2 = await rs2.json();
+          if (js2 && js2.state && String(js2.state.year) === String(year)) stale = js2.state;
+        } catch {}
+      }
+    }
     if (st && (!st.D || !st.EW)) { stale = st; st = null; }   // old shape: render it now, rebuild silently
     if (!st) st = { year, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
       EW: { n: 0, w: 0, pl: 0, stk: 0, ret: 0 },
