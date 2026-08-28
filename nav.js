@@ -13,6 +13,7 @@
     ['/freqyear.html', 'YEAR'],
     ['/martingale.html', 'MGALE'],
     ['/thepounce.html', 'POUNCE'],
+    ['/thehour.html', 'HOUR'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
