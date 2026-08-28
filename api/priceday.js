@@ -53,6 +53,14 @@ export default async function handler(req, res) {
   races.sort((a, b) => offMin(a.off) - offMin(b.off));
   const out = races.map((race) => ({
     t: race.off || '',
+    dist: (() => {
+      const f = parseFloat(race.dist_f);
+      if (f > 0) return f;
+      const m = String(race.dist || '').match(/(?:(\d+)m)?\s*(\d+(?:\.\d+)?)?f?/);
+      if (!m) return null;
+      const fur = (m[1] ? Number(m[1]) * 8 : 0) + (m[2] ? Number(m[2]) : 0);
+      return fur > 0 ? fur : null;
+    })(),
     course: race.course || '?',
     name: race.race_name || '',
     csf: (() => { const v = parseFloat(String(race.tote_csf || '').replace(/[\u00a3,]/g, '')); return v > 0 ? v : null; })(),
