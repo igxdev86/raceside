@@ -220,20 +220,94 @@
           if (maxOr == null || deepest.r.ofr !== maxOr) return;
           picks2.push({ t, course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest) });
         });
+        // picks that already RAN today (API results lag \u2014 markable by hand)
+        const ranPicks = [];
+        Object.entries(byRace).forEach(([key, field]) => {
+          const [t, course] = key.split('|');
+          if (raceMin(t) >= nowM - 2) return;
+          const orVals = field.map(r => r.ofr).filter(v => v != null);
+          const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+          const okF = field.filter(r => r.ofr != null && r.lbs != null);
+          let advM = {};
+          if (okF.length >= 2) {
+            const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+            const car = (r) => r.lbs - clm(r.jockey);
+            const topC = car(top);
+            okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+          }
+          const strengths = field.map(r => {
+            const parts = [];
+            if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+            if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+            const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+            const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+            return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+          });
+          const exps = strengths.map(s => Math.exp(s));
+          const tot = exps.reduce((a, b) => a + b, 0);
+          const priced = field.map((r, i2) => ({ r, p: exps[i2] / tot }));
+          const eOf = (x) => x.r.d > 1 ? (x.p - 1 / x.r.d) / (1 / x.r.d) : 999;
+          priced.sort((a, b) => eOf(a) - eOf(b));
+          const deepest = priced.find(x => eOf(x) !== 999);
+          if (!deepest || eOf(deepest) >= 0) return;
+          const maxOr = orVals.length ? Math.max(...orVals) : null;
+          if (maxOr == null || deepest.r.ofr !== maxOr) return;
+          ranPicks.push({ t, course, h: deepest.r.h, sp: deepest.r.d });
+        });
+        ranPicks.sort((a, b) => raceMin(a.t) - raceMin(b.t));
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const marksKey = 'rsmarks:v1:' + todayKey;
+        let marks = {};
+        try { marks = JSON.parse(localStorage.getItem(marksKey) || '{}'); } catch {}
+        window.__pounceMark = (rk) => {
+          // cycle: unmarked \u2192 won \u2192 lost \u2192 unmarked
+          if (marks[rk] === undefined) marks[rk] = 1;
+          else if (marks[rk] === 1) marks[rk] = 0;
+          else delete marks[rk];
+          try { localStorage.setItem(marksKey, JSON.stringify(marks)); } catch {}
+          paintRan();
+        };
+        const ranEl = document.createElement('div');
+        const paintRan = () => {
+          if (!ranPicks.length) { ranEl.innerHTML = ''; return; }
+          // provisional streak: newest backwards, stop at first unmarked
+          let streak = null;
+          for (let i2 = ranPicks.length - 1; i2 >= 0; i2--) {
+            const mk2 = marks[ranPicks[i2].t + '|' + ranPicks[i2].course];
+            if (mk2 === undefined) { streak = null; break; }
+            if (mk2 === 1) { streak = streak === null ? 0 : streak; break; }
+            streak = (streak === null ? 0 : streak) + 1;
+          }
+          const rows3 = ranPicks.map(p3 => {
+            const rk = p3.t + '|' + p3.course;
+            const mk2 = marks[rk];
+            const badge = mk2 === 1 ? '<b style="color:var(--green)">\u2713 WON</b>' : mk2 === 0 ? '<b style="color:var(--red)">\u00d7 LOST</b>' : '<span style="color:var(--faint)">tap to mark</span>';
+            return `<div class="row" onclick="__pounceMark('${rk.replace(/'/g, '')}')" style="cursor:pointer${mk2 === 1 ? ';background:#E7F6EC' : ''}">` +
+              `<span class="n"><b>${p3.t}</b> ${p3.course}<br><b style="font-size:11px">${p3.h}</b></span>` +
+              `<span class="v">${badge}</span></div>`;
+          }).join('');
+          ranEl.innerHTML = `<h2 style="margin-top:14px">RUN TODAY \u00b7 MARK BY HAND</h2>` +
+            `<div class="sub">results feed lags \u2014 tap a row to cycle won / lost / clear \u00b7 marks live on this device only and the overnight SP settle is the record` +
+            (streak !== null && marks[ranPicks[ranPicks.length - 1].t + '|' + ranPicks[ranPicks.length - 1].course] !== undefined && marks[ranPicks[ranPicks.length - 1].t + '|' + ranPicks[ranPicks.length - 1].course] !== 1 ? ` \u00b7 <b style="color:var(--ink)">marked streak: ${streak} losses</b>` : '') + `</div>` + rows3;
+        };
         picks2.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         // hero: the very next pick, big, with a red\u2192green chance bar
         let hero = '';
         if (picks2.length) {
           const nx = picks2[0];
           const imp = nx.sp > 1 ? (1 / nx.sp) * 100 : null;
+          const modelPct = imp != null ? Math.max(0, imp * (1 + nx.edge)) : null;
           const yearStrike = (st.seq && st.seq.length) ? st.seq.reduce((a, e) => a + (e[0] ? 1 : 0), 0) / st.seq.length * 100 : null;
           const offIn = raceMin(nx.t) - nowM;
           const bar = imp != null ?
-            `<div style="position:relative;height:14px;border-radius:999px;background:linear-gradient(90deg,#D7263D,#E8A13A 45%,#12A150);margin:10px 0 4px">` +
-            `<div style="position:absolute;left:${Math.min(97, Math.max(1, imp)).toFixed(1)}%;top:-4px;width:4px;height:22px;background:#101418;border-radius:2px" title="market chance"></div>` +
-            (yearStrike != null ? `<div style="position:absolute;left:${Math.min(97, Math.max(1, yearStrike)).toFixed(1)}%;top:2px;width:2px;height:10px;background:#ffffffcc" title="year strike"></div>` : '') +
+            `<div style="position:relative;height:14px;border-radius:999px;background:linear-gradient(90deg,#D7263D,#E8A13A 45%,#12A150);margin:12px 0 4px">` +
+            `<div style="position:absolute;left:${Math.min(97, Math.max(1, imp)).toFixed(1)}%;top:-5px;width:4px;height:24px;background:#101418;border-radius:2px"></div>` +
+            `<div style="position:absolute;left:${Math.min(97, Math.max(1, modelPct)).toFixed(1)}%;top:-5px;width:4px;height:24px;background:#D7263D;border:1px solid #fff;border-radius:2px"></div>` +
+            (yearStrike != null ? `<div style="position:absolute;left:${Math.min(97, Math.max(1, yearStrike)).toFixed(1)}%;top:2px;width:2px;height:10px;background:#ffffffcc"></div>` : '') +
             `</div>` +
-            `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint)"><span>0%</span><span>market says <b style="color:var(--ink)">${imp.toFixed(0)}%</b>${yearStrike != null ? ' \u00b7 year strike ' + yearStrike.toFixed(0) + '% (white tick)' : ''}</span><span>100%</span></div>` : '';
+            `<div style="font-size:10px;color:var(--faint);line-height:1.6">` +
+            `<span style="color:#101418;font-weight:700">\u25ae</span> market ${imp.toFixed(0)}% \u2003 <span style="color:#D7263D;font-weight:700">\u25ae</span> my model ${modelPct.toFixed(0)}% \u2003 the gap between the two IS the ${Math.round(nx.edge * 100)}%` +
+            (yearStrike != null ? `<br>white tick = what these picks actually win: ${yearStrike.toFixed(0)}% over the year` : '') + `</div>` : '';
           hero = `<div class="tile" style="margin-bottom:10px">` +
             `<div style="font-size:11px;letter-spacing:.08em;color:var(--faint)">NEXT PICK${offIn >= 0 ? ' \u00b7 OFF IN ' + offIn + ' MIN' : ''}</div>` +
             `<div style="font-size:24px;font-weight:800;line-height:1.15;margin-top:4px">${nx.t} ${nx.course}</div>` +
@@ -243,9 +317,11 @@
         const rows2 = picks2.map(p2 =>
           `<div class="row"><span class="n"><b>${p2.t}</b> ${p2.course}<br><b style="font-size:11px">${p2.h}</b></span>` +
           `<span class="v">${Math.round(p2.edge * 100)}% \u00b7 <b style="color:var(--blue)">${p2.sp}</b></span></div>`).join('');
+        paintRan();
         el.innerHTML = hero + `<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2>` +
           `<div class="sub">races still to run where the most-minus runner also holds the top official rating \u00b7 odds are current, not SP \u00b7 the bar is the market\u2019s chance of the pick \u2014 not a prediction of change</div>` +
           (rows2 || '<div class="sub">no qualifying picks left today \u2014 either the card is done or no race qualifies</div>');
+        el.appendChild(ranEl);
       } catch {
         el.innerHTML = '<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2><div class="sub">couldn\u2019t load today\u2019s card</div>';
       }
@@ -322,7 +398,10 @@
     $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>WHERE TO POUNCE \u00b7 ${seq.length} picks</h2>` +
       `<div class="sub">each row: \u00a31 on the next pick only when the current losing run is exactly k \u00b7 flat rows = no optimum exists \u00b7 a rising red line would be the surprise worth respecting</div>${rows}</div>` +
       (() => {
-        const last = seq.slice(-20).reverse();
+        const last = seq.slice().sort((a, b) => {
+          if ((a[2] || '') !== (b[2] || '')) return (a[2] || '') < (b[2] || '') ? 1 : -1;
+          return raceMin(b[3] || '') - raceMin(a[3] || '');
+        }).slice(0, 20);
         const ordinal = (p2) => { const n2 = parseInt(p2, 10); if (isNaN(n2)) return p2 ? String(p2) : '\u2014'; const s2 = n2 % 100; return n2 + (s2 >= 11 && s2 <= 13 ? 'th' : n2 % 10 === 1 ? 'st' : n2 % 10 === 2 ? 'nd' : n2 % 10 === 3 ? 'rd' : 'th'); };
         const r20 = last.map(e => {
           const [w, sp, dte, t2, h2, pos2, fn] = e;
