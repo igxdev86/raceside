@@ -135,11 +135,11 @@
     const year = new Date().getFullYear();
     const yEnd = new Date(Date.now() - 86400000);
     let st = null;
-    try { st = JSON.parse(localStorage.getItem('rsmg:v2') || 'null'); } catch {}
+    try { st = JSON.parse(localStorage.getItem('rsmg:v3') || 'null'); } catch {}
     if (st && String(st.year) !== String(year)) st = null;
     if (!st) {
       try {
-        const rs = await fetch('/api/yearstate?k=mgstate:v2');
+        const rs = await fetch('/api/yearstate?k=mgstate:v3');
         const js = await rs.json();
         if (js && js.state && String(js.state.year) === String(year)) st = js.state;
       } catch {}
@@ -163,14 +163,15 @@
             try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
           }
         } catch {}
+        if (!picks) break;   // failed day: stop and resume next visit — a hiccup must never delete a day
       }
       if (picks) st.seq.push(...picks);
       st.lastDate = dt;
       walked++;
       if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
     }
-    try { localStorage.setItem('rsmg:v2', JSON.stringify(st)); } catch {}
-    try { fetch('/api/yearstate?k=mgstate:v2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+    try { localStorage.setItem('rsmg:v3', JSON.stringify(st)); } catch {}
+    try { fetch('/api/yearstate?k=mgstate:v3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
 
     const seq = st.seq;
     if (!seq.length) { $('app').innerHTML = '<div class="state">no picks found yet</div>'; return; }
