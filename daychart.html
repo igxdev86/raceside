@@ -114,9 +114,15 @@
     });
     let lead = 0; while (lead < marks.length && marks[lead] === 0) lead++;
     let trail = 0; while (trail < marks.length && marks[marks.length - 1 - trail] === 0) trail++;
-    let maxGap = 0, cur = 0;
-    marks.forEach(m => { if (m === 0) { cur++; if (cur > maxGap) maxGap = cur; } else cur = 0; });
-    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap };
+    // every INTERNAL completed gap (between two wins in the day) — lead and trail chain across days
+    const gaps = [];
+    let cur = 0, seenWin = false;
+    marks.forEach(m => {
+      if (m === 1) { if (seenWin && cur > 0) gaps.push(cur); cur = 0; seenWin = true; }
+      else if (seenWin) cur++;
+    });
+    let maxGap = 0; gaps.forEach(g => { if (g > maxGap) maxGap = g; });
+    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap, gaps };
   }
 
   async function yearStreak(pj, pt) {
@@ -124,16 +130,32 @@
     const yEnd = new Date(Date.now() - 86400000);
     const endKey = yEnd.toISOString().slice(0, 10);
     try {
-      const done = JSON.parse(localStorage.getItem('rsstreak:v1:' + endKey) || 'null');
-      if (done) { box.innerHTML = done; return; }
+      const done = JSON.parse(localStorage.getItem('rsstreak:v2:' + endKey) || 'null');
+      if (done && done.top && done.top.length) {
+        const top = done.top;
+        const b2 = top[0];
+        box.style.cursor = 'pointer';
+        let open = false;
+        const paint = () => {
+          const list = open ? '<div style="margin-top:6px;color:#C7D4F2">' + top.map((d, i) =>
+            (i + 1) + '. <b>' + d.len + ' races</b> \u00b7 ' + (d.ended === 'still running' ? 'still running' : '<a href="?d=' + d.ended + '" style="color:#9BB6FF">ended ' + d.ended + '</a>')
+          ).join('<br>') + '</div>' : '';
+          box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
+            (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
+            ' <span style="color:#8FA3C8">' + (open ? '\u25b4 close' : '\u25be tap for top 10') + '</span>' + list;
+        };
+        box.onclick = () => { open = !open; paint(); };
+        paint();
+        return;
+      }
     } catch {}
     const year = new Date().getFullYear();
     const dates = [];
     for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
-    let best = 0, bestDate = '', run = 0;
-    let walked = 0;
+    const droughts = [];   // every completed drought: { len, ended }
+    let run = 0, walked = 0;
     for (const dt of dates) {
-      const lsKey = 'rsdeepseq:v1:' + dt;
+      const lsKey = 'rsdeepseq:v2:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
@@ -150,19 +172,39 @@
         if (dig.wins === 0) {
           run += dig.n;
         } else {
-          const broke = run + dig.lead;
-          if (broke > best) { best = broke; bestDate = dt; }
-          if (dig.maxGap > best) { best = dig.maxGap; bestDate = dt; }
+          droughts.push({ len: run + dig.lead, ended: dt });
+          (dig.gaps || []).forEach(g => droughts.push({ len: g, ended: dt }));
+          if (!dig.gaps && dig.maxGap) droughts.push({ len: dig.maxGap, ended: dt });
           run = dig.trail;
         }
       }
       walked++;
       if (walked % 10 === 0) box.textContent = 'measuring the year\u2019s longest wait \u2014 ' + Math.round(walked / dates.length * 100) + '%';
     }
-    if (run > best) { best = run; bestDate = 'still running'; }
-    const stamp = best ? ('LONGEST WAIT THIS YEAR: <b>' + best + ' races</b> without a most-minus win' + (bestDate === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + bestDate)) : '';
-    box.innerHTML = stamp;
-    try { localStorage.setItem('rsstreak:v1:' + endKey, JSON.stringify(stamp)); } catch {}
+    if (run > 0) droughts.push({ len: run, ended: 'still running' });
+    droughts.sort((a, b) => b.len - a.len);
+    const top = droughts.filter(d => d.len > 0).slice(0, 10);
+    const payload = { top };
+    const renderStamp = () => {
+      if (!top.length) { box.innerHTML = ''; return; }
+      const b2 = top[0];
+      box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b> without a most-minus win' +
+        (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
+        ' <span style="color:#8FA3C8">\u25be tap for top 10</span>';
+      box.style.cursor = 'pointer';
+      let open = false;
+      box.onclick = () => {
+        open = !open;
+        const list = open ? '<div style="margin-top:6px;color:#C7D4F2">' + top.map((d, i) =>
+          (i + 1) + '. <b>' + d.len + ' races</b> \u00b7 ' + (d.ended === 'still running' ? 'still running' : '<a href="?d=' + d.ended + '" style="color:#9BB6FF">ended ' + d.ended + '</a>')
+        ).join('<br>') + '</div>' : '';
+        box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
+          (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
+          ' <span style="color:#8FA3C8">' + (open ? '\u25b4 close' : '\u25be tap for top 10') + '</span>' + list;
+      };
+    };
+    renderStamp();
+    try { localStorage.setItem('rsstreak:v2:' + endKey, JSON.stringify(payload)); } catch {}
   }
 
   function initCal() {
