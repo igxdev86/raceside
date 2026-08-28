@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — FIRST PAIRS</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+<script src="/nav.js?v=1" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">FIRST <b>PAIRS</b><small>jockey × trainer together for the first time · August count</small></div>
+    <a class="back" href="/jockeys.html">← J&T</a>
+  </header>
+
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">A “first pair” is a jockey and trainer with no run together earlier this year — the walk from January is the memory, so August’s firsts are genuine (day-level: all of a pair’s runs on their first day count as firsts). First bookings are a classic stable-intent angle; the A/E column says whether the market underprices them. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  window.addEventListener('error', (e) => {
+    try { const a = document.getElementById('app'); if (a) a.innerHTML = '<div class="tile" style="border:2px solid #D7263D"><h2 style="color:#D7263D">PAGE ERROR \u2014 SHOW THE BUILDER</h2><div class="sub">' + String(e.message) + ' @ ' + e.lineno + '</div></div>' + a.innerHTML; } catch {}
+  });
+  const $ = (id) => document.getElementById(id);
+
+  function dayPairs(dayData) {
+    // per-day pair tallies: { "jid|tid": [runs, wins, expSum] }
+    const P = {};
+    (dayData.races || []).forEach(rc => {
+      (rc.runners || []).forEach(r => {
+        if (!r.jid || !r.tid) return;
+        const k = r.jid + '|' + r.tid;
+        (P[k] = P[k] || [0, 0, 0]);
+        P[k][0]++;
+        if (r.won) P[k][1]++;
+        if (r.d > 1) P[k][2] += 1 / r.d;
+      });
+    });
+    return P;
+  }
+
+  async function main() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>loading\u2026</div>';
+    const year = new Date().getFullYear();
+    const yEnd = new Date(Date.now() - 86400000);
+    let st = null;
+    try { st = JSON.parse(localStorage.getItem('rspair:v1') || 'null'); } catch {}
+    if (st && String(st.year) !== String(year)) st = null;
+    if (!st) {
+      try {
+        const rs = await fetch('/api/yearstate?k=pairstate:v1');
+        const js = await rs.json();
+        if (js && js.state && String(js.state.year) === String(year)) st = js.state;
+      } catch {}
+    }
+    if (!st) st = { year, lastDate: null, seen: {}, months: {}, miss: [] };
+    const fetchDay = async (dt) => {
+      const lsKey = 'rsprd:v1:' + dt;
+      let dig = null;
+      try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+      if (!dig) {
+        for (let att = 0; att < 2 && !dig; att++) {
+          try {
+            const r = await fetch('/api/priceday?v=4&date=' + dt);
+            const dd = await r.json();
+            if (dd && dd.ok) { dig = dayPairs(dd); try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {} }
+          } catch {}
+        }
+      }
+      return dig;
+    };
+    const absorb = (dt, dig) => {
+      const mo = dt.slice(0, 7);
+      const M = (st.months[mo] = st.months[mo] || { fn: 0, fw: 0, fe: 0, n: 0, w: 0 });
+      Object.entries(dig).forEach(([k, v]) => {
+        M.n += v[0]; M.w += v[1];
+        if (!st.seen[k]) {
+          M.fn += v[0]; M.fw += v[1]; M.fe += v[2];
+          st.seen[k] = 1;
+        }
+      });
+    };
+    // heal misses first (order matters for first-ness: only heal misses OLDER than nothing newer... day-level firsts
+    // healed late can misattribute; note shown when misses exist)
+    if (st.miss && st.miss.length) {
+      const still = [];
+      for (const dt of st.miss.sort()) { const dig = await fetchDay(dt); if (dig) absorb(dt, dig); else still.push(dt); }
+      st.miss = still;
+    }
+    const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    const dates = [];
+    for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
+    const firstBuild = !st.lastDate;
+    let walked = 0;
+    for (const dt of dates) {
+      const dig = await fetchDay(dt);
+      if (dig) absorb(dt, dig); else st.miss = (st.miss || []).concat([dt]);
+      st.lastDate = dt;
+      walked++;
+      if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>walking the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
+    }
+    try { localStorage.setItem('rspair:v1', JSON.stringify(st)); } catch {}
+    try { fetch('/api/yearstate?k=pairstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+
+    const months = Object.entries(st.months).sort((a, b) => a[0] < b[0] ? 1 : -1);
+    if (!months.length) { $('app').innerHTML = '<div class="state">no data yet</div>'; return; }
+    const aug = st.months[String(year) + '-08'];
+    const hero = aug ? `<div class="tile" style="margin-bottom:10px"><h2>AUGUST FIRST PAIRS</h2>` +
+      `<div style="font-size:26px;font-weight:800;margin-top:6px">${aug.fw} winners <span style="color:var(--faint);font-weight:400;font-size:15px">from</span> ${aug.fn} first-pair runs</div>` +
+      `<div class="sub" style="margin-top:6px">strike <b>${aug.fn ? (aug.fw / aug.fn * 100).toFixed(1) : '\u2014'}%</b> \u00b7 SPs implied ${aug.fn && aug.fe ? (aug.fe / aug.fn * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${aug.fe ? (aug.fw / aug.fe).toFixed(2) : '\u2014'}</b> \u00b7 all August runs for scale: ${aug.n} runs, ${aug.w} winners</div></div>` : '';
+    const rows = months.map(([mo, M]) => {
+      const ae = M.fe ? M.fw / M.fe : null;
+      const col = ae != null ? (ae >= 1.05 ? 'pos' : ae <= 0.95 ? 'neg' : '') : '';
+      return `<div class="row"><span class="n"><b>${mo}</b> <span style="color:var(--faint)">${M.fn} first-pair runs</span></span>` +
+        `<span class="v ${col}">${M.fw} won \u00b7 ${M.fn ? (M.fw / M.fn * 100).toFixed(1) : '\u2014'}% \u00b7 A/E <b>${ae != null ? ae.toFixed(2) : '\u2014'}</b></span></div>`;
+    }).join('');
+    $('app').innerHTML = hero + `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>MONTH BY MONTH</h2>` +
+      `<div class="sub">January\u2019s number is inflated \u2014 every pair is \u201cfirst\u201d with no lead-in \u2014 so read from spring onward</div>${rows}</div></div>` +
+      (st.miss && st.miss.length ? `<div class="sub" style="margin-top:8px">${st.miss.length} day(s) still to heal \u2014 firsts near them may shift slightly</div>` : '');
+  }
+  main();
+})();
+</script>
+</body>
+</html>
