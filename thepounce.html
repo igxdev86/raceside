@@ -220,6 +220,7 @@
         const byRace = {};
         (up.rides || []).filter(r => r.day === 'today').forEach(r => { (byRace[r.t + '|' + r.course] ||= []).push(r); });
         const picks2 = [];
+        const allUp = [];
         Object.entries(byRace).forEach(([key, field]) => {
           const [t, course] = key.split('|');
           if (raceMin(t) < nowM - 2) return;
@@ -249,9 +250,11 @@
           const deepest = priced.find(x => eOf(x) !== 999);
           if (!deepest || eOf(deepest) >= 0) return;
           const maxOr = orVals.length ? Math.max(...orVals) : null;
-          if (maxOr == null || deepest.r.ofr !== maxOr) return;
-          picks2.push({ t, course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest) });
+          const isTop = maxOr != null && deepest.r.ofr === maxOr;
+          allUp.push({ t, course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest), isTop });
+          if (isTop) picks2.push({ t, course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest) });
         });
+        allUp.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         // picks that already RAN today (API results lag \u2014 markable by hand)
         const ranPicks = [];
         Object.entries(byRace).forEach(([key, field]) => {
@@ -384,7 +387,12 @@
         const expLine = picks2.length ? `<div class="sub" style="margin-bottom:6px"><b style="color:var(--ink)">expected winners from these ${picks2.length}: ${expMkt.toFixed(1)}</b> by the market\u2019s odds${ysFrac != null ? ' \u00b7 ' + (picks2.length * ysFrac).toFixed(1) + ' by the year\u2019s strike rate' : ''}</div>` : '';
         el.innerHTML = `<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2>` + expLine +
           `<div class="sub">races still to run where the most-minus runner also holds the top official rating \u00b7 odds are current, not SP \u00b7 the bar is the market\u2019s chance of the pick \u2014 not a prediction of change</div>` +
-          (rows2 || '<div class="sub">no qualifying picks left today \u2014 either the card is done or no race qualifies</div>');
+          (rows2 || '<div class="sub">no qualifying picks left today \u2014 either the card is done or no race qualifies</div>') +
+          (allUp.length ? `<h2 style="margin-top:16px">TODAY\u2019S MOST-MINUS \u00b7 ALL RACES STILL TO RUN</h2>` +
+            `<div class="sub">the most-minus runner of every remaining race \u00b7 <b style="color:var(--ink)">expected winners: ${allUp.reduce((a, p6) => a + (p6.sp > 1 ? 1 / p6.sp : 0), 0).toFixed(1)}</b> by the market\u2019s odds \u00b7 TOP OR tagged</div>` +
+            allUp.map(p6 =>
+              `<div class="row"><span class="n"><b>${p6.t}</b> ${p6.course}${p6.isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : ''}<br><b style="font-size:11px">${p6.h}</b></span>` +
+              `<span class="v">${Math.round(p6.edge * 100)}% \u00b7 <b style="color:var(--blue)">${p6.sp}</b></span></div>`).join('') : '');
         el.appendChild(ranEl);
       } catch {
         el.innerHTML = '<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2><div class="sub">couldn\u2019t load today\u2019s card</div>';
