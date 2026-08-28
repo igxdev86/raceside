@@ -61,6 +61,7 @@
   </header>
 
   <div id="streak" style="font-family:var(--mono);font-size:11px;color:#C9A24B;margin-bottom:8px;letter-spacing:.04em"></div>
+  <div id="condlist" style="margin-bottom:10px"></div>
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
@@ -152,7 +153,8 @@
         };
         box.onclick = () => { open = !open; paint(); };
         paint();
-        return;
+        if (done.cond) { renderCond(done.cond); return; }
+        // older cache without the conditional table: fall through and recompute
       }
     } catch {}
     const year = new Date().getFullYear();
@@ -195,7 +197,17 @@
     const ranked = Object.entries(dist).map(([len, c]) => ({ len: Number(len), c })).sort((a, b) => b.c - a.c || a.len - b.len);
     droughts.sort((a, b) => b.len - a.len);
     const top = droughts.filter(d => d.len > 0).slice(0, 10);
-    const payload = { top, ranked: ranked.slice(0, 4), totalWaits };
+    // P(next wins | k straight losses): attempts at k = waits >= k (+ the still-running tail if longer than k)
+    const cond = [];
+    for (let k = 0; k <= 15; k++) {
+      const wins2 = dist[k] || 0;
+      let att = 0;
+      Object.entries(dist).forEach(([L, c]) => { if (Number(L) >= k) att += c; });
+      if (run > k) att += 1;
+      if (att < 10) break;
+      cond.push({ k, wins: wins2, att });
+    }
+    const payload = { top, ranked: ranked.slice(0, 4), totalWaits, cond };
     const modeLine = (rk, tot) => {
       if (!rk || !rk.length || !tot) return '';
       const m0 = rk[0];
@@ -221,9 +233,25 @@
       };
     };
     renderStamp();
+    renderCond(payload.cond);
     try { localStorage.setItem('rsstreak:v3:' + endKey, JSON.stringify(payload)); } catch {}
   }
 
+  function renderCond(cond) {
+    const el = $('condlist');
+    if (!cond || !cond.length) { el.innerHTML = ''; return; }
+    const base = cond[0];
+    const baseP = base.wins / base.att * 100;
+    const rows = cond.map(c => {
+      const p = c.wins / c.att * 100;
+      const diff = p - baseP;
+      const col = Math.abs(diff) < 5 ? '' : diff > 0 ? 'pos' : 'neg';
+      return `<div class="row"><span class="n">after <b>${c.k}</b> loss${c.k === 1 ? '' : 'es'}</span>` +
+        `<span class="v ${col}">next wins <b>${p.toFixed(0)}%</b> \u00b7 ${c.wins} of ${c.att} tries</span></div>`;
+    }).join('');
+    el.innerHTML = `<div class="tile"><h2>DOES A LOSING RUN CHANGE ANYTHING?</h2>` +
+      `<div class="sub">the chance the NEXT most-minus runner wins, given the current losing streak \u00b7 if races are independent every row reads about the same \u2014 losses making a win \u201cdue\u201d would show as rising percentages, and small samples at the deep end wobble hard</div>${rows}</div>`;
+  }
   function initCal() {
     const cal = $('cal');
     cal.value = date;
