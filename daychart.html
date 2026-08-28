@@ -61,12 +61,12 @@
     <a class="back" href="/freqyear.html">← year</a>
   </header>
 
+  <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <div id="streak" style="font-family:var(--mono);font-size:11px;color:#C9A24B;margin-bottom:8px;letter-spacing:.04em"></div>
   <div id="condlist" style="margin-bottom:10px"></div>
   <div id="grouplist" style="margin-bottom:10px"></div>
   <div id="triplist" style="margin-bottom:10px"></div>
-  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
-  <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
   <p class="note">Every race of the day in time order. Solid line = running count of wins by the most-minus runner; dashed line = how many wins its SPs had promised by that point. Green dots mark the races it won. Lines tracking together = the market keeping its word; solid line sagging under the dashed = winning less often than priced. One day is one sequence — the year chart is the judge. Change date: ?d=YYYY-MM-DD. Not advice.</p>
@@ -90,6 +90,7 @@
     const marks = [];
     const groups = { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } };
     const distB = { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } };
+    const ewTopOr = { n: 0, w: 0, pl: 0, stk: 0, ret: 0 };
     races.forEach(rc => {
       const field = rc.runners;
       const orVals = field.map(r => r.ofr).filter(v => v != null);
@@ -137,6 +138,20 @@
         if (isTopWr) gAdd(groups.topWr);
         const df = rc.dist;
         if (df > 0) gAdd(df <= 6 ? distB.s6 : df <= 8 ? distB.m78 : df <= 12 ? distB.m912 : distB.l13);
+        if (isTopOr && deepest.r.d > 1) {
+          const fN = field.length;
+          const isHcp = /handicap/i.test(rc.name || '');
+          const terms = fN < 5 ? [1, 1] : fN <= 7 ? [2, .25] : fN <= 11 ? [3, .2] : fN <= 15 ? (isHcp ? [3, .25] : [3, .2]) : (isHcp ? [4, .25] : [3, .2]);
+          const pN = parseInt(deepest.r.pos, 10);
+          const sp2 = deepest.r.d;
+          const winRet = deepest.r.won ? sp2 : 0;
+          const plcRet = (!isNaN(pN) && pN <= terms[0]) ? 1 + (sp2 - 1) * terms[1] : 0;
+          ewTopOr.n++;
+          if (deepest.r.won) ewTopOr.w++;
+          if (!isNaN(pN) && pN <= terms[0]) ewTopOr.pl++;
+          ewTopOr.stk += 2;
+          ewTopOr.ret += winRet + plcRet;
+        }
       }
     });
     let lead = 0; while (lead < marks.length && marks[lead] === 0) lead++;
@@ -149,7 +164,7 @@
       else if (seenWin) cur++;
     });
     let maxGap = 0; gaps.forEach(g => { if (g > maxGap) maxGap = g; });
-    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap, gaps, groups, distB };
+    return { n: marks.length, wins: marks.reduce((a, b) => a + b, 0), lead, trail, maxGap, gaps, groups, distB, ewTopOr };
   }
 
   async function yearStreak(pj, pt) {
@@ -169,11 +184,13 @@
       } catch {}
     }
     let stale = null;
-    if (st && !st.D) { stale = st; st = null; }   // old shape (no distance data): render it now, rebuild silently
+    if (st && (!st.D || !st.EW)) { stale = st; st = null; }   // old shape: render it now, rebuild silently
     if (!st) st = { year, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
+      EW: { n: 0, w: 0, pl: 0, stk: 0, ret: 0 },
       D: { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } },
       G: { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } } };
     if (!st.D) st.D = { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } };
+    if (!st.EW) st.EW = { n: 0, w: 0, pl: 0, stk: 0, ret: 0 };
 
     const buildPayload = (sx) => {
       sx = sx || st;
@@ -192,7 +209,7 @@
       const all = sx.droughts.slice();
       if (sx.run > 0) all.push({ len: sx.run, ended: 'still running' });
       all.sort((a, b) => b.len - a.len);
-      return { top: all.filter(d => d.len > 0).slice(0, 10), ranked: ranked.slice(0, 4), totalWaits, cond, G: sx.G, D: sx.D };
+      return { top: all.filter(d => d.len > 0).slice(0, 10), ranked: ranked.slice(0, 4), totalWaits, cond, G: sx.G, D: sx.D, EW: sx.EW };
     };
 
     const renderAll = (payload) => {
@@ -217,7 +234,7 @@
       box.onclick = () => { open = !open; paint(); };
       paint();
       renderCond(payload.cond);
-      renderGroups(payload.G);
+      renderGroups(payload.G, payload.EW);
       renderTrips(payload.D);
     };
 
@@ -236,7 +253,7 @@
     }
     let walked = 0;
     for (const dt of dates) {
-      const lsKey = 'rsdeepseq:v5:' + dt;
+      const lsKey = 'rsdeepseq:v6:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
@@ -254,6 +271,9 @@
       }
       if (dig && dig.distB) {
         Object.keys(st.D).forEach(k => { const s = dig.distB[k]; if (s) { st.D[k].n += s.n; st.D[k].w += s.w; st.D[k].e += s.e; } });
+      }
+      if (dig && dig.ewTopOr) {
+        ['n','w','pl','stk','ret'].forEach(k => { st.EW[k] += dig.ewTopOr[k] || 0; });
       }
       if (dig && dig.n) {
         if (dig.wins === 0) {
@@ -296,7 +316,7 @@
     el.innerHTML = rows ? `<div class="tile"><h2>WHERE IT WINS \u2014 BY TRIP</h2>` +
       `<div class="sub">the most-minus runner by race distance \u00b7 strike varies with field size and price by trip, so A/E is again the honest column \u00b7 sprints have bigger fields and longer prices; don\u2019t read raw strike across rows</div>${rows}</div>` : '';
   }
-  function renderGroups(G) {
+  function renderGroups(G, EW) {
     const el = $('grouplist');
     if (!G || !G.all || !G.all.n) { el.innerHTML = ''; return; }
     const line = (label, g) => {
@@ -313,6 +333,13 @@
       line('\u2026also top OR in the race', G.topOr) +
       line('\u2026NOT the top OR', G.notTopOr) +
       line('\u2026also top WR (best in at the weights)', G.topWr) +
+      ((EW && EW.n) ? (() => {
+        const pl2 = EW.ret - EW.stk;
+        const roi = pl2 / EW.stk * 100;
+        const col = pl2 >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<div class="row"><span class="n"><b>\u00a31 e/w when also top OR</b> (\u00a32 a race)</span>` +
+          `<span class="v">placed ${EW.pl} of ${EW.n} \u00b7 staked \u00a3${EW.stk.toFixed(0)} \u00b7 back \u00a3${EW.ret.toFixed(2)} \u00b7 <b style="color:${col}">${pl2 >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(pl2).toFixed(2)} \u00b7 ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</b> \u00b7 standard e/w terms at SP</span></div>`;
+      })() : '') +
       `</div>`;
   }
   function renderCond(cond) {
