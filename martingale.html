@@ -135,11 +135,11 @@
     const year = new Date().getFullYear();
     const yEnd = new Date(Date.now() - 86400000);
     let st = null;
-    try { st = JSON.parse(localStorage.getItem('rsmg:v1') || 'null'); } catch {}
+    try { st = JSON.parse(localStorage.getItem('rsmg:v2') || 'null'); } catch {}
     if (st && String(st.year) !== String(year)) st = null;
     if (!st) {
       try {
-        const rs = await fetch('/api/yearstate?k=mgstate:v1');
+        const rs = await fetch('/api/yearstate?k=mgstate:v2');
         const js = await rs.json();
         if (js && js.state && String(js.state.year) === String(year)) st = js.state;
       } catch {}
@@ -151,7 +151,7 @@
     const firstBuild = !st.lastDate;
     let walked = 0;
     for (const dt of dates) {
-      const lsKey = 'rsmgd:v1:' + dt;
+      const lsKey = 'rsmgd:v2:' + dt;
       let picks = null;
       try { picks = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!picks) {
@@ -169,8 +169,8 @@
       walked++;
       if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
     }
-    try { localStorage.setItem('rsmg:v1', JSON.stringify(st)); } catch {}
-    try { fetch('/api/yearstate?k=mgstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+    try { localStorage.setItem('rsmg:v2', JSON.stringify(st)); } catch {}
+    try { fetch('/api/yearstate?k=mgstate:v2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
 
     const seq = st.seq;
     if (!seq.length) { $('app').innerHTML = '<div class="state">no picks found yet</div>'; return; }
