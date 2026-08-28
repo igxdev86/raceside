@@ -144,6 +144,20 @@
       } catch {}
     }
     if (!st) st = { year, lastDate: null, seq: [] };
+    // heal previously-failed days first
+    if (st.miss && st.miss.length) {
+      const still = [];
+      for (const dt of st.miss) {
+        let picks = null;
+        try {
+          const r = await fetch('/api/priceday?v=4&date=' + dt);
+          const dd = await r.json();
+          if (dd && dd.ok) { picks = dayPicks(dd, pj, pt); try { localStorage.setItem('rsmgd:v2:' + dt, JSON.stringify(picks)); } catch {} }
+        } catch {}
+        if (picks) st.seq.push(...picks); else still.push(dt);
+      }
+      st.miss = still;
+    }
     const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
     const dates = [];
     for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
@@ -154,21 +168,27 @@
       let picks = null;
       try { picks = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!picks) {
-        try {
-          const r = await fetch('/api/priceday?v=4&date=' + dt);
-          const dd = await r.json();
-          if (dd && dd.ok) {
-            picks = dayPicks(dd, pj, pt);
-            try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
-          }
-        } catch {}
-        if (!picks) break;   // failed day: stop and resume next visit — a hiccup must never delete a day
+        for (let att = 0; att < 2 && !picks; att++) {
+          try {
+            const r = await fetch('/api/priceday?v=4&date=' + dt);
+            const dd = await r.json();
+            if (dd && dd.ok) {
+              picks = dayPicks(dd, pj, pt);
+              try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
+            }
+          } catch {}
+        }
+        if (!picks) { st.miss = (st.miss || []).filter(x => x !== dt).concat([dt]); }   // remember and move on — retried next visit
       }
       if (picks) st.seq.push(...picks);
       st.lastDate = dt;
       walked++;
       if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
     }
+    st.seq.sort((a, b) => {
+      if ((a[2] || '') !== (b[2] || '')) return (a[2] || '') < (b[2] || '') ? -1 : 1;
+      return raceMin(a[3] || '') - raceMin(b[3] || '');
+    });
     try { localStorage.setItem('rsmg:v3', JSON.stringify(st)); } catch {}
     try { fetch('/api/yearstate?k=mgstate:v3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
 
@@ -259,7 +279,10 @@
         const marksKey = 'rsmarks:v1:' + todayKey;
         let marks = {};
         try { marks = JSON.parse(localStorage.getItem(marksKey) || '{}'); } catch {}
-        window.__pounceMark = (rk) => {
+        window.__pounceMark = (idx) => {
+          const p4 = ranPicks[idx];
+          if (!p4) return;
+          const rk = p4.t + '|' + p4.course;
           // cycle: unmarked \u2192 won \u2192 lost \u2192 unmarked
           if (marks[rk] === undefined) marks[rk] = 1;
           else if (marks[rk] === 1) marks[rk] = 0;
@@ -278,11 +301,11 @@
             if (mk2 === 1) { streak = streak === null ? 0 : streak; break; }
             streak = (streak === null ? 0 : streak) + 1;
           }
-          const rows3 = ranPicks.map(p3 => {
+          const rows3 = ranPicks.map((p3, i3) => {
             const rk = p3.t + '|' + p3.course;
             const mk2 = marks[rk];
             const badge = mk2 === 1 ? '<b style="color:var(--green)">\u2713 WON</b>' : mk2 === 0 ? '<b style="color:var(--red)">\u00d7 LOST</b>' : '<span style="color:var(--faint)">tap to mark</span>';
-            return `<div class="row" onclick="__pounceMark('${rk.replace(/'/g, '')}')" style="cursor:pointer${mk2 === 1 ? ';background:#E7F6EC' : ''}">` +
+            return `<div class="row" onclick="__pounceMark(${i3})" style="cursor:pointer${mk2 === 1 ? ';background:#E7F6EC' : ''}">` +
               `<span class="n"><b>${p3.t}</b> ${p3.course}<br><b style="font-size:11px">${p3.h}</b></span>` +
               `<span class="v">${badge}</span></div>`;
           }).join('');
