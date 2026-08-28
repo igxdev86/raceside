@@ -15,6 +15,7 @@
     ['/thepounce.html', 'POUNCE'],
     ['/thehour.html', 'HOUR'],
     ['/firstpairs.html', 'PAIRS'],
+    ['/thewr.html', 'WR'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
