@@ -118,7 +118,7 @@
     const gaps = [];
     let cur = 0, seenWin = false;
     marks.forEach(m => {
-      if (m === 1) { if (seenWin && cur > 0) gaps.push(cur); cur = 0; seenWin = true; }
+      if (m === 1) { if (seenWin) gaps.push(cur); cur = 0; seenWin = true; }
       else if (seenWin) cur++;
     });
     let maxGap = 0; gaps.forEach(g => { if (g > maxGap) maxGap = g; });
@@ -130,17 +130,23 @@
     const yEnd = new Date(Date.now() - 86400000);
     const endKey = yEnd.toISOString().slice(0, 10);
     try {
-      const done = JSON.parse(localStorage.getItem('rsstreak:v2:' + endKey) || 'null');
+      const done = JSON.parse(localStorage.getItem('rsstreak:v3:' + endKey) || 'null');
       if (done && done.top && done.top.length) {
         const top = done.top;
         const b2 = top[0];
         box.style.cursor = 'pointer';
         let open = false;
+        const modeLine2 = (rk, tot) => {
+          if (!rk || !rk.length || !tot) return '';
+          const m0 = rk[0];
+          const others = rk.slice(1, 3).map(x => x.len + ' (' + x.c + '\u00d7)').join(', ');
+          return '<div style="color:#9BB6FF;margin-bottom:4px">MOST COMMON WAIT: <b>' + m0.len + ' loss' + (m0.len === 1 ? '' : 'es') + ' then a winner</b> \u00b7 ' + m0.c + ' of ' + tot + ' waits (' + (m0.c / tot * 100).toFixed(0) + '%)' + (others ? ' \u00b7 then: ' + others : '') + '</div>';
+        };
         const paint = () => {
           const list = open ? '<div style="margin-top:6px;color:#C7D4F2">' + top.map((d, i) =>
             (i + 1) + '. <b>' + d.len + ' races</b> \u00b7 ' + (d.ended === 'still running' ? 'still running' : '<a href="?d=' + d.ended + '" style="color:#9BB6FF">ended ' + d.ended + '</a>')
           ).join('<br>') + '</div>' : '';
-          box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
+          box.innerHTML = modeLine2(done.ranked, done.totalWaits) + 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
             (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
             ' <span style="color:#8FA3C8">' + (open ? '\u25b4 close' : '\u25be tap for top 10') + '</span>' + list;
         };
@@ -153,9 +159,9 @@
     const dates = [];
     for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
     const droughts = [];   // every completed drought: { len, ended }
-    let run = 0, walked = 0;
+    let run = 0, walked = 0, seenAnyWin = false;
     for (const dt of dates) {
-      const lsKey = 'rsdeepseq:v2:' + dt;
+      const lsKey = 'rsdeepseq:v3:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
@@ -172,9 +178,9 @@
         if (dig.wins === 0) {
           run += dig.n;
         } else {
-          droughts.push({ len: run + dig.lead, ended: dt });
+          if (seenAnyWin) droughts.push({ len: run + dig.lead, ended: dt });
+          seenAnyWin = true;
           (dig.gaps || []).forEach(g => droughts.push({ len: g, ended: dt }));
-          if (!dig.gaps && dig.maxGap) droughts.push({ len: dig.maxGap, ended: dt });
           run = dig.trail;
         }
       }
@@ -182,13 +188,24 @@
       if (walked % 10 === 0) box.textContent = 'measuring the year\u2019s longest wait \u2014 ' + Math.round(walked / dates.length * 100) + '%';
     }
     if (run > 0) droughts.push({ len: run, ended: 'still running' });
+    // distribution of completed waits (still-running excluded)
+    const dist = {};
+    droughts.forEach(d => { if (d.ended !== 'still running') dist[d.len] = (dist[d.len] || 0) + 1; });
+    const totalWaits = Object.values(dist).reduce((a, b) => a + b, 0);
+    const ranked = Object.entries(dist).map(([len, c]) => ({ len: Number(len), c })).sort((a, b) => b.c - a.c || a.len - b.len);
     droughts.sort((a, b) => b.len - a.len);
     const top = droughts.filter(d => d.len > 0).slice(0, 10);
-    const payload = { top };
+    const payload = { top, ranked: ranked.slice(0, 4), totalWaits };
+    const modeLine = (rk, tot) => {
+      if (!rk || !rk.length || !tot) return '';
+      const m0 = rk[0];
+      const others = rk.slice(1, 3).map(x => x.len + ' (' + x.c + '\u00d7)').join(', ');
+      return '<div style="color:#9BB6FF;margin-bottom:4px">MOST COMMON WAIT: <b>' + m0.len + ' loss' + (m0.len === 1 ? '' : 'es') + ' then a winner</b> \u00b7 ' + m0.c + ' of ' + tot + ' waits (' + (m0.c / tot * 100).toFixed(0) + '%)' + (others ? ' \u00b7 then: ' + others : '') + '</div>';
+    };
     const renderStamp = () => {
       if (!top.length) { box.innerHTML = ''; return; }
       const b2 = top[0];
-      box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b> without a most-minus win' +
+      box.innerHTML = modeLine(payload.ranked, payload.totalWaits) + 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b> without a most-minus win' +
         (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
         ' <span style="color:#8FA3C8">\u25be tap for top 10</span>';
       box.style.cursor = 'pointer';
@@ -198,13 +215,13 @@
         const list = open ? '<div style="margin-top:6px;color:#C7D4F2">' + top.map((d, i) =>
           (i + 1) + '. <b>' + d.len + ' races</b> \u00b7 ' + (d.ended === 'still running' ? 'still running' : '<a href="?d=' + d.ended + '" style="color:#9BB6FF">ended ' + d.ended + '</a>')
         ).join('<br>') + '</div>' : '';
-        box.innerHTML = 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
+        box.innerHTML = modeLine(payload.ranked, payload.totalWaits) + 'LONGEST WAIT THIS YEAR: <b>' + b2.len + ' races</b>' +
           (b2.ended === 'still running' ? ' \u00b7 still running' : ' \u00b7 ended ' + b2.ended) +
           ' <span style="color:#8FA3C8">' + (open ? '\u25b4 close' : '\u25be tap for top 10') + '</span>' + list;
       };
     };
     renderStamp();
-    try { localStorage.setItem('rsstreak:v2:' + endKey, JSON.stringify(payload)); } catch {}
+    try { localStorage.setItem('rsstreak:v3:' + endKey, JSON.stringify(payload)); } catch {}
   }
 
   function initCal() {
