@@ -11,6 +11,7 @@
     ['/priceday.html', 'DATED'],
     ['/daychart.html', 'DAY'],
     ['/freqyear.html', 'YEAR'],
+    ['/martingale.html', 'MGALE'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
