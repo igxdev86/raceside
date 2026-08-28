@@ -293,10 +293,17 @@
       cs.className = 'chip' + (courseStats ? ' on' : '');
       cs.style.flex = '0 0 auto';
       cs.style.borderColor = 'var(--gold)';
-      cs.textContent = '▣ At ' + raceFilter.course;
+      cs.textContent = (courseStats ? '▣ ' : '□ ') + 'Course form: ' + raceFilter.course;
+      if (courseStats) { cs.style.background = 'var(--gold)'; cs.style.color = '#101418'; cs.style.fontWeight = '700'; }
       cs.title = 'switch the stats columns to each person\u2019s 12-month record at ' + raceFilter.course + ' only';
       cs.onclick = () => { courseStats = !courseStats; renderRaceChips(); renderTable(); };
       box.appendChild(cs);
+      if (courseStats) {
+        const note = document.createElement('div');
+        note.style.cssText = 'flex:1 0 100%;font-family:var(--mono);font-size:10.5px;color:var(--gold);padding:2px 0';
+        note.textContent = 'stats columns now show each person\u2019s 12-month record at ' + raceFilter.course + ' only \u00b7 \u201cno runs here\u201d = no course history \u00b7 tap the gold chip to go back';
+        box.appendChild(note);
+      }
     }
     // next 3 races jump the queue, ahead of the resulted ones
     const nextThree = live.filter(r => r.day === 'today' && raceMin(r.t) >= nowMin - 10).slice(0, 3);
@@ -342,6 +349,24 @@
     return bits.length ? ' <span style="font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:600" title="official rating · weight carried (st-lb)">' + bits.join(' · ') + '</span>' : '';
   };
   const csKey = (c) => String(c || '').toLowerCase().replace(/\s*\(a\.?w\.?\)\s*/, '').replace(/\s+/g, ' ').trim();
+  const csBare = (c) => String(c || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // course names differ between the racecard and the results the store was built from
+  // ("Chelmsford (AW)" vs "Chelmsford City", "Newmarket" vs "Newmarket (July)") — resolve tolerantly
+  const csResolve = (csObj, wanted) => {
+    if (!csObj) return null;
+    if (csObj[wanted] && csObj[wanted].r) return csObj[wanted];
+    const wb = csBare(wanted);
+    if (!wb) return null;
+    let best = null;
+    for (const [k, v] of Object.entries(csObj)) {
+      if (!v || !v.r) continue;
+      const kb = csBare(k);
+      if (kb === wb || kb.startsWith(wb + ' ') || wb.startsWith(kb + ' ') || kb.split(' ')[0] === wb.split(' ')[0] && wb.split(' ')[0].length > 4) {
+        if (!best || v.r > best.r) best = v;
+      }
+    }
+    return best;
+  };
   function rideInRace(id) {
     if (!raceFilter || !upcoming) return null;
     const key = who === 'jockeys' ? 'jid' : 'tid';
@@ -647,8 +672,8 @@
           wrAdv: (wrMap[ride.h] && wrMap[ride.h].adv != null) ? wrMap[ride.h].adv : null,
           likely: ride.mp ? (ride.mp / 100) * ratio2 : 0 };
         if (courseStats) {
-          const cb = (x.s.cs || {})[ck];
-          if (!cb || !cb.r) y = { ...y, runs: 0, wins: 0, plc: 0, plcPct: 0, strike: 0, pl: 0, roi: 0, ae: 0, courseMode: true, cAE: cBaseAE };
+          const cb = csResolve(x.s.cs, ck);
+          if (!cb || !cb.r) y = { ...y, runs: 0, wins: 0, plc: 0, plcPct: 0, strike: 0, pl: 0, roi: 0, ae: 0, courseMode: true, noCourse: true, cAE: cBaseAE };
           else y = { ...y, runs: cb.r, wins: cb.w, plc: cb.p, plcPct: cb.p / cb.r, strike: cb.w / cb.r,
             pl: Math.round(cb.pl * 100) / 100, roi: cb.pl / cb.r, ae: cb.e ? cb.w / cb.e : 0, courseMode: true, cAE: cBaseAE };
         }
@@ -698,7 +723,7 @@
       })();
       const sd = x.steady ? '<span style="color:var(--gold)" title="steady: a winner in every busy month">● </span>' : '';
       const rb = x.rpos != null ? `<span style="font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 4px;border-radius:4px;margin-right:4px;color:#fff;background:${x.rscore >= 70 ? '#0E8A44' : x.rscore <= 35 ? '#D7263D' : '#8A93A3'}" title="ranked ${x.rpos} of ${x.rn} in the ${who === 'jockeys' ? 'jockey' : 'trainer'} table by A/E (12 months, 100+ runs) · score ${x.rscore}/100">#${x.rpos}</span>` : '';
-      html += `<tr class="sirerow" data-i="${i}"><td>${rb}${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b> <span style="color:var(--faint)">▸</span>${ticker}</td>` +
+      html += `<tr class="sirerow" data-i="${i}"><td>${rb}${sd}<b${hc ? ' style="color:' + hc + '"' : ''}>${x.name.replace(/</g,'&lt;')}</b>${x.noCourse ? ' <small style="color:var(--gold)">no runs here</small>' : ''} <span style="color:var(--faint)">▸</span>${ticker}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? 'color:var(--blue);font-weight:600' : 'color:var(--faint)'}">${x.nxLabel}</td>` +
         `<td class="l" style="text-align:left;${x.nxToday ? '' : 'color:var(--faint)'}${x.won === 1 ? ';background:#E7F6EC' : ''}">${x.nxHorse ? (x.won === 1 ? '<b style="color:var(--green)">✓ </b>' : '') + x.nxHorse.replace(/</g,'&lt;') + (x.nxOdds ? ' <b style="color:var(--blue)">' + x.nxOdds + '</b>' : '') + (x.won === 0 ? ' <small style="color:var(--faint)">beaten</small>' : '') : '—'}</td>` +
         `<td style="${x.nxToday ? '' : 'color:var(--faint)'}">${x.nxOfr != null ? x.nxOfr : '—'}</td>` +
