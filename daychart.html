@@ -60,6 +60,7 @@
     <a class="back" href="/freqyear.html">← year</a>
   </header>
 
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
@@ -76,7 +77,14 @@
   const qd = new URLSearchParams(location.search).get('d');
   const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') ? qd : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
+  function initCal() {
+    const cal = $('cal');
+    cal.value = date;
+    cal.max = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    cal.onchange = () => { if (cal.value) location.search = '?d=' + cal.value; };
+  }
   async function main() {
+    initCal();
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing ' + esc(date) + '\u2026</div>';
     let store, day;
     try {
@@ -169,11 +177,10 @@
     ctx.fillText(seq[n - 1].t, W - padR - 30, H - 8);
 
     // rows: won/lost + evolving 1-in-X
-    const rows = seq.map((s, i) => {
-      const oneIn = s.cumW ? ((i + 1) / s.cumW).toFixed(1) : '—';
-      return `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)} ${esc(s.course)}</b><br><b style="font-size:11px">${esc(s.h)}</b></span>` +
-        `<span class="v ${s.won ? 'pos' : ''}">SP ${s.sp} · ${s.won ? '✓ WON' : 'lost'} · ${s.cumW} of ${i + 1} · 1 in ${oneIn}</span></div>`;
-    }).join('');
+    const rows = seq.map((s, i) =>
+      `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)}</span>` +
+      `<span class="v ${s.won ? 'pos' : ''}">${s.won ? '✓' : '×'} ${s.cumW}/${i + 1}</span></div>`
+    ).join('');
     const oneInDay = totW ? (n / totW).toFixed(1) : '—';
     const oneInSp = totE ? (n / totE).toFixed(1) : '—';
     $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>RACE BY RACE · ${totW} wins from ${n} · 1 in ${oneInDay}</h2>` +
