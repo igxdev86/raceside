@@ -145,6 +145,20 @@
       } catch {}
     }
     if (!st) st = { year, lastDate: null, seq: [] };
+    // heal previously-failed days first
+    if (st.miss && st.miss.length) {
+      const still = [];
+      for (const dt of st.miss) {
+        let picks = null;
+        try {
+          const r = await fetch('/api/priceday?v=4&date=' + dt);
+          const dd = await r.json();
+          if (dd && dd.ok) { picks = dayPicks(dd, pj, pt); try { localStorage.setItem('rsmgd:v2:' + dt, JSON.stringify(picks)); } catch {} }
+        } catch {}
+        if (picks) st.seq.push(...picks); else still.push(dt);
+      }
+      st.miss = still;
+    }
     const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
     const dates = [];
     for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
@@ -155,21 +169,27 @@
       let picks = null;
       try { picks = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!picks) {
-        try {
-          const r = await fetch('/api/priceday?v=4&date=' + dt);
-          const dd = await r.json();
-          if (dd && dd.ok) {
-            picks = dayPicks(dd, pj, pt);
-            try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
-          }
-        } catch {}
-        if (!picks) break;   // failed day: stop and resume next visit — a hiccup must never delete a day
+        for (let att = 0; att < 2 && !picks; att++) {
+          try {
+            const r = await fetch('/api/priceday?v=4&date=' + dt);
+            const dd = await r.json();
+            if (dd && dd.ok) {
+              picks = dayPicks(dd, pj, pt);
+              try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
+            }
+          } catch {}
+        }
+        if (!picks) { st.miss = (st.miss || []).filter(x => x !== dt).concat([dt]); }   // remember and move on — retried next visit
       }
       if (picks) st.seq.push(...picks);
       st.lastDate = dt;
       walked++;
       if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
     }
+    st.seq.sort((a, b) => {
+      if ((a[2] || '') !== (b[2] || '')) return (a[2] || '') < (b[2] || '') ? -1 : 1;
+      return raceMin(a[3] || '') - raceMin(b[3] || '');
+    });
     try { localStorage.setItem('rsmg:v3', JSON.stringify(st)); } catch {}
     try { fetch('/api/yearstate?k=mgstate:v3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
 
