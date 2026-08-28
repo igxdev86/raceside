@@ -14,6 +14,7 @@
     ['/martingale.html', 'MGALE'],
     ['/thepounce.html', 'POUNCE'],
     ['/thehour.html', 'HOUR'],
+    ['/firstpairs.html', 'PAIRS'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
