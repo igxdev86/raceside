@@ -12,6 +12,7 @@
     ['/daychart.html', 'DAY'],
     ['/freqyear.html', 'YEAR'],
     ['/martingale.html', 'MGALE'],
+    ['/thepounce.html', 'POUNCE'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
