@@ -16,6 +16,7 @@
     ['/thehour.html', 'HOUR'],
     ['/firstpairs.html', 'PAIRS'],
     ['/thewr.html', 'WR'],
+    ['/theideas.html', 'IDEAS'],
     ['/market.html', 'MARKET'],
     ['/yesterday.html', 'YDAY'],
     ['/sires.html', 'SIRES'],
