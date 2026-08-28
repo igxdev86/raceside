@@ -221,11 +221,30 @@
           picks2.push({ t, course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest) });
         });
         picks2.sort((a, b) => raceMin(a.t) - raceMin(b.t));
+        // hero: the very next pick, big, with a red\u2192green chance bar
+        let hero = '';
+        if (picks2.length) {
+          const nx = picks2[0];
+          const imp = nx.sp > 1 ? (1 / nx.sp) * 100 : null;
+          const yearStrike = (st.seq && st.seq.length) ? st.seq.reduce((a, e) => a + (e[0] ? 1 : 0), 0) / st.seq.length * 100 : null;
+          const offIn = raceMin(nx.t) - nowM;
+          const bar = imp != null ?
+            `<div style="position:relative;height:14px;border-radius:999px;background:linear-gradient(90deg,#D7263D,#E8A13A 45%,#12A150);margin:10px 0 4px">` +
+            `<div style="position:absolute;left:${Math.min(97, Math.max(1, imp)).toFixed(1)}%;top:-4px;width:4px;height:22px;background:#101418;border-radius:2px" title="market chance"></div>` +
+            (yearStrike != null ? `<div style="position:absolute;left:${Math.min(97, Math.max(1, yearStrike)).toFixed(1)}%;top:2px;width:2px;height:10px;background:#ffffffcc" title="year strike"></div>` : '') +
+            `</div>` +
+            `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint)"><span>0%</span><span>market says <b style="color:var(--ink)">${imp.toFixed(0)}%</b>${yearStrike != null ? ' \u00b7 year strike ' + yearStrike.toFixed(0) + '% (white tick)' : ''}</span><span>100%</span></div>` : '';
+          hero = `<div class="tile" style="margin-bottom:10px">` +
+            `<div style="font-size:11px;letter-spacing:.08em;color:var(--faint)">NEXT PICK${offIn >= 0 ? ' \u00b7 OFF IN ' + offIn + ' MIN' : ''}</div>` +
+            `<div style="font-size:24px;font-weight:800;line-height:1.15;margin-top:4px">${nx.t} ${nx.course}</div>` +
+            `<div style="font-size:20px;font-weight:800;color:var(--blue);margin-top:2px">${nx.h} \u00b7 ${nx.sp}</div>` +
+            bar + `</div>`;
+        }
         const rows2 = picks2.map(p2 =>
           `<div class="row"><span class="n"><b>${p2.t}</b> ${p2.course}<br><b style="font-size:11px">${p2.h}</b></span>` +
           `<span class="v">${Math.round(p2.edge * 100)}% \u00b7 <b style="color:var(--blue)">${p2.sp}</b></span></div>`).join('');
-        el.innerHTML = `<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2>` +
-          `<div class="sub">races still to run where the most-minus runner also holds the top official rating \u00b7 odds are current, not SP</div>` +
+        el.innerHTML = hero + `<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2>` +
+          `<div class="sub">races still to run where the most-minus runner also holds the top official rating \u00b7 odds are current, not SP \u00b7 the bar is the market\u2019s chance of the pick \u2014 not a prediction of change</div>` +
           (rows2 || '<div class="sub">no qualifying picks left today \u2014 either the card is done or no race qualifies</div>');
       } catch {
         el.innerHTML = '<h2>UPCOMING TOP-OR PICKS \u00b7 TODAY</h2><div class="sub">couldn\u2019t load today\u2019s card</div>';
