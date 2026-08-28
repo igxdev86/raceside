@@ -390,7 +390,7 @@
       const maxOr3 = orVals3.length ? Math.max(...orVals3) : null;
       seq.push({ t: rc.t, course: rc.course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest),
         won: !!deepest.r.won, exp: deepest.r.d > 1 ? 1 / deepest.r.d : 0,
-        isTopOr: maxOr3 != null && deepest.r.ofr === maxOr3 });
+        isTopOr: maxOr3 != null && deepest.r.ofr === maxOr3, pos: deepest.r.pos });
     });
     if (!seq.length) { $('app').innerHTML = '<div class="state">no qualifying races on ' + esc(date) + '</div>'; return; }
     let filterTopOr = false;
@@ -437,8 +437,15 @@
     ctx.fillText(view[n - 1].t, W - padR - 30, H - 8);
 
     // rows: won/lost + evolving 1-in-X
+    const ordinal = (p) => {
+      const n2 = parseInt(p, 10);
+      if (isNaN(n2)) return p ? String(p) : '—';
+      const s2 = n2 % 100;
+      return n2 + (s2 >= 11 && s2 <= 13 ? 'th' : n2 % 10 === 1 ? 'st' : n2 % 10 === 2 ? 'nd' : n2 % 10 === 3 ? 'rd' : 'th');
+    };
     const rows = view.map((s, i) =>
-      `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)}</span>` +
+      `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)} <b style="color:var(--blue)">${s.sp}</b>` +
+      `<br><small style="color:var(--faint)">${ordinal(s.pos)}</small></span>` +
       `<span class="v ${s.won ? 'pos' : ''}">${s.won ? '✓' : '×'} ${s.cumW}/${i + 1}</span></div>`
     ).join('');
     const oneInDay = totW ? (n / totW).toFixed(1) : '—';
