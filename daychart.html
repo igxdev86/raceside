@@ -56,14 +56,14 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">THE <b>DAY</b><small id="daysub">most-minus runner · £1 a race · race by race</small></div>
+    <div class="wordmark">THE <b>DAY</b><small id="daysub">most-minus runner · runs and wins · race by race</small></div>
     <a class="back" href="/freqyear.html">← year</a>
   </header>
 
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
-  <p class="note">Every race of the day in time order. The line is the running profit of £1 win on the most-minus runner of each race, settled at SP: green dot = it won (line jumps by SP−1), red dot = it lost (line falls £1). A day that ends below zero is the market’s most-backed horse under-delivering; above zero, it over-delivered. One day is one coin-flip sequence — the year chart is the judge. Change date: ?d=YYYY-MM-DD. Not advice.</p>
+  <p class="note">Every race of the day in time order. Solid line = running count of wins by the most-minus runner; dashed line = how many wins its SPs had promised by that point. Green dots mark the races it won. Lines tracking together = the market keeping its word; solid line sagging under the dashed = winning less often than priced. One day is one sequence — the year chart is the judge. Change date: ?d=YYYY-MM-DD. Not advice.</p>
   <footer>RACESIDE · data: The Racing API · settled at SP</footer>
 </div>
 <script>
@@ -125,14 +125,15 @@
       const deepest = priced.find(x => eOf(x) !== 999);
       if (!deepest || eOf(deepest) >= 0) return;
       const won = !!deepest.r.won;
-      seq.push({ t: rc.t, course: rc.course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest), won,
-        delta: won ? deepest.r.d - 1 : -1 });
+      seq.push({ t: rc.t, course: rc.course, h: deepest.r.h, sp: deepest.r.d, edge: eOf(deepest),
+        won: !!deepest.r.won, exp: deepest.r.d > 1 ? 1 / deepest.r.d : 0 });
     });
     if (!seq.length) { $('app').innerHTML = '<div class="state">no qualifying races on ' + esc(date) + '</div>'; return; }
-    let run = 0;
-    seq.forEach(s => { run += s.delta; s.cum = run; });
+    let cw = 0, ce = 0;
+    seq.forEach(s => { cw += s.won ? 1 : 0; ce += s.exp; s.cumW = cw; s.cumE = ce; });
+    const totW = cw, totE = ce, n = seq.length;
 
-    // chart
+    // chart: cumulative wins (solid) vs SP-promised (dashed)
     const cv = $('chart');
     cv.style.display = 'block';
     const W = cv.clientWidth || 360, H = 300;
@@ -140,39 +141,45 @@
     cv.width = W * dpr; cv.height = H * dpr;
     const ctx = cv.getContext('2d');
     ctx.scale(dpr, dpr);
-    const padL = 40, padR = 12, padT = 20, padB = 26;
-    const lo = Math.min(0, ...seq.map(s => s.cum)) - 0.5;
-    const hi = Math.max(0, ...seq.map(s => s.cum)) + 0.5;
-    const xs = (i) => padL + (seq.length <= 1 ? 0 : i * (W - padL - padR) / (seq.length - 1));
-    const ys = (v) => padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo));
+    const padL = 34, padR = 12, padT = 24, padB = 26;
+    const hi = Math.max(totW, totE) + 1;
+    const xs = (i) => padL + (n <= 1 ? 0 : i * (W - padL - padR) / (n - 1));
+    const ys = (v) => padT + (H - padT - padB) * (1 - v / hi);
     ctx.font = '10px IBM Plex Mono, monospace';
-    ctx.strokeStyle = '#CBD3DD'; ctx.beginPath(); ctx.moveTo(padL, ys(0)); ctx.lineTo(W - padR, ys(0)); ctx.stroke();
-    ctx.fillStyle = '#939CAB'; ctx.fillText('\u00a30', 8, ys(0) + 3);
-    [lo + 0.5, hi - 0.5].forEach(v => { const vv = Math.round(v); if (vv !== 0) { ctx.fillText((vv > 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(vv), 4, ys(vv) + 3); } });
-    ctx.strokeStyle = '#101418'; ctx.lineWidth = 1.6; ctx.beginPath();
-    ctx.moveTo(xs(0), ys(0));
-    seq.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cum)));
+    for (let g = 0; g <= hi; g += Math.max(1, Math.ceil(hi / 6))) {
+      ctx.strokeStyle = '#EEF1F5';
+      ctx.beginPath(); ctx.moveTo(padL, ys(g)); ctx.lineTo(W - padR, ys(g)); ctx.stroke();
+      ctx.fillStyle = '#939CAB'; ctx.fillText(String(g), 8, ys(g) + 3);
+    }
+    ctx.strokeStyle = '#2456E6'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(xs(0), ys(seq[0].cumE));
+    seq.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumE)));
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#101418'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(xs(0), ys(seq[0].cumW));
+    seq.forEach((s, i) => ctx.lineTo(xs(i), ys(s.cumW)));
     ctx.stroke();
     seq.forEach((s, i) => {
-      ctx.fillStyle = s.won ? '#12A150' : '#D7263D';
-      ctx.beginPath(); ctx.arc(xs(i), ys(s.cum), s.won ? 4 : 2.5, 0, 7); ctx.fill();
+      if (s.won) { ctx.fillStyle = '#12A150'; ctx.beginPath(); ctx.arc(xs(i), ys(s.cumW), 4, 0, 7); ctx.fill(); }
     });
+    ctx.fillStyle = '#101418'; ctx.fillText('— wins so far', padL, 12);
+    ctx.fillStyle = '#2456E6'; ctx.fillText('- - SPs promised', padL + 92, 12);
     ctx.fillStyle = '#5B6675';
     ctx.fillText(seq[0].t, padL, H - 8);
-    ctx.fillText(seq[seq.length - 1].t, W - padR - 30, H - 8);
-    const last = seq[seq.length - 1].cum;
-    ctx.fillStyle = last >= 0 ? '#12A150' : '#D7263D';
-    ctx.font = 'bold 12px IBM Plex Mono, monospace';
-    ctx.fillText((last >= 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(last).toFixed(2), W - padR - 62, padT + 2);
+    ctx.fillText(seq[n - 1].t, W - padR - 30, H - 8);
 
-    // race list
-    const wins = seq.filter(s => s.won).length;
-    const rows = seq.map(s => `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)} ${esc(s.course)}</b><br><b style="font-size:11px">${esc(s.h)}</b></span>` +
-      `<span class="v ${s.won ? 'pos' : ''}">${Math.round(s.edge * 100)}% \u00b7 SP ${s.sp} \u00b7 ${s.won ? '\u2713 WON +\u00a3' + (s.sp - 1).toFixed(2) : '\u2212\u00a31'} \u00b7 running ${s.cum >= 0 ? '+' : '\u2212'}\u00a3${Math.abs(s.cum).toFixed(2)}</span></div>`).join('');
-    $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>RACE BY RACE \u00b7 ${seq.length} races \u00b7 ${wins} wins \u00b7 ${(last >= 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(last).toFixed(2)}</h2>` +
-      `<div class="sub">each row = the most-minus runner of that race \u00b7 its disagreement %, SP, result, and the running \u00a31-a-race ledger</div>${rows}</div></div>`;
+    // rows: won/lost + evolving 1-in-X
+    const rows = seq.map((s, i) => {
+      const oneIn = s.cumW ? ((i + 1) / s.cumW).toFixed(1) : '—';
+      return `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)} ${esc(s.course)}</b><br><b style="font-size:11px">${esc(s.h)}</b></span>` +
+        `<span class="v ${s.won ? 'pos' : ''}">SP ${s.sp} · ${s.won ? '✓ WON' : 'lost'} · ${s.cumW} of ${i + 1} · 1 in ${oneIn}</span></div>`;
+    }).join('');
+    const oneInDay = totW ? (n / totW).toFixed(1) : '—';
+    const oneInSp = totE ? (n / totE).toFixed(1) : '—';
+    $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>RACE BY RACE · ${totW} wins from ${n} · 1 in ${oneInDay}</h2>` +
+      `<div class="sub">SPs promised 1 in ${oneInSp} · each row shows the running count and the evolving “1 in X”</div>${rows}</div></div>`;
   }
-  main();
+  main();  main();
 })();
 </script>
 </body>
