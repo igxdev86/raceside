@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE MARTINGALE AUTOPSY</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+<script src="/nav.js?v=1" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>MARTINGALE</b><small>£1-target chase on the top-OR most-minus picks · year to date</small></div>
+    <a class="back" href="/daychart.html">← day</a>
+  </header>
+
+  <canvas id="chart"  style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">Every top-OR most-minus pick of the year in time order, staked by the classic martingale: each bet is sized so a win at that horse’s SP recovers the cycle’s losses plus £1, then the cycle resets. The line is the running balance. This page exists to show what the system actually does with real droughts — not to recommend it. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+  const posN = (r) => { const n = parseInt(r.pos, 10); return isNaN(n) ? 99 : n; };
+
+  function dayPicks(dayData, pj, pt) {
+    // ordered [won, sp] for each top-OR most-minus pick of the day
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const races = (dayData.races || []).filter(rc => (rc.runners || []).length >= 2)
+      .sort((a, b) => raceMin(a.t) - raceMin(b.t));
+    const out = [];
+    races.forEach(rc => {
+      const field = rc.runners;
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const priced = field.map((r, i) => ({ r, p: exps[i] / tot }));
+      const eOf = (x) => x.r.d > 1 ? (x.p - 1 / x.r.d) / (1 / x.r.d) : 999;
+      priced.sort((a, b) => eOf(a) - eOf(b));
+      const deepest = priced.find(x => eOf(x) !== 999);
+      if (!deepest || eOf(deepest) >= 0) return;
+      const maxOr = orVals.length ? Math.max(...orVals) : null;
+      if (maxOr == null || deepest.r.ofr !== maxOr) return;
+      if (!(deepest.r.d > 1)) return;
+      out.push([deepest.r.won ? 1 : 0, deepest.r.d]);
+    });
+    return out;
+  }
+
+  async function main() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year\u2019s picks\u2026</div>';
+    let store;
+    try {
+      const r1 = await fetch('/api/peopleall?v=2');
+      store = await r1.json();
+      if (!store.ok) throw new Error('bad');
+    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load the store \u2014 refresh</div>'; return; }
+    const pctB = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const year = new Date().getFullYear();
+    const yEnd = new Date(Date.now() - 86400000);
+    let st = null;
+    try { st = JSON.parse(localStorage.getItem('rsmg:v1') || 'null'); } catch {}
+    if (st && String(st.year) !== String(year)) st = null;
+    if (!st) {
+      try {
+        const rs = await fetch('/api/yearstate?k=mgstate:v1');
+        const js = await rs.json();
+        if (js && js.state && String(js.state.year) === String(year)) st = js.state;
+      } catch {}
+    }
+    if (!st) st = { year, lastDate: null, seq: [] };
+    const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    const dates = [];
+    for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
+    const firstBuild = !st.lastDate;
+    let walked = 0;
+    for (const dt of dates) {
+      const lsKey = 'rsmgd:v1:' + dt;
+      let picks = null;
+      try { picks = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+      if (!picks) {
+        try {
+          const r = await fetch('/api/priceday?v=4&date=' + dt);
+          const dd = await r.json();
+          if (dd && dd.ok) {
+            picks = dayPicks(dd, pj, pt);
+            try { localStorage.setItem(lsKey, JSON.stringify(picks)); } catch {}
+          }
+        } catch {}
+      }
+      if (picks) st.seq.push(...picks);
+      st.lastDate = dt;
+      walked++;
+      if (firstBuild && walked % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>gathering the year \u2014 ' + Math.round(walked / dates.length * 100) + '%</div>';
+    }
+    try { localStorage.setItem('rsmg:v1', JSON.stringify(st)); } catch {}
+    try { fetch('/api/yearstate?k=mgstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+
+    const seq = st.seq;
+    if (!seq.length) { $('app').innerHTML = '<div class="state">no picks found yet</div>'; return; }
+
+    // ---- the simulation: martingale vs flat ----
+    let cyc = 0;          // cycle losses so far
+    let bal = 0;          // running balance
+    let flat = 0;
+    let maxStake = 0, maxStakeAt = 0, minBal = 0, minBalAt = 0, cycles = 0, longestCycle = 0, curCycle = 0;
+    const path = [];
+    seq.forEach(([w, sp], i) => {
+      const stake = Math.ceil(((cyc + 1) / (sp - 1)) * 100) / 100;
+      if (stake > maxStake) { maxStake = stake; maxStakeAt = i; }
+      curCycle++;
+      if (w) {
+        bal += stake * (sp - 1) - cyc;
+        cyc = 0; cycles++;
+        if (curCycle > longestCycle) longestCycle = curCycle;
+        curCycle = 0;
+      } else {
+        bal -= stake;
+        cyc += stake;
+      }
+      flat += w ? sp - 1 : -1;
+      if (bal < minBal) { minBal = bal; minBalAt = i; }
+      path.push(bal);
+    });
+    if (curCycle > longestCycle) longestCycle = curCycle;
+
+    // bust test against fixed bankrolls: bust when the NEXT required stake exceeds bankroll + balance
+    const bustAt = (bank) => {
+      let c = 0, b = 0;
+      for (let i = 0; i < seq.length; i++) {
+        const [w, sp] = seq[i];
+        const stake = Math.ceil(((c + 1) / (sp - 1)) * 100) / 100;
+        if (stake > bank + b) return { i, need: stake, have: bank + b };
+        if (w) { b += stake * (sp - 1) - c; c = 0; } else { b -= stake; c += stake; }
+      }
+      return null;
+    };
+    const banks = [100, 500, 1000].map(bk => ({ bk, bust: bustAt(bk) }));
+
+    // ---- chart: balance path ----
+    const cv = $('chart');
+    cv.style.display = 'block';
+    const W = cv.clientWidth || 360, H = 300;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const padL = 46, padR = 10, padT = 20, padB = 24;
+    const lo = Math.min(0, minBal) * 1.05 - 1, hi2 = Math.max(1, ...path) * 1.05;
+    const xs = (i) => padL + (path.length <= 1 ? 0 : i * (W - padL - padR) / (path.length - 1));
+    const ys = (v) => padT + (H - padT - padB) * (1 - (v - lo) / (hi2 - lo));
+    ctx.font = '10px IBM Plex Mono, monospace';
+    ctx.strokeStyle = '#CBD3DD'; ctx.beginPath(); ctx.moveTo(padL, ys(0)); ctx.lineTo(W - padR, ys(0)); ctx.stroke();
+    ctx.fillStyle = '#939CAB'; ctx.fillText('\u00a30', 8, ys(0) + 3);
+    ctx.fillText((minBal < 0 ? '\u2212\u00a3' : '\u00a3') + Math.abs(Math.round(minBal)), 4, ys(minBal) + 3);
+    ctx.strokeStyle = '#101418'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(xs(0), ys(path[0]));
+    path.forEach((v, i) => ctx.lineTo(xs(i), ys(v)));
+    ctx.stroke();
+    ctx.fillStyle = '#D7263D';
+    ctx.beginPath(); ctx.arc(xs(minBalAt), ys(minBal), 4, 0, 7); ctx.fill();
+    ctx.fillText('deepest hole', Math.min(xs(minBalAt) + 6, W - 90), ys(minBal) - 6);
+    const last = path[path.length - 1];
+    ctx.fillStyle = last >= 0 ? '#12A150' : '#D7263D';
+    ctx.font = 'bold 12px IBM Plex Mono, monospace';
+    ctx.fillText((last >= 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(last).toFixed(2), W - padR - 78, padT + 2);
+
+    const flatRoi = flat / seq.length * 100;
+    const row = (n2, v, cls) => `<div class="row"><span class="n">${n2}</span><span class="v ${cls || ''}">${v}</span></div>`;
+    $('app').innerHTML = `<div class="grid"><div class="tile" style="grid-column:1/-1"><h2>THE AUTOPSY \u00b7 ${seq.length} picks \u00b7 ${cycles} cycles won</h2>` +
+      `<div class="sub">\u00a31-target martingale, stakes sized to each SP \u00b7 the same picks flat-staked shown for comparison</div>` +
+      row('<b>final balance (unlimited bankroll)</b>', (last >= 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(last).toFixed(2), last >= 0 ? 'pos' : 'neg') +
+      row('<b>same picks, flat \u00a31</b>', (flat >= 0 ? '+\u00a3' : '\u2212\u00a3') + Math.abs(flat).toFixed(2) + ' \u00b7 ' + (flatRoi >= 0 ? '+' : '') + flatRoi.toFixed(1) + '%', flat >= 0 ? 'pos' : 'neg') +
+      row('<b>biggest single stake demanded</b>', '\u00a3' + maxStake.toFixed(2) + ' (to win \u00a31 back)', maxStake > 50 ? 'neg' : '') +
+      row('<b>deepest hole</b>', '\u2212\u00a3' + Math.abs(minBal).toFixed(2), 'neg') +
+      row('<b>longest cycle</b>', longestCycle + ' bets before a winner') +
+      banks.map(b => row('<b>\u00a3' + b.bk + ' bankroll</b>', b.bust ? 'BUST at pick ' + (b.bust.i + 1) + ' \u2014 needed \u00a3' + b.bust.need.toFixed(2) + ', had \u00a3' + b.bust.have.toFixed(2) : 'survived the year (so far)', b.bust ? 'neg' : 'pos')).join('') +
+      `</div></div>`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
