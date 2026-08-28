@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — THE IDEAS</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+<script src="/nav.js?v=1" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">THE <b>IDEAS</b><small>ten formulas · applied to today’s card</small></div>
+    <a class="back" href="/thepounce.html">← pounce</a>
+  </header>
+
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">Ten lenses on today’s card, each built from the site’s own data — the model, the ratings, the weights, the people, the pairings. These are screens, not tips: a lens only earns trust when its year-long A/E beats 1.00 on the dated pages. Settled races tick themselves. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  window.addEventListener('error', (e) => {
+    try { const a = document.getElementById('app'); if (a) a.innerHTML = '<div class="tile" style="border:2px solid #D7263D"><h2 style="color:#D7263D">PAGE ERROR \u2014 SHOW THE BUILDER</h2><div class="sub">' + String(e.message) + ' @ ' + e.lineno + '</div></div>' + a.innerHTML; } catch {}
+  });
+  const $ = (id) => document.getElementById(id);
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
+  const rkeyN = (t, c) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); const hh = m ? Number(m[1]) % 12 : 0; return hh + ':' + (m ? m[2] : '00') + '|' + String(c || '').toLowerCase().replace(/\s*\(aw\)\s*/i, '').replace(/[^a-z]/g, ''); };
+  const csBare = (c) => String(c || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const csResolve = (csObj, wanted) => {
+    if (!csObj) return null;
+    const wk = csBare(wanted);
+    if (!wk) return null;
+    let best = null;
+    for (const [k, v] of Object.entries(csObj)) {
+      if (!v || !v.r) continue;
+      const kb = csBare(k);
+      if (kb === wk || kb.startsWith(wk + ' ') || wk.startsWith(kb + ' ') || (kb.split(' ')[0] === wk.split(' ')[0] && wk.split(' ')[0].length > 4)) {
+        if (!best || v.r > best.r) best = v;
+      }
+    }
+    return best;
+  };
+
+  async function main() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>loading\u2026</div>';
+    let store, up;
+    try {
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=3')]);
+      store = await r1.json(); up = await r2.json();
+      if (!store.ok || !up.ok) throw new Error('bad');
+    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
+    const winMap = {};
+    try {
+      const rw = await fetch('/api/todaywinners');
+      const dw = await rw.json();
+      if (dw && dw.ok) (dw.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); });
+    } catch {}
+
+    const pctB = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const aeOf = (s, minR) => (s && s.runs >= minR && s.exp > 0) ? s.wins / s.exp : null;
+    const pairs = store.pairs || {};
+
+    const rides = (up.rides || []).filter(r => r.day === 'today');
+    const byRace = {};
+    rides.forEach(r => { (byRace[r.t + '|' + r.course] = byRace[r.t + '|' + r.course] || []).push(r); });
+
+    // per-race machinery: model edges + WR + topOr
+    const raceInfo = {};
+    Object.entries(byRace).forEach(([key, field]) => {
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const maxOr = orVals.length ? Math.max(...orVals) : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {}, wrTop = null;
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        let bestEff = -1e9;
+        okF.forEach(r => { const eff = r.ofr + (topC - car(r)); advM[r.h] = eff - top.ofr; if (eff > bestEff) { bestEff = eff; wrTop = r; } });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const edges = {};
+      field.forEach((r, i) => { edges[r.h] = r.d > 1 ? ((exps[i] / tot) - 1 / r.d) / (1 / r.d) : null; });
+      let deepest = null;
+      field.forEach(r => { const e2 = edges[r.h]; if (e2 != null && e2 < 0 && (!deepest || e2 < edges[deepest.h])) deepest = r; });
+      let plus = null;
+      field.forEach(r => { const e2 = edges[r.h]; if (e2 != null && e2 > 0 && (!plus || e2 > edges[plus.h])) plus = r; });
+      raceInfo[key] = { field, edges, deepest, plus, wrTop, maxOr };
+    });
+
+    const settleOf = (r) => {
+      const wn = winMap[rkeyN(r.t, r.course)];
+      if (wn === undefined) return null;
+      return wn === nameN(r.h) ? 1 : 0;
+    };
+    const row = (r, extra) => {
+      const s = settleOf(r);
+      const badge = s === 1 ? ' <b style="color:var(--green)">\u2713</b>' : s === 0 ? ' <span style="color:var(--red)">\u00d7</span>' : '';
+      return `<div class="row"><span class="n"><b>${r.t}</b> ${r.course}<br><b style="font-size:11px">${r.h}</b>${badge}</span>` +
+        `<span class="v">${extra || ''}${r.d ? ' <b style="color:var(--blue)">' + r.d + '</b>' : ''}</span></div>`;
+    };
+    const tile = (name, why, list, link) => {
+      const shown = list.slice(0, 8);
+      const settled = list.filter(x => settleOf(x.r) !== null);
+      const wins = settled.filter(x => settleOf(x.r) === 1).length;
+      const score = settled.length ? ` \u00b7 <b>${wins}/${settled.length}</b> so far` : '';
+      return `<div class="tile"><h2>${name}${score}</h2><div class="sub">${why}${link ? ' \u00b7 <a href="' + link + '" style="color:var(--blue)">year record</a>' : ''}</div>` +
+        (shown.length ? shown.map(x => row(x.r, x.x)).join('') : '<div class="sub">no qualifiers today</div>') +
+        (list.length > 8 ? `<div class="sub">+${list.length - 8} more</div>` : '') + `</div>`;
+    };
+    const T = [];
+    const sortT = (l) => l.sort((a, b) => raceMin(a.r.t) - raceMin(b.r.t));
+    const tags = {};   // h|t|course -> count for THE STACK
+    const tag = (r) => { const k = r.h + '|' + r.t + '|' + r.course; tags[k] = (tags[k] || 0) + 1; return r; };
+
+    // 1 MOST MINUS
+    const minus = Object.values(raceInfo).filter(x => x.deepest).map(x => ({ r: tag(x.deepest), x: Math.round(x.edges[x.deepest.h] * 100) + '%' }));
+    T.push(tile('1 \u00b7 MOST MINUS', 'the horse the market backs hardest beyond what the model sees \u2014 every race\u2019s deepest disagreement', sortT(minus), '/freqyear.html'));
+    // 2 MINUS + TOP OR
+    const mtor = Object.values(raceInfo).filter(x => x.deepest && x.maxOr != null && x.deepest.ofr === x.maxOr).map(x => ({ r: tag(x.deepest), x: Math.round(x.edges[x.deepest.h] * 100) + '%' }));
+    T.push(tile('2 \u00b7 MINUS + TOP OR', 'most-minus that also heads the official ratings \u2014 the dated pages\u2019 pick', sortT(mtor), '/daychart.html'));
+    // 3 TOP WR
+    const wr = Object.values(raceInfo).filter(x => x.wrTop).map(x => ({ r: tag(x.wrTop), x: 'WR +' + Math.max(0, Math.round((x.wrTop.ofr + 0))) }));
+    wr.forEach(w2 => { w2.x = ''; });
+    T.push(tile('3 \u00b7 TOP WR', 'best-in at the weights once claims are deducted \u2014 the handicapper\u2019s well-in horse', sortT(wr), '/thewr.html'));
+    // 4 FIRST PAIR
+    const fp = rides.filter(r => r.jid && r.tid && !(pairs[r.jid + '|' + r.tid] && pairs[r.jid + '|' + r.tid].r)).map(r => ({ r: tag(r), x: '' }));
+    T.push(tile('4 \u00b7 FIRST PAIR', 'jockey and trainer with no run together in 12 months \u2014 the intent signal', sortT(fp), '/firstpairs.html'));
+    // 5 HOT PAIR
+    const hp = rides.filter(r => { const p = pairs[r.jid + '|' + r.tid]; return p && p.r >= 20 && p.e > 0 && p.w / p.e >= 1.3; })
+      .map(r => { const p = pairs[r.jid + '|' + r.tid]; return { r: tag(r), x: 'pair A/E ' + (p.w / p.e).toFixed(2) }; });
+    T.push(tile('5 \u00b7 HOT PAIR', 'partnerships beating their prices \u2014 pair A/E \u2265 1.30 over 20+ runs', sortT(hp)));
+    // 6 DOUBLE GREEN
+    const dg = rides.filter(r => { const j = aeOf((store.jockeys || {})[r.jid], 100), t2 = aeOf((store.trainers || {})[r.tid], 100); return j != null && t2 != null && j >= 1.2 && t2 >= 1.2; })
+      .map(r => ({ r: tag(r), x: '' }));
+    T.push(tile('6 \u00b7 DOUBLE GREEN', 'jockey AND trainer each A/E \u2265 1.20 on 100+ runs \u2014 both halves beat the market', sortT(dg)));
+    // 7 CLAIMER'S EDGE
+    const ce = Object.values(raceInfo).filter(x => x.wrTop && clm(x.wrTop.jockey) > 0 && x.maxOr != null && x.wrTop.ofr !== x.maxOr)
+      .map(x => ({ r: tag(x.wrTop), x: '\u2212' + clm(x.wrTop.jockey) + 'lb claim' }));
+    T.push(tile('7 \u00b7 CLAIMER\u2019S EDGE', 'the claim itself makes this the best-in horse \u2014 top WR without being top OR', sortT(ce)));
+    // 8 COURSE SPECIALIST
+    const cspec = rides.filter(r => { const cb = csResolve(((store.jockeys || {})[r.jid] || {}).cs, r.course); return cb && cb.r >= 10 && cb.e > 0 && cb.w / cb.e >= 1.3; })
+      .map(r => { const cb = csResolve(((store.jockeys || {})[r.jid] || {}).cs, r.course); return { r: tag(r), x: 'here: ' + cb.w + '/' + cb.r + ' \u00b7 A/E ' + (cb.w / cb.e).toFixed(2) }; });
+    T.push(tile('8 \u00b7 COURSE SPECIALIST', 'jockeys who beat their prices at today\u2019s track \u2014 course A/E \u2265 1.30 on 10+ rides there', sortT(cspec)));
+    // 9 MODEL PLUS
+    const mp = Object.values(raceInfo).filter(x => x.plus && x.edges[x.plus.h] > 0.10).map(x => ({ r: tag(x.plus), x: '+' + Math.round(x.edges[x.plus.h] * 100) + '%' }));
+    T.push(tile('9 \u00b7 MODEL PLUS', 'the opposite lens \u2014 the model rates them ABOVE their price by 10%+ (the value side of the ledger)', sortT(mp)));
+    // 10 THE STACK
+    const seen2 = {};
+    const stack = [];
+    rides.forEach(r => { const k = r.h + '|' + r.t + '|' + r.course; if ((tags[k] || 0) >= 3 && !seen2[k]) { seen2[k] = 1; stack.push({ r, x: tags[k] + ' signals' }); } });
+    T.push(tile('10 \u00b7 THE STACK', 'horses qualifying on three or more of the lenses above \u2014 where the signals agree', sortT(stack)));
+
+    $('app').innerHTML = `<div class="grid">${T.join('')}</div>`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
