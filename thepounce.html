@@ -287,6 +287,14 @@
           ranPicks.push({ t, course, h: deepest.r.h, sp: deepest.r.d });
         });
         ranPicks.sort((a, b) => raceMin(a.t) - raceMin(b.t));
+        // auto-settle from the winners feed where it can
+        const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
+        const rkeyN = (t2, c2) => { const m2 = String(t2 || '').match(/(\d{1,2}):(\d{2})/); const hh = m2 ? Number(m2[1]) % 12 : 0; const mm = m2 ? m2[2] : '00'; return hh + ':' + mm + '|' + String(c2 || '').toLowerCase().replace(/\s*\(aw\)\s*/i, '').replace(/[^a-z]/g, ''); };
+        const winMap = {};
+        let settledAny = false;
+        fetch('/api/todaywinners').then(r => r.json()).then(d => {
+          if (d && d.ok) { (d.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); }); settledAny = true; paintRan(); }
+        }).catch(() => {});
         const todayKey = new Date().toISOString().slice(0, 10);
         const marksKey = 'rsmarks:v1:' + todayKey;
         let marks = {};
@@ -303,27 +311,37 @@
           paintRan();
         };
         const ranEl = document.createElement('div');
+        const effOf = (p3) => {
+          const manual = marks[p3.t + '|' + p3.course];
+          if (manual !== undefined) return { v: manual, src: 'manual' };
+          const wn = winMap[rkeyN(p3.t, p3.course)];
+          if (wn !== undefined) return { v: wn === nameN(p3.h) ? 1 : 0, src: 'auto' };
+          return { v: undefined, src: null };
+        };
         const paintRan = () => {
           if (!ranPicks.length) { ranEl.innerHTML = ''; return; }
-          // provisional streak: newest backwards, stop at first unmarked
+          // streak: newest backwards over settled+marked, stop at first unknown
           let streak = null;
           for (let i2 = ranPicks.length - 1; i2 >= 0; i2--) {
-            const mk2 = marks[ranPicks[i2].t + '|' + ranPicks[i2].course];
-            if (mk2 === undefined) { streak = null; break; }
-            if (mk2 === 1) { streak = streak === null ? 0 : streak; break; }
+            const e2 = effOf(ranPicks[i2]);
+            if (e2.v === undefined) { streak = null; break; }
+            if (e2.v === 1) { streak = streak === null ? 0 : streak; break; }
             streak = (streak === null ? 0 : streak) + 1;
           }
+          let unsettled = 0;
           const rows3 = ranPicks.map((p3, i3) => {
-            const rk = p3.t + '|' + p3.course;
-            const mk2 = marks[rk];
-            const badge = mk2 === 1 ? '<b style="color:var(--green)">\u2713 WON</b>' : mk2 === 0 ? '<b style="color:var(--red)">\u00d7 LOST</b>' : '<span style="color:var(--faint)">tap to mark</span>';
-            return `<div class="row" onclick="__pounceMark(${i3})" style="cursor:pointer${mk2 === 1 ? ';background:#E7F6EC' : ''}">` +
+            const e3 = effOf(p3);
+            if (e3.v === undefined) unsettled++;
+            const tag = e3.src === 'auto' ? ' <small style="color:var(--faint)">(settled)</small>' : '';
+            const badge = e3.v === 1 ? '<b style="color:var(--green)">\u2713 WON</b>' + tag : e3.v === 0 ? '<b style="color:var(--red)">\u00d7 LOST</b>' + tag : '<span style="color:var(--faint)">tap to mark</span>';
+            return `<div class="row" onclick="__pounceMark(${i3})" style="cursor:pointer${e3.v === 1 ? ';background:#E7F6EC' : ''}">` +
               `<span class="n"><b>${p3.t}</b> ${p3.course}<br><b style="font-size:11px">${p3.h}</b></span>` +
               `<span class="v">${badge}</span></div>`;
           }).join('');
-          ranEl.innerHTML = `<h2 style="margin-top:14px">RUN TODAY \u00b7 MARK BY HAND</h2>` +
-            `<div class="sub">results feed lags \u2014 tap a row to cycle won / lost / clear \u00b7 marks live on this device only and the overnight SP settle is the record` +
-            (streak !== null && marks[ranPicks[ranPicks.length - 1].t + '|' + ranPicks[ranPicks.length - 1].course] !== undefined && marks[ranPicks[ranPicks.length - 1].t + '|' + ranPicks[ranPicks.length - 1].course] !== 1 ? ` \u00b7 <b style="color:var(--ink)">marked streak: ${streak} losses</b>` : '') + `</div>` + rows3;
+          const lastEff = effOf(ranPicks[ranPicks.length - 1]);
+          ranEl.innerHTML = `<h2 style="margin-top:14px">RUN TODAY${unsettled ? ' \u00b7 ' + unsettled + ' TO MARK' : ' \u00b7 ALL SETTLED'}</h2>` +
+            `<div class="sub">the winners feed settles what it can \u2014 tap only the unmarked rows \u00b7 a tap overrides the feed (tap cycles won / lost / clear) \u00b7 overnight SP settle remains the record` +
+            (streak !== null && lastEff.v !== undefined && lastEff.v !== 1 ? ` \u00b7 <b style="color:var(--ink)">current streak: ${streak} losses</b>` : '') + `</div>` + rows3;
         };
         picks2.sort((a, b) => raceMin(a.t) - raceMin(b.t));
         // hero: the very next pick, big, with a red\u2192green chance bar
