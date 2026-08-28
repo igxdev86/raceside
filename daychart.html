@@ -218,7 +218,11 @@
     const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
     const dates = [];
     for (let d = startFrom; d <= yEnd; d = new Date(d.getTime() + 86400000)) dates.push(d.toISOString().slice(0, 10));
-    if (!dates.length) return;
+    if (!dates.length) {
+      // nothing to extend — still offer our state to the server (it keeps whichever is newer)
+      if (st.lastDate) { try { fetch('/api/yearstate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
+      return;
+    }
     let walked = 0;
     for (const dt of dates) {
       const lsKey = 'rsdeepseq:v4:' + dt;
@@ -320,6 +324,7 @@
       return map;
     };
     const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    yearStreak(pj, pt);   // year analytics run regardless of whether today's card has qualifiers
     const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
     const races = (day.races || []).filter(rc => (rc.runners || []).length >= 2)
       .sort((a, b) => raceMin(a.t) - raceMin(b.t));
@@ -396,7 +401,6 @@
     ctx.fillText(seq[n - 1].t, W - padR - 30, H - 8);
 
     // rows: won/lost + evolving 1-in-X
-    yearStreak(pj, pt);
     const rows = seq.map((s, i) =>
       `<div class="row${s.won ? ' won' : ''}"><span class="n"><b>${esc(s.t)}</b> ${esc(s.h)}</span>` +
       `<span class="v ${s.won ? 'pos' : ''}">${s.won ? '✓' : '×'} ${s.cumW}/${i + 1}</span></div>`
