@@ -6,6 +6,7 @@
     ['TODAY', [
       ['/thepounce.html', 'POUNCE'],
       ['/theideas.html', 'IDEAS'],
+      ['/minuscards.html', 'MINUS'],
       ['/theview.html', 'VIEW'],
       ['/jockeys.html', 'J&T'],
       ['/market.html', 'MARKET'],
