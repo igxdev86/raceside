@@ -33,8 +33,11 @@ export default async function handler(req, res) {
     if (!cards) continue;
     (cards.racecards || []).forEach((rc) => {
       if (!['gb', 'ire'].includes(String(rc.region || '').toLowerCase())) return;
+      const isNR = (x) => x.non_runner === true || x.non_runner === 1 ||
+        /^(true|1|yes|nr)$/i.test(String(x.non_runner == null ? '' : x.non_runner).trim()) ||
+        String(x.number == null ? '' : x.number).trim().toUpperCase() === 'NR';
       const priced = (rc.runners || [])
-        .filter((x) => String(x.number || '').toUpperCase() !== 'NR' && !x.non_runner)
+        .filter((x) => !isNR(x))
         .map((x) => ({ x, d: bestOdds(x) })).filter((p) => p.d && p.x.horse_id);
       if (priced.length < 2) return;
       const over = priced.reduce((a, p) => a + 1 / p.d, 0);
