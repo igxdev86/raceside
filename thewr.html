@@ -64,7 +64,7 @@
   <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
-  <p class="note">Each race’s top-WR horse: best effective rating once the weights carried (claims deducted) are set against official ratings — the handicapper’s “well-in” horse. Only races where at least two runners have both an OR and a weight count. Strike will be high — these are often fancied — so A/E against SP is the judge: above 1.00 means the weights signal beats its prices. Not advice.</p>
+  <p class="note">Each race’s top-WR horse: best effective rating once the weights carried (claims deducted) are set against official ratings — the handicapper’s “well-in” horse. Only races where one runner is STRICTLY best at the weights count — in a pure handicap everyone is level by construction, so most handicaps have no qualifier and are skipped. (An earlier version broke ties by feed order, which leaks the result; those numbers were fiction and this build discards them.) Strike will be high — these are often fancied — so A/E against SP is the judge: above 1.00 means the weights signal beats its prices. Not advice.</p>
   <footer>RACESIDE · data: The Racing API · settled at SP</footer>
 </div>
 <script>
@@ -85,12 +85,16 @@
       const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
       const car = (r) => r.lbs - clm(r.jockey);
       const topC = car(top);
-      let best = null, bestEff = -1e9;
+      // a race only HAS a best-in horse if one runner is STRICTLY clear at the weights.
+      // ties are skipped: in a pure handicap every eff is equal by construction, and the
+      // feed lists finishers in result order — picking a tied "first" reads the result.
+      let best = null, bestEff = -1e9, second = -1e9;
       okF.forEach(r => {
         const eff = r.ofr + (topC - car(r));
-        if (eff > bestEff) { bestEff = eff; best = r; }
+        if (eff > bestEff) { second = bestEff; bestEff = eff; best = r; }
+        else if (eff > second) second = eff;
       });
-      if (!best) return;
+      if (!best || bestEff <= second) return;
       out.n++;
       if (best.won) out.w++;
       if (best.d > 1) out.e += 1 / best.d;
@@ -105,19 +109,18 @@
     const yEnd = new Date(Date.now() - 86400000);
     let st = null;
     try { st = JSON.parse(localStorage.getItem('rswr:v1') || 'null'); } catch {}
-    if (st && Object.values(st.months || {}).some(M => M.n && M.pl === undefined)) st = null;   // pre-ROI state: rebuild
+    if (st && st.gen !== 3) st = null;   // pre-fix state is contaminated: rebuild
     if (st && String(st.year) !== String(year)) st = null;
     if (!st) {
       try {
         const rs = await fetch('/api/yearstate?k=wrstate:v1');
         const js = await rs.json();
-        if (js && js.state && String(js.state.year) === String(year)
-            && !Object.values(js.state.months || {}).some(M => M.n && M.pl === undefined)) st = js.state;
+        if (js && js.state && String(js.state.year) === String(year) && js.state.gen === 3) st = js.state;
       } catch {}
     }
-    if (!st) st = { year, lastDate: null, months: {}, miss: [] };
+    if (!st) st = { year, gen: 3, lastDate: null, months: {}, miss: [] };
     const fetchDay = async (dt) => {
-      const lsKey = 'rswrd:v2:' + dt;
+      const lsKey = 'rswrd:v3:' + dt;
       let dig = null;
       try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
       if (!dig) {
