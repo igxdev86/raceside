@@ -148,7 +148,7 @@
       let deepest = null;
       rows.forEach(x => { if (x.edge != null && isFinite(x.edge) && x.edge < 0 && (!deepest || x.edge < deepest.edge)) deepest = x; });
       if (!deepest) return;
-      cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, advM, wrBest });
+      cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, advM, wrBest, noOr: orVals.length < 2 });
     });
     const strikeOf = (jid) => { const s = (store.jockeys || {})[jid]; return (s && s.runs >= 50) ? s.wins / s.runs : -1; };
     const SORTS = {
@@ -161,6 +161,8 @@
       or: { lbl: 'OR', f: (a, b) => ((b.deepest.r.ofr != null ? b.deepest.r.ofr : -1e9)) - ((a.deepest.r.ofr != null ? a.deepest.r.ofr : -1e9)) },
     };
     let sortKey = 'minus';
+    let rowSort = { key: 'sp', dir: 1 };
+    window.__mcRowSort = (k) => { rowSort = { key: k, dir: rowSort.key === k ? -rowSort.dir : (k === 'edge' || k === 'sp' || k === 'horse' ? 1 : -1) }; render(); };
     cards.sort(SORTS.minus.f);
 
     function render() {
@@ -186,10 +188,19 @@
           return { bg, pct: Math.round(p * 100) };
         };
         const gcols = 'display:grid;grid-template-columns:minmax(0,1fr) 36px 36px 46px 42px;gap:0 6px;align-items:center;font-family:var(--mono)';
-        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase"><span>Horse</span><span style="text-align:right">J%</span><span style="text-align:right">WR</span><span style="text-align:right">Edge</span><span style="text-align:right">SP</span></div>`;
-        const fieldRows = hdr + c.rows.slice().sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
+        const ar = (k) => rowSort.key === k ? (rowSort.dir === 1 ? ' \u25b4' : ' \u25be') : '';
+        const hcell = (k, lbl, right) => `<span onclick="__mcRowSort('${k}')" style="cursor:pointer;${right ? 'text-align:right;' : ''}${rowSort.key === k ? 'color:var(--blue);font-weight:700' : ''}">${lbl}${ar(k)}</span>`;
+        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc','J%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
+        const rowVal = (x, k) => k === 'horse' ? String(x.r.h || '').toLowerCase()
+          : k === 'jpc' ? (heat(x.r.jid).pct != null ? heat(x.r.jid).pct : -1)
+          : k === 'wr' ? (c.advM[x.r.h] != null ? c.advM[x.r.h] : -1e9)
+          : k === 'edge' ? (x.edge != null ? x.edge : 1e9)
+          : (x.r.d || 999);
+        const cmp = (a, b) => { const va = rowVal(a, rowSort.key), vb = rowVal(b, rowSort.key);
+          return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * rowSort.dir; };
+        const fieldRows = hdr + c.rows.slice().sort(cmp).map(x => {
           const isW = settled && wn === nameN(x.r.h);
-          const eCol = x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
+          const eCol = c.noOr ? 'var(--faint)' : x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
           const hs = heat(x.r.jid);
           const adv = c.advM[x.r.h];
           const isWr = c.wrBest === x.r.h;
@@ -207,6 +218,7 @@
           `<div style="margin:8px 0 4px;font-size:17px;font-weight:800">${dOK.h} <span style="color:var(--red)">${Math.round(c.deepest.edge * 100)}%</span> <span style="color:var(--blue)">${dOK.d}</span>` +
           (isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : '') +
           (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
+          (c.noOr ? `<div class="sub" style="margin-bottom:4px;color:var(--gold)">\u26a0 no official ratings in this race \u2014 the model is running on people alone; the edge column here is closer to noise than signal</div>` : '') +
           `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = lbs advantage at the weights vs the top-rated horse (0 = level, handicaps are 0 by design; gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
       }).join('');
       let orderOk = true;
