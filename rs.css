@@ -1,0 +1,45 @@
+/* RACESIDE design system — loaded by nav.js on every page */
+:root{
+  --bg:#0B1730; --bg2:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+  --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+  --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+  --navink:#C7D4F2; --navdim:#8FA3C8; --navline:#22335C;
+  --radius:14px; --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'Archivo',system-ui,sans-serif;
+}
+html{background:var(--bg)}
+body{background:radial-gradient(1100px 480px at 50% -160px,#182C55,rgba(24,44,85,0)),var(--bg)!important}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px 60px}
+/* unified page header */
+.wrap>header{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 14px}
+.wordmark{font-family:var(--sans);font-weight:800;letter-spacing:-.02em;font-size:26px;color:#EAF0FB}
+.wordmark b{color:#7E9BEF}
+.wordmark small{display:block;font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.08em;color:var(--navdim);margin-top:4px;text-transform:uppercase}
+a.back{font-family:var(--mono);font-size:10.5px;color:var(--navdim);text-decoration:none;border:1px solid var(--navline);padding:6px 12px;border-radius:999px;white-space:nowrap}
+/* cards */
+.tile{background:var(--card);border-radius:var(--radius);padding:16px 16px 12px;box-shadow:0 1px 2px rgba(4,8,20,.25),0 10px 30px rgba(4,8,20,.28);border:0}
+.tile h2{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink);margin:0 0 2px;text-transform:uppercase}
+.tile h2::after{content:"";display:block;width:26px;height:2px;background:var(--gold);margin-top:6px;border-radius:2px;opacity:.85}
+.tile .sub{font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--faint)}
+.grid{display:grid;gap:12px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.row:last-child{border-bottom:0}
+.row .n{color:var(--ink)}
+.row .v{font-family:var(--mono);font-size:12px;color:var(--dim);text-align:right;white-space:nowrap}
+.row .v.pos{color:var(--green)} .row .v.neg{color:var(--red)}
+/* notes quieter */
+p.note{font-family:var(--mono);font-size:10px;line-height:1.6;color:#5E729E;border-left:2px solid var(--navline);padding-left:10px;margin:14px 0}
+/* page-level chips (filters) unified */
+button.chip,.chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;border-radius:999px}
+/* states */
+.state{font-family:var(--mono);font-size:12px;color:var(--navdim);padding:34px 0;text-align:center}
+/* NAV BAR */
+#rsbar{position:sticky;top:0;z-index:50;background:rgba(11,23,48,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin:0 -14px 12px;padding:10px 14px 6px;border-bottom:1px solid var(--navline)}
+#rsbar .brand{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#rsbar .brand a{font-family:var(--sans);font-weight:800;font-size:15px;letter-spacing:-.01em;color:#EAF0FB;text-decoration:none}
+#rsbar .brand a b{color:#7E9BEF}
+#rsbar .brand .dot{width:6px;height:6px;border-radius:99px;background:var(--gold)}
+.rsgroup{display:flex;align-items:center;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:3px 0}
+.rsgroup::-webkit-scrollbar{display:none}
+.rsgroup .lbl{flex:none;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:#54679A;width:52px;text-transform:uppercase}
+.rsgroup a{flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-decoration:none;padding:5px 11px;border-radius:999px;border:1px solid var(--navline);color:var(--navdim)}
+.rsgroup a.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
