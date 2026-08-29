@@ -136,8 +136,10 @@
         const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
         const car = (r) => r.lbs - clm(r.jockey);
         const topC = car(top);
-        let bestEff = -1e9;
-        okF.forEach(r => { const eff = r.ofr + (topC - car(r)); advM[r.h] = eff - top.ofr; if (eff > bestEff) { bestEff = eff; wrTop = r; } });
+        let bestEff = -1e9, secondEff = -1e9;
+        okF.forEach(r => { const eff = r.ofr + (topC - car(r)); advM[r.h] = eff - top.ofr;
+          if (eff > bestEff) { secondEff = bestEff; bestEff = eff; wrTop = r; } else if (eff > secondEff) secondEff = eff; });
+        if (wrTop && bestEff <= secondEff) wrTop = null;   // ties mean no best-in horse
       }
       const strengths = field.map(r => {
         const parts = [];
