@@ -86,10 +86,21 @@
       if (!store.ok || !up.ok) throw new Error('bad');
     } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
     const winMap = {};
-    const paint = () => render();
-    fetch('/api/todaywinners').then(r => r.json()).then(d => {
-      if (d && d.ok) { (d.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); }); paint(); }
-    }).catch(() => {});
+    let winCount = -1;
+    let ready = false;   // cards not built yet — first poll must not render
+    const pullWinners = () => {
+      fetch('/api/todaywinners').then(r => r.json()).catch(() => null).then(d => {
+        if (!(d && d.ok)) return;
+        (d.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); });
+        const n = Object.keys(winMap).length;
+        if (n !== winCount) { winCount = n; if (ready) render(); }
+      });
+    };
+    window.__mcPull = pullWinners;
+    pullWinners();
+    setInterval(pullWinners, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) pullWinners(); });
+    window.addEventListener('pageshow', () => pullWinners());
 
     const pctB = (bucket) => {
       const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
@@ -153,32 +164,37 @@
     const strikeOf = (jid) => { const s = (store.jockeys || {})[jid]; return (s && s.runs >= 50) ? s.wins / s.runs : -1; };
     const SORTS = {
       minus: { lbl: 'MINUS', f: (a, b) => a.deepest.edge - b.deepest.edge },
-      time: { lbl: 'TIME', f: (a, b) => raceMin(a.t) - raceMin(b.t) },
       odds: { lbl: 'SP', f: (a, b) => (a.deepest.r.d || 999) - (b.deepest.r.d || 999) },
       jpc: { lbl: 'J%', f: (a, b) => strikeOf(b.deepest.r.jid) - strikeOf(a.deepest.r.jid) },
       topor: { lbl: 'TOP OR', f: (a, b) => ((b.maxOr != null && b.deepest.r.ofr === b.maxOr) ? 1 : 0) - ((a.maxOr != null && a.deepest.r.ofr === a.maxOr) ? 1 : 0) || a.deepest.edge - b.deepest.edge },
       wr: { lbl: 'WR', f: (a, b) => ((b.advM[b.deepest.r.h] != null ? b.advM[b.deepest.r.h] : -1e9)) - ((a.advM[a.deepest.r.h] != null ? a.advM[a.deepest.r.h] : -1e9)) || a.deepest.edge - b.deepest.edge },
       or: { lbl: 'OR', f: (a, b) => ((b.deepest.r.ofr != null ? b.deepest.r.ofr : -1e9)) - ((a.deepest.r.ofr != null ? a.deepest.r.ofr : -1e9)) },
     };
-    let sortKey = 'minus';
+    const TIME_CMP = (a, b) => raceMin(a.t) - raceMin(b.t);
+    let sortKey = 'time';
     let rowSort = { key: 'sp', dir: 1 };
     let personMode = 'j';
     window.__mcPerson = (m) => { personMode = m; render(); };
     const pairs = store.pairs || {};
     window.__mcRowSort = (k) => { rowSort = { key: k, dir: rowSort.key === k ? -rowSort.dir : (k === 'edge' || k === 'sp' || k === 'horse' ? 1 : -1) }; render(); };
-    cards.sort(SORTS.minus.f);
+    cards.sort(TIME_CMP);
 
     function render() {
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
-      cards.sort(SORTS[sortKey].f);
-      const ptabs = '<div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
+      const cmpCards = sortKey === 'time' ? TIME_CMP : SORTS[sortKey].f;
+      const nowM0 = new Date().getHours() * 60 + new Date().getMinutes();
+      const isPast = (c) => winMap[rkeyN(c.t, c.course)] !== undefined || raceMin(c.t) < nowM0 - 10;
+      const upcoming = cards.filter(c => !isPast(c)).sort(cmpCards);
+      const finished = cards.filter(isPast).sort(cmpCards);
+      const ordered = [...upcoming, ...finished];
+      const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
         `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + '</div>';
       const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
-        `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div>';
-      window.__mcSort = (k) => { sortKey = k; render(); };
+        `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
+      window.__mcSort = (k) => { sortKey = (k === sortKey ? 'time' : k); render(); };
       var chipsHtml = chips;
       const nowM = new Date().getHours() * 60 + new Date().getMinutes();
-      const html2 = cards.map((c, ci) => {
+      const html2 = ordered.map((c, ci) => {
         const wn = winMap[rkeyN(c.t, c.course)];
         const settled = wn !== undefined;
         const dOK = c.deepest.r;
@@ -240,11 +256,15 @@
           `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = lbs advantage at the weights vs the top-rated horse (0 = level, handicaps are 0 by design; gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
       }).join('');
       let orderOk = true;
-      if (sortKey === 'minus') for (let i2 = 1; i2 < cards.length; i2++) if (cards[i2].deepest.edge < cards[i2 - 1].deepest.edge) orderOk = false;
+      if (sortKey === 'minus') [upcoming, finished].forEach(g => { for (let i2 = 1; i2 < g.length; i2++) if (g[i2].deepest.edge < g[i2 - 1].deepest.edge) orderOk = false; });
       $('app').innerHTML = chipsHtml + `<div class="grid">${html2}</div>` +
-        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 headline %s rounded</div>`;
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 run races sit at the bottom \u00b7 headline %s rounded</div>`;
+      const fb = document.getElementById('mcfilters');
+      const rb = document.getElementById('rsbar');
+      if (fb && rb) fb.style.top = rb.offsetHeight + 'px';
     }
     render();
+    ready = true;
   }
   main();
 })();
