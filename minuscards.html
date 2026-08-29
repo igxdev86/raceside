@@ -150,10 +150,24 @@
       if (!deepest) return;
       cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, wrBest });
     });
-    cards.sort((a, b) => a.deepest.edge - b.deepest.edge);
+    const strikeOf = (jid) => { const s = (store.jockeys || {})[jid]; return (s && s.runs >= 50) ? s.wins / s.runs : -1; };
+    const SORTS = {
+      minus: { lbl: 'MINUS', f: (a, b) => a.deepest.edge - b.deepest.edge },
+      time: { lbl: 'TIME', f: (a, b) => raceMin(a.t) - raceMin(b.t) },
+      odds: { lbl: 'SP', f: (a, b) => (a.deepest.r.d || 999) - (b.deepest.r.d || 999) },
+      jpc: { lbl: 'J%', f: (a, b) => strikeOf(b.deepest.r.jid) - strikeOf(a.deepest.r.jid) },
+      topor: { lbl: 'TOP OR', f: (a, b) => ((b.maxOr != null && b.deepest.r.ofr === b.maxOr) ? 1 : 0) - ((a.maxOr != null && a.deepest.r.ofr === a.maxOr) ? 1 : 0) || a.deepest.edge - b.deepest.edge },
+    };
+    let sortKey = 'minus';
+    cards.sort(SORTS.minus.f);
 
     function render() {
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
+      cards.sort(SORTS[sortKey].f);
+      const chips = '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
+        `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div>';
+      window.__mcSort = (k) => { sortKey = k; render(); };
+      var chipsHtml = chips;
       const nowM = new Date().getHours() * 60 + new Date().getMinutes();
       const html2 = cards.map((c, ci) => {
         const wn = winMap[rkeyN(c.t, c.course)];
@@ -169,27 +183,34 @@
           const bg = p >= 0.18 ? '#E7F6EC' : p >= 0.13 ? '#F6F9E8' : p >= 0.09 ? '#FFF6E3' : '#FDEDEE';
           return { bg, pct: Math.round(p * 100) };
         };
-        const fieldRows = c.rows.slice().sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
+        const gcols = 'display:grid;grid-template-columns:minmax(0,1fr) 36px 36px 46px 42px;gap:0 6px;align-items:center;font-family:var(--mono)';
+        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase"><span>Horse</span><span style="text-align:right">J%</span><span style="text-align:right">WR</span><span style="text-align:right">Edge</span><span style="text-align:right">SP</span></div>`;
+        const fieldRows = hdr + c.rows.slice().sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
           const isW = settled && wn === nameN(x.r.h);
           const eCol = x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
           const hs = heat(x.r.jid);
           const eff = c.effM[x.r.h];
           const isWr = c.wrBest === x.r.h;
-          return `<div class="row" style="${isW ? 'background:#E7F6EC;' : hs.bg ? 'background:' + hs.bg + ';' : ''}border-radius:6px;padding-left:6px;padding-right:6px">` +
-            `<span class="n">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${x.r === dOK ? ' <small style="color:var(--red);font-weight:700">MINUS</small>' : ''}${(c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : ''}${isWr ? ' <small style="color:var(--gold);font-weight:700">WR</small>' : ''}` +
-            `<br><small style="color:var(--dim)">${(x.r.jockey || '').replace(/</g,'&lt;')}${hs.pct != null ? ' \u00b7 ' + hs.pct + '%' : ''}</small></span>` +
-            `<span class="v"><span style="color:${eCol}">${x.edge == null ? '\u2014' : (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100) + '%'}</span>${eff != null ? ' \u00b7 WR ' + eff : ''} \u00b7 <b style="color:var(--blue)">${x.r.d || '\u2014'}</b></span></div>`;
+          const tags = (x.r === dOK ? ' <small style="color:var(--red);font-weight:700">M</small>' : '') +
+            ((c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">OR</small>' : '') +
+            (isWr ? ' <small style="color:var(--gold);font-weight:700">WR</small>' : '');
+          return `<div style="${gcols};${isW ? 'background:#E7F6EC;' : ''}font-size:11.5px;padding:6px;border-bottom:1px solid var(--line);border-radius:6px">` +
+            `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);font-size:12.5px;color:var(--ink)">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${tags}<br><small style="color:var(--dim);font-family:var(--mono);font-size:9.5px">${(x.r.jockey || '').replace(/</g,'&lt;')}</small></span>` +
+            `<span style="text-align:right;${hs.bg ? 'background:' + hs.bg + ';border-radius:5px;' : ''}padding:2px 3px;color:var(--ink)">${hs.pct != null ? hs.pct : '\u2014'}</span>` +
+            `<span style="text-align:right;color:${isWr ? 'var(--gold)' : 'var(--dim)'};${isWr ? 'font-weight:700' : ''}">${eff != null ? eff : '\u2014'}</span>` +
+            `<span style="text-align:right;color:${eCol}">${x.edge == null ? '\u2014' : (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</span>` +
+            `<span style="text-align:right;color:var(--blue);font-weight:700">${x.r.d || '\u2014'}</span></div>`;
         }).join('');
         return `<div class="tile"><h2>#${ci + 1} \u00b7 ${c.t} ${c.course.toUpperCase()}${settled ? ' \u00b7 SETTLED' : ran ? ' \u00b7 RAN' : ''}</h2>` +
           `<div style="margin:8px 0 4px;font-size:17px;font-weight:800">${dOK.h} <span style="color:var(--red)">${Math.round(c.deepest.edge * 100)}%</span> <span style="color:var(--blue)">${dOK.d}</span>` +
           (isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : '') +
           (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
-          `<div class="sub" style="margin-bottom:6px">field below, shortest first \u00b7 row colour = jockey 12-mo strike \u00b7 WR = effective rating at the weights, gold tag = strictly best-in</div>` + fieldRows + `</div>`;
+          `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = effective rating (gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
       }).join('');
       let orderOk = true;
-      for (let i2 = 1; i2 < cards.length; i2++) if (cards[i2].deepest.edge < cards[i2 - 1].deepest.edge) orderOk = false;
-      $('app').innerHTML = `<div class="grid">${html2}</div>` +
-        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 order ${orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER'} \u00b7 headline %s are rounded; ties can show equal</div>`;
+      if (sortKey === 'minus') for (let i2 = 1; i2 < cards.length; i2++) if (cards[i2].deepest.edge < cards[i2 - 1].deepest.edge) orderOk = false;
+      $('app').innerHTML = chipsHtml + `<div class="grid">${html2}</div>` +
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 headline %s rounded</div>`;
     }
     render();
   }
