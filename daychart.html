@@ -62,7 +62,8 @@
   </header>
 
   <canvas id="chart" style="width:100%;height:300px;background:var(--card);border-radius:12px;display:none"></canvas>
-  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;margin-bottom:12px;color-scheme:dark">
+  <input type="date" id="cal" style="font-family:var(--mono);font-size:13px;padding:8px 12px;border-radius:999px;border:1px solid #3A5490;background:transparent;color:#C7D4F2;color-scheme:dark">
+  <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:4px 0 12px">this page starts at <b style="color:#C7D4F2">yesterday</b> — results settle overnight · today lives on <a href="/thepounce.html" style="color:var(--blue)">THE POUNCE</a> and <a href="/theideas.html" style="color:var(--blue)">IDEAS</a></div>
   <div id="streak" style="font-family:var(--mono);font-size:11px;color:#C9A24B;margin-bottom:8px;letter-spacing:.04em"></div>
   <div id="condlist" style="margin-bottom:10px"></div>
   <div id="grouplist" style="margin-bottom:10px"></div>
@@ -79,7 +80,17 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   const posN = (r) => { const n = parseInt(r.pos, 10); return isNaN(n) ? 99 : n; };
   const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
-  const qd = new URLSearchParams(location.search).get('d');
+  let qd = new URLSearchParams(location.search).get('d');
+  const ydayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (qd && qd > ydayStr) {
+    const qd0 = qd;
+    document.addEventListener('DOMContentLoaded', () => {
+      const a = document.getElementById('app');
+      if (a) a.innerHTML = '<div class="tile"><h2>' + qd0 + ' IS STILL RUNNING</h2><div class="sub">this page needs the overnight SP settle, so it stops at yesterday \u2014 today\u2019s picks live on <a href="/thepounce.html" style="color:var(--blue)">THE POUNCE</a> and <a href="/theideas.html" style="color:var(--blue)">IDEAS</a> and settle themselves as results land</div></div>';
+    });
+    window.__dayBlocked = true;
+    qd = null;
+  }
   const date = /^\d{4}-\d{2}-\d{2}$/.test(qd || '') ? qd : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
   function daySeqDigest(dayData, pj, pt) {
@@ -387,6 +398,24 @@
   }
   async function main() {
     initCal();
+    if (window.__dayBlocked) {
+      // keep the year analytics alive under the still-running message
+      try {
+        const r1b = await fetch('/api/peopleall?v=2');
+        const stb = await r1b.json();
+        if (stb.ok) {
+          const pctBB = (bucket) => {
+            const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+              .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+            const map = {}; const n = list.length;
+            list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+            return map;
+          };
+          yearStreak(pctBB(stb.jockeys), pctBB(stb.trainers));
+        }
+      } catch {}
+      return;
+    }
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing ' + esc(date) + '\u2026</div>';
     let store, day;
     try {
