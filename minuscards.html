@@ -102,6 +102,18 @@
     const rides = (up.rides || []).filter(r => r.day === 'today');
     const byRace = {};
     rides.forEach(r => { (byRace[r.t + '|' + r.course] = byRace[r.t + '|' + r.course] || []).push(r); });
+    // defensive: numeric odds, one row per horse — duplicates split the softmax and poison every edge in the race
+    Object.keys(byRace).forEach(k => {
+      const seen = {};
+      byRace[k] = byRace[k].filter(r => {
+        r.d = Number(r.d);
+        if (!(r.d > 1)) r.d = null;
+        const hk = nameN(r.h);
+        if (seen[hk]) return false;
+        seen[hk] = 1;
+        return true;
+      });
+    });
     const cards = [];
     Object.values(byRace).forEach(field => {
       const orVals = field.map(r => r.ofr).filter(v => v != null);
@@ -134,7 +146,7 @@
       const tot = exps.reduce((a, b) => a + b, 0);
       const rows = field.map((r, i) => ({ r, p: exps[i] / tot, edge: r.d > 1 ? ((exps[i] / tot) - 1 / r.d) / (1 / r.d) : null }));
       let deepest = null;
-      rows.forEach(x => { if (x.edge != null && x.edge < 0 && (!deepest || x.edge < deepest.edge)) deepest = x; });
+      rows.forEach(x => { if (x.edge != null && isFinite(x.edge) && x.edge < 0 && (!deepest || x.edge < deepest.edge)) deepest = x; });
       if (!deepest) return;
       cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, wrBest });
     });
@@ -174,7 +186,10 @@
           (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
           `<div class="sub" style="margin-bottom:6px">field below, shortest first \u00b7 row colour = jockey 12-mo strike \u00b7 WR = effective rating at the weights, gold tag = strictly best-in</div>` + fieldRows + `</div>`;
       }).join('');
-      $('app').innerHTML = `<div class="grid">${html2}</div>`;
+      let orderOk = true;
+      for (let i2 = 1; i2 < cards.length; i2++) if (cards[i2].deepest.edge < cards[i2 - 1].deepest.edge) orderOk = false;
+      $('app').innerHTML = `<div class="grid">${html2}</div>` +
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 order ${orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER'} \u00b7 headline %s are rounded; ties can show equal</div>`;
     }
     render();
   }
