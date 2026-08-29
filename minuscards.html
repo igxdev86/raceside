@@ -276,13 +276,32 @@
     ready = true;
     // the card itself goes stale: non-runners declared after load must fall out
     let lastCardPull = Date.now();
+    // STRICT FREEZE: once a race's off time passes, its card is locked — the pre-off snapshot
+    // is the record. Post-off feeds suspend/drop races and reprice into garbage; none of that
+    // may touch a run race. The winners overlay settles frozen cards; nothing else changes them.
+    const frozen = {};
+    const ckey = (c) => c.t + '|' + c.course;
+    const freezePast = () => {
+      const nm = new Date().getHours() * 60 + new Date().getMinutes();
+      cards.forEach(c => { if (raceMin(c.t) <= nm && !frozen[ckey(c)]) frozen[ckey(c)] = c; });
+    };
+    freezePast();
     const refreshCard = async () => {
       try {
         const r = await fetch('/api/upcoming?v=3&r=' + Math.floor(Date.now() / 300000));
         const j = await r.json();
-        if (j && j.ok) { cards = buildCards(j.rides); lastCardPull = Date.now(); render(); }
+        if (!(j && j.ok)) return;
+        freezePast();   // lock anything that went off since the last pull, at its last pre-off build
+        const fresh = buildCards(j.rides);
+        const seen = {};
+        const merged = fresh.map(c => { seen[ckey(c)] = 1; return frozen[ckey(c)] || c; });
+        Object.keys(frozen).forEach(k => { if (!seen[k]) merged.push(frozen[k]); });   // feed dropped a run race: keep it
+        cards = merged;
+        lastCardPull = Date.now();
+        render();
       } catch {}
     };
+    setInterval(freezePast, 30000);
     window.__mcRefresh = refreshCard;
     setInterval(refreshCard, 300000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastCardPull > 60000) refreshCard(); });
