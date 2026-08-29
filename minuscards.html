@@ -162,13 +162,18 @@
     };
     let sortKey = 'minus';
     let rowSort = { key: 'sp', dir: 1 };
+    let personMode = 'j';
+    window.__mcPerson = (m) => { personMode = m; render(); };
+    const pairs = store.pairs || {};
     window.__mcRowSort = (k) => { rowSort = { key: k, dir: rowSort.key === k ? -rowSort.dir : (k === 'edge' || k === 'sp' || k === 'horse' ? 1 : -1) }; render(); };
     cards.sort(SORTS.minus.f);
 
     function render() {
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
       cards.sort(SORTS[sortKey].f);
-      const chips = '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
+      const ptabs = '<div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
+        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + '</div>';
+      const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
         `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div>';
       window.__mcSort = (k) => { sortKey = k; render(); };
       var chipsHtml = chips;
@@ -180,19 +185,31 @@
         const isTop = c.maxOr != null && dOK.ofr === c.maxOr;
         const dRes = settled ? (wn === nameN(dOK.h) ? 1 : 0) : null;
         const ran = raceMin(c.t) < nowM - 10;
-        const heat = (jid) => {
-          const s = (store.jockeys || {})[jid];
-          if (!s || s.runs < 50) return { bg: '', pct: null };
+        const strikeHeat = (s, minR) => {
+          if (!s || s.runs < minR) return { bg: '', pct: null };
           const p = s.wins / s.runs;
           const bg = p >= 0.18 ? '#E7F6EC' : p >= 0.13 ? '#F6F9E8' : p >= 0.09 ? '#FFF6E3' : '#FDEDEE';
           return { bg, pct: Math.round(p * 100) };
         };
+        const person = (r) => {
+          if (personMode === 't') return { name: r.trainer || '\u2014', cell: strikeHeat((store.trainers || {})[r.tid], 50) };
+          if (personMode === 'jt') {
+            const p = pairs[r.jid + '|' + r.tid];
+            const nm = ((r.jockey || '?').split(' ').pop()) + ' \u00d7 ' + ((r.trainer || '?').split(' ').pop());
+            if (!p || !p.r) return { name: nm, cell: { bg: '#EAF0FB', pct: null, txt: 'first' } };
+            const ae = p.e > 0 ? p.w / p.e : null;
+            const bg = ae == null || p.r < 10 ? '' : ae >= 1.2 ? '#E7F6EC' : ae <= 0.8 ? '#FDEDEE' : '#FFF6E3';
+            return { name: nm + ' (' + p.r + ')', cell: { bg, pct: null, txt: ae != null ? ae.toFixed(2) : '\u2014' } };
+          }
+          return { name: r.jockey || '\u2014', cell: strikeHeat((store.jockeys || {})[r.jid], 50) };
+        };
+        const heat = (jid) => strikeHeat((store.jockeys || {})[jid], 50);
         const gcols = 'display:grid;grid-template-columns:minmax(0,1fr) 36px 36px 46px 42px;gap:0 6px;align-items:center;font-family:var(--mono)';
         const ar = (k) => rowSort.key === k ? (rowSort.dir === 1 ? ' \u25b4' : ' \u25be') : '';
         const hcell = (k, lbl, right) => `<span onclick="__mcRowSort('${k}')" style="cursor:pointer;${right ? 'text-align:right;' : ''}${rowSort.key === k ? 'color:var(--blue);font-weight:700' : ''}">${lbl}${ar(k)}</span>`;
-        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc','J%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
+        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc',personMode === 't' ? 'T%' : personMode === 'jt' ? 'PAIR' : 'J%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
         const rowVal = (x, k) => k === 'horse' ? String(x.r.h || '').toLowerCase()
-          : k === 'jpc' ? (heat(x.r.jid).pct != null ? heat(x.r.jid).pct : -1)
+          : k === 'jpc' ? (() => { const pc = person(x.r).cell; return pc.pct != null ? pc.pct : pc.txt === 'first' ? -2 : pc.txt && pc.txt !== '\u2014' ? Number(pc.txt) * 100 : -1; })()
           : k === 'wr' ? (c.advM[x.r.h] != null ? c.advM[x.r.h] : -1e9)
           : k === 'edge' ? (x.edge != null ? x.edge : 1e9)
           : (x.r.d || 999);
@@ -201,15 +218,16 @@
         const fieldRows = hdr + c.rows.slice().sort(cmp).map(x => {
           const isW = settled && wn === nameN(x.r.h);
           const eCol = c.noOr ? 'var(--faint)' : x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
-          const hs = heat(x.r.jid);
+          const pe = person(x.r);
+          const hs = pe.cell;
           const adv = c.advM[x.r.h];
           const isWr = c.wrBest === x.r.h;
           const tags = (x.r === dOK ? ' <small style="color:var(--red);font-weight:700">M</small>' : '') +
             ((c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">OR</small>' : '') +
             (isWr ? ' <small style="color:var(--gold);font-weight:700">WR</small>' : '');
           return `<div style="${gcols};${isW ? 'background:#E7F6EC;' : ''}font-size:11.5px;padding:6px;border-bottom:1px solid var(--line);border-radius:6px">` +
-            `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);font-size:12.5px;color:var(--ink)">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${tags}<br><small style="color:var(--dim);font-family:var(--mono);font-size:9.5px">${(x.r.jockey || '').replace(/</g,'&lt;')}</small></span>` +
-            `<span style="text-align:right;${hs.bg ? 'background:' + hs.bg + ';border-radius:5px;' : ''}padding:2px 3px;color:var(--ink)">${hs.pct != null ? hs.pct : '\u2014'}</span>` +
+            `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);font-size:12.5px;color:var(--ink)">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${tags}<br><small style="color:var(--dim);font-family:var(--mono);font-size:9.5px">${pe.name.replace(/</g,'&lt;')}</small></span>` +
+            `<span style="text-align:right;${hs.bg ? 'background:' + hs.bg + ';border-radius:5px;' : ''}padding:2px 3px;color:var(--ink);font-size:${hs.txt ? '10px' : 'inherit'}">${hs.pct != null ? hs.pct : hs.txt ? hs.txt : '\u2014'}</span>` +
             `<span style="text-align:right;color:${isWr ? 'var(--gold)' : (adv != null && adv > 0) ? 'var(--green)' : (adv != null && adv < 0) ? 'var(--red)' : 'var(--dim)'};${isWr ? 'font-weight:700' : ''}">${adv != null ? (adv > 0 ? '+' + adv : adv) : '\u2014'}</span>` +
             `<span style="text-align:right;color:${eCol}">${x.edge == null ? '\u2014' : (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</span>` +
             `<span style="text-align:right;color:var(--blue);font-weight:700">${x.r.d || '\u2014'}</span></div>`;
