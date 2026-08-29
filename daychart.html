@@ -137,12 +137,13 @@
           const top2 = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
           okF.forEach(r => {
             const eff2 = r.ofr + (advM[r.h] || 0) + (top2.ofr - r.ofr);
-            if (maxEff == null || eff2 > maxEff) maxEff = eff2;
-            if (r === deepest.r) deepEff = eff2;
+            if (r === deepest.r) { deepEff = eff2; return; }
+            if (maxEff == null || eff2 > maxEff) maxEff = eff2;   // best of the OTHERS
           });
         }
         const isTopOr = maxOr != null && deepest.r.ofr === maxOr;
-        const isTopWr = deepEff != null && maxEff != null && deepEff >= maxEff;
+        // strictly best at the weights — ties (every pure handicap) don't count
+        const isTopWr = deepEff != null && maxEff != null && deepEff > maxEff;
         const gAdd = (g) => { g.n++; if (deepest.r.won) g.w++; if (deepest.r.d > 1) g.e += 1 / deepest.r.d; };
         gAdd(groups.all);
         if (isTopOr) gAdd(groups.topOr); else if (maxOr != null && deepest.r.ofr != null) gAdd(groups.notTopOr);
@@ -207,8 +208,8 @@
         } catch {}
       }
     }
-    if (st && (!st.D || !st.EW)) { stale = st; st = null; }   // old shape: render it now, rebuild silently
-    if (!st) st = { year, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
+    if (st && (!st.D || !st.EW || st.gv !== 2)) { stale = st; st = null; }   // old shape/definition: render now, rebuild silently
+    if (!st) st = { year, gv: 2, lastDate: null, droughts: [], dist: {}, run: 0, seenAnyWin: false,
       EW: { n: 0, w: 0, pl: 0, stk: 0, ret: 0 },
       D: { s6: { n: 0, w: 0, e: 0 }, m78: { n: 0, w: 0, e: 0 }, m912: { n: 0, w: 0, e: 0 }, l13: { n: 0, w: 0, e: 0 } },
       G: { all: { n: 0, w: 0, e: 0 }, topOr: { n: 0, w: 0, e: 0 }, notTopOr: { n: 0, w: 0, e: 0 }, topWr: { n: 0, w: 0, e: 0 } } };
