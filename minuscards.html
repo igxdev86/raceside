@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RACESIDE — MINUS CARDS</title>
+<meta name="description" content="Jockeys and trainers sorted into the groups that matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1D3D; --card:#FFFFFF; --line:#E4E8EF;
+    --ink:#101418; --dim:#5B6675; --faint:#939CAB;
+    --blue:#2456E6; --green:#12A150; --red:#D7263D; --gold:#B8860B;
+    --radius:12px; --shadow:0 1px 2px rgba(16,20,24,.05), 0 4px 14px rgba(16,20,24,.08);
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;min-height:100vh}
+  a{color:inherit}
+  button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;color:#fff}
+  .wordmark{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .wordmark b{color:#9BB6FF}
+  .wordmark small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.18em;color:#8FA3C8;margin-top:3px;text-transform:uppercase}
+  .back{font-family:var(--mono);font-size:11.5px;color:#8FA3C8;text-decoration:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:999px;border:1px solid #3A5490;color:#8FA3C8}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px}
+  .tile h2{font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+  .tile .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin:2px 0 8px;line-height:1.5}
+  .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:3.5px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row{flex-wrap:wrap}
+  .row .v{white-space:normal;text-align:right;overflow-wrap:anywhere;flex:1;min-width:55%}
+  .row.won{background:#E7F6EC;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:6px}
+  .row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .row .v{white-space:nowrap;color:var(--dim)}
+  .pos{color:var(--green)!important;font-weight:700}
+  .neg{color:var(--red)!important;font-weight:700}
+  .gold{color:var(--gold)!important;font-weight:700}
+  .state{margin-top:20px;text-align:center;color:#A9BAD9;font-family:var(--mono);font-size:13px}
+  .spinner{width:26px;height:26px;margin:0 auto 14px;border:3px solid #24345C;border-top-color:#9BB6FF;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{margin-top:14px;font-family:var(--mono);font-size:11px;color:#8FA3C8;line-height:1.6}
+  footer{margin-top:36px;font-family:var(--mono);font-size:10.5px;color:#5C6E96;letter-spacing:.06em}
+</style>
+<script src="/nav.js?v=1" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">MINUS <b>CARDS</b><small>today’s races · deepest disagreement first</small></div>
+    <a class="back" href="/thepounce.html">← pounce</a>
+  </header>
+  <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
+
+  <p class="note">Every race on today’s card, sorted by how hard the market backs its most-minus horse beyond what the model sees — the top card is the day’s single deepest disagreement. Edges are the model’s opinion, not truth; the dated pages keep the score. Settled races tick their winners. Not advice.</p>
+  <footer>RACESIDE · data: The Racing API · settled at SP</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  window.addEventListener('error', (e) => {
+    try { const a = document.getElementById('app'); if (a) a.innerHTML = '<div class="tile" style="border:2px solid #D7263D"><h2 style="color:#D7263D">PAGE ERROR \u2014 SHOW THE BUILDER</h2><div class="sub">' + String(e.message) + ' @ ' + e.lineno + '</div></div>' + a.innerHTML; } catch {}
+  });
+  const $ = (id) => document.getElementById(id);
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
+  const rkeyN = (t, c) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); const hh = m ? Number(m[1]) % 12 : 0; return hh + ':' + (m ? m[2] : '00') + '|' + String(c || '').toLowerCase().replace(/\s*\(aw\)\s*/i, '').replace(/[^a-z]/g, ''); };
+
+  async function main() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing today\u2026</div>';
+    let store, up;
+    try {
+      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=3')]);
+      store = await r1.json(); up = await r2.json();
+      if (!store.ok || !up.ok) throw new Error('bad');
+    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
+    const winMap = {};
+    const paint = () => render();
+    fetch('/api/todaywinners').then(r => r.json()).then(d => {
+      if (d && d.ok) { (d.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); }); paint(); }
+    }).catch(() => {});
+
+    const pctB = (bucket) => {
+      const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
+        .map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae);
+      const map = {}; const n = list.length;
+      list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; });
+      return map;
+    };
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const rides = (up.rides || []).filter(r => r.day === 'today');
+    const byRace = {};
+    rides.forEach(r => { (byRace[r.t + '|' + r.course] = byRace[r.t + '|' + r.course] || []).push(r); });
+    const cards = [];
+    Object.values(byRace).forEach(field => {
+      const orVals = field.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+      const maxOr = orVals.length ? Math.max(...orVals) : null;
+      const okF = field.filter(r => r.ofr != null && r.lbs != null);
+      let advM = {};
+      if (okF.length >= 2) {
+        const top = okF.reduce((a, b) => b.ofr > a.ofr ? b : a, okF[0]);
+        const car = (r) => r.lbs - clm(r.jockey);
+        const topC = car(top);
+        okF.forEach(r => { advM[r.h] = (r.ofr + (topC - car(r))) - top.ofr; });
+      }
+      const strengths = field.map(r => {
+        const parts = [];
+        if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]);
+        if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]);
+        const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        const orRel = (r.ofr != null && orMean != null) ? r.ofr - orMean : 0;
+        return 0.8 * (sc - 50) / 50 + 0.6 * orRel / 20 + 0.5 * (advM[r.h] || 0) / 10;
+      });
+      const exps = strengths.map(s => Math.exp(s));
+      const tot = exps.reduce((a, b) => a + b, 0);
+      const rows = field.map((r, i) => ({ r, p: exps[i] / tot, edge: r.d > 1 ? ((exps[i] / tot) - 1 / r.d) / (1 / r.d) : null }));
+      let deepest = null;
+      rows.forEach(x => { if (x.edge != null && x.edge < 0 && (!deepest || x.edge < deepest.edge)) deepest = x; });
+      if (!deepest) return;
+      cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr });
+    });
+    cards.sort((a, b) => a.deepest.edge - b.deepest.edge);
+
+    function render() {
+      if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
+      const nowM = new Date().getHours() * 60 + new Date().getMinutes();
+      const html2 = cards.map((c, ci) => {
+        const wn = winMap[rkeyN(c.t, c.course)];
+        const settled = wn !== undefined;
+        const dOK = c.deepest.r;
+        const isTop = c.maxOr != null && dOK.ofr === c.maxOr;
+        const dRes = settled ? (wn === nameN(dOK.h) ? 1 : 0) : null;
+        const ran = raceMin(c.t) < nowM - 10;
+        const fieldRows = c.rows.slice().sort((a, b) => (a.r.d || 999) - (b.r.d || 999)).map(x => {
+          const isW = settled && wn === nameN(x.r.h);
+          const eCol = x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
+          return `<div class="row"${isW ? ' style="background:#E7F6EC"' : ''}><span class="n">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${x.r === dOK ? ' <small style="color:var(--red);font-weight:700">MINUS</small>' : ''}${(c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : ''}</span>` +
+            `<span class="v"><span style="color:${eCol}">${x.edge == null ? '\u2014' : (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100) + '%'}</span> \u00b7 <b style="color:var(--blue)">${x.r.d || '\u2014'}</b></span></div>`;
+        }).join('');
+        return `<div class="tile"><h2>#${ci + 1} \u00b7 ${c.t} ${c.course.toUpperCase()}${settled ? ' \u00b7 SETTLED' : ran ? ' \u00b7 RAN' : ''}</h2>` +
+          `<div style="margin:8px 0 4px;font-size:17px;font-weight:800">${dOK.h} <span style="color:var(--red)">${Math.round(c.deepest.edge * 100)}%</span> <span style="color:var(--blue)">${dOK.d}</span>` +
+          (isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : '') +
+          (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
+          `<div class="sub" style="margin-bottom:6px">the market\u2019s pick beyond the model \u00b7 field below, shortest first</div>` + fieldRows + `</div>`;
+      }).join('');
+      $('app').innerHTML = `<div class="grid">${html2}</div>`;
+    }
+    render();
+  }
+  main();
+})();
+</script>
+</body>
+</html>
