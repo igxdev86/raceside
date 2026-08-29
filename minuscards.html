@@ -110,7 +110,8 @@
       return map;
     };
     const pj = pctB(store.jockeys), pt = pctB(store.trainers);
-    const rides = (up.rides || []).filter(r => r.day === 'today');
+    const buildCards = (ridesIn) => {
+    const rides = (ridesIn || []).filter(r => r.day === 'today');
     const byRace = {};
     rides.forEach(r => { (byRace[r.t + '|' + r.course] = byRace[r.t + '|' + r.course] || []).push(r); });
     // defensive: numeric odds, one row per horse — duplicates split the softmax and poison every edge in the race
@@ -161,6 +162,9 @@
       if (!deepest) return;
       cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, advM, wrBest, noOr: orVals.length < 2 });
     });
+      return cards;
+    };
+    let cards = buildCards(up.rides);
     const strikeOf = (jid) => { const s = (store.jockeys || {})[jid]; return (s && s.runs >= 50) ? s.wins / s.runs : -1; };
     const SORTS = {
       minus: { lbl: 'MINUS', f: (a, b) => a.deepest.edge - b.deepest.edge },
@@ -179,7 +183,6 @@
     window.__mcPerson = (m) => { personMode = m; render(); };
     const pairs = store.pairs || {};
     window.__mcRowSort = (k) => { rowSort = { key: k, dir: rowSort.key === k ? -rowSort.dir : (k === 'edge' || k === 'sp' || k === 'horse' ? 1 : -1) }; render(); };
-    cards.sort(TIME_CMP);
 
     function render() {
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
@@ -269,6 +272,18 @@
     }
     render();
     ready = true;
+    // the card itself goes stale: non-runners declared after load must fall out
+    let lastCardPull = Date.now();
+    const refreshCard = async () => {
+      try {
+        const r = await fetch('/api/upcoming?v=3&r=' + Math.floor(Date.now() / 300000));
+        const j = await r.json();
+        if (j && j.ok) { cards = buildCards(j.rides); lastCardPull = Date.now(); render(); }
+      } catch {}
+    };
+    window.__mcRefresh = refreshCard;
+    setInterval(refreshCard, 300000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastCardPull > 60000) refreshCard(); });
   }
   main();
 })();
