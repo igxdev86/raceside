@@ -1,49 +1,71 @@
-// RACESIDE shared nav — one horizontally scrolling strip, current page highlighted.
-// Pages include: <script src="/nav.js?v=1" defer></script>
+// RACESIDE shared chrome v2 — injects the design system + grouped sticky nav on every page.
+// Pages include nav.js with defer; it injects rs.css and the grouped bar.
 (function () {
   'use strict';
-  var pages = [
-    ['/theview.html', 'VIEW'],
-    ['/jockeys.html', 'J&T'],
-    ['/groups.html', 'GROUPS'],
-    ['/results.html', 'RESULTS'],
-    ['/ourodds.html', 'PRICE'],
-    ['/priceday.html', 'DATED'],
-    ['/daychart.html', 'DAY'],
-    ['/freqyear.html', 'YEAR'],
-    ['/martingale.html', 'MGALE'],
-    ['/thepounce.html', 'POUNCE'],
-    ['/thehour.html', 'HOUR'],
-    ['/firstpairs.html', 'PAIRS'],
-    ['/thewr.html', 'WR'],
-    ['/theideas.html', 'IDEAS'],
-    ['/market.html', 'MARKET'],
-    ['/yesterday.html', 'YDAY'],
-    ['/sires.html', 'SIRES'],
-    ['/trebles.html', 'TREBLES'],
+  var GROUPS = [
+    ['TODAY', [
+      ['/thepounce.html', 'POUNCE'],
+      ['/theideas.html', 'IDEAS'],
+      ['/theview.html', 'VIEW'],
+      ['/jockeys.html', 'J&T'],
+      ['/market.html', 'MARKET'],
+    ]],
+    ['RECORD', [
+      ['/daychart.html', 'DAY'],
+      ['/freqyear.html', 'YEAR'],
+      ['/priceday.html', 'DATED'],
+      ['/results.html', 'RESULTS'],
+      ['/yesterday.html', 'YDAY'],
+      ['/ourodds.html', 'PRICE'],
+    ]],
+    ['ANGLES', [
+      ['/thewr.html', 'WR'],
+      ['/firstpairs.html', 'PAIRS'],
+      ['/thehour.html', 'HOUR'],
+      ['/martingale.html', 'MGALE'],
+      ['/groups.html', 'GROUPS'],
+      ['/sires.html', 'SIRES'],
+      ['/trebles.html', 'TREBLES'],
+    ]],
   ];
   function mount() {
+    if (document.getElementById('rsbar')) return;
+    if (!document.querySelector('link[href^="/rs.css"]')) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = '/rs.css?v=1';
+      document.head.appendChild(l);
+    }
+    var old = document.getElementById('rsnav');
+    if (old) old.remove();
     var wrap = document.querySelector('.wrap') || document.body;
-    if (!wrap || document.getElementById('rsnav')) return;
-    var here = location.pathname.replace(/\/$/, '') || '/theview.html';
-    var nav = document.createElement('nav');
-    nav.id = 'rsnav';
-    nav.setAttribute('aria-label', 'site');
-    nav.style.cssText = 'display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 12px;margin:0 0 4px;';
-    pages.forEach(function (p) {
-      var a = document.createElement('a');
-      var on = here === p[0] || (here === '' || here === '/' || here === '/index.html') && p[0] === '/theview.html';
-      a.href = p[0];
-      a.textContent = p[1];
-      a.style.cssText = 'flex:none;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.06em;text-decoration:none;padding:6px 11px;border-radius:999px;border:1px solid ' +
-        (on ? '#2456E6;background:#2456E6;color:#fff;font-weight:600' : '#3A5490;color:#8FA3C8');
-      if (on) a.setAttribute('aria-current', 'page');
-      nav.appendChild(a);
+    var here = location.pathname.replace(/\/$/, '') || '/index.html';
+    var bar = document.createElement('div');
+    bar.id = 'rsbar';
+    var brand = document.createElement('div');
+    brand.className = 'brand';
+    brand.innerHTML = '<span class="dot"></span><a href="/">RACE<b>SIDE</b></a>';
+    bar.appendChild(brand);
+    GROUPS.forEach(function (g) {
+      var row = document.createElement('nav');
+      row.className = 'rsgroup';
+      row.setAttribute('aria-label', g[0]);
+      var lb = document.createElement('span');
+      lb.className = 'lbl';
+      lb.textContent = g[0];
+      row.appendChild(lb);
+      g[1].forEach(function (p) {
+        var a = document.createElement('a');
+        var on = here === p[0];
+        a.href = p[0];
+        a.textContent = p[1];
+        if (on) { a.className = 'on'; a.setAttribute('aria-current', 'page'); }
+        row.appendChild(a);
+        if (on) setTimeout(function () { a.scrollIntoView({ inline: 'center', block: 'nearest' }); }, 0);
+      });
+      bar.appendChild(row);
     });
-    wrap.insertBefore(nav, wrap.firstChild);
-    // keep the active chip in view on small screens
-    var act = nav.querySelector('[aria-current]');
-    if (act && act.scrollIntoView) { try { act.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) {} }
+    wrap.insertBefore(bar, wrap.firstChild);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
