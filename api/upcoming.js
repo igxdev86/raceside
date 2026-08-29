@@ -33,7 +33,9 @@ export default async function handler(req, res) {
     if (!cards) continue;
     (cards.racecards || []).forEach((rc) => {
       if (!['gb', 'ire'].includes(String(rc.region || '').toLowerCase())) return;
-      const priced = (rc.runners || []).map((x) => ({ x, d: bestOdds(x) })).filter((p) => p.d && p.x.horse_id);
+      const priced = (rc.runners || [])
+        .filter((x) => String(x.number || '').toUpperCase() !== 'NR' && !x.non_runner)
+        .map((x) => ({ x, d: bestOdds(x) })).filter((p) => p.d && p.x.horse_id);
       if (priced.length < 2) return;
       const over = priced.reduce((a, p) => a + 1 / p.d, 0);
       priced.sort((a, b) => a.d - b.d);
