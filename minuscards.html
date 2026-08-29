@@ -157,6 +157,8 @@
       odds: { lbl: 'SP', f: (a, b) => (a.deepest.r.d || 999) - (b.deepest.r.d || 999) },
       jpc: { lbl: 'J%', f: (a, b) => strikeOf(b.deepest.r.jid) - strikeOf(a.deepest.r.jid) },
       topor: { lbl: 'TOP OR', f: (a, b) => ((b.maxOr != null && b.deepest.r.ofr === b.maxOr) ? 1 : 0) - ((a.maxOr != null && a.deepest.r.ofr === a.maxOr) ? 1 : 0) || a.deepest.edge - b.deepest.edge },
+      wr: { lbl: 'WR', f: (a, b) => ((b.effM[b.deepest.r.h] != null ? b.effM[b.deepest.r.h] : -1e9)) - ((a.effM[a.deepest.r.h] != null ? a.effM[a.deepest.r.h] : -1e9)) },
+      or: { lbl: 'OR', f: (a, b) => ((b.deepest.r.ofr != null ? b.deepest.r.ofr : -1e9)) - ((a.deepest.r.ofr != null ? a.deepest.r.ofr : -1e9)) },
     };
     let sortKey = 'minus';
     cards.sort(SORTS.minus.f);
