@@ -148,7 +148,7 @@
       let deepest = null;
       rows.forEach(x => { if (x.edge != null && isFinite(x.edge) && x.edge < 0 && (!deepest || x.edge < deepest.edge)) deepest = x; });
       if (!deepest) return;
-      cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, wrBest });
+      cards.push({ t: field[0].t, course: field[0].course, rows, deepest, maxOr, effM, advM, wrBest });
     });
     const strikeOf = (jid) => { const s = (store.jockeys || {})[jid]; return (s && s.runs >= 50) ? s.wins / s.runs : -1; };
     const SORTS = {
@@ -157,7 +157,7 @@
       odds: { lbl: 'SP', f: (a, b) => (a.deepest.r.d || 999) - (b.deepest.r.d || 999) },
       jpc: { lbl: 'J%', f: (a, b) => strikeOf(b.deepest.r.jid) - strikeOf(a.deepest.r.jid) },
       topor: { lbl: 'TOP OR', f: (a, b) => ((b.maxOr != null && b.deepest.r.ofr === b.maxOr) ? 1 : 0) - ((a.maxOr != null && a.deepest.r.ofr === a.maxOr) ? 1 : 0) || a.deepest.edge - b.deepest.edge },
-      wr: { lbl: 'WR', f: (a, b) => ((b.effM[b.deepest.r.h] != null ? b.effM[b.deepest.r.h] : -1e9)) - ((a.effM[a.deepest.r.h] != null ? a.effM[a.deepest.r.h] : -1e9)) },
+      wr: { lbl: 'WR', f: (a, b) => ((b.advM[b.deepest.r.h] != null ? b.advM[b.deepest.r.h] : -1e9)) - ((a.advM[a.deepest.r.h] != null ? a.advM[a.deepest.r.h] : -1e9)) || a.deepest.edge - b.deepest.edge },
       or: { lbl: 'OR', f: (a, b) => ((b.deepest.r.ofr != null ? b.deepest.r.ofr : -1e9)) - ((a.deepest.r.ofr != null ? a.deepest.r.ofr : -1e9)) },
     };
     let sortKey = 'minus';
@@ -191,7 +191,7 @@
           const isW = settled && wn === nameN(x.r.h);
           const eCol = x.edge == null ? 'var(--faint)' : x.edge < 0 ? 'var(--red)' : 'var(--green)';
           const hs = heat(x.r.jid);
-          const eff = c.effM[x.r.h];
+          const adv = c.advM[x.r.h];
           const isWr = c.wrBest === x.r.h;
           const tags = (x.r === dOK ? ' <small style="color:var(--red);font-weight:700">M</small>' : '') +
             ((c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">OR</small>' : '') +
@@ -199,7 +199,7 @@
           return `<div style="${gcols};${isW ? 'background:#E7F6EC;' : ''}font-size:11.5px;padding:6px;border-bottom:1px solid var(--line);border-radius:6px">` +
             `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);font-size:12.5px;color:var(--ink)">${isW ? '<b style="color:var(--green)">\u2713</b> ' : ''}${x.r.h}${tags}<br><small style="color:var(--dim);font-family:var(--mono);font-size:9.5px">${(x.r.jockey || '').replace(/</g,'&lt;')}</small></span>` +
             `<span style="text-align:right;${hs.bg ? 'background:' + hs.bg + ';border-radius:5px;' : ''}padding:2px 3px;color:var(--ink)">${hs.pct != null ? hs.pct : '\u2014'}</span>` +
-            `<span style="text-align:right;color:${isWr ? 'var(--gold)' : 'var(--dim)'};${isWr ? 'font-weight:700' : ''}">${eff != null ? eff : '\u2014'}</span>` +
+            `<span style="text-align:right;color:${isWr ? 'var(--gold)' : (adv != null && adv > 0) ? 'var(--green)' : (adv != null && adv < 0) ? 'var(--red)' : 'var(--dim)'};${isWr ? 'font-weight:700' : ''}">${adv != null ? (adv > 0 ? '+' + adv : adv) : '\u2014'}</span>` +
             `<span style="text-align:right;color:${eCol}">${x.edge == null ? '\u2014' : (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</span>` +
             `<span style="text-align:right;color:var(--blue);font-weight:700">${x.r.d || '\u2014'}</span></div>`;
         }).join('');
@@ -207,7 +207,7 @@
           `<div style="margin:8px 0 4px;font-size:17px;font-weight:800">${dOK.h} <span style="color:var(--red)">${Math.round(c.deepest.edge * 100)}%</span> <span style="color:var(--blue)">${dOK.d}</span>` +
           (isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : '') +
           (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
-          `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = effective rating (gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
+          `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = lbs advantage at the weights vs the top-rated horse (0 = level, handicaps are 0 by design; gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
       }).join('');
       let orderOk = true;
       if (sortKey === 'minus') for (let i2 = 1; i2 < cards.length; i2++) if (cards[i2].deepest.edge < cards[i2 - 1].deepest.edge) orderOk = false;
