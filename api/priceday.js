@@ -78,6 +78,9 @@ export default async function handler(req, res) {
       pos: x.position != null && String(x.position) !== '' ? String(x.position) : null,
     })),
   }));
-  res.setHeader('Cache-Control', 's-maxage=10800, stale-while-revalidate=86400');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  res.setHeader('Cache-Control', date === todayStr
+    ? 's-maxage=120, stale-while-revalidate=300'      // today is still being written
+    : 's-maxage=10800, stale-while-revalidate=86400');
   return res.status(200).json({ ok: true, date: d, races: out });
 }
