@@ -86,6 +86,8 @@
       if (!store.ok || !up.ok) throw new Error('bad');
     } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
     const winMap = {};
+    const posMap = {};   // rkey -> { nameN(horse): finishing pos } from today's results feed
+    let posRaces = -1;
     let winCount = -1;
     let ready = false;   // cards not built yet — first poll must not render
     const pullWinners = () => {
@@ -94,6 +96,17 @@
         (d.winners || []).forEach(w => { winMap[rkeyN(w.t, w.course)] = nameN(w.h); });
         const n = Object.keys(winMap).length;
         if (n !== winCount) { winCount = n; if (ready) render(); }
+      });
+      const td = new Date().toISOString().slice(0, 10);
+      fetch('/api/priceday?v=5&date=' + td + '&r=' + Math.floor(Date.now() / 120000)).then(r => r.json()).catch(() => null).then(d => {
+        if (!(d && d.ok)) return;
+        (d.races || []).forEach(rc => {
+          const k = rkeyN(rc.t, rc.course);
+          const m2 = (posMap[k] = posMap[k] || {});
+          (rc.runners || []).forEach(x => { if (x.pos != null && x.pos !== '') m2[nameN(x.h)] = String(x.pos); });
+        });
+        const n2 = Object.keys(posMap).length;
+        if (n2 !== posRaces) { posRaces = n2; if (ready) render(); }
       });
     };
     window.__mcPull = pullWinners;
@@ -287,7 +300,18 @@
       if (sortKey === 'minus') [upcoming, finished].forEach(g => { for (let i2 = 1; i2 < g.length; i2++) if (g[i2].deepest.edge < g[i2 - 1].deepest.edge) orderOk = false; });
       // top boards over the WHOLE day — settled rows carry their result
       const shortC = (s) => String(s || '').replace(/\s*\([^)]*\)/g, '').slice(0, 9);
-      const resMark = (t2, c2, h2) => { const wn2 = winMap[rkeyN(t2, c2)]; if (wn2 === undefined) return ''; return wn2 === nameN(h2) ? ' <b style="color:var(--green)">\u2713</b>' : ' <span style="color:var(--red)">\u00d7</span>'; };
+      const resMark = (t2, c2, h2) => {
+        const k2 = rkeyN(t2, c2);
+        const pm = posMap[k2];
+        const p2 = pm && pm[nameN(h2)];
+        if (p2 !== undefined) {
+          const col = p2 === '1' ? 'var(--green)' : (p2 === '2' || p2 === '3') ? 'var(--gold)' : 'var(--faint)';
+          return ` <b style="color:${col}">${p2 === '1' ? '\u27131' : p2}</b>`;
+        }
+        const wn2 = winMap[k2];
+        if (wn2 === undefined) return '';
+        return wn2 === nameN(h2) ? ' <b style="color:var(--green)">\u2713</b>' : ' <span style="color:var(--red)">\u00d7</span>';
+      };
       const minusTop = cards.filter(c => c.deepest.edge < 0).sort((a, b) => raceMin(a.t) - raceMin(b.t));   // every race, chronological, top-3 minus each
       const wrPool = [];
       cards.forEach(c => {
