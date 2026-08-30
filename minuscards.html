@@ -77,13 +77,29 @@
   const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
   const rkeyN = (t, c) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); const hh = m ? Number(m[1]) % 12 : 0; return hh + ':' + (m ? m[2] : '00') + '|' + String(c || '').toLowerCase().replace(/\s*\(aw\)\s*/i, '').replace(/[^a-z]/g, ''); };
 
+  const QD = (() => { const v = new URLSearchParams(location.search).get('d');
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    return v < new Date().toISOString().slice(0, 10) ? v : null; })();
   async function main() {
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing today\u2026</div>';
-    let store, up;
+    let store, up, pastDay = null;
     try {
-      const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=4')]);
-      store = await r1.json(); up = await r2.json();
-      if (!store.ok || !up.ok) throw new Error('bad');
+      if (QD) {
+        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=5&date=' + QD)]);
+        store = await r1.json(); pastDay = await r2.json();
+        if (!store.ok || !pastDay.ok) throw new Error('bad');
+        const tn = (tid) => ((store.trainers || {})[tid] || {}).name || '';
+        up = { ok: true, rides: [] };
+        (pastDay.races || []).forEach(rc => (rc.runners || []).forEach(x => up.rides.push({
+          day: 'today', t: rc.t, course: rc.course, h: x.h, d: x.d, ofr: x.ofr, lbs: x.lbs,
+          jockey: x.jockey, jid: x.jid, tid: x.tid, trainer: tn(x.tid), dist: rc.dist, going: rc.going,
+          rtype: /handicap/i.test(rc.name || '') ? 'Handicap' : '',
+        })));
+      } else {
+        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=4')]);
+        store = await r1.json(); up = await r2.json();
+        if (!store.ok || !up.ok) throw new Error('bad');
+      }
     } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
     const winMap = {};
     const posMap = {};   // rkey -> { nameN(horse): finishing pos } from today's results feed
@@ -110,10 +126,21 @@
       });
     };
     window.__mcPull = pullWinners;
-    pullWinners();
-    setInterval(pullWinners, 60000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) pullWinners(); });
-    window.addEventListener('pageshow', () => pullWinners());
+    if (QD) {
+      (pastDay.races || []).forEach(rc => {
+        const k = rkeyN(rc.t, rc.course);
+        const m2 = (posMap[k] = posMap[k] || {});
+        (rc.runners || []).forEach(x => {
+          if (x.pos != null && x.pos !== '') m2[nameN(x.h)] = String(x.pos);
+          if (x.won) winMap[k] = nameN(x.h);
+        });
+      });
+    } else {
+      pullWinners();
+      setInterval(pullWinners, 60000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) pullWinners(); });
+      window.addEventListener('pageshow', () => pullWinners());
+    }
 
     const pctB = (bucket) => {
       const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0)
@@ -213,12 +240,12 @@
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
       const cmpCards = sortKey === 'time' ? TIME_CMP : SORTS[sortKey].f;
       const nowM0 = new Date().getHours() * 60 + new Date().getMinutes();
-      const isPast = (c) => winMap[rkeyN(c.t, c.course)] !== undefined || raceMin(c.t) < nowM0 - 10;
+      const isPast = (c) => !QD && (winMap[rkeyN(c.t, c.course)] !== undefined || raceMin(c.t) < nowM0 - 10);
       const upcoming = cards.filter(c => !isPast(c)).sort(cmpCards);
       const finished = cards.filter(isPast).sort(sortKey === 'time' ? (a, b) => raceMin(b.t) - raceMin(a.t) : cmpCards);
       const ordered = viewMode === 'results' ? finished : [...upcoming, ...finished];
       const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
-        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<span style="flex:1"></span><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
+        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
       const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
         `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
       window.__mcSort = (k) => { sortKey = (k === sortKey ? 'time' : k); render(); };
@@ -346,13 +373,14 @@
         board('TOP T', tTop.map(t2 => bRow(`<b>${t2.t.replace(/\s.*/,'')}</b> ${shortC(t2.course)} ${t2.h}${resMark(t2.t, t2.course, t2.h)}`, `${(t2.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(t2.p * 100)}%</b>`)).join(''), 'no qualified yards') +
         `</div>`;
       $('app').innerHTML = chipsHtml + boards + `<div class="grid">${html2}</div>` +
-        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 headline %s rounded \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 ${QD ? 'REPLAY OF ' + QD + ' \u00b7 priced with today\u2019s 12-mo people stats \u2014 mild hindsight, not the live morning read \u00b7 ' : ''}headline %s rounded \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
       const fb = document.getElementById('mcfilters');
       const rb = document.getElementById('rsbar');
       if (fb && rb) fb.style.top = rb.offsetHeight + 'px';
     }
     render();
     ready = true;
+    if (QD) { window.__mcRefresh = () => {}; return; }
     // the card itself goes stale: non-runners declared after load must fall out
     let lastCardPull = Date.now();
     // STRICT FREEZE: once a race's off time passes, its card is locked — the pre-off snapshot
