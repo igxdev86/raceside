@@ -110,6 +110,15 @@
       return map;
     };
     const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const bandOf = (dv) => { const f = Number(dv); if (!(f > 0)) return null; return f <= 6 ? 0 : f <= 8 ? 1 : f <= 12 ? 2 : 3; };
+    const goingCode = (g) => { const s = String(g || '').toLowerCase(); if (!s) return null;
+      if (/standard|tapeta|polytrack|fibresand/.test(s)) return 'A';
+      if (/heavy|soft/.test(s) && !/good to soft/.test(s)) return 'S';
+      if (/good to soft|yielding/.test(s)) return 'GS';
+      if (/good to firm|firm|fast/.test(s)) return 'F';
+      if (/good/.test(s)) return 'G';
+      return null; };
+    const HF = { W: {}, ready: false };
     const buildCards = (ridesIn) => {
     const rides = (ridesIn || []).filter(r => r.day === 'today');
     const byRace = {};
@@ -245,7 +254,12 @@
           const hs = pe.cell;
           const adv = c.advM[x.r.h];
           const isWr = c.wrBest === x.r.h;
+          const hfE = HF.W[nameN(x.r.h)];
+          const bandNow = bandOf(c.dist);
+          const goNow = goingCode(c.going);
           const tags = (x.r === dOK ? ' <small style="color:var(--red);font-weight:700">M</small>' : '') +
+            (hfE && bandNow != null && hfE.D && hfE.D.indexOf(bandNow) >= 0 ? ' <small style="color:#0E8A44;font-weight:700" title="won at this distance band this year">D</small>' : '') +
+            (hfE && goNow && hfE.G && hfE.G.indexOf(goNow) >= 0 ? ' <small style="color:#8A5A0E;font-weight:700" title="won on this going this year">G</small>' : '') +
             ((c.maxOr != null && x.r.ofr === c.maxOr) ? ' <small style="color:var(--blue);font-weight:700">OR</small>' : '') +
             (isWr ? ' <small style="color:var(--gold);font-weight:700">WR</small>' : '');
           return `<div style="${gcols};${isW ? 'background:#E7F6EC;' : ''}font-size:11.5px;padding:6px;border-bottom:1px solid var(--line);border-radius:6px">` +
@@ -265,7 +279,7 @@
           (c.deepest.edge >= 0 ? ' <small style="color:var(--faint);font-weight:700">NO TRUE MINUS</small>' : '') +
           (dRes === 1 ? ' <b style="color:var(--green)">\u2713 WON</b>' : dRes === 0 ? ' <span style="color:var(--red)">\u00d7 LOST</span>' : '') + `</div>` +
           (c.noOr ? `<div class="sub" style="margin-bottom:4px;color:var(--gold)">\u26a0 no official ratings in this race \u2014 the model is running on people alone; the edge column here is closer to noise than signal</div>` : '') +
-          `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = lbs advantage at the weights vs the top-rated horse (0 = level, handicaps are 0 by design; gold = strictly best-in) \u00b7 M = the minus horse</div>` + fieldRows + `</div>`;
+          `<div class="sub" style="margin-bottom:6px">J% cell colour = jockey 12-mo strike \u00b7 WR = lbs advantage at the weights vs the top-rated horse (0 = level, handicaps are 0 by design; gold = strictly best-in) \u00b7 M = the minus horse \u00b7 D / G = won at this distance band / on this going this year</div>` + fieldRows + `</div>`;
       }).join('');
       let orderOk = true;
       if (sortKey === 'minus') [upcoming, finished].forEach(g => { for (let i2 = 1; i2 < g.length; i2++) if (g[i2].deepest.edge < g[i2 - 1].deepest.edge) orderOk = false; });
@@ -306,6 +320,73 @@
     };
     setInterval(freezePast, 30000);
     window.__mcRefresh = refreshCard;
+    // background: the year's winners by distance band and going group — powers the D / G labels
+    (async () => {
+      const year = new Date().getFullYear();
+      let st = null;
+      try { st = JSON.parse(localStorage.getItem('rshf:v1') || 'null'); } catch {}
+      if (st && String(st.year) !== String(year)) st = null;
+      if (!st) {
+        try {
+          const rs = await fetch('/api/yearstate?k=horseform:v1');
+          const js = await rs.json();
+          if (js && js.state && String(js.state.year) === String(year)) st = js.state;
+        } catch {}
+      }
+      if (!st) st = { year, lastDate: null, W: {}, miss: [] };
+      const absorb = (dig) => { Object.entries(dig).forEach(([n2, e2]) => {
+        const t2 = (st.W[n2] = st.W[n2] || { D: [], G: [] });
+        (e2.D || []).forEach(b => { if (t2.D.indexOf(b) < 0) t2.D.push(b); });
+        (e2.G || []).forEach(g => { if (t2.G.indexOf(g) < 0) t2.G.push(g); });
+      }); };
+      const digDay = (dd) => {
+        const dig = {};
+        (dd.races || []).forEach(rc => {
+          const b = bandOf(rc.dist), g = goingCode(rc.going);
+          (rc.runners || []).forEach(r => {
+            if (!r.won) return;
+            const n2 = nameN(r.h);
+            const e2 = (dig[n2] = dig[n2] || { D: [], G: [] });
+            if (b != null && e2.D.indexOf(b) < 0) e2.D.push(b);
+            if (g && e2.G.indexOf(g) < 0) e2.G.push(g);
+          });
+        });
+        return dig;
+      };
+      const fetchDay = async (dt) => {
+        const lsKey = 'rshfd:v1:' + dt;
+        let dig = null;
+        try { dig = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch {}
+        if (!dig) {
+          for (let att = 0; att < 2 && !dig; att++) {
+            try {
+              const r = await fetch('/api/priceday?v=5&date=' + dt);
+              const dd = await r.json();
+              if (dd && dd.ok) { dig = digDay(dd); try { localStorage.setItem(lsKey, JSON.stringify(dig)); } catch {} }
+            } catch {}
+          }
+        }
+        return dig;
+      };
+      if (st.miss && st.miss.length) {
+        const still = [];
+        for (const dt of st.miss) { const dig = await fetchDay(dt); if (dig) absorb(dig); else still.push(dt); }
+        st.miss = still;
+      }
+      const yEnd = new Date(Date.now() - 86400000);
+      const startFrom = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+      for (let d2 = startFrom; d2 <= yEnd; d2 = new Date(d2.getTime() + 86400000)) {
+        const dt = d2.toISOString().slice(0, 10);
+        const dig = await fetchDay(dt);
+        if (dig) absorb(dig); else st.miss = (st.miss || []).concat([dt]);
+        st.lastDate = dt;
+      }
+      try { localStorage.setItem('rshf:v1', JSON.stringify(st)); } catch {}
+      try { fetch('/api/yearstate?k=horseform:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+      HF.W = st.W || {};
+      HF.ready = true;
+      render();
+    })();
     setInterval(refreshCard, 300000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastCardPull > 60000) refreshCard(); });
   }
