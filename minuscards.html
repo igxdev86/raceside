@@ -339,14 +339,14 @@
         return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div style="font-family:var(--mono);font-size:10.5px;color:var(--dim)"><b style="color:var(--ink)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()}</div>` +
           top3.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)}</span><span style="white-space:nowrap;color:var(--dim)"><b style="color:var(--red)">${Math.round(x.edge * 100)}</b> @ ${x.r.d}</span></div>`).join('') + `</div>`;
       };
-      const boards = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">` +
+      const boards = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:12px">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
         board('TOP J', jTop.map(j => bRow(`<b>${j.t.replace(/\s.*/,'')}</b> ${shortC(j.course)} ${j.h}${resMark(j.t, j.course, j.h)}`, `${(j.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(j.p * 100)}%</b>`)).join(''), 'no qualified riders') +
         board('TOP T', tTop.map(t2 => bRow(`<b>${t2.t.replace(/\s.*/,'')}</b> ${shortC(t2.course)} ${t2.h}${resMark(t2.t, t2.course, t2.h)}`, `${(t2.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(t2.p * 100)}%</b>`)).join(''), 'no qualified yards') +
         `</div>`;
       $('app').innerHTML = chipsHtml + boards + `<div class="grid">${html2}</div>` +
-        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 headline %s rounded</div>`;
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 headline %s rounded \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
       const fb = document.getElementById('mcfilters');
       const rb = document.getElementById('rsbar');
       if (fb && rb) fb.style.top = rb.offsetHeight + 'px';
