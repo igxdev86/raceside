@@ -35,9 +35,21 @@ export default async function handler(req, res) {
   const d = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date)
     : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const races = [];
+  const isToday = d === new Date().toISOString().slice(0, 10);
   let skip = 0, total = Infinity, pages = 0;
   try {
-    while (skip < total && pages < 10) {
+    if (isToday) {
+      // the dated results endpoint is empty until the day completes — today lives on /results/today
+      const r = await fetch('https://api.theracingapi.com/v1/results/today', { headers: { Authorization: auth, Accept: 'application/json' } });
+      if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
+      const page = await r.json();
+      for (const race of page.results || []) {
+        const region = String(race.region || '').toLowerCase();
+        if (region && !['gb', 'ire'].includes(region)) continue;
+        races.push(race);
+      }
+    }
+    while (!isToday && skip < total && pages < 10) {
       const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire&start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
       const r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
       if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
@@ -78,8 +90,7 @@ export default async function handler(req, res) {
       pos: x.position != null && String(x.position) !== '' ? String(x.position) : null,
     })),
   }));
-  const todayStr = new Date().toISOString().slice(0, 10);
-  res.setHeader('Cache-Control', date === todayStr
+  res.setHeader('Cache-Control', isToday
     ? 's-maxage=120, stale-while-revalidate=300'      // today is still being written
     : 's-maxage=10800, stale-while-revalidate=86400');
   return res.status(200).json({ ok: true, date: d, races: out });
