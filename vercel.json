@@ -7,6 +7,10 @@
     {
       "path": "/api/marketcapture",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/tweet",
+      "schedule": "30 9 * * *"
     }
   ]
 }
