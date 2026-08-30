@@ -286,7 +286,7 @@
       // top boards over the WHOLE day — settled rows carry their result
       const shortC = (s) => String(s || '').replace(/\s*\([^)]*\)/g, '').slice(0, 9);
       const resMark = (t2, c2, h2) => { const wn2 = winMap[rkeyN(t2, c2)]; if (wn2 === undefined) return ''; return wn2 === nameN(h2) ? ' <b style="color:var(--green)">\u2713</b>' : ' <span style="color:var(--red)">\u00d7</span>'; };
-      const minusTop = cards.slice().sort((a, b) => a.deepest.edge - b.deepest.edge).filter(c => c.deepest.edge < 0).slice(0, 5);
+      const minusTop = cards.slice().sort((a, b) => a.deepest.edge - b.deepest.edge).filter(c => c.deepest.edge < 0);   // every race's pick
       const wrPool = [];
       cards.forEach(c => {
         if (!c.wrBest) return;
@@ -296,7 +296,7 @@
         if (r) wrPool.push({ t: c.t, course: c.course, h: c.wrBest, adv, d: r.r.d });
       });
       wrPool.sort((a, b) => b.adv - a.adv);
-      const wrTop = wrPool.slice(0, 5);
+      const wrTop = wrPool;   // every strict best-in
       const jPool = {}, tPool = {};
       cards.forEach(c => c.rows.forEach(x => {
         const js = (store.jockeys || {})[x.r.jid];
