@@ -283,7 +283,26 @@
       }).join('');
       let orderOk = true;
       if (sortKey === 'minus') [upcoming, finished].forEach(g => { for (let i2 = 1; i2 < g.length; i2++) if (g[i2].deepest.edge < g[i2 - 1].deepest.edge) orderOk = false; });
-      $('app').innerHTML = chipsHtml + `<div class="grid">${html2}</div>` +
+      // top boards: deepest minuses + best-in-at-the-weights among races still to run
+      const shortC = (s) => String(s || '').replace(/\s*\([^)]*\)/g, '').slice(0, 9);
+      const minusTop = upcoming.slice().sort((a, b) => a.deepest.edge - b.deepest.edge).filter(c => c.deepest.edge < 0).slice(0, 5);
+      const wrPool = [];
+      upcoming.forEach(c => {
+        if (!c.wrBest) return;
+        const adv = c.advM[c.wrBest];
+        if (!(adv > 0)) return;
+        const r = c.rows.find(x => x.r.h === c.wrBest);
+        if (r) wrPool.push({ t: c.t, course: c.course, h: c.wrBest, adv, d: r.r.d });
+      });
+      wrPool.sort((a, b) => b.adv - a.adv);
+      const wrTop = wrPool.slice(0, 5);
+      const bRow = (l, r2) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${l}</span><span style="white-space:nowrap;color:var(--dim)">${r2}</span></div>`;
+      const boards = (minusTop.length || wrTop.length) ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">` +
+        `<div class="tile" style="padding:12px 12px 8px"><h2 style="font-size:10px">TOP MINUS</h2>` +
+          (minusTop.map(c => bRow(`<b>${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course)} ${c.deepest.r.h}`, `<b style="color:var(--red)">${Math.round(c.deepest.edge * 100)}</b> @ ${c.deepest.r.d}`)).join('') || '<div class="sub">none left</div>') + `</div>` +
+        `<div class="tile" style="padding:12px 12px 8px"><h2 style="font-size:10px">TOP WR</h2>` +
+          (wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}`, `<b style="color:var(--gold)">+${w.adv}</b> @ ${w.d || '\u2014'}`)).join('') || '<div class="sub">no strict best-ins left</div>') + `</div></div>` : '';
+      $('app').innerHTML = chipsHtml + boards + `<div class="grid">${html2}</div>` +
         `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 headline %s rounded</div>`;
       const fb = document.getElementById('mcfilters');
       const rb = document.getElementById('rsbar');
