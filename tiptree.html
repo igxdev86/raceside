@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · TIPTREE</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  .tt-day{display:inline-block;width:16px;height:16px;border-radius:4px;margin-right:2px;vertical-align:middle}
+  .tt-crown{font-size:15px}
+  .mcboards{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:12px}
+  @media (min-width:720px){.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}}
+</style>
+</head>
+<body>
+<header id="tthead">
+  <div class="wordmark">TIP<b>TREE</b><small id="ttsub">726 tipsters · last 7 days</small></div>
+</header>
+<main>
+  <p class="note">726 tipsters — every combination of 11 pick rules, 6 race filters and 11 odds bands — each backing £1 at SP by a fixed public recipe, settled on the real results. Nobody here has judgement; they have a rule. The luck line below is the whole point: run 726 coin-flippers for a week and the "best" of them looks brilliant. A week is weather. Only a rule that beats the luck line, and keeps beating it, means anything. Not advice.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>growing the tree\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const nameN = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').replace(/[^a-z0-9]/g, '');
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+
+  // ---- the 726: 11 rules x 6 filters x 11 bands ----
+  const RULES = [
+    { id: 'topj', lbl: 'the hottest jockey', pick: (rs, ctx) => best(rs, r => ctx.jStrike(r.jid)) },
+    { id: 'topt', lbl: 'the hottest yard', pick: (rs, ctx) => best(rs, r => ctx.tStrike(r.tid)) },
+    { id: 'toppair', lbl: 'the best partnership', pick: (rs, ctx) => best(rs, r => ctx.pairAE(r.jid, r.tid)) },
+    { id: 'wrbest', lbl: 'the best-in at the weights', pick: (rs) => { const ok = rs.filter(r => r.ofr != null && r.lbs != null); if (ok.length < 2) return null; const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); let bh = null, bv = 0; ok.forEach(r => { const adv = (r.ofr + (car(top) - car(r))) - top.ofr; if (adv > bv) { bv = adv; bh = r; } }); return bh; } },
+    { id: 'topor', lbl: 'the top-rated', pick: (rs) => best(rs, r => r.ofr != null ? r.ofr : -1) },
+    { id: 'fav', lbl: 'the favourite', pick: (rs) => best(rs, r => r.d ? -r.d : -1e9) },
+    { id: 'fav2', lbl: 'the second favourite', pick: (rs) => { const s = rs.filter(r => r.d).sort((a, b) => a.d - b.d); return s[1] || null; } },
+    { id: 'outs', lbl: 'the biggest outsider', pick: (rs) => best(rs, r => r.d ? r.d : -1) },
+    { id: 'claimer', lbl: 'the claimer\u2019s mount', pick: (rs) => { const c = rs.filter(r => clm(r.jockey) > 0); return c.length ? best(c, r => r.d ? -r.d : -1e9) : null; } },
+    { id: 'freshpair', lbl: 'the first-time pairing', pick: (rs, ctx) => { const c = rs.filter(r => r.jid && r.tid && ctx.pairRuns(r.jid, r.tid) === 0); return c.length ? best(c, r => r.d ? -r.d : -1e9) : null; } },
+    { id: 'weight', lbl: 'the least weight', pick: (rs) => { const ok = rs.filter(r => r.lbs != null); return ok.length ? best(ok, r => -r.lbs) : null; } },
+  ];
+  const FILTERS = [
+    { id: 'all', lbl: 'in every race', ok: () => true },
+    { id: 'hcp', lbl: 'in handicaps', ok: (rc) => /handicap/i.test(rc.name || '') },
+    { id: 'nonhcp', lbl: 'outside handicaps', ok: (rc) => !/handicap/i.test(rc.name || '') },
+    { id: 'small', lbl: 'in small fields (\u22648)', ok: (rc) => (rc.runners || []).length <= 8 },
+    { id: 'big', lbl: 'in big fields (9+)', ok: (rc) => (rc.runners || []).length >= 9 },
+    { id: 'sprint', lbl: 'over sprint trips (\u22647f)', ok: (rc) => Number(rc.dist) > 0 && Number(rc.dist) <= 7 },
+  ];
+  const BANDS = [
+    { id: 'any', lbl: 'at any price', ok: () => true },
+    { id: 'u2', lbl: 'under 2.0', ok: (d) => d < 2 },
+    { id: 'b23', lbl: 'at 2\u20133', ok: (d) => d >= 2 && d < 3 },
+    { id: 'b34', lbl: 'at 3\u20134', ok: (d) => d >= 3 && d < 4 },
+    { id: 'b45', lbl: 'at 4\u20135', ok: (d) => d >= 4 && d < 5 },
+    { id: 'b57', lbl: 'at 5\u20137', ok: (d) => d >= 5 && d < 7 },
+    { id: 'b710', lbl: 'at 7\u201310', ok: (d) => d >= 7 && d < 10 },
+    { id: 'b1015', lbl: 'at 10\u201315', ok: (d) => d >= 10 && d < 15 },
+    { id: 'b1525', lbl: 'at 15\u201325', ok: (d) => d >= 15 && d < 25 },
+    { id: 'b25p', lbl: 'at 25+', ok: (d) => d >= 25 },
+    { id: 'b5p', lbl: 'at 5+', ok: (d) => d >= 5 },
+  ];
+  const best = (rs, f) => { let bh = null, bv = -Infinity; rs.forEach(r => { const v = f(r); if (v != null && v > bv) { bv = v; bh = r; } }); return bv === -Infinity || bv === -1 || bv === -1e9 ? null : bh; };
+
+  const FIRST = ['Alf','Bet','Cec','Dot','Edna','Frank','Gwen','Harold','Ivy','Jack','Kit','Lil','Mo','Ned','Olive','Percy','Queenie','Reg','Sid','Tess','Una','Vic'];
+  const LAST = ['Furlong','Paddock','Gallop','Withers','Fetlock','Silks','Rails','Nap','Yankee','Steamer','Drifter','Maiden','Novice','Bumper','Hurdle','Chase','Photo','Nose','Length','Trixie','Patent','Accum','Placepot','Forecast','Ante','Sprinter','Stayer','Handicap','Classic','Guineas','Oaks','Derby','Leger'];
+  const nameOf = (i) => FIRST[i % FIRST.length] + ' ' + LAST[(i * 7 + Math.floor(i / FIRST.length)) % LAST.length] + (i >= FIRST.length * LAST.length ? ' II' : '');
+
+  async function main() {
+    let store;
+    try {
+      const r = await fetch('/api/peopleall?v=2');
+      store = await r.json();
+      if (!store.ok) throw 0;
+    } catch { $('app').innerHTML = '<div class="state">people feed unavailable</div>'; return; }
+    const ctx = {
+      jStrike: (jid) => { const s = (store.jockeys || {})[jid]; return s && s.runs >= 50 ? s.wins / s.runs : null; },
+      tStrike: (tid) => { const s = (store.trainers || {})[tid]; return s && s.runs >= 50 ? s.wins / s.runs : null; },
+      pairAE: (jid, tid) => { const p = (store.pairs || {})[jid + '|' + tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; },
+      pairRuns: (jid, tid) => { const p = (store.pairs || {})[jid + '|' + tid]; return p ? p.r : 0; },
+    };
+
+    // last 7 completed days
+    const days = [];
+    for (let i = 1; i <= 7; i++) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+    days.reverse();
+    const dayData = [];
+    for (const dt of days) {
+      try {
+        const r = await fetch('/api/priceday?v=5&date=' + dt);
+        const j = await r.json();
+        dayData.push({ dt, races: (j && j.ok && j.races) || [] });
+      } catch { dayData.push({ dt, races: [] }); }
+      $('app').innerHTML = '<div class="state"><div class="spinner"></div>settling ' + dt + '\u2026</div>';
+    }
+
+    // tipsters
+    const tips = [];
+    let idx = 0;
+    for (const rule of RULES) for (const filt of FILTERS) for (const band of BANDS) {
+      tips.push({ i: idx, name: nameOf(idx), rule, filt, band, bets: 0, wins: 0, pl: 0, exp: 0, daily: days.map(() => 0) });
+      idx++;
+    }
+
+    // one pass per race: evaluate all rules once, then fan out
+    dayData.forEach((dd, di) => {
+      dd.races.forEach(rc => {
+        const rs = (rc.runners || []).filter(r => r.d > 1);
+        if (rs.length < 2) return;
+        const rulePick = {};
+        RULES.forEach(rule => { const p = rule.pick(rs, ctx); rulePick[rule.id] = p && p.d > 1 ? p : null; });
+        const filtOk = {};
+        FILTERS.forEach(f => { filtOk[f.id] = f.ok(rc); });
+        tips.forEach(t => {
+          if (!filtOk[t.filt.id]) return;
+          const p = rulePick[t.rule.id];
+          if (!p || !t.band.ok(p.d)) return;
+          t.bets++; t.exp += 1 / p.d;
+          const won = p.pos === '1' || p.won === 1;
+          if (won) { t.wins++; t.pl += p.d - 1; t.daily[di] += p.d - 1; }
+          else { t.pl -= 1; t.daily[di] -= 1; }
+        });
+      });
+    });
+
+    // luck line: best-of-726 coin-flippers, matched bet counts, 120 reps
+    const pool = [];
+    dayData.forEach(dd => dd.races.forEach(rc => {
+      const rs = (rc.runners || []).filter(r => r.d > 1);
+      if (rs.length >= 2) pool.push(rs.map(r => ({ d: r.d, w: r.pos === '1' || r.won === 1 ? 1 : 0 })));
+    }));
+    let luckBest = null;
+    if (pool.length >= 20) {
+      let seed = 726726;
+      const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+      const betCounts = tips.map(t => t.bets).filter(b => b >= 5);
+      const reps = 120;
+      let acc = 0;
+      for (let rep = 0; rep < reps; rep++) {
+        let bestRoi = -Infinity;
+        for (const n of betCounts) {
+          let pl = 0;
+          for (let b = 0; b < n; b++) {
+            const race = pool[Math.floor(rnd() * pool.length)];
+            const pick = race[Math.floor(rnd() * race.length)];
+            pl += pick.w ? pick.d - 1 : -1;
+          }
+          const roi = pl / n;
+          if (roi > bestRoi) bestRoi = roi;
+        }
+        acc += bestRoi;
+      }
+      luckBest = acc / reps;
+    }
+
+    // leaderboard
+    let sortKey = 'roi';
+    const SORTS = {
+      roi: { lbl: 'ROI', f: (a, b) => roi(b) - roi(a) },
+      pl: { lbl: 'P/L', f: (a, b) => b.pl - a.pl },
+      ae: { lbl: 'A/E', f: (a, b) => ae(b) - ae(a) },
+      wins: { lbl: 'WINS', f: (a, b) => b.wins - a.wins },
+      bets: { lbl: 'BETS', f: (a, b) => b.bets - a.bets },
+    };
+    const roi = (t) => t.bets ? t.pl / t.bets : -Infinity;
+    const ae = (t) => t.exp > 0 ? t.wins / t.exp : 0;
+    window.__ttSort = (k) => { sortKey = k; render(); };
+    let shown = 40;
+    window.__ttMore = () => { shown += 40; render(); };
+
+    function render() {
+      const qual = tips.filter(t => t.bets >= 5);
+      const thin = tips.length - qual.length;
+      const ranked = qual.slice().sort(SORTS[sortKey].f);
+      const raceN = pool.length;
+      const chips = '<div style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 8px">' +
+        Object.entries(SORTS).map(([k, s]) => `<button onclick="__ttSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
+      const luck = luckBest != null
+        ? `<div class="tile" style="margin-bottom:12px"><h2>THE LUCK LINE</h2><div style="font-size:13px;margin-top:6px">Best of 726 <b>random</b> pickers over these same ${raceN} races: <b style="color:var(--gold)">${(luckBest * 100).toFixed(0) > 0 ? '+' : ''}${(luckBest * 100).toFixed(0)}% ROI</b> \u2014 by pure chance.</div><div class="sub" style="margin-top:4px">Anyone below that line has shown you nothing. Anyone above it has shown you one good week \u2014 the year pages are where belief is earned.</div></div>`
+        : '';
+      const rows = ranked.slice(0, shown).map((t, i) => {
+        const r = roi(t);
+        const beat = luckBest != null && r > luckBest;
+        const days7 = t.daily.map(v => `<span class="tt-day" style="background:${v > 0.01 ? '#2FA463' : v < -0.01 ? '#C64545' : '#2A3A5C'}" title="${v.toFixed(1)}"></span>`).join('');
+        return `<div class="tile" style="margin-bottom:8px${i === 0 ? ';border:1px solid var(--gold)' : ''}">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+            <div style="min-width:0"><b style="font-size:14px">${i === 0 ? '<span class="tt-crown">\uD83D\uDC51</span> ' : ''}#${i + 1} ${t.name}</b>${beat ? ' <small style="color:var(--gold);font-weight:700">ABOVE THE LUCK LINE</small>' : ''}
+            <div class="sub" style="margin-top:2px">backs ${t.rule.lbl} ${t.filt.lbl} ${t.band.lbl}</div></div>
+            <div style="text-align:right;font-family:var(--mono);white-space:nowrap"><b style="color:${r > 0 ? 'var(--green)' : 'var(--red)'};font-size:15px">${r > 0 ? '+' : ''}${(r * 100).toFixed(0)}%</b><div class="sub">\u00a3${t.pl.toFixed(1)} \u00b7 ${t.wins}/${t.bets} \u00b7 A/E ${ae(t).toFixed(2)}</div></div>
+          </div>
+          <div style="margin-top:6px">${days7}</div>
+        </div>`;
+      }).join('');
+      $('app').innerHTML = chips + luck +
+        `<div class="grid2">${rows}</div>` +
+        (shown < ranked.length ? `<button onclick="__ttMore()" style="width:100%;font-family:var(--mono);font-size:11px;padding:10px;border-radius:10px;border:1px solid #3A5490;background:transparent;color:#8FA3C8;cursor:pointer;margin-top:4px">show 40 more of ${ranked.length}</button>` : '') +
+        `<div class="sub" style="margin:10px 0">${qual.length} of 726 tipsters made 5+ bets over ${days.length} days (${raceN} races) \u00b7 ${thin} too thin to rank \u00b7 \u00a31 at SP \u00b7 the same grid re-run next week will crown someone else \u2014 that\u2019s the lesson</div>`;
+      const sub = $('ttsub');
+      if (sub) sub.textContent = `726 tipsters \u00b7 ${days[0]} \u2192 ${days[days.length - 1]}`;
+    }
+    render();
+  }
+  main();
+})();
+</script>
+</body>
+</html>
