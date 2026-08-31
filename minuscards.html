@@ -83,22 +83,40 @@
   async function main() {
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing today\u2026</div>';
     let store, up, pastDay = null;
+    const SNAP = { races: {}, n: 0 };
+    const skey = (t, course) => String(t || '').replace(/\s.*/, '') + '|' + String(course || '').replace(/\s*\(aw\)\s*/i, '').trim().toLowerCase();
+    const todayUK = (() => { const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; }); return `${p.year}-${p.month}-${p.day}`; })();
+    const loadSnap = async (dt) => {
+      try { const r = await fetch('/api/snapshot?date=' + dt + (dt === todayUK ? '&r=' + Math.floor(Date.now() / 60000) : ''));
+        const j = await r.json(); if (j && j.ok) { SNAP.races = j.races || {}; SNAP.n = Object.keys(SNAP.races).length; } } catch {}
+    };
+    // stone over feed: any race whose off time has passed is served from its last pre-off capture
+    const applyStone = (rides) => {
+      const nm = new Date().getHours() * 60 + new Date().getMinutes();
+      const live = (rides || []).filter(r => r.day === 'today');
+      const keys = {}; live.forEach(r => { keys[skey(r.t, r.course)] = 1; });
+      const out = live.filter(r => !(SNAP.races[skey(r.t, r.course)] && raceMin(r.t) <= nm));
+      Object.entries(SNAP.races).forEach(([k, s]) => { if (raceMin(s.t) <= nm) (s.rides || []).forEach(r => out.push(r)); });
+      return out;
+    };
     try {
       if (QD) {
-        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=5&date=' + QD)]);
+        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/priceday?v=5&date=' + QD), loadSnap(QD)]);
         store = await r1.json(); pastDay = await r2.json();
         if (!store.ok || !pastDay.ok) throw new Error('bad');
         const tn = (tid) => ((store.trainers || {})[tid] || {}).name || '';
         up = { ok: true, rides: [] };
-        (pastDay.races || []).forEach(rc => (rc.runners || []).forEach(x => up.rides.push({
+        if (SNAP.n) Object.values(SNAP.races).forEach(s => (s.rides || []).forEach(r => up.rides.push(r)));
+        else (pastDay.races || []).forEach(rc => (rc.runners || []).forEach(x => up.rides.push({
           day: 'today', t: rc.t, course: rc.course, h: x.h, d: x.d, ofr: x.ofr, lbs: x.lbs,
           jockey: x.jockey, jid: x.jid, tid: x.tid, trainer: tn(x.tid), dist: rc.dist, going: rc.going,
           rtype: /handicap/i.test(rc.name || '') ? 'Handicap' : '',
         })));
       } else {
-        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=4')]);
+        const [r1, r2] = await Promise.all([fetch('/api/peopleall?v=2'), fetch('/api/upcoming?v=4'), loadSnap(todayUK)]);
         store = await r1.json(); up = await r2.json();
         if (!store.ok || !up.ok) throw new Error('bad');
+        up.rides = applyStone(up.rides);
       }
     } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
     const winMap = {};
@@ -373,7 +391,7 @@
         board('TOP T', tTop.map(t2 => bRow(`<b>${t2.t.replace(/\s.*/,'')}</b> ${shortC(t2.course)} ${t2.h}${resMark(t2.t, t2.course, t2.h)}`, `${(t2.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(t2.p * 100)}%</b>`)).join(''), 'no qualified yards') +
         `</div>`;
       $('app').innerHTML = chipsHtml + boards + `<div class="grid">${html2}</div>` +
-        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 ${QD ? 'REPLAY OF ' + QD + ' \u00b7 priced with today\u2019s 12-mo people stats \u2014 mild hindsight, not the live morning read \u00b7 ' : ''}headline %s rounded \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
+        `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 ${QD ? 'REPLAY OF ' + QD + ' \u00b7 priced with today\u2019s 12-mo people stats \u2014 mild hindsight, not the live morning read \u00b7 ' : ''}headline %s rounded \u00b7 <span style="color:var(--gold)">${SNAP.n} races on pre-off record${QD && !SNAP.n ? ' (none for this day \u2014 replay is SP-priced)' : ''}</span> \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
       const fb = document.getElementById('mcfilters');
       const rb = document.getElementById('rsbar');
       if (fb && rb) fb.style.top = rb.offsetHeight + 'px';
@@ -399,7 +417,8 @@
         const j = await r.json();
         if (!(j && j.ok)) return;
         freezePast();   // lock anything that went off since the last pull, at its last pre-off build
-        const fresh = buildCards(j.rides);
+        await loadSnap(todayUK);
+        const fresh = buildCards(applyStone(j.rides));
         const seen = {};
         const merged = fresh.map(c => { seen[ckey(c)] = 1; return frozen[ckey(c)] || c; });
         Object.keys(frozen).forEach(k => { if (!seen[k]) merged.push(frozen[k]); });   // feed dropped a run race: keep it
