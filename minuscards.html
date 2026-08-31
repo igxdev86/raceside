@@ -397,8 +397,8 @@
       };
       const boards = `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
-        board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
+        board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
         board('TOP J', jTop.map(j => bRow(`<b>${j.t.replace(/\s.*/,'')}</b> ${shortC(j.course)} ${j.h}${resMark(j.t, j.course, j.h)}`, `${(j.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(j.p * 100)}%</b>`)).join(''), 'no qualified riders') +
         board('TOP T', tTop.map(t2 => bRow(`<b>${t2.t.replace(/\s.*/,'')}</b> ${shortC(t2.course)} ${t2.h}${resMark(t2.t, t2.course, t2.h)}`, `${(t2.who || '').split(' ').pop()} <b style="color:var(--green)">${Math.round(t2.p * 100)}%</b>`)).join(''), 'no qualified yards') +
         `</div>`;
