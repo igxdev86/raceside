@@ -10,7 +10,7 @@ function supa() {
   return { url: url.replace(/\/$/, ''), key };
 }
 
-const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1'];
+const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1'];
 
 export default async function handler(req, res) {
   const K = KEYS.includes(String(req.query.k)) ? String(req.query.k) : KEYS[0];
