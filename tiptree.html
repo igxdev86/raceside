@@ -99,7 +99,7 @@
     const tips = [];
     let idx = 0;
     for (const rule of RULES) for (const filt of FILTERS) for (const band of BANDS) {
-      tips.push({ i: idx, name: nameOf(idx), rule, filt, band, bets: 0, wins: 0, pl: 0, exp: 0, daily: days.map(() => 0) });
+      tips.push({ i: idx, name: nameOf(idx), rule, filt, band, bets: 0, wins: 0, pl: 0, exp: 0, daily: days.map(() => 0), picks: [] });
       idx++;
     }
 
@@ -120,6 +120,7 @@
           const won = p.pos === '1' || p.won === 1;
           if (won) { t.wins++; t.pl += p.d - 1; t.daily[di] += p.d - 1; }
           else { t.pl -= 1; t.daily[di] -= 1; }
+          t.picks.push({ dt: dd.dt, t: rc.t, course: rc.course, h: p.h, d: p.d, won, pos: p.pos });
         });
       });
     });
@@ -183,7 +184,7 @@
         const r = roi(t);
         const beat = luckBest != null && r > luckBest;
         const days7 = t.daily.map(v => `<span class="tt-day" style="background:${v > 0.01 ? '#2FA463' : v < -0.01 ? '#C64545' : '#2A3A5C'}" title="${v.toFixed(1)}"></span>`).join('');
-        return `<div class="tile" style="margin-bottom:8px${i === 0 ? ';border:1px solid var(--gold)' : ''}">
+        return `<div class="tile" onclick="__ttOpen(${t.i})" style="cursor:pointer;margin-bottom:8px${i === 0 ? ';border:1px solid var(--gold)' : ''}">
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
             <div style="min-width:0"><b style="font-size:14px">${i === 0 ? '<span class="tt-crown">\uD83D\uDC51</span> ' : ''}#${i + 1} ${t.name}</b>${beat ? ' <small style="color:var(--gold);font-weight:700">ABOVE THE LUCK LINE</small>' : ''}
             <div class="sub" style="margin-top:2px">backs ${t.rule.lbl} ${t.filt.lbl} ${t.band.lbl}</div></div>
@@ -200,6 +201,58 @@
       if (sub) sub.textContent = `726 tipsters \u00b7 ${days[0]} \u2192 ${days[days.length - 1]}`;
     }
     render();
+
+    // ---- modal: a tipster's picks + today's tips ----
+    let todayRaces = null;   // [{t, course, name, dist, runners:[ride...]}]
+    const loadToday = async () => {
+      if (todayRaces) return todayRaces;
+      try {
+        const r = await fetch('/api/upcoming?v=4');
+        const j = await r.json();
+        if (j && j.ok) {
+          const by = {};
+          (j.rides || []).filter(x => x.day === 'today').forEach(x => { (by[x.t + '|' + x.course] = by[x.t + '|' + x.course] || []).push(x); });
+          todayRaces = Object.values(by).map(rs => ({ t: rs[0].t, course: rs[0].course, name: rs[0].rname || (rs[0].rtype === 'Handicap' ? 'Handicap' : ''), dist: rs[0].dist, runners: rs.filter(r2 => Number(r2.d) > 1).map(r2 => ({ ...r2, d: Number(r2.d) })) }));
+        } else todayRaces = [];
+      } catch { todayRaces = []; }
+      return todayRaces;
+    };
+    window.__ttClose = () => { const m = document.getElementById('ttmodal'); if (m) m.remove(); };
+    window.__ttOpen = async (ti) => {
+      const t = tips[ti];
+      const races = await loadToday();
+      const next = [];
+      races.forEach(rc => {
+        if (!t.filt.ok(rc)) return;
+        const p = t.rule.pick(rc.runners, ctx);
+        if (!p || !(p.d > 1) || !t.band.ok(p.d)) return;
+        next.push({ t: rc.t, course: rc.course, h: p.h, d: p.d });
+      });
+      next.sort((a, b) => String(a.t).localeCompare(String(b.t)));
+      const r = roi(t);
+      const rowCss = 'display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)';
+      const nextH = next.length
+        ? next.map(p => `<div style="${rowCss}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${String(p.t).replace(/\s.*/, '')}</b> ${String(p.course).slice(0, 10)} ${p.h}</span><span style="color:var(--dim)">@ ${p.d}</span></div>`).join('')
+        : '<div class="sub">no qualifying pick on today\u2019s card yet</div>';
+      const past = t.picks.slice().reverse().map(p => {
+        const mark = p.won ? '<b style="color:var(--green)">\u27131</b>' : p.pos ? `<b style="color:${p.pos === '2' || p.pos === '3' ? 'var(--gold)' : 'var(--faint)'}">${p.pos}</b>` : '<span style="color:var(--red)">\u00d7</span>';
+        return `<div style="${rowCss}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--faint)">${p.dt.slice(5)}</span> <b>${String(p.t || '').replace(/\s.*/, '')}</b> ${String(p.course || '').slice(0, 9)} ${p.h} ${mark}</span><span style="color:${p.won ? 'var(--green)' : 'var(--dim)'}">${p.won ? '+' + (p.d - 1).toFixed(1) : '\u22121.0'} @ ${p.d}</span></div>`;
+      }).join('');
+      const el = document.createElement('div');
+      el.id = 'ttmodal';
+      el.innerHTML = `<div onclick="__ttClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,480px);max-height:84vh;overflow-y:auto;z-index:91;background:var(--card,#fff);border-radius:16px;padding:16px" class="tile">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <b style="font-size:16px">${t.name}</b>
+            <button onclick="__ttClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button>
+          </div>
+          <div class="sub" style="margin:2px 0 8px">backs ${t.rule.lbl} ${t.filt.lbl} ${t.band.lbl} \u00b7 <b style="color:${r > 0 ? 'var(--green)' : 'var(--red)'}">${r > 0 ? '+' : ''}${(r * 100).toFixed(0)}%</b> \u00b7 ${t.wins}/${t.bets} \u00b7 \u00a3${t.pl.toFixed(1)} \u00b7 A/E ${ae(t).toFixed(2)}</div>
+          <h2 style="font-size:10px">NEXT TIPS \u00b7 TODAY</h2>${nextH}
+          <h2 style="font-size:10px;margin-top:12px">THE ${t.bets} PICKS \u00b7 LAST 7 DAYS</h2>${past}
+          <div class="sub" style="margin-top:8px">a rule, not a mind \u2014 today\u2019s tips are what the recipe says, worth exactly the record above</div>
+        </div>`;
+      document.body.appendChild(el);
+    };
   }
   main();
 })();
