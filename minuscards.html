@@ -405,7 +405,32 @@
         return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div onclick="__mcGo('${cid(c.t, c.course)}')" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer"><b style="color:var(--blue)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()} <span style="color:var(--faint)">\u2193</span></div>` +
           ps.map(({ x, ae, r }) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)} <span style="color:var(--dim)">${(x.r.jockey || '?').replace(/\s*\(\d\)/, '').split(' ').pop()} \u00d7 ${(x.r.trainer || '?').split(' ').pop()}</span></span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${ae >= 1.2 ? 'var(--green)' : ae <= 0.8 ? 'var(--red)' : 'var(--ink)'}">${ae.toFixed(2)}</b> (${r}) @ ${x.r.d || '\u2014'}</span></div>`).join('') + `</div>`;
       };
-      const boards = `<div class="mcboards">` +
+      // signal scoreboard: each signal's pick in every SETTLED race — winners / settled
+      const sigDefs = [
+        ['MINUS', (c) => c.deepest && c.deepest.edge < 0 ? c.deepest.r.h : null],
+        ['WR', (c) => c.wrBest && c.advM[c.wrBest] > 0 ? c.wrBest : null],
+        ['TOP J', (c) => { let bh = null, bv = -1; c.rows.forEach(x => { const s = (store.jockeys || {})[x.r.jid]; if (s && s.runs >= 50 && s.wins / s.runs > bv) { bv = s.wins / s.runs; bh = x.r.h; } }); return bh; }],
+        ['TOP T', (c) => { let bh = null, bv = -1; c.rows.forEach(x => { const s = (store.trainers || {})[x.r.tid]; if (s && s.runs >= 50 && s.wins / s.runs > bv) { bv = s.wins / s.runs; bh = x.r.h; } }); return bh; }],
+        ['PAIR', (c) => { let bh = null, bv = -1; c.rows.forEach(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; if (p && p.r >= 10 && p.e > 0 && p.w / p.e > bv) { bv = p.w / p.e; bh = x.r.h; } }); return bh; }],
+        ['TOP OR', (c) => { if (c.maxOr == null) return null; const tops = c.rows.filter(x => x.r.ofr === c.maxOr); return tops.length === 1 ? tops[0].r.h : null; }],
+        ['FAV', (c) => { let bh = null, bv = Infinity; c.rows.forEach(x => { if (x.r.d && x.r.d < bv) { bv = x.r.d; bh = x.r.h; } }); return bh; }],
+      ];
+      const sigStats = sigDefs.map(([lbl, pick]) => {
+        let settled = 0, won = 0;
+        cards.forEach(c => {
+          const wn = winMap[rkeyN(c.t, c.course)];
+          if (wn === undefined) return;
+          const p = pick(c);
+          if (!p) return;
+          settled++;
+          if (nameN(p) === wn) won++;
+        });
+        return { lbl, settled, won };
+      });
+      const anySettled = sigStats.some(s => s.settled > 0);
+      const sigTiles = anySettled ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
+        sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') + `</div></div>` : '';
+      const boards = sigTiles + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
         board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
