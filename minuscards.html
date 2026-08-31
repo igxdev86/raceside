@@ -252,6 +252,16 @@
     let viewMode = 'all';
     const bClosed = {};
     window.__mcBoard = (id) => { bClosed[id] = !bClosed[id]; render(); };
+    const cid = (t, course) => 'rc-' + (String(t || '').replace(/\s.*/, '') + '-' + String(course || '')).toLowerCase().replace(/[^a-z0-9:]/g, '');
+    window.__mcGo = (id) => {
+      const el = document.getElementById(id); if (!el) return;
+      const rb = document.getElementById('rsbar'), fb = document.getElementById('mcfilters');
+      const off = (rb ? rb.offsetHeight : 0) + (fb ? fb.offsetHeight : 0) + 8;
+      const y = el.getBoundingClientRect().top + window.pageYOffset - off;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      el.style.transition = 'box-shadow .2s'; el.style.boxShadow = '0 0 0 3px var(--gold)';
+      setTimeout(() => { el.style.boxShadow = ''; }, 1400);
+    };
     window.__mcView = () => { viewMode = viewMode === 'results' ? 'all' : 'results'; render(); };
     window.__mcPerson = (m) => { personMode = m; render(); };
     const pairs = store.pairs || {};
@@ -335,7 +345,7 @@
         }).join('');
         const fmtDist = (dv) => { const n2 = Number(dv); return n2 > 0 ? (n2 % 1 ? n2.toFixed(1) : n2) + 'f' : String(dv || ''); };
         const ctx = [fmtDist(c.dist), c.rtype, c.going].filter(Boolean).join(' \u00b7 ');
-        return `<div class="tile"><h2>#${ci + 1} \u00b7 ${c.t} ${c.course.toUpperCase()}${settled ? ' \u00b7 SETTLED' : ran ? ' \u00b7 RAN' : ''}</h2>` +
+        return `<div class="tile" id="${cid(c.t, c.course)}"><h2>#${ci + 1} \u00b7 ${c.t} ${c.course.toUpperCase()}${settled ? ' \u00b7 SETTLED' : ran ? ' \u00b7 RAN' : ''}</h2>` +
           (ctx ? `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--dim);margin-top:2px;text-transform:uppercase">${ctx}</div>` : '') +
           `<div style="margin:8px 0 4px;font-size:17px;font-weight:800">${dOK.h} <span style="color:${c.deepest.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${(c.deepest.edge > 0 ? '+' : '') + Math.round(c.deepest.edge * 100)}%</span> <span style="color:var(--blue)">${dOK.d}</span>` +
           (isTop ? ' <small style="color:var(--blue);font-weight:700">TOP OR</small>' : '') +
@@ -384,7 +394,7 @@
       const board = (title, rowsH, empty) => `<div class="tile" style="padding:12px 12px 8px"><h2 onclick="__mcBoard('${title}')" style="font-size:10px;cursor:pointer;user-select:none">${title} <span style="color:var(--faint)">${bClosed[title] ? '\u25b8' : '\u25be'}</span></h2>` + (bClosed[title] ? '' : (rowsH || '<div class="sub">' + empty + '</div>')) + `</div>`;
       const mRace = (c) => {
         const top3 = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge).slice(0, 3);
-        return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div style="font-family:var(--mono);font-size:10.5px;color:var(--dim)"><b style="color:var(--ink)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()}</div>` +
+        return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div onclick="__mcGo('${cid(c.t, c.course)}')" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer"><b style="color:var(--blue)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()} <span style="color:var(--faint)">\u2193</span></div>` +
           top3.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)}</span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${x.edge < 0 ? 'var(--red)' : 'var(--faint)'}">${(x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</b> @ ${x.r.d}</span></div>`).join('') + `</div>`;
       };
       // top pairs per race: jockey × trainer partnerships ranked by A/E (10+ runs together)
@@ -392,7 +402,7 @@
         const ps = c.rows.map(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; if (!p || !(p.r >= 10) || !(p.e > 0)) return null;
           return { x, ae: p.w / p.e, r: p.r }; }).filter(Boolean).sort((a, b) => b.ae - a.ae).slice(0, 3);
         if (!ps.length) return '';
-        return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div style="font-family:var(--mono);font-size:10.5px;color:var(--dim)"><b style="color:var(--ink)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()}</div>` +
+        return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div onclick="__mcGo('${cid(c.t, c.course)}')" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer"><b style="color:var(--blue)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()} <span style="color:var(--faint)">\u2193</span></div>` +
           ps.map(({ x, ae, r }) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)} <span style="color:var(--dim)">${(x.r.jockey || '?').replace(/\s*\(\d\)/, '').split(' ').pop()} \u00d7 ${(x.r.trainer || '?').split(' ').pop()}</span></span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${ae >= 1.2 ? 'var(--green)' : ae <= 0.8 ? 'var(--red)' : 'var(--ink)'}">${ae.toFixed(2)}</b> (${r}) @ ${x.r.d || '\u2014'}</span></div>`).join('') + `</div>`;
       };
       const boards = `<div class="mcboards">` +
