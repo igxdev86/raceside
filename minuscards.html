@@ -57,12 +57,12 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="wordmark">MINUS <b>CARDS</b><small>today’s races · deepest disagreement first</small></div>
+    <div class="wordmark">MINUS <b>CARDS</b><small id="mcsub">today’s races · chronological</small></div>
     <a class="back" href="/thepounce.html">← pounce</a>
   </header>
   <div id="app"><div class="state"><div class="spinner"></div>sorting everyone into groups…</div></div>
 
-  <p class="note">Every race on today’s card, sorted by how hard the market backs its most-minus horse beyond what the model sees — the top card is the day’s single deepest disagreement. Edges are the model’s opinion, not truth; the dated pages keep the score. Settled races tick their winners. Not advice.</p>
+  <p class="note">Every race on today’s card in running order; tap MINUS to rank by how hard the market backs its most-minus horse beyond what the model sees. Run races are served from their pre-off record and never repriced. Edges are the model’s opinion, not truth; the dated pages keep the score. Settled races tick their winners. Not advice.</p>
   <footer>RACESIDE · data: The Racing API · settled at SP</footer>
 </div>
 <script>
@@ -84,6 +84,7 @@
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>pricing today\u2026</div>';
     let store, up, pastDay = null;
     const SNAP = { races: {}, n: 0 };
+    let lastCardPull = Date.now();
     const skey = (t, course) => String(t || '').replace(/\s.*/, '') + '|' + String(course || '').replace(/\s*\(aw\)\s*/i, '').trim().toLowerCase();
     const todayUK = (() => { const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; }); return `${p.year}-${p.month}-${p.day}`; })();
     const loadSnap = async (dt) => {
@@ -392,6 +393,13 @@
         `</div>`;
       $('app').innerHTML = chipsHtml + boards + `<div class="grid">${html2}</div>` +
         `<div class="sub" style="margin-top:8px;${orderOk ? '' : 'color:var(--red);font-weight:700'}">${cards.length} races priced \u00b7 sorted by ${sortKey === 'time' ? 'TIME (default)' : SORTS[sortKey].lbl}${sortKey === 'minus' ? ' \u00b7 order ' + (orderOk ? 'verified deepest-first' : 'BROKEN \u2014 SHOW THE BUILDER') : ''} \u00b7 ${viewMode === 'results' ? 'RESULTS view \u2014 run races only, latest first' : 'run races sit at the bottom'} \u00b7 ${QD ? 'REPLAY OF ' + QD + ' \u00b7 priced with today\u2019s 12-mo people stats \u2014 mild hindsight, not the live morning read \u00b7 ' : ''}headline %s rounded \u00b7 <span style="color:var(--gold)">${SNAP.n} races on pre-off record${QD && !SNAP.n ? ' (none for this day \u2014 replay is SP-priced)' : ''}</span> \u00b7 <span style="color:var(--faint)">b3012 \u00b7 positions in ${Object.keys(posMap).length} races</span></div>`;
+      const subEl = document.getElementById('mcsub');
+      if (subEl) {
+        const hhmm = (ms) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
+        subEl.textContent = QD
+          ? `replay of ${QD} \u00b7 ${SNAP.n ? 'priced from the pre-off record' : 'SP-priced (no record for this day)'}`
+          : `today\u2019s races \u00b7 ${sortKey === 'time' ? 'chronological' : 'sorted by ' + SORTS[sortKey].lbl.toLowerCase()} \u00b7 odds updated ${hhmm(typeof lastCardPull === 'number' ? lastCardPull : Date.now())}`;
+      }
       const fb = document.getElementById('mcfilters');
       const rb = document.getElementById('rsbar');
       if (fb && rb) fb.style.top = rb.offsetHeight + 'px';
@@ -400,7 +408,7 @@
     ready = true;
     if (QD) { window.__mcRefresh = () => {}; return; }
     // the card itself goes stale: non-runners declared after load must fall out
-    let lastCardPull = Date.now();
+    lastCardPull = Date.now();
     // STRICT FREEZE: once a race's off time passes, its card is locked — the pre-off snapshot
     // is the record. Post-off feeds suspend/drop races and reprice into garbage; none of that
     // may touch a run race. The winners overlay settles frozen cards; nothing else changes them.
