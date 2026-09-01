@@ -253,6 +253,34 @@
     const bClosed = {};
     window.__mcBoard = (id) => { bClosed[id] = !bClosed[id]; render(); };
     window.__mcSigClose = () => { const m = document.getElementById('mcsigmodal'); if (m) m.remove(); };
+    window.__mcAccaModal = (k) => {
+      const legs = window.__mcLegs || [];
+      const names = { 2: 'DOUBLES', 3: 'TREBLES', 4: 'FOURFOLDS' };
+      // enumerate k-combos of the leg pool, rank by model EV of the accumulator
+      const combos = [];
+      const rec = (start, chosen) => {
+        if (chosen.length === k) { const p = chosen.reduce((a, l) => a * l.p, 1); const odds = chosen.reduce((a, l) => a * l.d, 1); combos.push({ legs: chosen.slice(), p, odds, ev: p * odds - 1 }); return; }
+        for (let i = start; i < legs.length; i++) { chosen.push(legs[i]); rec(i + 1, chosen); chosen.pop(); }
+      };
+      rec(0, []);
+      combos.sort((a, b) => b.ev - a.ev || b.p - a.p);
+      const top = combos.slice(0, 5);
+      const rowCss = 'font-size:11px;font-family:var(--mono);padding:2px 0 2px 10px;display:flex;justify-content:space-between;gap:8px';
+      const body = top.length ? top.map((c, i) => `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px"><b>#${i + 1} \u00b7 ${c.odds.toFixed(1)}/1 combined</b><span style="color:${c.ev > 0 ? 'var(--green)' : 'var(--red)'}"><b>${c.ev > 0 ? '+' : ''}${Math.round(c.ev * 100)}%</b> EV \u00b7 model ${(c.p * 100).toFixed(1)}%</span></div>
+          ${c.legs.map(l => `<div style="${rowCss}"><span style="min-width:0"><b>${String(l.t).replace(/\s.*/, '')}</b> ${String(l.course).replace(/\s*\([^)]*\)/g, '').slice(0, 10)} ${l.h}<br><small style="color:var(--blue)">${l.sigs.join(' \u00b7 ')}</small></span><span style="white-space:nowrap;color:var(--dim);text-align:right">@ ${l.d}<br><small style="color:${l.edge < 0 ? 'var(--red)' : 'var(--green)'}">${l.edge > 0 ? '+' : ''}${Math.round(l.edge * 100)}%</small></span></div>`).join('')}
+        </div>`).join('') : `<div class="sub">fewer than ${k} races left with a qualifying leg</div>`;
+      const el = document.createElement('div');
+      el.id = 'mcsigmodal';
+      el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:84vh;overflow-y:auto;z-index:91;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">${names[k]} \u00b7 STRONGEST TODAY</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
+          <div class="sub" style="margin:2px 0 4px">legs = one signal-named horse per race still to run \u00b7 ranked by the model\u2019s expected value of the whole bet \u00b7 ${legs.length} legs in the pool</div>
+          ${body}
+          <div class="sub" style="margin-top:8px">EV multiplies the model\u2019s opinion ${k} times over \u2014 every leg\u2019s error compounds, and so does the bookmaker\u2019s margin. A positive number here is a hypothesis, not a bet.</div>
+        </div>`;
+      document.body.appendChild(el);
+    };
     window.__mcPicksModal = () => {
       const ps = window.__mcAllPicks || [];
       const rm = window.__mcResMark || (() => '');
@@ -496,11 +524,31 @@
       });
       window.__mcAllPicks = allPicks;
       window.__mcResMark = resMark;
+      // accumulator legs: one horse per race still to run — model probability from its edge, signal agreement as tiebreak
+      const nowMA = new Date().getHours() * 60 + new Date().getMinutes();
+      const legs = [];
+      allPicks.forEach(r => {
+        if (r.settled || raceMin(r.t) <= nowMA) return;
+        let bestLeg = null;
+        r.hs.forEach(x => {
+          if (!(x.d > 1) || x.edge == null) return;
+          const sig = x.sigs.filter(s => s !== 'FAV' && s !== 'MINUS').length;
+          if (!sig) return;
+          const p = (1 + x.edge) / x.d;
+          const leg = { t: r.t, course: r.course, h: x.h, d: x.d, p, edge: x.edge, sig, sigs: x.sigs.filter(s => s !== 'FAV' && s !== 'MINUS') };
+          if (!bestLeg || p * (1 + 0.1 * sig) > bestLeg.p * (1 + 0.1 * bestLeg.sig)) bestLeg = leg;
+        });
+        if (bestLeg) legs.push(bestLeg);
+      });
+      legs.sort((a, b) => (b.p * (1 + 0.1 * b.sig)) - (a.p * (1 + 0.1 * a.sig)));
+      window.__mcLegs = legs.slice(0, 9);
       const anySettled = sigStats.some(s => s.settled > 0);
       const pickChip = allPicks.length ? `<div class="tile" onclick="__mcPicksModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid #E0409A" title="every signal pick today, by race"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#E0409A">SIGNAL PICKS</span><b style="font-family:var(--mono);font-size:13px;color:var(--ink)">${pickCount}</b></div>` : '';
+      const accaChip = (k, lbl) => legs.length >= k ? `<div class="tile" onclick="__mcAccaModal(${k})" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--blue)"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--blue)">${lbl}</span></div>` : '';
+      const accaChips = accaChip(2, 'DOUBLES') + accaChip(3, 'TREBLES') + accaChip(4, 'FOURFOLDS');
       const sigTiles = (anySettled || allPicks.length) ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED \u00b7 PICKS</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
         sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') +
-        (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + pickChip + `</div></div>` : '';
+        (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + pickChip + accaChips + `</div></div>` : '';
       const boards = sigTiles + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
