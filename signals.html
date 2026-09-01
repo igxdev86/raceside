@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · THE SIGNALS</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  table.ft{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  table.ft td,table.ft th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  table.ft td:first-child,table.ft th:first-child{text-align:left}
+  .rule{color:var(--blue)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">THE <b>SIGNALS</b><small id="sgsub">rules that held out of sample</small></div>
+</header>
+<main>
+  <p class="note">A search over combinations of the site’s signals — best-in at the weights, pairs, people strikes, OR, minus rank, price, race type — for rules that beat the starting price. Rules are found on January–June and then judged only on races they never saw, from July onwards. People stats are built day by day so no race sees its own future. What survives is listed with today’s picks. The list will change month to month; a rule that keeps surviving is a signal, one that appears once is weather. Not advice.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>walking the year\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const shrink = (w, r, prior, k) => (w + k * prior) / (r + k);
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 9999; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+
+  // ---- atoms: each a bit; a rule is a set of atoms (all must hold) ----
+  const ATOMS = [
+    ['WR best-in', 'wrBest'], ['WR +3lb or more', 'wr3'], ['top-rated', 'topOr'],
+    ['best jockey in race', 'jTop'], ['best trainer in race', 'tTop'], ['best pair in race', 'pTop'],
+    ['jockey strike \u226516%', 'jHot'], ['trainer strike \u226515%', 'tHot'], ['pair strike \u226518% (10+ runs)', 'pHot'], ['first-time pair', 'pFirst'],
+    ['minus-1', 'm1'], ['minus-1 or 2', 'm12'], ['model plus (edge > 0)', 'plus'],
+    ['favourite', 'fav'], ['second favourite', 'fav2'], ['SP \u2264 3', 'sp3'], ['SP 3\u20136', 'sp36'], ['SP 6\u201312', 'sp612'], ['SP 12+', 'sp12'],
+    ['handicap', 'hcp'], ['non-handicap', 'nonhcp'], ['field \u2264 8', 'small'], ['field 9+', 'big'], ['claimer up', 'claim'],
+  ];
+  const BIT = {}; ATOMS.forEach(([, k], i) => { BIT[k] = 1 << i; });
+  const EXCL = [['fav', 'fav2'], ['sp3', 'sp36', 'sp612', 'sp12'], ['hcp', 'nonhcp'], ['small', 'big'], ['m1', 'plus'], ['m12', 'plus'], ['pFirst', 'pHot'], ['pFirst', 'pTop']];
+  const compatible = (keys) => !EXCL.some(g => keys.filter(k => g.includes(k)).length > 1);
+
+  // per-runner atom mask from pre-race info
+  function raceAtoms(rc, tally, base) {
+    const rs = (rc.runners || []).filter(r => r.d > 1);
+    if (rs.length < 3) return null;
+    const hcp = /handicap/i.test(rc.name || '');
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+    const maxOr = orVals.length ? Math.max(...orVals) : null;
+    const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {}; let wrBest = null, wrV = 0;
+    if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top);
+      ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; if (adv[r.h] > wrV) { wrV = adv[r.h]; wrBest = r.h; } }); }
+    const jS = rs.map(r => { const s = tally.j[r.jid]; return s ? shrink(s.w, s.r, base, 20) : base; });
+    const tS = rs.map(r => { const s = tally.t[r.tid]; return s ? shrink(s.w, s.r, base, 20) : base; });
+    const pR = rs.map(r => { const s = tally.p[r.jid + '|' + r.tid]; return s ? s.r : 0; });
+    const pS = rs.map((r, i) => { const s = tally.p[r.jid + '|' + r.tid]; return s ? shrink(s.w, s.r, base, 10) : base; });
+    const argmax = (arr, ok2) => { let bi = -1, bv = -Infinity; arr.forEach((v, i) => { if ((!ok2 || ok2[i]) && v > bv) { bv = v; bi = i; } }); return bi; };
+    const jTop = argmax(jS), tTop = argmax(tS), pTop = argmax(pS, pR.map(v => v >= 10));
+    // leak-free model edge: people score from lagged strikes (rank within race), OR, WR
+    const sc = rs.map((r, i) => 0.8 * ((jS[i] + tS[i]) / 2 - base) * 10 + 0.6 * (r.ofr != null && orMean != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10);
+    const ex = sc.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+    const edge = rs.map((r, i) => ((ex[i] / Z) - 1 / r.d) / (1 / r.d));
+    const order = rs.map((_, i) => i).sort((a, b) => edge[a] - edge[b]);
+    const mRank = {}; order.forEach((i, k) => { mRank[i] = k + 1; });
+    const spOrder = rs.map((_, i) => i).sort((a, b) => rs[a].d - rs[b].d);
+    const out = rs.map((r, i) => {
+      let m = 0;
+      if (wrBest === r.h) m |= BIT.wrBest; if ((adv[r.h] || 0) >= 3) m |= BIT.wr3; if (maxOr != null && r.ofr === maxOr && orVals.filter(v => v === maxOr).length === 1) m |= BIT.topOr;
+      if (i === jTop) m |= BIT.jTop; if (i === tTop) m |= BIT.tTop; if (i === pTop) m |= BIT.pTop;
+      if (jS[i] >= 0.16 && (tally.j[r.jid] || {}).r >= 50) m |= BIT.jHot; if (tS[i] >= 0.15 && (tally.t[r.tid] || {}).r >= 50) m |= BIT.tHot;
+      if (pS[i] >= 0.18 && pR[i] >= 10) m |= BIT.pHot; if (pR[i] === 0 && r.jid && r.tid) m |= BIT.pFirst;
+      if (orMean != null && edge[i] < 0 && mRank[i] === 1) m |= BIT.m1; if (orMean != null && edge[i] < 0 && mRank[i] <= 2) m |= BIT.m12; if (orMean != null && edge[i] > 0) m |= BIT.plus;
+      if (spOrder[0] === i) m |= BIT.fav; if (spOrder[1] === i) m |= BIT.fav2;
+      if (r.d <= 3) m |= BIT.sp3; else if (r.d <= 6) m |= BIT.sp36; else if (r.d <= 12) m |= BIT.sp612; else m |= BIT.sp12;
+      if (hcp) m |= BIT.hcp; else m |= BIT.nonhcp; if (rs.length <= 8) m |= BIT.small; else m |= BIT.big; if (clm(r.jockey) > 0) m |= BIT.claim;
+      return { m, d: r.d, w: (r.pos === '1' || r.won === 1) ? 1 : 0, h: r.h };
+    });
+    return { rows: out, rs };
+  }
+
+  // rule space: singles, pairs, triples of compatible atoms
+  function ruleSpace() {
+    const keys = ATOMS.map(a => a[1]); const rules = [];
+    for (let a = 0; a < keys.length; a++) {
+      rules.push([keys[a]]);
+      for (let b = a + 1; b < keys.length; b++) {
+        if (!compatible([keys[a], keys[b]])) continue;
+        rules.push([keys[a], keys[b]]);
+        for (let c = b + 1; c < keys.length; c++) { if (compatible([keys[a], keys[b], keys[c]])) rules.push([keys[a], keys[b], keys[c]]); }
+      }
+    }
+    return rules.map(ks => ({ ks, mask: ks.reduce((m, k) => m | BIT[k], 0), tr: [0, 0, 0, 0], te: [0, 0, 0, 0] }));
+  }
+
+  async function main() {
+    const year = new Date().getFullYear();
+    const params = new URLSearchParams(location.search);
+    let st = null;
+    try { st = JSON.parse(localStorage.getItem('rssig:v1') || 'null'); } catch {}
+    if (st && String(st.year) !== String(year)) st = null;
+    if (!st && !params.get('rebuild')) { try { const r = await fetch('/api/yearstate?k=sigstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
+    if (params.get('rebuild')) st = null;
+    if (!st) st = { year, lastDate: null, miss: [], recs: [], tally: { j: {}, t: {}, p: {} }, runsAll: 0, winsAll: 0 };
+    const tally = st.tally;
+    const eat = async (dt) => {
+      try {
+        const r = await fetch('/api/priceday?v=5&date=' + dt); const j = await r.json();
+        if (!(j && j.ok)) return false;
+        const base = st.runsAll > 200 ? st.winsAll / st.runsAll : 0.1;
+        (j.races || []).forEach(rc => {
+          const a = raceAtoms(rc, tally, base); if (!a) return;
+          const winI = a.rows.findIndex(x => x.w);
+          if (winI < 0) return;
+          a.rows.forEach(x => st.recs.push([dt, x.m, x.d, x.w]));
+          a.rs.forEach((r, i) => { const w = i === winI ? 1 : 0;
+            if (r.jid) { const s = (tally.j[r.jid] = tally.j[r.jid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+            if (r.tid) { const s = (tally.t[r.tid] = tally.t[r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+            if (r.jid && r.tid) { const s = (tally.p[r.jid + '|' + r.tid] = tally.p[r.jid + '|' + r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+            st.runsAll++; st.winsAll += w; });
+        });
+        return true;
+      } catch { return false; }
+    };
+    const yEnd = new Date(Date.now() - 86400000);
+    const start = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    let n = 0;
+    for (let d = start; d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10);
+      if (!(await eat(dt))) st.miss = (st.miss || []).concat([dt]);
+      st.lastDate = dt;
+      if (++n % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + st.recs.length + ' runners</div>';
+    }
+    if (n) { try { localStorage.setItem('rssig:v1', JSON.stringify(st)); } catch {}
+      try { fetch('/api/yearstate?k=sigstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
+    if (st.recs.length < 2000) { $('app').innerHTML = '<div class="state">not enough runners yet (' + st.recs.length + ')</div>'; return; }
+
+    // ---- search: train Jan–Jun, test Jul→ (or last 30% if the year is young) ----
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>searching ' + st.recs.length + ' runners\u2026</div>';
+    await new Promise(r => setTimeout(r, 30));
+    const rules = ruleSpace();
+    const cutDt = st.recs[Math.floor(st.recs.length * 0.7)][0];
+    const split = (dt) => Number(dt.slice(5, 7)) >= 7 && st.recs.filter(x => Number(x[0].slice(5, 7)) >= 7).length > st.recs.length * 0.2 ? Number(dt.slice(5, 7)) >= 7 : dt >= cutDt;
+    st.recs.forEach(([dt, m, d, w]) => {
+      const te = split(dt);
+      for (const ru of rules) { if ((m & ru.mask) !== ru.mask) continue; const a = te ? ru.te : ru.tr; a[0]++; a[1] += w; a[2] += 1 / d; a[3] += w ? d - 1 : -1; }
+    });
+    const ae = (a) => a[2] > 0 ? a[1] / a[2] : 0;
+    const cands = rules.filter(ru => ru.tr[0] >= 100 && ae(ru.tr) >= 1.05);
+    const held = cands.filter(ru => ru.te[0] >= 40 && ae(ru.te) >= 1.0).sort((a, b) => ae(b.te) - ae(a.te));
+    const heldAbove = cands.filter(ru => ru.te[0] >= 40 && ae(ru.te) > 1).length, judged = cands.filter(ru => ru.te[0] >= 40).length;
+    // today's picks from held rules (top 12), using the up-to-date tallies
+    let todayPicks = [];
+    try {
+      const r = await fetch('/api/upcoming?v=4'); const j = await r.json();
+      if (j && j.ok) {
+        const by = {}; (j.rides || []).filter(x => x.day === 'today').forEach(x => { (by[x.t + '|' + x.course] = by[x.t + '|' + x.course] || []).push(x); });
+        const base = st.runsAll > 200 ? st.winsAll / st.runsAll : 0.1;
+        Object.values(by).forEach(rs => {
+          const rc = { name: rs[0].rname || (rs[0].rtype === 'Handicap' ? 'handicap' : ''), runners: rs.map(x => ({ ...x, d: Number(x.d) })) };
+          const a = raceAtoms(rc, tally, base); if (!a) return;
+          a.rows.forEach((x, i) => {
+            const hits = held.slice(0, 12).filter(ru => (x.m & ru.mask) === ru.mask);
+            if (hits.length) todayPicks.push({ t: rs[0].t, course: rs[0].course, h: x.h, d: x.d, rules: hits });
+          });
+        });
+        todayPicks.sort((a, b) => raceMin(a.t) - raceMin(b.t));
+      }
+    } catch {}
+    render({ st, rules, cands, held, heldAbove, judged, todayPicks });
+  }
+
+  function render(o) {
+    const ae = (a) => a[2] > 0 ? (a[1] / a[2]).toFixed(2) : '\u2014';
+    const roi = (a) => a[0] ? ((a[3] / a[0]) * 100).toFixed(0) + '%' : '\u2014';
+    const lbl = (ks) => ks.map(k => ATOMS.find(a => a[1] === k)[0]).join(' + ');
+    const testFrom = o.st.recs.find(x => true) ? '' : '';
+    const heldRows = o.held.slice(0, 25).map((ru, i) => `<tr><td><span class="rule">${lbl(ru.ks)}</span></td><td>${ru.tr[0]}</td><td>${ae(ru.tr)}</td><td><b>${ru.te[0]}</b></td><td style="color:var(--green)"><b>${ae(ru.te)}</b></td><td style="color:${ru.te[3] > 0 ? 'var(--green)' : 'var(--red)'}">${roi(ru.te)}</td></tr>`).join('');
+    const picks = o.todayPicks.length ? o.todayPicks.map(p => `<tr><td><b>${String(p.t).replace(/\s.*/, '')}</b> ${String(p.course).slice(0, 10)} ${p.h}<br><small class="rule">${p.rules.map(r => lbl(r.ks)).join(' \u00b7 ')}</small></td><td>@ ${p.d}</td><td>${p.rules.length}</td></tr>`).join('') : '<tr><td colspan="3" class="sub">no horse on today\u2019s card meets a held rule</td></tr>';
+    const expectByChance = Math.round(o.judged / 2);
+    $('app').innerHTML =
+      `<div class="tile"><h2>WHAT SURVIVED</h2><div style="font-size:14px;margin-top:6px">${o.rules.length} rules searched \u00b7 <b>${o.cands.length}</b> looked good on January\u2013June (A/E \u2265 1.05, 100+ bets) \u00b7 <b>${o.heldAbove}</b> of the ${o.judged} with enough unseen races still beat their price out of sample.</div>
+        <div class="sub" style="margin-top:6px">by chance alone roughly ${expectByChance} of ${o.judged} would hold. ${o.heldAbove > expectByChance * 1.3 ? 'More held than luck explains \u2014 there is something in the signals.' : o.heldAbove < expectByChance * 0.7 ? 'Fewer held than luck would give \u2014 the January\u2013June winners were mostly noise.' : 'About what luck gives \u2014 treat the list as candidates, not signals.'}</div></div>
+      <div class="tile"><h2>TODAY\u2019S PICKS \u00b7 from the held rules</h2><table class="ft"><tr><th>race \u00b7 horse \u00b7 rules</th><th>SP</th><th>rules</th></tr>${picks}</table>
+        <div class="sub" style="margin-top:6px">a horse named by several held rules is the day\u2019s strongest claim. Prices are the morning card; the rules were judged at SP.</div></div>
+      <div class="tile"><h2>THE HELD RULES \u00b7 ranked by out-of-sample A/E</h2><table class="ft"><tr><th>rule</th><th>train bets</th><th>train A/E</th><th>test bets</th><th>test A/E</th><th>test ROI</th></tr>${heldRows || '<tr><td colspan="6" class="sub">nothing held</td></tr>'}</table>
+        <div class="sub" style="margin-top:6px">test = races the rule never saw. A/E &gt; 1.00 at SP is profit before margin; ROI is the \u00a31 record. Small test samples (under 100) can still be luck \u2014 watch whether a rule is here again next month.</div></div>
+      <div class="sub" style="margin:10px 0">${o.st.recs.length} runners \u00b7 Jan 1 \u2192 ${o.st.lastDate} \u00b7 people strikes tallied day by day (leak-free) \u00b7 minus rank from the leak-free model \u00b7 <a href="?rebuild=1" style="color:var(--blue)">rebuild</a></div>`;
+    const sub = $('sgsub'); if (sub) sub.textContent = `${o.held.length} rules held \u00b7 ${o.st.year}`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
