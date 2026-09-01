@@ -427,9 +427,20 @@
         });
         return { lbl, settled, won };
       });
+      // unique: a settled race counts once if ANY signal's pick won it (FAV is the benchmark, not a signal)
+      let uniqSettled = 0, uniqWon = 0;
+      cards.forEach(c => {
+        const wn = winMap[rkeyN(c.t, c.course)];
+        if (wn === undefined) return;
+        const picks = sigDefs.filter(([l]) => l !== 'FAV').map(([, pick]) => pick(c)).filter(Boolean);
+        if (!picks.length) return;
+        uniqSettled++;
+        if (picks.some(p => nameN(p) === wn)) uniqWon++;
+      });
       const anySettled = sigStats.some(s => s.settled > 0);
       const sigTiles = anySettled ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
-        sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') + `</div></div>` : '';
+        sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') +
+        (uniqSettled ? `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + `</div></div>` : '';
       const boards = sigTiles + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
