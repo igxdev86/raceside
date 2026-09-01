@@ -100,8 +100,9 @@
     try { st = JSON.parse(localStorage.getItem('rssig:v1') || 'null'); } catch {}
     if (st && String(st.year) !== String(year)) st = null;
     if (!st && !params.get('rebuild')) { try { const r = await fetch('/api/yearstate?k=sigstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
-    if (params.get('rebuild')) st = null;
-    if (!st) st = { year, lastDate: null, miss: [], recs: [], tally: { j: {}, t: {}, p: {} }, runsAll: 0, winsAll: 0 };
+    if (params.get('rebuild') || (st && !st.recent)) st = null;
+    if (!st) st = { year, lastDate: null, miss: [], recs: [], recent: [], tally: { j: {}, t: {}, p: {} }, runsAll: 0, winsAll: 0 };
+    const keepFrom = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
     const tally = st.tally;
     const eat = async (dt) => {
       try {
@@ -112,7 +113,7 @@
           const a = raceAtoms(rc, tally, base); if (!a) return;
           const winI = a.rows.findIndex(x => x.w);
           if (winI < 0) return;
-          a.rows.forEach(x => st.recs.push([dt, x.m, x.d, x.w]));
+          a.rows.forEach((x, i) => { st.recs.push([dt, x.m, x.d, x.w]); if (dt >= keepFrom) st.recent.push([dt, rc.t || '', rc.course || '', x.h, x.m, x.d, x.w, a.rs[i].pos || '']); });
           a.rs.forEach((r, i) => { const w = i === winI ? 1 : 0;
             if (r.jid) { const s = (tally.j[r.jid] = tally.j[r.jid] || { r: 0, w: 0 }); s.r++; s.w += w; }
             if (r.tid) { const s = (tally.t[r.tid] = tally.t[r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
@@ -131,6 +132,7 @@
       st.lastDate = dt;
       if (++n % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + st.recs.length + ' runners</div>';
     }
+    st.recent = (st.recent || []).filter(x => x[0] >= keepFrom);
     if (n) { try { localStorage.setItem('rssig:v1', JSON.stringify(st)); } catch {}
       try { fetch('/api/yearstate?k=sigstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
     if (st.recs.length < 2000) { $('app').innerHTML = '<div class="state">not enough runners yet (' + st.recs.length + ')</div>'; return; }
@@ -167,7 +169,15 @@
         todayPicks.sort((a, b) => raceMin(a.t) - raceMin(b.t));
       }
     } catch {}
-    render({ st, rules, cands, held, heldAbove, judged, todayPicks });
+    const topHeld = held.slice(0, 12);
+    const days7 = {};
+    (st.recent || []).forEach(([dt, t, course, hh, m, d, w, pos]) => {
+      const hits = topHeld.filter(ru => (m & ru.mask) === ru.mask);
+      if (!hits.length) return;
+      (days7[dt] = days7[dt] || []).push({ t, course, h: hh, d, w, pos, rules: hits });
+    });
+    const ledger = Object.keys(days7).sort().reverse().slice(0, 7).map(dt => ({ dt, picks: days7[dt].sort((a, b) => raceMin(a.t) - raceMin(b.t)) }));
+    render({ st, rules, cands, held, heldAbove, judged, todayPicks, ledger });
   }
 
   function render(o) {
@@ -183,6 +193,12 @@
         <div class="sub" style="margin-top:6px">by chance alone roughly ${expectByChance} of ${o.judged} would hold. ${o.heldAbove > expectByChance * 1.3 ? 'More held than luck explains \u2014 there is something in the signals.' : o.heldAbove < expectByChance * 0.7 ? 'Fewer held than luck would give \u2014 the January\u2013June winners were mostly noise.' : 'About what luck gives \u2014 treat the list as candidates, not signals.'}</div></div>
       <div class="tile"><h2>TODAY\u2019S PICKS \u00b7 from the held rules</h2><table class="ft"><tr><th>race \u00b7 horse \u00b7 rules</th><th>SP</th><th>rules</th></tr>${picks}</table>
         <div class="sub" style="margin-top:6px">a horse named by several held rules is the day\u2019s strongest claim. Prices are the morning card; the rules were judged at SP.</div></div>
+      ${o.ledger.map(day => { const b = day.picks.length, w = day.picks.filter(p => p.w).length, e = day.picks.reduce((a, p) => a + 1 / p.d, 0), pl = day.picks.reduce((a, p) => a + (p.w ? p.d - 1 : -1), 0);
+        return `<div class="tile"><h2>${day.dt} \u00b7 what the held rules picked</h2>
+          <table class="ft"><tr><th>race \u00b7 horse \u00b7 rules</th><th>SP</th><th>rules</th><th>result</th></tr>
+          ${day.picks.map(p => `<tr><td><b>${String(p.t).replace(/\s.*/, '')}</b> ${String(p.course).slice(0, 10)} ${p.h}<br><small class="rule">${p.rules.map(r => lbl(r.ks)).join(' \u00b7 ')}</small></td><td>@ ${p.d}</td><td>${p.rules.length}</td><td style="color:${p.w ? 'var(--green)' : (p.pos === '2' || p.pos === '3') ? 'var(--gold)' : 'var(--faint)'}"><b>${p.w ? '\u27131' : p.pos || '\u00d7'}</b></td></tr>`).join('')}</table>
+          <div class="sub" style="margin-top:6px">${b} picks \u00b7 ${w} won \u00b7 A/E ${e > 0 ? (w / e).toFixed(2) : '\u2014'} \u00b7 \u00a3${pl.toFixed(1)} at \u00a31 level</div></div>`; }).join('')}
+      ${o.ledger.length ? '<div class="sub" style="margin:-4px 0 12px">these days sit inside the judging window \u2014 the rules were partly chosen on them. Tomorrow is the first clean test.</div>' : ''}
       <div class="tile"><h2>THE HELD RULES \u00b7 ranked by out-of-sample A/E</h2><table class="ft"><tr><th>rule</th><th>train bets</th><th>train A/E</th><th>test bets</th><th>test A/E</th><th>test ROI</th></tr>${heldRows || '<tr><td colspan="6" class="sub">nothing held</td></tr>'}</table>
         <div class="sub" style="margin-top:6px">test = races the rule never saw. A/E &gt; 1.00 at SP is profit before margin; ROI is the \u00a31 record. Small test samples (under 100) can still be luck \u2014 watch whether a rule is here again next month.</div></div>
       <div class="sub" style="margin:10px 0">${o.st.recs.length} runners \u00b7 Jan 1 \u2192 ${o.st.lastDate} \u00b7 people strikes tallied day by day (leak-free) \u00b7 minus rank from the leak-free model \u00b7 <a href="?rebuild=1" style="color:var(--blue)">rebuild</a></div>`;
