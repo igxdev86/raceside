@@ -253,6 +253,26 @@
     const bClosed = {};
     window.__mcBoard = (id) => { bClosed[id] = !bClosed[id]; render(); };
     window.__mcSigClose = () => { const m = document.getElementById('mcsigmodal'); if (m) m.remove(); };
+    window.__mcPicksModal = () => {
+      const ps = window.__mcAllPicks || [];
+      const rm = window.__mcResMark || (() => '');
+      const races = ps.map(r => {
+        const hdr = `<div style="font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:8px"><b style="color:var(--ink)">${String(r.t).replace(/\s.*/, '')}</b> ${String(r.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}${r.settled ? '' : ' <span style="color:var(--faint)">\u00b7 to run</span>'}</div>`;
+        const lines = r.hs.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0 2px 10px;font-size:11px;font-family:var(--mono);border-bottom:1px solid var(--line)"><span style="min-width:0">${x.h}${rm(r.t, r.course, x.h)}<br><small style="color:#E0409A">${x.sigs.join(' \u00b7 ')}</small></span><span style="white-space:nowrap;color:var(--dim);text-align:right">${x.d != null ? '@ ' + x.d : ''}${x.edge != null ? '<br><small style="color:' + (x.edge < 0 ? 'var(--red)' : 'var(--faint)') + '">' + (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100) + '%</small>' : ''}</span></div>`).join('');
+        return hdr + lines;
+      }).join('');
+      const n = ps.reduce((a, r) => a + r.hs.length, 0);
+      const el = document.createElement('div');
+      el.id = 'mcsigmodal';
+      el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:84vh;overflow-y:auto;z-index:91;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">SIGNAL PICKS \u00b7 TODAY</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
+          <div class="sub" style="margin:2px 0 4px">${n} horses named across ${ps.length} races \u00b7 several signals often agree on one horse \u00b7 results attach as they land</div>
+          ${races || '<div class="sub">no picks yet</div>'}
+          <div class="sub" style="margin-top:8px">FAV is listed as the benchmark, not a signal \u00b7 MINUS is the fade \u2014 its horse winning is the thesis losing</div>
+        </div>`;
+      document.body.appendChild(el);
+    };
     window.__mcSigModal = () => {
       const ws = window.__mcSigWinners || [];
       const rowCss = 'display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)';
@@ -464,10 +484,23 @@
       });
       sigWinners.sort((a, b) => raceMin(a.t) - raceMin(b.t));
       window.__mcSigWinners = sigWinners;
+      const allPicks = [];
+      let pickCount = 0;
+      cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).forEach(c => {
+        const named = {};
+        sigDefs.forEach(([l, pick]) => { const p = pick(c); if (!p) return; (named[p] = named[p] || []).push(l); });
+        const hs = Object.entries(named).map(([hh, sigs]) => { const row = c.rows.find(x => x.r.h === hh); return { h: hh, sigs, d: row ? row.r.d : null, edge: row ? row.edge : null }; });
+        if (!hs.length) return;
+        pickCount += hs.length;
+        allPicks.push({ t: c.t, course: c.course, settled: winMap[rkeyN(c.t, c.course)] !== undefined, hs });
+      });
+      window.__mcAllPicks = allPicks;
+      window.__mcResMark = resMark;
       const anySettled = sigStats.some(s => s.settled > 0);
-      const sigTiles = anySettled ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
+      const pickChip = allPicks.length ? `<div class="tile" onclick="__mcPicksModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid #E0409A" title="every signal pick today, by race"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#E0409A">SIGNAL PICKS</span><b style="font-family:var(--mono);font-size:13px;color:var(--ink)">${pickCount}</b></div>` : '';
+      const sigTiles = (anySettled || allPicks.length) ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED \u00b7 PICKS</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
         sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') +
-        (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + `</div></div>` : '';
+        (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + pickChip + `</div></div>` : '';
       const boards = sigTiles + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
