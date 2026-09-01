@@ -252,6 +252,24 @@
     let viewMode = 'all';
     const bClosed = {};
     window.__mcBoard = (id) => { bClosed[id] = !bClosed[id]; render(); };
+    window.__mcSigClose = () => { const m = document.getElementById('mcsigmodal'); if (m) m.remove(); };
+    window.__mcSigModal = () => {
+      const ws = window.__mcSigWinners || [];
+      const rowCss = 'display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)';
+      const rows = ws.length ? ws.map(w => `<div style="${rowCss}"><span style="min-width:0"><b>${String(w.t).replace(/\s.*/, '')}</b> ${String(w.course).replace(/\s*\([^)]*\)/g, '')} <b style="color:var(--green)">\u2713</b> ${w.h}${w.fav ? ' <small style="color:var(--faint)">fav</small>' : ''}<br><small style="color:var(--dim)">${w.sigs.join(' \u00b7 ')}</small></span><span style="white-space:nowrap;color:var(--dim);text-align:right">${w.d != null ? '@ ' + w.d : ''}${w.edge != null ? '<br><small style="color:' + (w.edge < 0 ? 'var(--red)' : 'var(--faint)') + '">' + (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) + '%</small>' : ''}</span></div>`).join('')
+        : '<div class="sub">nothing has won for a signal yet today</div>';
+      const favN = ws.filter(w => w.fav).length;
+      const el = document.createElement('div');
+      el.id = 'mcsigmodal';
+      el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:84vh;overflow-y:auto;z-index:91;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">SIGNAL WINNERS \u00b7 TODAY</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
+          <div class="sub" style="margin:2px 0 8px">${ws.length} race${ws.length === 1 ? '' : 's'} won by a signal horse \u00b7 ${favN} of them the favourite \u00b7 in running order</div>
+          ${rows}
+          <div class="sub" style="margin-top:8px">under each winner: which signals named it \u00b7 the more that named it, the more the market already knew</div>
+        </div>`;
+      document.body.appendChild(el);
+    };
     const cid = (t, course) => 'rc-' + (String(t || '').replace(/\s.*/, '') + '-' + String(course || '')).toLowerCase().replace(/[^a-z0-9:]/g, '');
     window.__mcGo = (id) => {
       const el = document.getElementById(id); if (!el) return;
@@ -429,18 +447,27 @@
       });
       // unique: a settled race counts once if ANY signal's pick won it (FAV is the benchmark, not a signal)
       let uniqSettled = 0, uniqWon = 0;
+      const sigWinners = [];   // for the modal: every signal-won race, chronological
       cards.forEach(c => {
         const wn = winMap[rkeyN(c.t, c.course)];
         if (wn === undefined) return;
-        const picks = sigDefs.filter(([l]) => l !== 'FAV').map(([, pick]) => pick(c)).filter(Boolean);
-        if (!picks.length) return;
+        const named = sigDefs.filter(([l]) => l !== 'FAV').map(([l, pick]) => [l, pick(c)]).filter(([, p]) => p);
+        if (!named.length) return;
         uniqSettled++;
-        if (picks.some(p => nameN(p) === wn)) uniqWon++;
+        const hit = named.filter(([, p]) => nameN(p) === wn).map(([l]) => l);
+        if (hit.length) {
+          uniqWon++;
+          const row = c.rows.find(x => nameN(x.r.h) === wn);
+          const favD = Math.min(...c.rows.map(x => x.r.d || Infinity));
+          sigWinners.push({ t: c.t, course: c.course, h: row ? row.r.h : wn, d: row ? row.r.d : null, fav: row && row.r.d === favD, sigs: hit, edge: row ? row.edge : null });
+        }
       });
+      sigWinners.sort((a, b) => raceMin(a.t) - raceMin(b.t));
+      window.__mcSigWinners = sigWinners;
       const anySettled = sigStats.some(s => s.settled > 0);
       const sigTiles = anySettled ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
         sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') +
-        (uniqSettled ? `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + `</div></div>` : '';
+        (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + `</div></div>` : '';
       const boards = sigTiles + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
