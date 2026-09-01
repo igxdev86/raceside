@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · OPTIMAL</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  .mcboards{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:12px}
+  @media (min-width:720px){.mcboards{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  .big{font-size:26px;font-weight:800;font-family:var(--mono)}
+  .kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">OPTI<b>MAL</b><small id="opsub">the strike-rate frontier · 2026</small></div>
+</header>
+<main>
+  <p class="note">Every honest way to raise a strike rate, and what each one costs. Models are fitted on January–June with leak-free people stats and judged on races from July onwards they never saw. Strike rate is bought with price: one tile deliberately memorises the past to show you what a fake 100% looks like before it collapses. Not advice.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>walking the year\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const shrink = (w, r, prior, k) => (w + k * prior) / (r + k);
+
+  function fitLogit(races, iters, lr, l2) {
+    const nf = races[0].X[0].length; let w = new Array(nf).fill(0);
+    for (let it = 0; it < iters; it++) {
+      const g = new Array(nf).fill(0);
+      races.forEach(rc => { const s = rc.X.map(x => x.reduce((a, v, k) => a + v * w[k], 0)); const mx = Math.max(...s); const ex = s.map(v => Math.exp(v - mx)); const Z = ex.reduce((a, b) => a + b, 0);
+        rc.X.forEach((x, i) => { const p = ex[i] / Z; const y = i === rc.win ? 1 : 0; x.forEach((v, k) => { g[k] += (y - p) * v; }); }); });
+      w = w.map((v, k) => v + lr * (g[k] / races.length - l2 * v));
+    }
+    return w;
+  }
+  const probs = (rc, w) => { const s = rc.X.map(x => x.reduce((a, v, k) => a + v * w[k], 0)); const mx = Math.max(...s); const ex = s.map(v => Math.exp(v - mx)); const Z = ex.reduce((a, b) => a + b, 0); return ex.map(v => v / Z); };
+  const placeN = (n) => n >= 8 ? 3 : n >= 5 ? 2 : 1;
+
+  async function main() {
+    const year = new Date().getFullYear();
+    const params = new URLSearchParams(location.search);
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem('rsopt:v1') || 'null'); } catch {}
+    if (!(cached && String(cached.year) === String(year))) { try { const r = await fetch('/api/yearstate?k=optstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) cached = j.state; } catch {} }
+    if (cached && !params.get('rebuild')) { render(cached); return; }
+
+    const tally = { j: {}, t: {}, p: {} };
+    const rows = []; let runsAll = 0, winsAll = 0;
+    const yEnd = new Date(Date.now() - 86400000);
+    for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10);
+      let j = null; try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      if (!(j && j.ok)) continue;
+      $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + rows.length + ' races</div>';
+      const base = runsAll > 200 ? winsAll / runsAll : 0.1;
+      (j.races || []).forEach(rc => {
+        const rs = (rc.runners || []).filter(r => r.d > 1); if (rs.length < 3) return;
+        const winI = rs.findIndex(r => r.pos === '1' || r.won === 1); if (winI < 0) return;
+        const orVals = rs.map(r => r.ofr).filter(v => v != null); const orMean = orVals.length >= 2 ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+        const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+        if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+        const X = rs.map(r => { const js = tally.j[r.jid], ts = tally.t[r.tid], ps = tally.p[r.jid + '|' + r.tid];
+          const jS = js ? shrink(js.w, js.r, base, 20) : base, tS = ts ? shrink(ts.w, ts.r, base, 20) : base, pS = ps ? shrink(ps.w, ps.r, base, 10) : base;
+          return [(jS - base) * 10, (tS - base) * 10, (pS - base) * 10, r.ofr != null && orMean != null ? (r.ofr - orMean) / 10 : 0, r.ofr == null ? 1 : 0, (adv[r.h] || 0) / 10, clm(r.jockey) > 0 ? 1 : 0, Math.log(1 / r.d)]; });
+        rows.push({ dt, X, win: winI, sp: rs.map(r => r.d), pos: rs.map(r => Number(r.pos) || 99), key: rs.map(r => (r.jid || '?') + '|' + (r.tid || '?') + '|' + (r.ofr != null ? Math.floor(r.ofr / 5) : 'x')) });
+        rs.forEach((r, i) => { const w = i === winI ? 1 : 0;
+          if (r.jid) { const s = (tally.j[r.jid] = tally.j[r.jid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          if (r.tid) { const s = (tally.t[r.tid] = tally.t[r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          if (r.jid && r.tid) { const s = (tally.p[r.jid + '|' + r.tid] = tally.p[r.jid + '|' + r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          runsAll++; winsAll += w; });
+      });
+    }
+    if (rows.length < 300) { $('app').innerHTML = '<div class="state">not enough races (' + rows.length + ')</div>'; return; }
+    const cut = rows.findIndex(r => Number(r.dt.slice(5, 7)) >= 7);
+    const split = cut > rows.length * 0.5 ? cut : Math.floor(rows.length * 0.75);
+    const train = rows.slice(0, split), test = rows.slice(split);
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>fitting ' + train.length + ' races\u2026</div>';
+    await new Promise(r => setTimeout(r, 30));
+    const noMkt = (rc) => ({ X: rc.X.map(x => x.slice(0, 7)), win: rc.win });
+    const wPure = fitLogit(train.map(noMkt), 400, 0.5, 0.001);
+    const wBlend = fitLogit(train, 400, 0.5, 0.001);
+    // memoriser: exact (jockey|trainer|OR band) combos that were 100% in train
+    const memo = {}; train.forEach(rc => rc.key.forEach((k, i) => { const s = (memo[k] = memo[k] || { r: 0, w: 0 }); s.r++; if (i === rc.win) s.w++; }));
+    const memoKeys = Object.entries(memo).filter(([, s]) => s.r >= 2 && s.w === s.r).map(([k]) => k); const memoSet = new Set(memoKeys);
+
+    // ---- models: each returns, per race, the set of runner indices backed (£1 each) or a place bet ----
+    const MODELS = [
+      { id: 'blend1', name: 'FITTED MODEL \u00b7 top pick', sub: 'logit on people, OR, weights + market, trained Jan\u2013Jun', pick: (rc, p) => [top(p.blend, 1)] },
+      { id: 'pure1', name: 'PURE MODEL \u00b7 top pick', sub: 'same fit, no market feature', pick: (rc, p) => [top(p.pure, 1)] },
+      { id: 'fav', name: 'FAVOURITE', sub: 'the market\u2019s top pick, every race', pick: (rc) => [top(rc.sp.map(d => 1 / d), 1)] },
+      { id: 'fav15', name: 'FAVOURITE \u2264 1.50', sub: 'only when the market is very sure', pick: (rc) => { const i = top(rc.sp.map(d => 1 / d), 1); return rc.sp[i] <= 1.5 ? [i] : []; } },
+      { id: 'fav125', name: 'FAVOURITE \u2264 1.25', sub: 'the shortest of the short', pick: (rc) => { const i = top(rc.sp.map(d => 1 / d), 1); return rc.sp[i] <= 1.25 ? [i] : []; } },
+      { id: 'conf', name: 'MODEL \u2265 50% CONFIDENT', sub: 'blend model, only when it gives one horse an even-money chance', pick: (rc, p) => { const i = top(p.blend, 1); return p.blend[i] >= 0.5 ? [i] : []; } },
+      { id: 'd2', name: 'DUTCH TOP 2', sub: '\u00a31 on each of the model\u2019s two best', pick: (rc, p) => topN(p.blend, 2) },
+      { id: 'd3', name: 'DUTCH TOP 3', sub: '\u00a31 on each of the model\u2019s three best', pick: (rc, p) => topN(p.blend, 3) },
+      { id: 'd4', name: 'DUTCH TOP 4', sub: '\u00a31 on each of the model\u2019s four best', pick: (rc, p) => topN(p.blend, 4) },
+      { id: 'd5', name: 'DUTCH TOP 5', sub: 'half the field in most races', pick: (rc, p) => topN(p.blend, 5) },
+      { id: 'agree', name: 'MODEL + MARKET AGREE', sub: 'pure model\u2019s top pick is also the favourite', pick: (rc, p) => { const a = top(p.pure, 1), b = top(rc.sp.map(d => 1 / d), 1); return a === b ? [a] : []; } },
+      { id: 'memo', name: 'THE MEMORISER \u26a0', sub: 'backs jockey \u00d7 trainer \u00d7 OR-band combos that were 100% in Jan\u2013Jun', pick: (rc) => rc.key.map((k, i) => memoSet.has(k) ? i : -1).filter(i => i >= 0), overfit: true },
+      { id: 'place', name: 'FAVOURITE TO PLACE', sub: 'strike only \u2014 place prices are not in the feed', pick: (rc) => [top(rc.sp.map(d => 1 / d), 1)], place: true },
+    ];
+    function top(p, n) { let bi = 0; p.forEach((v, i) => { if (v > p[bi]) bi = i; }); return bi; }
+    function topN(p, n) { return p.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, n).map(x => x[1]); }
+    const evalSet = (set) => {
+      const out = MODELS.map(m => ({ id: m.id, races: 0, bets: 0, hits: 0, e: 0, pl: 0 }));
+      set.forEach(rc => {
+        const p = { pure: probs(noMkt(rc), wPure), blend: probs(rc, wBlend) };
+        MODELS.forEach((m, mi) => {
+          const idx = m.pick(rc, p); if (!idx.length) return;
+          const o = out[mi]; o.races++;
+          if (m.place) { o.bets++; const n = placeN(rc.sp.length); if (rc.pos[idx[0]] <= n) o.hits++; return; }
+          let hit = 0; idx.forEach(i => { o.bets++; o.e += 1 / rc.sp[i]; if (i === rc.win) { hit = 1; o.pl += rc.sp[i] - 1; } else o.pl -= 1; });
+          o.hits += hit;
+        });
+      });
+      return out;
+    };
+    const tr = evalSet(train), te = evalSet(test);
+    const out = { year, builtAt: new Date().toISOString(), nTrain: train.length, nTest: test.length, testFrom: test[0].dt, testTo: test[test.length - 1].dt,
+      memoCombos: memoKeys.length, models: MODELS.map((m, i) => ({ id: m.id, name: m.name, sub: m.sub, place: !!m.place, overfit: !!m.overfit, tr: tr[i], te: te[i] })) };
+    try { localStorage.setItem('rsopt:v1', JSON.stringify(out)); } catch {}
+    try { fetch('/api/yearstate?k=optstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) }); } catch {}
+    render(out);
+  }
+
+  function render(o) {
+    const strike = (x) => x.races ? x.hits / x.races : 0;
+    const roi = (x) => x.bets ? x.pl / x.bets : 0;
+    const ae = (x) => x.e > 0 ? x.hits / x.e : null;
+    const pct = (v) => (v * 100).toFixed(0) + '%';
+    const ms = o.models.slice().sort((a, b) => strike(b.te) - strike(a.te));
+    const bestHonest = ms.filter(m => !m.overfit && !m.place && m.te.bets >= 50).sort((a, b) => roi(b.te) - roi(a.te))[0];
+    const tiles = ms.map(m => {
+      const sTe = strike(m.te), sTr = strike(m.tr), r = roi(m.te);
+      const col = sTe >= 0.8 ? 'var(--gold)' : sTe >= 0.5 ? 'var(--green)' : 'var(--ink)';
+      return `<div class="tile" style="${m.overfit ? 'border:1px dashed var(--red)' : ''}">
+        <h2>${m.name}</h2><div class="sub" style="margin:2px 0 8px">${m.sub}</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="big" style="color:${col}">${pct(sTe)}</span><span class="sub">strike on ${m.te.races} unseen races</span></div>
+        <div class="kv"><span>strike in training</span><span style="color:${m.overfit ? 'var(--red)' : 'var(--dim)'}">${pct(sTr)} on ${m.tr.races}</span></div>
+        ${m.place ? '<div class="kv"><span>ROI</span><span>n/a \u2014 no place prices</span></div>' : `<div class="kv"><span>ROI \u00b7 \u00a31 per bet</span><span style="color:${r > 0 ? 'var(--green)' : 'var(--red)'}"><b>${r > 0 ? '+' : ''}${pct(r)}</b></span></div>
+        <div class="kv"><span>A/E vs SP</span><span style="color:${ae(m.te) > 1 ? 'var(--green)' : 'var(--red)'}">${ae(m.te) != null ? ae(m.te).toFixed(2) : '\u2014'}</span></div>
+        <div class="kv"><span>bets per race</span><span>${m.te.races ? (m.te.bets / m.te.races).toFixed(1) : '\u2014'}</span></div>`}
+        ${m.overfit ? `<div class="sub" style="margin-top:6px;color:var(--red)">${o.memoCombos} combos were perfect in training. This is what every \u201c${pct(sTr)} strike rate\u201d you have ever been sold looks like from the inside.</div>` : ''}
+      </div>`;
+    }).join('');
+    $('app').innerHTML =
+      `<div class="tile"><h2>THE FRONTIER</h2><div style="font-size:14px;margin-top:6px">Strike rate is for sale at any level you like \u2014 the price is ROI. The tiles are ranked by strike on unseen races; read the ROI line on each. ${bestHonest ? `The best <b>honest</b> money-maker out of sample is <b>${bestHonest.name}</b> at ${pct(strike(bestHonest.te))} strike and <b style="color:${roi(bestHonest.te) > 0 ? 'var(--green)' : 'var(--red)'}">${roi(bestHonest.te) > 0 ? '+' : ''}${pct(roi(bestHonest.te))}</b> ROI.` : ''}</div>
+        <div class="sub" style="margin-top:6px">trained ${o.nTrain} races \u00b7 tested ${o.nTest} unseen (${o.testFrom} \u2192 ${o.testTo}) \u00b7 leak-free people stats \u00b7 built ${o.builtAt.slice(0, 16).replace('T', ' ')}</div></div>
+      <div class="mcboards">${tiles}</div>
+      <div class="sub" style="margin:10px 0">no model here reaches 80% on single win bets except by backing several horses a race or only the shortest favourites \u2014 and both lose money at SP. That is not a limitation of this page; it is the market. <a href="?rebuild=1" style="color:var(--blue)">rebuild</a></div>`;
+    const sub = $('opsub'); if (sub) sub.textContent = `${o.models.length} models \u00b7 ${o.nTest} unseen races \u00b7 ${o.year}`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
