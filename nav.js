@@ -20,7 +20,7 @@
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
-      ['/thewr.html', 'WR', ['TIPTREE', '/tiptree.html']],
+      ['/thewr.html', 'WR', ['TIPTREE', '/tiptree.html'], ['FIT', '/fit.html']],
       ['/firstpairs.html', 'PAIRS'],
       ['/thehour.html', 'HOUR'],
       ['/martingale.html', 'MGALE'],
