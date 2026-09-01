@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · THE FIT</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  table.ft{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  table.ft td,table.ft th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+  table.ft td:first-child,table.ft th:first-child{text-align:left}
+  .bar{height:6px;border-radius:3px;background:var(--blue)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">THE <b>FIT</b><small id="ftsub">fitting the model to the year</small></div>
+</header>
+<main>
+  <p class="note">The model on MINUS CARDS runs on guessed weights. This page fits them to this year’s results — leak-free: every race is scored with people stats built only from earlier days — trains on January–June, tests on July onwards, and asks the only question that matters: does our information beat the starting price at all? Not advice.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>walking the year\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const shrink = (w, r, prior, k) => (w + k * prior) / (r + k);
+  const FEAT = ['jockey strike (lagged)', 'trainer strike (lagged)', 'pair strike (lagged)', 'OR vs race mean', 'OR missing', 'weights advantage', 'claimer'];
+
+  // features for one runner, given running (pre-race) tallies
+  function featuresOf(r, race, tally, base) {
+    const js = tally.j[r.jid], ts = tally.t[r.tid], ps = tally.p[r.jid + '|' + r.tid];
+    const jS = js ? shrink(js.w, js.r, base, 20) : base;
+    const tS = ts ? shrink(ts.w, ts.r, base, 20) : base;
+    const pS = ps ? shrink(ps.w, ps.r, base, 10) : base;
+    const orRel = r.ofr != null && race.orMean != null ? (r.ofr - race.orMean) / 10 : 0;
+    return [(jS - base) * 10, (tS - base) * 10, (pS - base) * 10, orRel, r.ofr == null ? 1 : 0, (race.adv[r.h] || 0) / 10, clm(r.jockey) > 0 ? 1 : 0];
+  }
+
+  // conditional logit: P(i | race) = softmax(w·x_i + b·m_i); m = market feature (log SP prob) when used
+  function fit(races, useMarket, iters, lr, l2) {
+    const nf = races[0].X[0].length + (useMarket ? 1 : 0);
+    let w = new Array(nf).fill(0);
+    for (let it = 0; it < iters; it++) {
+      const g = new Array(nf).fill(0);
+      races.forEach(rc => {
+        const xs = rc.X.map((x, i) => useMarket ? x.concat([rc.m[i]]) : x);
+        const s = xs.map(x => x.reduce((a, v, k) => a + v * w[k], 0));
+        const mx = Math.max(...s); const ex = s.map(v => Math.exp(v - mx)); const Z = ex.reduce((a, b) => a + b, 0);
+        xs.forEach((x, i) => { const p = ex[i] / Z; const y = i === rc.win ? 1 : 0; x.forEach((v, k) => { g[k] += (y - p) * v; }); });
+      });
+      w = w.map((v, k) => v + lr * (g[k] / races.length - l2 * v));
+    }
+    return w;
+  }
+  const predict = (rc, w, useMarket) => {
+    const xs = rc.X.map((x, i) => useMarket ? x.concat([rc.m[i]]) : x);
+    const s = xs.map(x => x.reduce((a, v, k) => a + v * w[k], 0));
+    const mx = Math.max(...s); const ex = s.map(v => Math.exp(v - mx)); const Z = ex.reduce((a, b) => a + b, 0);
+    return ex.map(v => v / Z);
+  };
+  const logloss = (races, probFn) => { let s = 0; races.forEach(rc => { const p = probFn(rc); s += -Math.log(Math.max(1e-9, p[rc.win])); }); return s / races.length; };
+
+  async function main() {
+    const year = new Date().getFullYear();
+    // cached result?
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem('rsfit:v1') || 'null'); } catch {}
+    if (!(cached && String(cached.year) === String(year))) {
+      try { const r = await fetch('/api/yearstate?k=fitstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) cached = j.state; } catch {}
+    }
+    const params = new URLSearchParams(location.search);
+    if (cached && !params.get('refit')) { render(cached); return; }
+
+    // walk the year in date order with running tallies
+    const tally = { j: {}, t: {}, p: {} };
+    const rows = [];   // per race: { dt, X, m, win, sp[] }
+    let runsAll = 0, winsAll = 0;
+    const yEnd = new Date(Date.now() - 86400000);
+    for (let d = new Date(year, 0, 1); d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10);
+      let j = null;
+      try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      if (!(j && j.ok)) continue;
+      $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + rows.length + ' races</div>';
+      const base = runsAll > 200 ? winsAll / runsAll : 0.1;
+      (j.races || []).forEach(rc => {
+        const rs = (rc.runners || []).filter(r => r.d > 1);
+        if (rs.length < 3) return;
+        const winI = rs.findIndex(r => r.pos === '1' || r.won === 1);
+        if (winI < 0) return;
+        const orVals = rs.map(r => r.ofr).filter(v => v != null);
+        const race = { orMean: orVals.length >= 2 ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null, adv: {} };
+        const ok = rs.filter(r => r.ofr != null && r.lbs != null);
+        if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { race.adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+        // features BEFORE updating tallies with this race
+        const X = rs.map(r => featuresOf(r, race, tally, base));
+        const inv = rs.map(r => 1 / r.d); const Z = inv.reduce((a, b) => a + b, 0);
+        const m = inv.map(v => Math.log(v / Z));
+        rows.push({ dt, X, m, win: winI, sp: rs.map(r => r.d) });
+        // now update tallies
+        rs.forEach((r, i) => {
+          const w = i === winI ? 1 : 0;
+          if (r.jid) { const s = (tally.j[r.jid] = tally.j[r.jid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          if (r.tid) { const s = (tally.t[r.tid] = tally.t[r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          if (r.jid && r.tid) { const s = (tally.p[r.jid + '|' + r.tid] = tally.p[r.jid + '|' + r.tid] || { r: 0, w: 0 }); s.r++; s.w += w; }
+          runsAll++; winsAll += w;
+        });
+      });
+    }
+    if (rows.length < 200) { $('app').innerHTML = '<div class="state">not enough races to fit (' + rows.length + ')</div>'; return; }
+    // split: first 6 months train, rest test; if late in year, keep at least 25% test
+    const cut = rows.findIndex(r => Number(r.dt.slice(5, 7)) >= 7);
+    const split = cut > rows.length * 0.5 ? cut : Math.floor(rows.length * 0.75);
+    const train = rows.slice(0, split), test = rows.slice(split);
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>fitting on ' + train.length + ' races\u2026</div>';
+    await new Promise(r => setTimeout(r, 30));
+    const wPure = fit(train, false, 400, 0.5, 0.001);
+    const wMkt = fit(train, true, 400, 0.5, 0.001);
+    const wMktOnly = fit(train.map(r => ({ X: r.X.map(() => []), m: r.m, win: r.win })), true, 200, 0.5, 0);
+    // held-out evaluation
+    const llUni = logloss(test, rc => rc.X.map(() => 1 / rc.X.length));
+    const llSP = logloss(test, rc => { const inv = rc.sp.map(d => 1 / d); const Z = inv.reduce((a, b) => a + b, 0); return inv.map(v => v / Z); });
+    const llPure = logloss(test, rc => predict(rc, wPure, false));
+    const llMkt = logloss(test, rc => predict(rc, wMkt, true));
+    const llMktOnly = logloss(test, rc => predict({ X: rc.X.map(() => []), m: rc.m, win: rc.win }, wMktOnly, true));
+    // A/E of the pure model's top pick, and of "model says +20% over SP"
+    let topB = 0, topW = 0, topE = 0, topPL = 0, valB = 0, valW = 0, valE = 0, valPL = 0;
+    const cal = Array.from({ length: 6 }, () => ({ n: 0, w: 0, p: 0 }));
+    test.forEach(rc => {
+      const p = predict(rc, wPure, false);
+      let bi = 0; p.forEach((v, i) => { if (v > p[bi]) bi = i; });
+      topB++; topE += 1 / rc.sp[bi]; if (bi === rc.win) { topW++; topPL += rc.sp[bi] - 1; } else topPL -= 1;
+      p.forEach((v, i) => {
+        const b = Math.min(5, Math.floor(v * 10)); cal[b].n++; cal[b].p += v; if (i === rc.win) cal[b].w++;
+        if (v > 1.2 / rc.sp[i]) { valB++; valE += 1 / rc.sp[i]; if (i === rc.win) { valW++; valPL += rc.sp[i] - 1; } else valPL -= 1; }
+      });
+    });
+    const out = { year, builtAt: new Date().toISOString(), nTrain: train.length, nTest: test.length, testFrom: test[0].dt, testTo: test[test.length - 1].dt,
+      wPure, wMkt, ll: { uniform: llUni, sp: llSP, pure: llPure, spPlus: llMkt, spOnly: llMktOnly },
+      top: { b: topB, w: topW, e: topE, pl: topPL }, val: { b: valB, w: valW, e: valE, pl: valPL }, cal };
+    try { localStorage.setItem('rsfit:v1', JSON.stringify(out)); } catch {}
+    try { fetch('/api/yearstate?k=fitstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) }); } catch {}
+    render(out);
+  }
+
+  function render(o) {
+    const f3 = (v) => v.toFixed(3);
+    const ae = (x) => x.e > 0 ? (x.w / x.e).toFixed(2) : '\u2014';
+    const roi = (x) => x.b ? ((x.pl / x.b) * 100).toFixed(0) + '%' : '\u2014';
+    const gain = (a, b) => ((b - a) / a * 100).toFixed(1) + '%';
+    const wmax = Math.max(...o.wPure.map(Math.abs), 0.01);
+    const weights = FEAT.map((n, i) => `<tr><td>${n}</td><td>${o.wPure[i].toFixed(3)}</td><td style="width:40%"><div class="bar" style="width:${(Math.abs(o.wPure[i]) / wmax * 100).toFixed(0)}%;background:${o.wPure[i] >= 0 ? 'var(--green)' : 'var(--red)'}"></div></td></tr>`).join('');
+    const addsInfo = o.ll.spPlus < o.ll.spOnly - 0.002;
+    const pureBeatsSP = o.ll.pure < o.ll.sp;
+    const verdict = pureBeatsSP
+      ? 'The pure model beats the starting price on held-out races. That would be remarkable \u2014 check it holds next month before believing it.'
+      : addsInfo
+        ? 'Our information does NOT beat the market on its own, but it adds a little on top of SP: a model that uses both prices better than SP alone. That is a blending signal, not a winner-picking one.'
+        : 'Our information adds nothing the starting price has not already priced. The market knows everything this model knows. Picking winners from these features is not possible; only the fade side can work, and only if it beats SP over a long record.';
+    $('app').innerHTML =
+      `<div class="tile"><h2>THE VERDICT</h2><div style="font-size:14px;margin-top:6px">${verdict}</div>
+        <div class="sub" style="margin-top:6px">trained on ${o.nTrain} races \u00b7 tested on ${o.nTest} unseen races (${o.testFrom} \u2192 ${o.testTo}) \u00b7 built ${o.builtAt.slice(0, 16).replace('T', ' ')}</div></div>
+      <div class="tile"><h2>HELD-OUT LOG-LOSS \u00b7 lower is better</h2>
+        <table class="ft"><tr><th>scorer</th><th>log-loss</th><th>vs SP</th></tr>
+          <tr><td>uniform (know nothing)</td><td>${f3(o.ll.uniform)}</td><td>${gain(o.ll.sp, o.ll.uniform)}</td></tr>
+          <tr><td>starting price alone</td><td><b>${f3(o.ll.sp)}</b></td><td>\u2014</td></tr>
+          <tr><td>SP refit (market only)</td><td>${f3(o.ll.spOnly)}</td><td>${gain(o.ll.sp, o.ll.spOnly)}</td></tr>
+          <tr><td><b>our model, no market</b></td><td><b>${f3(o.ll.pure)}</b></td><td style="color:${pureBeatsSP ? 'var(--green)' : 'var(--red)'}">${gain(o.ll.sp, o.ll.pure)}</td></tr>
+          <tr><td>SP + our features</td><td>${f3(o.ll.spPlus)}</td><td style="color:${addsInfo ? 'var(--green)' : 'var(--dim)'}">${gain(o.ll.sp, o.ll.spPlus)}</td></tr></table>
+        <div class="sub" style="margin-top:6px">log-loss = how surprised the scorer was by the winners. The gap between “starting price alone” and “our model” is the whole story.</div></div>
+      <div class="tile"><h2>FITTED WEIGHTS \u00b7 pure model</h2><table class="ft">${weights}</table>
+        <div class="sub" style="margin-top:6px">sign tells direction, length tells how much the fit leant on it. Compare with the guessed 0.8 / 0.6 / 0.5 on MINUS CARDS.</div></div>
+      <div class="tile"><h2>BACKING THE PURE MODEL \u00b7 held-out, \u00a31 at SP</h2>
+        <table class="ft"><tr><th>rule</th><th>bets</th><th>wins</th><th>A/E</th><th>ROI</th></tr>
+          <tr><td>model\u2019s top pick every race</td><td>${o.top.b}</td><td>${o.top.w}</td><td>${ae(o.top)}</td><td style="color:${o.top.pl > 0 ? 'var(--green)' : 'var(--red)'}">${roi(o.top)}</td></tr>
+          <tr><td>model \u226520% above SP price</td><td>${o.val.b}</td><td>${o.val.w}</td><td>${ae(o.val)}</td><td style="color:${o.val.pl > 0 ? 'var(--green)' : 'var(--red)'}">${roi(o.val)}</td></tr></table>
+        <div class="sub" style="margin-top:6px">A/E below 1.00 = the model\u2019s confidence is worth less than the price it pays.</div></div>
+      <div class="tile"><h2>CALIBRATION \u00b7 model said vs happened</h2>
+        <table class="ft"><tr><th>model p</th><th>runners</th><th>said</th><th>won</th></tr>
+          ${o.cal.map((c, i) => c.n ? `<tr><td>${i < 5 ? (i * 10) + '\u2013' + (i * 10 + 10) + '%' : '50%+'}</td><td>${c.n}</td><td>${(c.p / c.n * 100).toFixed(1)}%</td><td style="color:${c.w / c.n > c.p / c.n ? 'var(--green)' : 'var(--red)'}">${(c.w / c.n * 100).toFixed(1)}%</td></tr>` : '').join('')}</table>
+        <div class="sub" style="margin-top:6px">a calibrated model\u2019s “said” and “won” columns match. Where “won” is lower, the model was overconfident.</div></div>
+      <div class="sub" style="margin:10px 0">features are leak-free: every race scored with people tallies from earlier days only \u00b7 conditional logit, 400 steps, light L2 \u00b7 <a href="?refit=1" style="color:var(--blue)">refit from scratch</a></div>`;
+    const sub = $('ftsub'); if (sub) sub.textContent = `${o.nTrain} train \u00b7 ${o.nTest} test \u00b7 ${o.year}`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
