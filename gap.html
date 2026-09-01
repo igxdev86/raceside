@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · THE GAP</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  table.ft{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  table.ft td,table.ft th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+  table.ft td:first-child,table.ft th:first-child{text-align:left}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">THE <b>GAP</b><small id="gpsub">minus 1 vs minus 2 · the year</small></div>
+</header>
+<main>
+  <p class="note">Every race this year, priced by the MINUS CARDS model at SP: how far the minus-1 horse sits below the minus-2 horse (edge points), and how the minus-1 then fared. A wide gap means the market’s conviction is concentrated on one horse. A/E is the judge: above 1.00 the market was right to back it; below, the fade was right. People stats are this year’s full-year figures, so treat it as a map, not a proof. Not advice.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>walking the year\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (bucket) => { const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const BUCKETS = [['0\u201310', 0, 10], ['10\u201320', 10, 20], ['20\u201330', 20, 30], ['30\u201350', 30, 50], ['50+', 50, 1e9]];
+  const blank = () => ({ n: 0, w: 0, e: 0, pl: 0, m2w: 0, m2e: 0, m2pl: 0, favN: 0 });
+
+  async function main() {
+    let store;
+    try { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); if (!store.ok) throw 0; } catch { $('app').innerHTML = '<div class="state">people feed unavailable</div>'; return; }
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const year = new Date().getFullYear();
+    let st = null;
+    try { st = JSON.parse(localStorage.getItem('rsgap:v1') || 'null'); } catch {}
+    if (st && String(st.year) !== String(year)) st = null;
+    if (!st) { try { const r = await fetch('/api/yearstate?k=gapstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
+    if (!st) st = { year, lastDate: null, miss: [], b: BUCKETS.map(blank), all: blank(), months: {} };
+
+    const priceRace = (rc) => {
+      const rs = (rc.runners || []).filter(r => r.d > 1);
+      if (rs.length < 3) return null;
+      const orVals = rs.map(r => r.ofr).filter(v => v != null);
+      if (orVals.length < 2) return null;   // people-only races: edges are noise, skip
+      const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
+      const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+      if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        return 0.8 * (sc - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+      const rows = rs.map((r, i) => ({ r, edge: ((ex[i] / Z) - 1 / r.d) / (1 / r.d) })).filter(x => isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
+      if (rows.length < 2 || rows[0].edge >= 0) return null;
+      const favD = Math.min(...rs.map(r => r.d));
+      return { m1: rows[0], m2: rows[1], gap: (rows[1].edge - rows[0].edge) * 100, m1fav: rows[0].r.d === favD };
+    };
+    const eat = async (dt) => {
+      try {
+        const r = await fetch('/api/priceday?v=5&date=' + dt); const j = await r.json();
+        if (!(j && j.ok)) return false;
+        const mo = dt.slice(0, 7);
+        (j.races || []).forEach(rc => {
+          const g = priceRace(rc); if (!g) return;
+          const won = (x) => x.r.pos === '1' || x.r.won === 1;
+          const bi = BUCKETS.findIndex(([, lo, hi]) => g.gap >= lo && g.gap < hi);
+          [st.b[bi], st.all, (st.months[mo] = st.months[mo] || blank())].forEach(a => {
+            a.n++; a.e += 1 / g.m1.r.d; a.pl += won(g.m1) ? g.m1.r.d - 1 : -1; if (won(g.m1)) a.w++;
+            a.m2e += 1 / g.m2.r.d; a.m2pl += won(g.m2) ? g.m2.r.d - 1 : -1; if (won(g.m2)) a.m2w++;
+            if (g.m1fav) a.favN++;
+          });
+        });
+        return true;
+      } catch { return false; }
+    };
+    if (st.miss && st.miss.length) { const still = []; for (const dt of st.miss) { if (!(await eat(dt))) still.push(dt); } st.miss = still; }
+    const yEnd = new Date(Date.now() - 86400000);
+    const start = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    let n = 0;
+    for (let d = start; d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10);
+      if (!(await eat(dt))) st.miss = (st.miss || []).concat([dt]);
+      st.lastDate = dt;
+      if (++n % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + st.all.n + ' races</div>';
+    }
+    try { localStorage.setItem('rsgap:v1', JSON.stringify(st)); } catch {}
+    try { fetch('/api/yearstate?k=gapstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+    render(st);
+  }
+
+  function render(st) {
+    const ae = (w, e) => e > 0 ? (w / e).toFixed(2) : '\u2014';
+    const roi = (pl, n) => n ? ((pl / n) * 100).toFixed(0) + '%' : '\u2014';
+    const col = (v) => v > 1 ? 'var(--green)' : 'var(--red)';
+    const row = (lbl, a) => `<tr><td>${lbl}</td><td>${a.n}</td><td>${a.n ? (a.w / a.n * 100).toFixed(0) + '%' : '\u2014'}</td><td style="color:${col(a.w / (a.e || 1))}"><b>${ae(a.w, a.e)}</b></td><td style="color:${a.pl > 0 ? 'var(--green)' : 'var(--red)'}">${roi(a.pl, a.n)}</td><td style="color:${col(a.m2w / (a.m2e || 1))}">${ae(a.m2w, a.m2e)}</td><td style="color:${a.m2pl > 0 ? 'var(--green)' : 'var(--red)'}">${roi(a.m2pl, a.n)}</td><td>${a.n ? (a.favN / a.n * 100).toFixed(0) + '%' : '\u2014'}</td></tr>`;
+    const wide = st.b.slice(2).reduce((acc, a) => { Object.keys(acc).forEach(k => { acc[k] += a[k]; }); return acc; }, blank());
+    const narrow = st.b.slice(0, 2).reduce((acc, a) => { Object.keys(acc).forEach(k => { acc[k] += a[k]; }); return acc; }, blank());
+    const wAE = wide.e ? wide.w / wide.e : 0, nAE = narrow.e ? narrow.w / narrow.e : 0;
+    const verdict = !wide.n || !narrow.n ? 'not enough races yet.'
+      : wAE < nAE - 0.05 ? `When the gap is 20+ points the minus-1 runs to A/E ${wAE.toFixed(2)} against ${nAE.toFixed(2)} when it is narrow: the more alone the market\u2019s conviction, the worse it does. The fade bites hardest on lonely minuses.`
+      : wAE > nAE + 0.05 ? `When the gap is 20+ points the minus-1 runs to A/E ${wAE.toFixed(2)} against ${nAE.toFixed(2)} when narrow: concentrated conviction is BETTER informed than spread conviction. Fade the crowded minuses, not the lonely ones.`
+      : `Wide-gap A/E ${wAE.toFixed(2)} vs narrow ${nAE.toFixed(2)}: the gap does not change how the minus-1 fares. The market\u2019s certainty is not extra information either way.`;
+    const months = Object.keys(st.months).sort().map(m => row(m, st.months[m])).join('');
+    $('app').innerHTML =
+      `<div class="tile"><h2>THE VERDICT</h2><div style="font-size:14px;margin-top:6px">${verdict}</div><div class="sub" style="margin-top:6px">${st.all.n} rated races with a minus horse \u00b7 Jan 1 \u2192 ${st.lastDate} \u00b7 \u00a31 at SP</div></div>
+      <div class="tile"><h2>BY GAP \u00b7 minus-1 edge minus minus-2 edge, in points</h2>
+        <table class="ft"><tr><th>gap</th><th>races</th><th>m1 win</th><th>m1 A/E</th><th>m1 ROI</th><th>m2 A/E</th><th>m2 ROI</th><th>m1 = fav</th></tr>
+          ${st.b.map((a, i) => row(BUCKETS[i][0], a)).join('')}
+          <tr><td><b>all</b></td><td><b>${st.all.n}</b></td><td>${(st.all.w / st.all.n * 100).toFixed(0)}%</td><td><b>${ae(st.all.w, st.all.e)}</b></td><td>${roi(st.all.pl, st.all.n)}</td><td>${ae(st.all.m2w, st.all.m2e)}</td><td>${roi(st.all.m2pl, st.all.n)}</td><td>${(st.all.favN / st.all.n * 100).toFixed(0)}%</td></tr></table>
+        <div class="sub" style="margin-top:6px">m1 A/E &lt; 1.00 = backing the minus-1 loses to its price = the fade wins. m2 = the second-most-backed-beyond-model horse in the same race. Buckets under ~150 races are still noisy.</div></div>
+      <div class="tile"><h2>MONTH BY MONTH \u00b7 all gaps</h2><table class="ft"><tr><th>month</th><th>races</th><th>m1 win</th><th>m1 A/E</th><th>m1 ROI</th><th>m2 A/E</th><th>m2 ROI</th><th>m1 = fav</th></tr>${months}</table></div>
+      <div class="sub" style="margin:10px 0">model = MINUS CARDS weights at SP \u00b7 unrated races excluded \u00b7 people stats are full-year (mild hindsight)</div>`;
+    const sub = $('gpsub'); if (sub) sub.textContent = `${st.all.n} races \u00b7 ${st.year}`;
+  }
+  main();
+})();
+</script>
+</body>
+</html>
