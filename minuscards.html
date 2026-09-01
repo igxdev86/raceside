@@ -288,7 +288,7 @@
       el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
         <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:84vh;overflow-y:auto;z-index:91;padding:16px">
           <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">${names[k]} \u00b7 ${top.length} RANDOM DRAWS</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
-          <div class="sub" style="margin:2px 0 4px">${top.length} combos drawn at random from each race\u2019s top 3 minus horses across ${pool.length} races${QD ? ' that day' : ' still to run'} \u00b7 same draw every reload for this date \u00b7 ranked by model EV${settledN ? ` \u00b7 <b style="color:${landedN ? 'var(--green)' : 'var(--red)'}">${landedN} of ${settledN} landed</b>` : ''}</div>
+          <div class="sub" style="margin:2px 0 4px">${top.length} combos drawn at random from each race\u2019s minus horse (one per race) across ${pool.length} races${QD ? ' that day' : ' still to run'} \u00b7 same draw every reload for this date \u00b7 ranked by model EV${settledN ? ` \u00b7 <b style="color:${landedN ? 'var(--green)' : 'var(--red)'}">${landedN} of ${settledN} landed</b>` : ''}</div>
           ${body}
           <div class="sub" style="margin-top:8px">These legs are the horses the market backs hardest beyond the model, so EV runs negative by construction \u2014 you are backing the crowd\u2019s conviction and paying its price. Least-negative is the best of them, not a bet. Errors and margin compound ${k} times.</div>
         </div>`;
@@ -560,8 +560,8 @@
       cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).forEach(c => {
         const settledR = winMap[rkeyN(c.t, c.course)] !== undefined;
         if (!QD && (settledR || raceMin(c.t) <= nowMA)) return;
-        const hs = c.rows.filter(x => x.r.d > 1 && x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge).slice(0, 3)
-          .map((x, i) => ({ t: c.t, course: c.course, h: x.r.h, d: x.r.d, p: (1 + x.edge) / x.r.d, edge: x.edge, sigs: ['MINUS #' + (i + 1)] }));
+        const hs = c.rows.filter(x => x.r.d > 1 && x.edge != null && isFinite(x.edge) && x.edge < 0).sort((a, b) => a.edge - b.edge).slice(0, 1)
+          .map((x) => ({ t: c.t, course: c.course, h: x.r.h, d: x.r.d, p: (1 + x.edge) / x.r.d, edge: x.edge, sigs: ['THE MINUS'] }));
         if (hs.length) racePool.push(hs);
       });
       window.__mcRacePool = racePool;
