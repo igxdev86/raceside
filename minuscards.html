@@ -644,7 +644,19 @@
       const sigTiles = (anySettled || allPicks.length) ? `<div style="margin-bottom:12px"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:6px">TODAY\u2019S SIGNALS \u00b7 WINNERS / SETTLED \u00b7 PICKS</div><div style="display:flex;gap:6px;flex-wrap:wrap">` +
         sigStats.filter(s => s.settled > 0).map(s => `<div class="tile" style="padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim)">${s.lbl}</span><b style="font-family:var(--mono);font-size:13px;color:${s.won > 0 ? 'var(--green)' : 'var(--ink)'}">${s.won}/${s.settled}</b></div>`).join('') +
         (uniqSettled ? `<div class="tile" onclick="__mcSigModal()" style="cursor:pointer;padding:7px 11px;margin:0;display:flex;gap:6px;align-items:baseline;border:1px solid var(--gold)" title="settled races where at least one signal's horse won \u2014 each race counted once"><span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--gold)">ANY SIGNAL</span><b style="font-family:var(--mono);font-size:13px;color:${uniqWon > 0 ? 'var(--green)' : 'var(--ink)'}">${uniqWon}/${uniqSettled}</b></div>` : '') + pickChip + accaChips + `</div></div>` : '';
-      const boards = sigTiles + `<div class="mcboards">` +
+      // the deepest minus among races still to run — refreshed as each race goes off
+      const upMinus = cards.filter(c => winMap[rkeyN(c.t, c.course)] === undefined && raceMin(c.t) > nowMA)
+        .map(c => { const rows = c.rows.filter(x => x.edge != null && isFinite(x.edge) && x.edge < 0).sort((a, b) => a.edge - b.edge); return rows.length ? { c, x: rows[0] } : null; })
+        .filter(Boolean).sort((a, b) => a.x.edge - b.x.edge).slice(0, 3);
+      const lowTile = (!QD && upMinus.length) ? (() => { const f = upMinus[0];
+        return `<div class="tile" style="margin-bottom:12px;border:1px solid var(--gold)">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--gold)">LOWEST MINUS \u00b7 STILL TO RUN</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:4px;cursor:pointer" onclick="__mcGo('${cid(f.c.t, f.c.course)}')">
+            <span style="min-width:0"><b style="font-size:16px">${f.x.r.h}</b> <span class="sub">${String(f.c.t).replace(/\s.*/, '')} ${String(f.c.course).replace(/\s*\([^)]*\)/g, '')}</span></span>
+            <span style="white-space:nowrap;font-family:var(--mono)"><b style="color:var(--red);font-size:16px">${Math.round(f.x.edge * 100)}%</b> <span style="color:var(--dim)">@ ${f.x.r.d || '\u2014'}</span></span></div>
+          ${upMinus.slice(1).map(e => `<div style="display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11px;color:var(--dim);padding:3px 0;border-top:1px solid var(--line);cursor:pointer" onclick="__mcGo('${cid(e.c.t, e.c.course)}')"><span><b style="color:var(--ink)">${String(e.c.t).replace(/\s.*/, '')}</b> ${String(e.c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 12)} ${e.x.r.h}</span><span><b style="color:var(--red)">${Math.round(e.x.edge * 100)}%</b> @ ${e.x.r.d || '\u2014'}</span></div>`).join('')}
+          <div class="sub" style="margin-top:5px">the horse the market backs hardest beyond the model \u00b7 moves to the next race at each off</div></div>`; })() : '';
+      const boards = sigTiles + lowTile + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
         board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
