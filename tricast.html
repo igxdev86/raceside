@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · THE FRAME</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  table.ft{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  table.ft td,table.ft th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+  table.ft td:first-child,table.ft th:first-child{text-align:left}
+  .big{font-size:26px;font-weight:800;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">THE <b>FRAME</b><small id="tcsub">top minus 1-2-3 · by month</small></div>
+</header>
+<main>
+  <p class="note">How often the TOP MINUS board’s three horses fill the first three places — any order, and in exact board order — with the top three in the betting as the benchmark, since the two sets overlap heavily. Choose a month. People stats are full-year, so a map, not a proof. Not advice.</p>
+  <div id="mos" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+  <div id="app"><div class="state">pick a month</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (bucket) => { const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  let store = null, pj = null, pt = null;
+
+  function minusTop3(rc) {
+    const rs = (rc.runners || []).filter(r => r.d > 1);
+    if (rs.length < 5) return null;
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    if (orVals.length < 2) return null;
+    const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
+    const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+      return 0.8 * (sc - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+    const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+    const rows = rs.map((r, i) => ({ r, edge: ((ex[i] / Z) - 1 / r.d) / (1 / r.d) })).filter(x => isFinite(x.edge)).sort((a, b) => a.edge - b.edge).slice(0, 3);
+    if (rows.length < 3) return null;
+    const spTop = rs.slice().sort((a, b) => a.d - b.d).slice(0, 3);
+    return { minus: rows.map(x => x.r), sp: spTop, n: rs.length, posOk: rs.every(r => r.pos != null && r.pos !== '') };
+  }
+  const pos = (r) => { const p = Number(r.pos); return isFinite(p) ? p : 99; };
+  const frame = (set) => set.every(r => pos(r) <= 3);
+  const exact = (set) => pos(set[0]) === 1 && pos(set[1]) === 2 && pos(set[2]) === 3;
+
+  async function runMonth(mo) {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>walking ' + mo + '\u2026</div>';
+    if (!store) { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); pj = pctB(store.jockeys); pt = pctB(store.trainers); }
+    const [y, m] = mo.split('-').map(Number);
+    const last = Math.min(new Date(y, m, 0).getDate(), mo === new Date().toISOString().slice(0, 7) ? new Date().getDate() - 1 : 31);
+    let races = 0, mAny = 0, mEx = 0, spAny = 0, spEx = 0, fields = 0;
+    const hits = [];
+    for (let day = 1; day <= last; day++) {
+      const dt = mo + '-' + String(day).padStart(2, '0');
+      let j = null; try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      if (!(j && j.ok)) continue;
+      (j.races || []).forEach(rc => {
+        const g = minusTop3(rc); if (!g || !g.posOk) return;
+        races++; fields += g.n;
+        if (frame(g.minus)) { mAny++; if (exact(g.minus)) mEx++; hits.push({ dt, t: rc.t, course: rc.course, hs: g.minus.map(r => r.h + ' (' + r.pos + ')').join(' \u00b7 '), ex: exact(g.minus) }); }
+        if (frame(g.sp)) { spAny++; if (exact(g.sp)) spEx++; }
+      });
+      if (day % 5 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + ' \u00b7 ' + races + ' races</div>';
+    }
+    const pc = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '\u2014';
+    $('app').innerHTML =
+      `<div class="tile"><h2>${mo} \u00b7 THE ANSWER</h2>
+        <div style="display:flex;gap:24px;align-items:baseline;margin-top:6px"><span class="big" style="color:var(--gold)">${pc(mAny, races)}</span><span class="sub">of ${races} rated races, the top-minus three filled the first three (${mAny} times) \u00b7 exact board order ${mEx} (${pc(mEx, races)})</span></div>
+        <div class="sub" style="margin-top:8px">benchmark \u2014 top three in the betting: any order <b>${pc(spAny, races)}</b> (${spAny}), exact <b>${pc(spEx, races)}</b> \u00b7 average field ${races ? (fields / races).toFixed(1) : '\u2014'}</div>
+        <div class="sub" style="margin-top:4px">${mAny && spAny ? (mAny > spAny ? 'the minus three frame MORE often than the market\u2019s three \u2014 the model\u2019s ordering adds something here.' : mAny < spAny ? 'the market\u2019s three frame more often \u2014 the minus set is a worse frame than plain SP order.' : 'dead level with the market\u2019s three.') : ''}</div></div>
+      <div class="tile"><h2>THE RACES IT HAPPENED</h2><table class="ft"><tr><th>race</th><th>the three (position)</th><th>order</th></tr>
+        ${hits.map(h => `<tr><td><b>${String(h.t).replace(/\s.*/, '')}</b> ${String(h.course).slice(0, 12)} <span class="sub">${h.dt.slice(8)}</span></td><td style="text-align:left">${h.hs}</td><td>${h.ex ? '<b style="color:var(--gold)">exact</b>' : 'any'}</td></tr>`).join('') || '<tr><td colspan="3" class="sub">never this month</td></tr>'}</table></div>`;
+    const sub = $('tcsub'); if (sub) sub.textContent = mo + ' \u00b7 ' + pc(mAny, races) + ' framed';
+  }
+  const now = new Date();
+  const mos = []; for (let m = 0; m < now.getMonth() + 1; m++) mos.push(now.getFullYear() + '-' + String(m + 1).padStart(2, '0'));
+  $('mos').innerHTML = mos.map(m => `<button class="chip" data-mo="${m}" style="cursor:pointer">${m}</button>`).join('');
+  $('mos').addEventListener('click', (e) => { const b = e.target.closest('[data-mo]'); if (b) runMonth(b.dataset.mo); });
+  runMonth(mos.length > 1 && now.getDate() <= 3 ? mos[mos.length - 2] : mos[mos.length - 1]);
+})();
+</script>
+</body>
+</html>
