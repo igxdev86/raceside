@@ -45,6 +45,14 @@
     return { minus: rows.map(x => x.r), sp: spTop, n: rs.length, posOk: rs.every(r => r.pos != null && r.pos !== '') };
   }
   const pos = (r) => { const p = Number(r.pos); return isFinite(p) ? p : 99; };
+  // Harville: chance a set of three fills the first three, from SP win probs
+  const harville = (set, all) => {
+    const inv = all.map(r => 1 / r.d); const Z = inv.reduce((a, b) => a + b, 0);
+    const p = set.map(r => (1 / r.d) / Z);
+    let anyO = 0; const perm = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+    perm.forEach(([a, b, c]) => { anyO += p[a] * (p[b] / (1 - p[a])) * (p[c] / (1 - p[a] - p[b])); });
+    return anyO;
+  };
   const frame = (set) => set.every(r => pos(r) <= 3);
   const exact = (set) => pos(set[0]) === 1 && pos(set[1]) === 2 && pos(set[2]) === 3;
 
@@ -77,11 +85,52 @@
         ${hits.map(h => `<tr><td><b>${String(h.t).replace(/\s.*/, '')}</b> ${String(h.course).slice(0, 12)} <span class="sub">${h.dt.slice(8)}</span></td><td style="text-align:left">${h.hs}</td><td>${h.ex ? '<b style="color:var(--gold)">exact</b>' : 'any'}</td></tr>`).join('') || '<tr><td colspan="3" class="sub">never this month</td></tr>'}</table></div>`;
     const sub = $('tcsub'); if (sub) sub.textContent = mo + ' \u00b7 ' + pc(mAny, races) + ' framed';
   }
+  async function runYear() {
+    $('app').innerHTML = '<div class="state"><div class="spinner"></div>walking the year…</div>';
+    if (!store) { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); pj = pctB(store.jockeys); pt = pctB(store.trainers); }
+    const year = new Date().getFullYear();
+    let st = null; try { st = JSON.parse(localStorage.getItem('rsframe:v1') || 'null'); } catch {}
+    if (!(st && String(st.year) === String(year))) st = { year, lastDate: null, mo: {} };
+    const yEnd = new Date(Date.now() - 86400000);
+    const startD = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    let n = 0;
+    for (let d = startD; d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10), mo = dt.slice(0, 7);
+      let j = null; try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      st.lastDate = dt;
+      if (!(j && j.ok)) continue;
+      const a = (st.mo[mo] = st.mo[mo] || { races: 0, framed: 0, exact: 0, exp: 0, varr: 0, fields: 0 });
+      (j.races || []).forEach(rc => {
+        const g = minusTop3(rc); if (!g || !g.posOk) return;
+        const rs = (rc.runners || []).filter(r => r.d > 1);
+        const pE = harville(g.minus, rs);
+        a.races++; a.fields += g.n; a.exp += pE; a.varr += pE * (1 - pE);
+        if (frame(g.minus)) { a.framed++; if (exact(g.minus)) a.exact++; }
+      });
+      if (++n % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + '</div>';
+    }
+    try { localStorage.setItem('rsframe:v1', JSON.stringify(st)); } catch {}
+    const rows = Object.keys(st.mo).sort();
+    const z = (a) => a.varr > 0 ? (a.framed - a.exp) / Math.sqrt(a.varr) : 0;
+    const hot = rows.slice().sort((x, y) => Math.abs(z(st.mo[y])) - Math.abs(z(st.mo[x])))[0];
+    const tot = rows.reduce((acc, m) => { const a = st.mo[m]; acc.races += a.races; acc.framed += a.framed; acc.exact += a.exact; acc.exp += a.exp; acc.varr += a.varr; return acc; }, { races: 0, framed: 0, exact: 0, exp: 0, varr: 0 });
+    const aug = st.mo[year + '-08'];
+    const pc = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '—';
+    const augLine = aug ? `August: <b>${aug.framed}</b> frames in ${aug.races} races (${pc(aug.framed, aug.races)}) against <b>${aug.exp.toFixed(1)}</b> expected from its own prices — z = <b>${z(aug).toFixed(1)}</b>. ${Math.abs(z(aug)) < 2 ? 'Within the band luck draws: August FELT richer because it was busier, not because the frame hit beyond its prices.' : z(aug) > 0 ? 'Beyond the ±2 luck band — August genuinely over-framed its prices. Worth watching whether September does it again.' : 'Below the luck band — August actually under-framed its prices.'}` : 'no August data yet.';
+    $('app').innerHTML =
+      `<div class="tile"><h2>WAS AUGUST SPECIAL?</h2><div style="font-size:14px;margin-top:6px">${augLine}</div>
+        <div class="sub" style="margin-top:6px">expected = each race’s Harville chance, from SP, that those exact three fill the frame · z = (seen − expected) / √variance · |z| ≥ 2 is the bar</div></div>
+      <div class="tile"><h2>MONTH BY MONTH</h2><table class="ft"><tr><th>month</th><th>races</th><th>framed</th><th>rate</th><th>expected</th><th>z</th><th>exact</th></tr>
+        ${rows.map(m => { const a = st.mo[m]; const zz = z(a); return `<tr${m === hot ? ' style="background:rgba(255,255,255,.03)"' : ''}><td>${m}</td><td>${a.races}</td><td><b>${a.framed}</b></td><td>${pc(a.framed, a.races)}</td><td>${pc(a.exp, a.races)}</td><td style="color:${Math.abs(zz) >= 2 ? 'var(--gold)' : Math.abs(zz) >= 1 ? 'var(--dim)' : 'var(--faint)'}"><b>${zz.toFixed(1)}</b></td><td>${a.exact}</td></tr>`; }).join('')}
+        <tr><td><b>year</b></td><td><b>${tot.races}</b></td><td><b>${tot.framed}</b></td><td>${pc(tot.framed, tot.races)}</td><td>${pc(tot.exp, tot.races)}</td><td><b>${(tot.varr > 0 ? (tot.framed - tot.exp) / Math.sqrt(tot.varr) : 0).toFixed(1)}</b></td><td>${tot.exact}</td></tr></table>
+        <div class="sub" style="margin-top:6px">the year row is the real verdict on the minus three as a frame: z near 0 = they fill it exactly as often as their prices say. Tap a month chip for its race-by-race list.</div></div>`;
+    const sub = $('tcsub'); if (sub) sub.textContent = tot.races + ' races · z ' + (tot.varr > 0 ? ((tot.framed - tot.exp) / Math.sqrt(tot.varr)).toFixed(1) : '0');
+  }
   const now = new Date();
   const mos = []; for (let m = 0; m < now.getMonth() + 1; m++) mos.push(now.getFullYear() + '-' + String(m + 1).padStart(2, '0'));
-  $('mos').innerHTML = mos.map(m => `<button class="chip" data-mo="${m}" style="cursor:pointer">${m}</button>`).join('');
-  $('mos').addEventListener('click', (e) => { const b = e.target.closest('[data-mo]'); if (b) runMonth(b.dataset.mo); });
-  runMonth(mos.length > 1 && now.getDate() <= 3 ? mos[mos.length - 2] : mos[mos.length - 1]);
+  $('mos').innerHTML = `<button class="chip" data-yr="1" style="cursor:pointer"><b>THE YEAR</b></button>` + mos.map(m => `<button class="chip" data-mo="${m}" style="cursor:pointer">${m}</button>`).join('');
+  $('mos').addEventListener('click', (e) => { const y = e.target.closest('[data-yr]'); if (y) return runYear(); const b = e.target.closest('[data-mo]'); if (b) runMonth(b.dataset.mo); });
+  runYear();
 })();
 </script>
 </body>
