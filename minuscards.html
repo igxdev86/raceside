@@ -350,15 +350,18 @@
       if (c.__score) return;
       const sc = {}; const tag = (h2, t2, pts) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += pts; s.tags.push(t2); };
       const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
-      const best = (fn) => { let bi = null, bv = -Infinity, dup = false; c.rows.forEach((x, i) => { const v = fn(x); if (v == null) return; if (v > bv) { bv = v; bi = i; dup = false; } else if (v === bv) dup = true; }); return dup ? null : bi; };
-      const bj = best(x => strike(store.jockeys, x.r.jid, 50)); if (bj != null) tag(c.rows[bj].r.h, 'J', 2);
-      const bt = best(x => strike(store.trainers, x.r.tid, 50)); if (bt != null) tag(c.rows[bt].r.h, 'T', 2);
-      const bp = best(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; }); if (bp != null) tag(c.rows[bp].r.h, 'PAIR', 2);
-      const bw = best(x => c.advM[x.r.h] != null && c.advM[x.r.h] > 0 ? c.advM[x.r.h] : null); if (bw != null) tag(c.rows[bw].r.h, 'WR', 2);
-      if (c.maxOr != null) { const tops = c.rows.filter(x => x.r.ofr === c.maxOr); if (tops.length === 1) tag(tops[0].r.h, 'OR', 2); }
-      const byEdge = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
-      if (byEdge.length && byEdge[0].edge < 0) tag(byEdge[0].r.h, 'M1', 2);
-      if (byEdge.length > 1 && byEdge[1].edge < 0) tag(byEdge[1].r.h, 'M2', 1);
+      const PTS = [5, 3, 1];
+      // rank a signal within the race: value desc, top three earn 5/3/1, tag carries the rank
+      const rank = (label, fn) => {
+        const vals = c.rows.map((x, i) => ({ i, v: fn(x) })).filter(e => e.v != null).sort((a, b) => b.v - a.v);
+        vals.slice(0, 3).forEach((e, k) => tag(c.rows[e.i].r.h, label + (k + 1), PTS[k]));
+      };
+      rank('J', x => strike(store.jockeys, x.r.jid, 50));
+      rank('T', x => strike(store.trainers, x.r.tid, 50));
+      rank('PAIR', x => { const p = pairs[x.r.jid + '|' + x.r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+      rank('WR', x => c.advM[x.r.h] != null && c.advM[x.r.h] > 0 ? c.advM[x.r.h] : null);
+      rank('OR', x => x.r.ofr != null ? x.r.ofr : null);
+      rank('M', x => x.edge != null && isFinite(x.edge) && x.edge < 0 ? -x.edge : null);   // most minus ranks first
       c.rows.forEach(x => { if (x.edge != null && x.edge > 0) tag(x.r.h, '+', 1); });
       c.__score = sc;
     }
@@ -366,9 +369,8 @@
       cards.forEach(ensureScore);
       const resMark = window.__mcResMark || (() => '');
       const shortC = (c2) => String(c2 || '').replace(/\s*\([^)]*\)/g, '');
-      const TAGC = { M1: '#FDEDEE', M2: '#FDEDEE', '+': '#EAF0FB' };
-      const chip = (t) => `<span style="display:inline-block;font-size:8.5px;letter-spacing:.05em;padding:1px 6px;border-radius:999px;background:${TAGC[t] || '#E7F6EC'};color:#101418;margin:1px 2px 1px 0">${t}</span>`;
-      const badge = (p) => `<span style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;font-size:13px;background:${p >= 6 ? 'var(--gold)' : p >= 4 ? '#FFF6E3' : '#EAF0FB'};color:#101418">${p}</span>`;
+      const chip = (t) => `<span style="display:inline-block;font-size:8.5px;letter-spacing:.05em;padding:1px 6px;border-radius:999px;background:${t[0] === 'M' ? '#FDEDEE' : t === '+' ? '#EAF0FB' : '#E7F6EC'};color:#101418;margin:1px 2px 1px 0">${t}</span>`;
+      const badge = (p) => `<span style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;font-size:13px;background:${p >= 15 ? 'var(--gold)' : p >= 9 ? '#FFF6E3' : '#EAF0FB'};color:#101418">${p}</span>`;
       const entries = [];
       cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).forEach(c => {
         const hs = c.rows.map(x => ({ x, s: c.__score[x.r.h] })).filter(e => e.s && e.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);
@@ -381,7 +383,7 @@
       el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
         <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,480px);max-height:86vh;overflow-y:auto;z-index:91;padding:16px">
           <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">SIGNAL SCORES \u00b7 TODAY</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
-          <div class="sub" style="margin:2px 0 10px">+2 for the race\u2019s best jockey, trainer, pair, weights or sole top rating \u00b7 +2 minus-1, +1 minus-2 \u00b7 +1 model plus \u00b7 max 11</div>
+          <div class="sub" style="margin:2px 0 10px">each signal ranks the race \u2014 jockey, trainer, pair, weights, rating, minus \u2014 and pays <b>5 / 3 / 1</b> for its top three (J1 = best jockey, WR2 = second-best at the weights) \u00b7 +1 model plus \u00b7 max 31</div>
           ${strongest.length ? `<div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:4px">STRONGEST TODAY</div>` + strongest.map(({ c, v }) => `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)">${badge(v.s.pts)}<span style="min-width:0;flex:1"><b style="font-size:12.5px">${v.x.r.h}</b>${resMark(c.t, c.course, v.x.r.h)} <span class="sub">${String(c.t).replace(/\s.*/, '')} ${shortC(c.course)}</span><br>${v.s.tags.map(chip).join('')}</span><span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--dim)">@ ${v.x.r.d || '\u2014'}</span></div>`).join('') : ''}
           ${entries.map(({ c, hs }) => `<div style="font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:12px"><b style="color:var(--ink)">${String(c.t).replace(/\s.*/, '')}</b> ${shortC(c.course).toUpperCase()}</div>` + hs.map(e => row(c, e.x, e.s)).join('')).join('')}
           <div class="sub" style="margin-top:10px">the weights are a design, not a finding \u2014 whether a high score beats its price is for THE SIGNALS to judge</div>
