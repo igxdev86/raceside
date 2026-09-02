@@ -710,8 +710,8 @@
         const r = await fetch('/api/upcoming?v=4&r=' + Math.floor(Date.now() / 300000));
         const j = await r.json();
         if (!(j && j.ok)) return;
+        freezePast();   // lock anything that went off since the last pull, at its last pre-off build (stale verdict from when it was live)
         markStale();
-        freezePast();   // lock anything that went off since the last pull, at its last pre-off build
         await loadSnap(todayUK);
         const fresh = buildCards(applyStone(j.rides));
         const seen = {};
@@ -724,6 +724,21 @@
       } catch {}
     };
     setInterval(freezePast, 30000);
+    // precision pulls: refetch prices ~90s before each off so the frozen copy is near race time
+    const scheduled = {};
+    const schedulePreOff = () => {
+      if (QD) return;
+      const now = new Date(); const nm = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      cards.forEach(c => {
+        const k = ckey(c); const rm = raceMin(c.t);
+        if (scheduled[k] || rm <= nm) return;
+        const ms = Math.max(5000, (rm - nm) * 60000 - 90000);
+        if (ms > 6 * 3600000) return;
+        scheduled[k] = setTimeout(() => { refreshCard(); }, ms);
+      });
+    };
+    schedulePreOff();
+    setInterval(schedulePreOff, 300000);
     window.__mcRefresh = refreshCard;
     // background: the year's winners by distance band and going group — powers the D / G labels
     (async () => {
