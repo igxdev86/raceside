@@ -354,7 +354,7 @@
       const upcoming = cards.filter(c => !isPast(c)).sort(cmpCards);
       const finished = cards.filter(isPast).sort(sortKey === 'time' ? (a, b) => raceMin(b.t) - raceMin(a.t) : cmpCards);
       const ordered = viewMode === 'results' ? finished : [...upcoming, ...finished];
-      const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
+      const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR'],['score','SCORES']].map(([m, lbl]) =>
         `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
       const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
         `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
@@ -374,7 +374,28 @@
           const bg = p >= 0.18 ? '#E7F6EC' : p >= 0.13 ? '#F6F9E8' : p >= 0.09 ? '#FFF6E3' : '#FDEDEE';
           return { bg, pct: Math.round(p * 100) };
         };
+        if (!c.__score) {
+          const sc = {}; const tag = (h2, t2, pts) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += pts; s.tags.push(t2); };
+          const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+          const best = (fn) => { let bi = null, bv = -Infinity, dup = false; c.rows.forEach((x, i) => { const v = fn(x); if (v == null) return; if (v > bv) { bv = v; bi = i; dup = false; } else if (v === bv) dup = true; }); return dup ? null : bi; };
+          const bj = best(x => strike(store.jockeys, x.r.jid, 50)); if (bj != null) tag(c.rows[bj].r.h, 'J', 2);
+          const bt = best(x => strike(store.trainers, x.r.tid, 50)); if (bt != null) tag(c.rows[bt].r.h, 'T', 2);
+          const bp = best(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; }); if (bp != null) tag(c.rows[bp].r.h, 'PAIR', 2);
+          const bw = best(x => c.advM[x.r.h] != null && c.advM[x.r.h] > 0 ? c.advM[x.r.h] : null); if (bw != null) tag(c.rows[bw].r.h, 'WR', 2);
+          if (c.maxOr != null) { const tops = c.rows.filter(x => x.r.ofr === c.maxOr); if (tops.length === 1) tag(tops[0].r.h, 'OR', 2); }
+          const byEdge = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
+          if (byEdge.length && byEdge[0].edge < 0) tag(byEdge[0].r.h, 'M1', 2);
+          if (byEdge.length > 1 && byEdge[1].edge < 0) tag(byEdge[1].r.h, 'M2', 1);
+          c.rows.forEach(x => { if (x.edge != null && x.edge > 0) tag(x.r.h, '+', 1); });
+          c.__score = sc;
+        }
         const person = (r) => {
+          if (personMode === 'score') {
+            const s = c.__score[r.h];
+            const pts = s ? s.pts : 0;
+            const bg = pts >= 6 ? '#E7F6EC' : pts >= 4 ? '#FFF6E3' : '';
+            return { name: s && s.tags.length ? s.tags.join(' \u00b7 ') : '\u2014', cell: { bg, pct: null, txt: String(pts), runs: 999 } };
+          }
           if (personMode === 't') return { name: r.trainer || '\u2014', cell: strikeHeat((store.jockeys || {})[r.jid], 50) };
           if (personMode === 'jt') {
             const p = pairs[r.jid + '|' + r.tid];
@@ -390,7 +411,7 @@
         const gcols = 'display:grid;grid-template-columns:minmax(0,1fr) 34px 34px 34px 44px 40px;gap:0 5px;align-items:center;font-family:var(--mono)';
         const ar = (k) => rowSort.key === k ? (rowSort.dir === 1 ? ' \u25b4' : ' \u25be') : '';
         const hcell = (k, lbl, right) => `<span onclick="__mcRowSort('${k}')" style="cursor:pointer;${right ? 'text-align:right;' : ''}${rowSort.key === k ? 'color:var(--blue);font-weight:700' : ''}">${lbl}${ar(k)}</span>`;
-        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc',personMode === 'jt' ? 'PAIR' : 'J%',1)}${hcell('tpc','T%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
+        const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc',personMode === 'jt' ? 'PAIR' : personMode === 'score' ? 'SCORE' : 'J%',1)}${hcell('tpc','T%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
         const rowVal = (x, k) => k === 'horse' ? String(x.r.h || '').toLowerCase()
           : k === 'jpc' ? (() => { const pc = person(x.r).cell; if (pc.pct != null) return pc.pct; if (pc.txt === 'first') return -2; if (!pc.txt || pc.txt === '\u2014') return -1;
             const v = Number(pc.txt) * 100; return personMode === 'jt' ? ((pc.runs || 0) >= 10 ? 1e6 : 0) + v : v; })()
