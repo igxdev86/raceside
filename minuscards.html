@@ -382,7 +382,7 @@
             if (!p || !p.r) return { name: nm, cell: { bg: '#EAF0FB', pct: null, txt: 'first' } };
             const ae = p.e > 0 ? p.w / p.e : null;
             const bg = ae == null || p.r < 10 ? '' : ae >= 1.2 ? '#E7F6EC' : ae <= 0.8 ? '#FDEDEE' : '#FFF6E3';
-            return { name: nm + ' (' + p.r + ')', cell: { bg, pct: null, txt: ae != null ? ae.toFixed(2) : '\u2014' } };
+            return { name: nm + ' (' + p.r + ')', cell: { bg, pct: null, txt: ae != null ? ae.toFixed(2) : '\u2014', runs: p.r } };
           }
           return { name: r.jockey || '\u2014', cell: strikeHeat((store.jockeys || {})[r.jid], 50) };
         };
@@ -392,7 +392,8 @@
         const hcell = (k, lbl, right) => `<span onclick="__mcRowSort('${k}')" style="cursor:pointer;${right ? 'text-align:right;' : ''}${rowSort.key === k ? 'color:var(--blue);font-weight:700' : ''}">${lbl}${ar(k)}</span>`;
         const hdr = `<div style="${gcols};font-size:8.5px;letter-spacing:.1em;color:var(--faint);padding:4px 6px;text-transform:uppercase">${hcell('horse','Horse')}${hcell('jpc',personMode === 'jt' ? 'PAIR' : 'J%',1)}${hcell('tpc','T%',1)}${hcell('wr','WR',1)}${hcell('edge','Edge',1)}${hcell('sp','SP',1)}</div>`;
         const rowVal = (x, k) => k === 'horse' ? String(x.r.h || '').toLowerCase()
-          : k === 'jpc' ? (() => { const pc = person(x.r).cell; return pc.pct != null ? pc.pct : pc.txt === 'first' ? -2 : pc.txt && pc.txt !== '\u2014' ? Number(pc.txt) * 100 : -1; })()
+          : k === 'jpc' ? (() => { const pc = person(x.r).cell; if (pc.pct != null) return pc.pct; if (pc.txt === 'first') return -2; if (!pc.txt || pc.txt === '\u2014') return -1;
+            const v = Number(pc.txt) * 100; return personMode === 'jt' ? ((pc.runs || 0) >= 10 ? 1e6 : 0) + v : v; })()
           : k === 'tpc' ? (() => { const tc = strikeHeat((store.trainers || {})[x.r.tid], 50); return tc.pct != null ? tc.pct : -1; })()
           : k === 'wr' ? (c.advM[x.r.h] != null ? c.advM[x.r.h] : -1e9)
           : k === 'edge' ? (x.edge != null ? x.edge : 1e9)
