@@ -478,11 +478,14 @@
       };
       // top pairs per race: jockey × trainer partnerships ranked by A/E (10+ runs together)
       const pRace = (c) => {
-        const ps = c.rows.map(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; if (!p || !(p.r >= 10) || !(p.e > 0)) return null;
-          return { x, ae: p.w / p.e, r: p.r }; }).filter(Boolean).sort((a, b) => b.ae - a.ae).slice(0, 3);
+        const all = c.rows.map(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; if (!p || !(p.e > 0) || !(p.r >= 1)) return null;
+          return { x, ae: p.w / p.e, r: p.r, q: p.r >= 10 }; }).filter(Boolean);
+        const qual = all.filter(p => p.q).sort((a, b) => b.ae - a.ae).slice(0, 3);
+        const fill = all.filter(p => !p.q).sort((a, b) => b.ae - a.ae).slice(0, 3 - qual.length);
+        const ps = qual.concat(fill);
         if (!ps.length) return '';
         return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div onclick="__mcGo('${cid(c.t, c.course)}')" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer"><b style="color:var(--blue)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()} <span style="color:var(--faint)">\u2193</span></div>` +
-          ps.map(({ x, ae, r }) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)} <span style="color:var(--dim)">${(x.r.jockey || '?').replace(/\s*\(\d\)/, '').split(' ').pop()} \u00d7 ${(x.r.trainer || '?').split(' ').pop()}</span></span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${ae >= 1.2 ? 'var(--green)' : ae <= 0.8 ? 'var(--red)' : 'var(--ink)'}">${ae.toFixed(2)}</b> (${r}) @ ${x.r.d || '\u2014'}</span></div>`).join('') + `</div>`;
+          ps.map(({ x, ae, r, q }) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono);${q ? '' : 'opacity:.55'}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)} <span style="color:var(--dim)">${(x.r.jockey || '?').replace(/\s*\(\d\)/, '').split(' ').pop()} \u00d7 ${(x.r.trainer || '?').split(' ').pop()}</span></span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${!q ? 'var(--dim)' : ae >= 1.2 ? 'var(--green)' : ae <= 0.8 ? 'var(--red)' : 'var(--ink)'}">${ae.toFixed(2)}</b> (${r}) @ ${x.r.d || '\u2014'}</span></div>`).join('') + `</div>`;
       };
       // signal scoreboard: each signal's pick in every SETTLED race — winners / settled
       const sigDefs = [
