@@ -346,6 +346,48 @@
     const pairs = store.pairs || {};
     window.__mcRowSort = (k) => { rowSort = { key: k, dir: rowSort.key === k ? -rowSort.dir : (k === 'edge' || k === 'sp' || k === 'horse' ? 1 : -1) }; render(); };
 
+    function ensureScore(c) {
+      if (c.__score) return;
+      const sc = {}; const tag = (h2, t2, pts) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += pts; s.tags.push(t2); };
+      const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+      const best = (fn) => { let bi = null, bv = -Infinity, dup = false; c.rows.forEach((x, i) => { const v = fn(x); if (v == null) return; if (v > bv) { bv = v; bi = i; dup = false; } else if (v === bv) dup = true; }); return dup ? null : bi; };
+      const bj = best(x => strike(store.jockeys, x.r.jid, 50)); if (bj != null) tag(c.rows[bj].r.h, 'J', 2);
+      const bt = best(x => strike(store.trainers, x.r.tid, 50)); if (bt != null) tag(c.rows[bt].r.h, 'T', 2);
+      const bp = best(x => { const p = pairs[x.r.jid + '|' + x.r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; }); if (bp != null) tag(c.rows[bp].r.h, 'PAIR', 2);
+      const bw = best(x => c.advM[x.r.h] != null && c.advM[x.r.h] > 0 ? c.advM[x.r.h] : null); if (bw != null) tag(c.rows[bw].r.h, 'WR', 2);
+      if (c.maxOr != null) { const tops = c.rows.filter(x => x.r.ofr === c.maxOr); if (tops.length === 1) tag(tops[0].r.h, 'OR', 2); }
+      const byEdge = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
+      if (byEdge.length && byEdge[0].edge < 0) tag(byEdge[0].r.h, 'M1', 2);
+      if (byEdge.length > 1 && byEdge[1].edge < 0) tag(byEdge[1].r.h, 'M2', 1);
+      c.rows.forEach(x => { if (x.edge != null && x.edge > 0) tag(x.r.h, '+', 1); });
+      c.__score = sc;
+    }
+    window.__mcScoresModal = () => {
+      cards.forEach(ensureScore);
+      const resMark = window.__mcResMark || (() => '');
+      const shortC = (c2) => String(c2 || '').replace(/\s*\([^)]*\)/g, '');
+      const TAGC = { M1: '#FDEDEE', M2: '#FDEDEE', '+': '#EAF0FB' };
+      const chip = (t) => `<span style="display:inline-block;font-size:8.5px;letter-spacing:.05em;padding:1px 6px;border-radius:999px;background:${TAGC[t] || '#E7F6EC'};color:#101418;margin:1px 2px 1px 0">${t}</span>`;
+      const badge = (p) => `<span style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;font-size:13px;background:${p >= 6 ? 'var(--gold)' : p >= 4 ? '#FFF6E3' : '#EAF0FB'};color:#101418">${p}</span>`;
+      const entries = [];
+      cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).forEach(c => {
+        const hs = c.rows.map(x => ({ x, s: c.__score[x.r.h] })).filter(e => e.s && e.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);
+        if (hs.length) entries.push({ c, hs });
+      });
+      const strongest = entries.flatMap(e => e.hs.map(v => ({ c: e.c, v }))).sort((a, b) => b.v.s.pts - a.v.s.pts).slice(0, 5);
+      const row = (c, x, s) => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">${badge(s.pts)}<span style="min-width:0;flex:1"><b style="font-size:12.5px">${x.r.h}</b>${resMark(c.t, c.course, x.r.h)}<br>${s.tags.map(chip).join('')}</span><span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--dim);text-align:right">@ ${x.r.d || '\u2014'}</span></div>`;
+      const el = document.createElement('div');
+      el.id = 'mcsigmodal';
+      el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,480px);max-height:86vh;overflow-y:auto;z-index:91;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">SIGNAL SCORES \u00b7 TODAY</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
+          <div class="sub" style="margin:2px 0 10px">+2 for the race\u2019s best jockey, trainer, pair, weights or sole top rating \u00b7 +2 minus-1, +1 minus-2 \u00b7 +1 model plus \u00b7 max 11</div>
+          ${strongest.length ? `<div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);margin-bottom:4px">STRONGEST TODAY</div>` + strongest.map(({ c, v }) => `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)">${badge(v.s.pts)}<span style="min-width:0;flex:1"><b style="font-size:12.5px">${v.x.r.h}</b>${resMark(c.t, c.course, v.x.r.h)} <span class="sub">${String(c.t).replace(/\s.*/, '')} ${shortC(c.course)}</span><br>${v.s.tags.map(chip).join('')}</span><span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--dim)">@ ${v.x.r.d || '\u2014'}</span></div>`).join('') : ''}
+          ${entries.map(({ c, hs }) => `<div style="font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:12px"><b style="color:var(--ink)">${String(c.t).replace(/\s.*/, '')}</b> ${shortC(c.course).toUpperCase()}</div>` + hs.map(e => row(c, e.x, e.s)).join('')).join('')}
+          <div class="sub" style="margin-top:10px">the weights are a design, not a finding \u2014 whether a high score beats its price is for THE SIGNALS to judge</div>
+        </div>`;
+      document.body.appendChild(el);
+    };
     function render() {
       if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
       const cmpCards = sortKey === 'time' ? TIME_CMP : SORTS[sortKey].f;
@@ -354,8 +396,8 @@
       const upcoming = cards.filter(c => !isPast(c)).sort(cmpCards);
       const finished = cards.filter(isPast).sort(sortKey === 'time' ? (a, b) => raceMin(b.t) - raceMin(a.t) : cmpCards);
       const ordered = viewMode === 'results' ? finished : [...upcoming, ...finished];
-      const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR'],['score','SCORES']].map(([m, lbl]) =>
-        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
+      const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
+        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<button onclick="__mcScoresModal()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:700">SCORES</button>` + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
       const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
         `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
       window.__mcSort = (k) => { sortKey = (k === sortKey ? 'time' : k); render(); };
@@ -374,7 +416,8 @@
           const bg = p >= 0.18 ? '#E7F6EC' : p >= 0.13 ? '#F6F9E8' : p >= 0.09 ? '#FFF6E3' : '#FDEDEE';
           return { bg, pct: Math.round(p * 100) };
         };
-        if (!c.__score) {
+        ensureScore(c);
+        if (false) {
           const sc = {}; const tag = (h2, t2, pts) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += pts; s.tags.push(t2); };
           const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
           const best = (fn) => { let bi = null, bv = -Infinity, dup = false; c.rows.forEach((x, i) => { const v = fn(x); if (v == null) return; if (v > bv) { bv = v; bi = i; dup = false; } else if (v === bv) dup = true; }); return dup ? null : bi; };
