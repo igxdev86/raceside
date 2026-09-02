@@ -89,8 +89,8 @@
     $('app').innerHTML = '<div class="state"><div class="spinner"></div>walking the year…</div>';
     if (!store) { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); pj = pctB(store.jockeys); pt = pctB(store.trainers); }
     const year = new Date().getFullYear();
-    let st = null; try { st = JSON.parse(localStorage.getItem('rsframe:v1') || 'null'); } catch {}
-    if (!(st && String(st.year) === String(year))) st = { year, lastDate: null, mo: {} };
+    let st = null; try { st = JSON.parse(localStorage.getItem('rsframe:v2') || 'null'); } catch {}
+    if (!(st && String(st.year) === String(year))) st = { year, lastDate: null, mo: {}, gaps: [], run: 0 };
     const yEnd = new Date(Date.now() - 86400000);
     const startD = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
     let n = 0;
@@ -100,16 +100,18 @@
       st.lastDate = dt;
       if (!(j && j.ok)) continue;
       const a = (st.mo[mo] = st.mo[mo] || { races: 0, framed: 0, exact: 0, exp: 0, varr: 0, fields: 0 });
-      (j.races || []).forEach(rc => {
-        const g = minusTop3(rc); if (!g || !g.posOk) return;
+      const dayRaces = (j.races || []).map(rc => ({ rc, g: minusTop3(rc) })).filter(x => x.g && x.g.posOk)
+        .sort((x, y) => { const t = (r) => { const m2 = String(r.t || '').match(/(\d{1,2}):(\d{2})/); if (!m2) return 9999; let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); }; return t(x.rc) - t(y.rc); });
+      dayRaces.forEach(({ rc, g }) => {
         const rs = (rc.runners || []).filter(r => r.d > 1);
         const pE = harville(g.minus, rs);
         a.races++; a.fields += g.n; a.exp += pE; a.varr += pE * (1 - pE);
-        if (frame(g.minus)) { a.framed++; if (exact(g.minus)) a.exact++; }
+        st.run = (st.run || 0) + 1;
+        if (frame(g.minus)) { a.framed++; if (exact(g.minus)) a.exact++; (st.gaps = st.gaps || []).push(st.run); st.run = 0; }
       });
       if (++n % 10 === 0) $('app').innerHTML = '<div class="state"><div class="spinner"></div>' + dt + '</div>';
     }
-    try { localStorage.setItem('rsframe:v1', JSON.stringify(st)); } catch {}
+    try { localStorage.setItem('rsframe:v2', JSON.stringify(st)); } catch {}
     const rows = Object.keys(st.mo).sort();
     const z = (a) => a.varr > 0 ? (a.framed - a.exp) / Math.sqrt(a.varr) : 0;
     const hot = rows.slice().sort((x, y) => Math.abs(z(st.mo[y])) - Math.abs(z(st.mo[x])))[0];
@@ -120,6 +122,20 @@
     $('app').innerHTML =
       `<div class="tile"><h2>WAS AUGUST SPECIAL?</h2><div style="font-size:14px;margin-top:6px">${augLine}</div>
         <div class="sub" style="margin-top:6px">expected = each race’s Harville chance, from SP, that those exact three fill the frame · z = (seen − expected) / √variance · |z| ≥ 2 is the bar</div></div>
+      ${(() => { const gs = (st.gaps || []).slice(); if (!gs.length) return '';
+        const srt = gs.slice().sort((a, b) => a - b);
+        const med = srt[Math.floor(srt.length / 2)], mean = gs.reduce((a, b) => a + b, 0) / gs.length, longest = Math.max(...gs, st.run || 0);
+        const expWait = tot.exp > 0 ? tot.races / tot.exp : 0;
+        const perDay = tot.races ? (tot.framed / tot.races * 30).toFixed(1) : '—';
+        const BK = [['next 1–2 races', 1, 2], ['3–5', 3, 5], ['6–10', 6, 10], ['11–20', 11, 20], ['21+', 21, 1e9]];
+        const bks = BK.map(([lb, lo, hi]) => { const n = gs.filter(v => v >= lo && v <= hi).length; return `<div class="kv" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)"><span>${lb}</span><span><b>${n}</b> · ${(n / gs.length * 100).toFixed(0)}%</span></div>`; }).join('');
+        return `<div class="tile"><h2>THE WAIT · races between frames, any order</h2>
+          <div style="display:flex;gap:24px;align-items:baseline;margin-top:6px"><span class="big" style="color:var(--gold)">${med}</span><span class="sub">median wait in races · mean ${mean.toFixed(1)} · the prices themselves predict ${expWait.toFixed(1)}</span></div>
+          ${bks}
+          <div class="kv" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0"><span>longest drought</span><span><b>${longest}</b> races</span></div>
+          <div class="kv" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0"><span>on a typical 30-race day</span><span><b>~${perDay}</b> frames</span></div>
+          ${st.run ? `<div class="kv" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0"><span>current wait</span><span><b>${st.run}</b> races and counting</span></div>` : ''}
+          <div class="sub" style="margin-top:6px">waits are counted across days in running order. The wait is memoryless: after ${longest} blank races the next race’s chance is unchanged — a drought is not “due” to end.</div></div>`; })()}
       <div class="tile"><h2>MONTH BY MONTH</h2><table class="ft"><tr><th>month</th><th>races</th><th>framed</th><th>rate</th><th>expected</th><th>z</th><th>exact</th></tr>
         ${rows.map(m => { const a = st.mo[m]; const zz = z(a); return `<tr${m === hot ? ' style="background:rgba(255,255,255,.03)"' : ''}><td>${m}</td><td>${a.races}</td><td><b>${a.framed}</b></td><td>${pc(a.framed, a.races)}</td><td>${pc(a.exp, a.races)}</td><td style="color:${Math.abs(zz) >= 2 ? 'var(--gold)' : Math.abs(zz) >= 1 ? 'var(--dim)' : 'var(--faint)'}"><b>${zz.toFixed(1)}</b></td><td>${a.exact}</td></tr>`; }).join('')}
         <tr><td><b>year</b></td><td><b>${tot.races}</b></td><td><b>${tot.framed}</b></td><td>${pc(tot.framed, tot.races)}</td><td>${pc(tot.exp, tot.races)}</td><td><b>${(tot.varr > 0 ? (tot.framed - tot.exp) / Math.sqrt(tot.varr) : 0).toFixed(1)}</b></td><td>${tot.exact}</td></tr></table>
