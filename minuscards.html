@@ -365,6 +365,51 @@
       c.rows.forEach(x => { if (x.edge != null && x.edge > 0) tag(x.r.h, '+', 1); });
       c.__score = sc;
     }
+    window.__mcPerfModal = async () => {
+      const el = document.createElement('div');
+      el.id = 'mcsigmodal';
+      el.innerHTML = `<div onclick="__mcSigClose()" style="position:fixed;inset:0;background:rgba(4,10,24,.8);backdrop-filter:blur(4px);z-index:90"></div>
+        <div class="tile" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,480px);max-height:86vh;overflow-y:auto;z-index:91;padding:16px" id="mcperfbody">
+          <div class="state"><div class="spinner"></div>pricing today\u2019s results\u2026</div></div>`;
+      document.body.appendChild(el);
+      let day = null;
+      try { const r = await fetch('/api/priceday?v=5&date=' + todayUK + '&r=' + Math.floor(Date.now() / 120000)); day = await r.json(); } catch {}
+      const body = document.getElementById('mcperfbody');
+      if (!body) return;
+      const tnL = (tid) => ((store.trainers || {})[tid] || {}).name || '';
+      const settledRaces = (day && day.ok ? day.races || [] : []).filter(rc => (rc.runners || []).some(r => r.pos === '1' || r.won === 1));
+      if (!settledRaces.length) { body.innerHTML = `<div style="display:flex;justify-content:space-between"><b style="font-size:15px">TODAY SO FAR</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div><div class="sub" style="margin-top:8px">no settled races yet today</div>`; return; }
+      const rides = [];
+      settledRaces.forEach(rc => (rc.runners || []).forEach(x => rides.push({ day: 'today', t: rc.t, course: rc.course, h: x.h, d: x.d, ofr: x.ofr, lbs: x.lbs, jockey: x.jockey, jid: x.jid, tid: x.tid, trainer: tnL(x.tid), dist: rc.dist, going: rc.going })));
+      const pc = buildCards(rides).sort((a, b) => raceMin(a.t) - raceMin(b.t));
+      const posOf = {}; settledRaces.forEach(rc => (rc.runners || []).forEach(x => { posOf[String(rc.t).replace(/\s.*/, '') + '|' + x.h] = x.pos || (x.won ? '1' : ''); }));
+      let mB = 0, mW = 0, mE = 0, mPL = 0, fW = 0, fE = 0, fPL = 0;
+      const rowsH = pc.map(c => {
+        const rows = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
+        if (!rows.length) return '';
+        const m1 = rows[0].edge < 0 ? rows[0] : null;
+        const favD = Math.min(...c.rows.map(x => x.r.d || Infinity));
+        const fav = c.rows.find(x => x.r.d === favD);
+        const key = (hh) => String(c.t).replace(/\s.*/, '') + '|' + hh;
+        const winRow = c.rows.find(x => posOf[key(x.r.h)] === '1');
+        if (!winRow) return '';
+        if (m1) { mB++; mE += 1 / m1.r.d; const won = posOf[key(m1.r.h)] === '1'; mPL += won ? m1.r.d - 1 : -1; if (won) mW++; }
+        if (fav) { fE += 1 / fav.r.d; const won = posOf[key(fav.r.h)] === '1'; fPL += won ? fav.r.d - 1 : -1; if (won) fW++; }
+        const mark = (hh) => { const p = posOf[key(hh)]; return p === '1' ? '<b style="color:var(--green)">\u27131</b>' : `<span style="color:var(--faint)">${p || '\u00d7'}</span>`; };
+        return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)">
+          <span style="min-width:0"><b>${String(c.t).replace(/\s.*/, '')}</b> ${String(c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 11)}<br>
+          ${m1 ? `M1 ${m1.r.h} ${mark(m1.r.h)} <small style="color:var(--red)">${Math.round(m1.edge * 100)}%</small> @ ${m1.r.d}` : '<small style="color:var(--faint)">no minus</small>'}</span>
+          <span style="white-space:nowrap;text-align:right;color:var(--dim)">won: ${winRow.r.h.slice(0, 14)}${winRow.r.d === favD ? ' <small>fav</small>' : ''}<br>@ ${winRow.r.d}</span></div>`;
+      }).join('');
+      const ae = (w, e) => e > 0 ? (w / e).toFixed(2) : '\u2014';
+      const stoneN = pc.filter(c => SNAP.races[skey(c.t, c.course)]).length;
+      body.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">TODAY SO FAR \u00b7 ${pc.length} RACES</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+          <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">THE MINUS</span> <b style="font-family:var(--mono)">${mW}/${mB}</b> <small style="font-family:var(--mono);color:${mW / (mE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(mW, mE)} \u00b7 \u00a3${mPL.toFixed(1)}</small></div>
+          <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">FAV</span> <b style="font-family:var(--mono)">${fW}/${pc.length}</b> <small style="font-family:var(--mono);color:${fW / (fE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(fW, fE)} \u00b7 \u00a3${fPL.toFixed(1)}</small></div></div>
+        ${rowsH}
+        <div class="sub" style="margin-top:8px">priced at final SP from the results feed \u2014 replay-grade, independent of the live quarantine \u00b7 ${stoneN ? stoneN + ' of these races also have a pre-off record' : 'no pre-off record for these races yet'} \u00b7 A/E &lt; 1.00 on THE MINUS = the fade was right today</div>`;
+    };
     window.__mcScoresModal = () => {
       cards.filter(c => !c.stale).forEach(ensureScore);
       const resMark = window.__mcResMark || (() => '');
@@ -400,7 +445,7 @@
       const finished = cards.filter(isPast).sort(sortKey === 'time' ? (a, b) => raceMin(b.t) - raceMin(a.t) : cmpCards);
       const ordered = viewMode === 'results' ? finished : [...upcoming, ...finished];
       const ptabs = '<div id="mcfilters" style="position:sticky;top:0;z-index:40;background:linear-gradient(rgba(11,23,48,.96),rgba(11,23,48,.9));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -14px;padding:8px 14px 2px"><div style="display:flex;gap:6px;padding:0 0 8px">' + [['j','RIDER'],['t','TRAINER'],['jt','PAIR']].map(([m, lbl]) =>
-        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<button onclick="__mcScoresModal()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:700">SCORES</button>` + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
+        `<button onclick="__mcPerson('${m}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${m === personMode ? 'var(--gold)' : '#3A5490'};background:${m === personMode ? 'var(--gold)' : 'transparent'};color:${m === personMode ? '#101418' : '#8FA3C8'};font-weight:${m === personMode ? '700' : '400'}">${lbl}</button>`).join('') + `<button onclick="__mcScoresModal()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:700">SCORES</button><button onclick="__mcPerfModal()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--green);background:transparent;color:var(--green);font-weight:700">TODAY</button>` + `<span style="flex:1"></span><input type="date" value="${QD || new Date().toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" onchange="location.href = this.value >= '${new Date().toISOString().slice(0, 10)}' ? location.pathname : location.pathname + '?d=' + this.value" style="flex:none;font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:999px;border:1px solid ${QD ? 'var(--gold)' : '#3A5490'};background:transparent;color:${QD ? 'var(--gold)' : '#8FA3C8'};color-scheme:dark"><button onclick="__mcView()" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${viewMode === 'results' ? 'var(--green)' : '#3A5490'};background:${viewMode === 'results' ? 'var(--green)' : 'transparent'};color:${viewMode === 'results' ? '#fff' : '#8FA3C8'};font-weight:${viewMode === 'results' ? '700' : '400'}">RESULTS</button>` + '</div>';
       const chips = ptabs + '<div style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px">' + Object.entries(SORTS).map(([k, s]) =>
         `<button onclick="__mcSort('${k}')" style="flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ${k === sortKey ? 'var(--blue)' : '#3A5490'};background:${k === sortKey ? 'var(--blue)' : 'transparent'};color:${k === sortKey ? '#fff' : '#8FA3C8'}">${s.lbl}</button>`).join('') + '</div></div>';
       window.__mcSort = (k) => { sortKey = (k === sortKey ? 'time' : k); render(); };
