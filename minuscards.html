@@ -408,6 +408,17 @@
           <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">THE MINUS</span> <b style="font-family:var(--mono)">${mW}/${mB}</b> <small style="font-family:var(--mono);color:${mW / (mE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(mW, mE)} \u00b7 \u00a3${mPL.toFixed(1)}</small></div>
           <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">FAV</span> <b style="font-family:var(--mono)">${fW}/${pc.length}</b> <small style="font-family:var(--mono);color:${fW / (fE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(fW, fE)} \u00b7 \u00a3${fPL.toFixed(1)}</small></div></div>
         ${rowsH}
+        ${(() => {
+          const nmNow = new Date().getHours() * 60 + new Date().getMinutes();
+          const nxt = cards.filter(c => !c.stale && raceMin(c.t) > nmNow)
+            .map(c => { const rows = c.rows.filter(x => x.edge != null && isFinite(x.edge) && x.edge < 0).sort((a, b) => a.edge - b.edge); return rows.length ? { c, x: rows[0] } : null; })
+            .filter(Boolean).sort((a, b) => raceMin(a.c.t) - raceMin(b.c.t)).slice(0, 3);
+          if (!nxt.length) return '';
+          return `<div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--gold);margin:12px 0 2px">NEXT UP \u00b7 THE MINUS</div>` +
+            nxt.map(({ c, x }) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)">
+              <span style="min-width:0"><b>${String(c.t).replace(/\s.*/, '')}</b> ${String(c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 11)} ${x.r.h}</span>
+              <span style="white-space:nowrap;color:var(--dim)"><b style="color:var(--red)">${Math.round(x.edge * 100)}%</b> @ ${x.r.d || '\u2014'}</span></div>`).join('');
+        })()}
         <div class="sub" style="margin-top:8px">priced at final SP from the results feed \u2014 replay-grade, independent of the live quarantine \u00b7 ${stoneN ? stoneN + ' of these races also have a pre-off record' : 'no pre-off record for these races yet'} \u00b7 A/E &lt; 1.00 on THE MINUS = the fade was right today</div>`;
     };
     window.__mcScoresModal = () => {
