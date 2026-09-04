@@ -383,7 +383,7 @@
       settledRaces.forEach(rc => (rc.runners || []).forEach(x => rides.push({ day: 'today', t: rc.t, course: rc.course, h: x.h, d: x.d, ofr: x.ofr, lbs: x.lbs, jockey: x.jockey, jid: x.jid, tid: x.tid, trainer: tnL(x.tid), dist: rc.dist, going: rc.going })));
       const pc = buildCards(rides).sort((a, b) => raceMin(a.t) - raceMin(b.t));
       const posOf = {}; settledRaces.forEach(rc => (rc.runners || []).forEach(x => { posOf[String(rc.t).replace(/\s.*/, '') + '|' + x.h] = x.pos || (x.won ? '1' : ''); }));
-      let mB = 0, mW = 0, mE = 0, mPL = 0, fW = 0, fE = 0, fPL = 0;
+      let mB = 0, mW = 0, mE = 0, mPL = 0, fW = 0, fE = 0, fPL = 0, fcB = 0, fcW = 0, tcB = 0, tcW = 0;
       const rowsH = pc.map(c => {
         const rows = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
         if (!rows.length) return '';
@@ -396,9 +396,17 @@
         if (m1) { mB++; mE += 1 / m1.r.d; const won = posOf[key(m1.r.h)] === '1'; mPL += won ? m1.r.d - 1 : -1; if (won) mW++; }
         if (fav) { fE += 1 / fav.r.d; const won = posOf[key(fav.r.h)] === '1'; fPL += won ? fav.r.d - 1 : -1; if (won) fW++; }
         const mark = (hh) => { const p = posOf[key(hh)]; return p === '1' ? '<b style="color:var(--green)">\u27131</b>' : `<span style="color:var(--faint)">${p || '\u00d7'}</span>`; };
+        // forecast / tricast: the top-2 / top-3 by lowest edge, landed in either order
+        const posN = (hh) => Number(posOf[key(hh)]) || 99;
+        const setLands = (n) => { if (rows.length < n) return null; const ps = rows.slice(0, n).map(x => posN(x.r.h)).sort((a, b) => a - b); return ps.every((p, i) => p === i + 1); };
+        const fc = setLands(2), tc = setLands(3);
+        if (fc != null) { fcB++; if (fc) fcW++; }
+        if (tc != null) { tcB++; if (tc) tcW++; }
+        const castLine = (fc != null || tc != null)
+          ? `<br><small>${fc != null ? (fc ? '<b style="color:var(--gold)">FORECAST \u2713</b>' : '<span style="color:var(--faint)">forecast \u00d7</span>') : ''}${fc != null && tc != null ? ' \u00b7 ' : ''}${tc != null ? (tc ? '<b style="color:var(--gold)">TRICAST \u2713</b>' : '<span style="color:var(--faint)">tricast \u00d7</span>') : ''}</small>` : '';
         return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;font-family:var(--mono)">
           <span style="min-width:0"><b>${String(c.t).replace(/\s.*/, '')}</b> ${String(c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 11)}<br>
-          ${m1 ? `M1 ${m1.r.h} ${mark(m1.r.h)} <small style="color:var(--red)">${Math.round(m1.edge * 100)}%</small> @ ${m1.r.d}` : '<small style="color:var(--faint)">no minus</small>'}</span>
+          ${m1 ? `M1 ${m1.r.h} ${mark(m1.r.h)} <small style="color:var(--red)">${Math.round(m1.edge * 100)}%</small> @ ${m1.r.d}` : '<small style="color:var(--faint)">no minus</small>'}${castLine}</span>
           <span style="white-space:nowrap;text-align:right;color:var(--dim)">won: ${winRow.r.h.slice(0, 14)}${winRow.r.d === favD ? ' <small>fav</small>' : ''}<br>@ ${winRow.r.d}</span></div>`;
       }).join('');
       const ae = (w, e) => e > 0 ? (w / e).toFixed(2) : '\u2014';
@@ -406,6 +414,7 @@
       body.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:15px">TODAY SO FAR \u00b7 ${pc.length} RACES</b><button onclick="__mcSigClose()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--dim)">\u00d7</button></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
           <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">THE MINUS</span> <b style="font-family:var(--mono)">${mW}/${mB}</b> <small style="font-family:var(--mono);color:${mW / (mE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(mW, mE)} \u00b7 \u00a3${mPL.toFixed(1)}</small></div>
+          <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">FORECAST</span> <b style="font-family:var(--mono)">${fcW}/${fcB}</b> <span style="font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-left:6px">TRICAST</span> <b style="font-family:var(--mono)">${tcW}/${tcB}</b></div>
           <div class="tile" style="padding:7px 11px;margin:0"><span style="font-family:var(--mono);font-size:9.5px;color:var(--dim)">FAV</span> <b style="font-family:var(--mono)">${fW}/${pc.length}</b> <small style="font-family:var(--mono);color:${fW / (fE || 1) > 1 ? 'var(--green)' : 'var(--red)'}">A/E ${ae(fW, fE)} \u00b7 \u00a3${fPL.toFixed(1)}</small></div></div>
         ${rowsH}
         ${(() => {
@@ -419,7 +428,7 @@
               <span style="min-width:0"><b>${String(c.t).replace(/\s.*/, '')}</b> ${String(c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 11)} ${x.r.h}</span>
               <span style="white-space:nowrap;color:var(--dim)"><b style="color:var(--red)">${Math.round(x.edge * 100)}%</b> @ ${x.r.d || '\u2014'}</span></div>`).join('');
         })()}
-        <div class="sub" style="margin-top:8px">priced at final SP from the results feed \u2014 replay-grade, independent of the live quarantine \u00b7 ${stoneN ? stoneN + ' of these races also have a pre-off record' : 'no pre-off record for these races yet'} \u00b7 A/E &lt; 1.00 on THE MINUS = the fade was right today</div>`;
+        <div class="sub" style="margin-top:8px">priced at final SP from the results feed \u2014 replay-grade, independent of the live quarantine \u00b7 ${stoneN ? stoneN + ' of these races also have a pre-off record' : 'no pre-off record for these races yet'} \u00b7 A/E &lt; 1.00 on THE MINUS = the fade was right today \u00b7 forecast/tricast = the top 2 / top 3 by lowest edge filling the places in any order</div>`;
     };
     window.__mcScoresModal = () => {
       cards.filter(c => !c.stale).forEach(ensureScore);
