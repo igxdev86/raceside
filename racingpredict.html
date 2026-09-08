@@ -37,6 +37,9 @@
   .chipl{background:rgba(0,0,0,.35);color:#FFB4A6;border-radius:7px;padding:2px 8px;font-weight:800}
   .chipo{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C;border-radius:7px;padding:2px 8px;font-weight:800}
   .note2{font-size:11px;color:rgba(255,255,255,.6);margin:14px 2px}
+  .stakes{display:flex;gap:8px;margin:0 2px 14px;flex-wrap:wrap}
+  .stk{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:7px 14px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer}
+  .stk.on{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C;border-color:transparent}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1C0206;color:#fff;border-radius:999px;
     padding:11px 20px;font-size:13px;font-weight:700;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);border:1px solid rgba(255,194,75,.4)}
 </style>
@@ -50,7 +53,8 @@
   <div class="bal" id="rpbal">—</div>
 </header>
 <main>
-  <p class="note2">Play points, not money. Every race is a market: the percentage is the crowd’s implied chance from live odds (overround removed). Buy a horse at its percentage; a winner pays stake ÷ chance. Prices refresh every few minutes and buying closes at post time. Purely a way of keeping score — not betting, not advice.</p>
+  <p class="note2">A demo book with a 50,000 demo balance — nothing real is staked or won. Every race is a market: the percentage is the crowd’s implied chance from live odds with the bookmaker’s margin stripped out, so the game is exactly fair. Back a horse at its percentage; a winner returns stake ÷ chance. Betting closes at post time and every bet is recorded to your account. Not betting, not advice.</p>
+  <div class="stakes" id="rpstakes"></div>
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
 <div class="note2" style="text-align:center;margin-top:26px">a <a href="/" style="color:rgba(255,255,255,.8)">RACESIDE</a> experiment</div>
@@ -65,6 +69,11 @@
   const fmt = (n) => Math.round(n).toLocaleString('en-GB');
   const toast = (msg) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
 
+  const STAKES = [50, 100, 250, 500, 1000];
+  let stake = Number(localStorage.getItem('rpstake') || 100);
+  if (!STAKES.includes(stake)) stake = 100;
+  window.__rpStake = (v) => { stake = v; try { localStorage.setItem('rpstake', String(v)); } catch {} drawStakes(); render(); };
+  function drawStakes() { $('rpstakes').innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.6);align-self:center">bet size</span>' + STAKES.map(v => `<button class="stk${v === stake ? ' on' : ''}" onclick="__rpStake(${v})">${v.toLocaleString('en-GB')}</button>`).join(''); }
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
   let ACCT = null;          // { id, bal, pos } — server truth
@@ -82,19 +91,19 @@
       if (j.ok) { ACCT = j; return; }
     }
     const j = await api({ op: 'new' });
-    if (j.ok) { CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; toast('account created · 1,000 pts'); }
+    if (j.ok) { CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; toast('demo account created · 50,000'); }
   }
 
   window.__rpBuy = async (k, h) => {
     if (!CRED) return;
-    const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, stake: 25 });
-    if (!j.ok) { toast(j.error || 'buy failed'); return; }
+    const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, stake });
+    if (!j.ok) { toast(j.error || 'bet failed'); return; }
     ACCT = j; render();
-    toast(`bought ${j.bought.h} · 25 pts at ${(j.bought.p * 100).toFixed(0)}%`);
+    toast(`bet ${stake.toLocaleString('en-GB')} on ${j.bought.h} at ${(j.bought.p * 100).toFixed(0)}%`);
   };
   window.__rpReset = async () => {
     const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
-    if (j.ok) { ACCT = j; render(); toast('fresh 1,000 points'); } else toast(j.error || 'no reset');
+    if (j.ok) { ACCT = j; render(); toast('fresh 50,000 demo balance'); } else toast(j.error || 'no reset');
   };
   window.__rpLogin = async () => {
     const code = prompt('Paste your account code (id.secret):');
@@ -113,14 +122,17 @@
 
   function render() {
     if (!ACCT) return;
-    $('rpbal').textContent = fmt(ACCT.bal) + ' pts';
+    $('rpbal').textContent = fmt(ACCT.bal);
     const pos = ACCT.pos || [];
-    const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-8).reverse();
-    $('rpport').innerHTML = `<div class="mkt"><h3>Your account</h3>
-      <div class="sub2">${CRED.id} · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
-      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${p.h}</span><span>${p.stake} pts @ ${(p.p * 100).toFixed(0)}% → ${fmt(p.stake / p.p)}</span></div>`).join('')}
-      ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${p.h}</span><span>${p.won ? '+' + fmt(p.pay) : '−' + p.stake} pts</span></div>`).join('')}
-      ${ACCT.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again · 1,000 pts</button></div>' : ''}</div>`;
+    const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-12).reverse();
+    const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
+    const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.h}`.trim();
+    $('rpport').innerHTML = `<div class="mkt"><h3>Your bets</h3>
+      <div class="sub2">${CRED.id} · demo · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
+      <div class="pos" style="border-top:none"><span>${tot.bets} bets · ${fmt(tot.staked)} staked</span><span style="font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : ''}${fmt(tot.pl)} settled P/L</span></div>
+      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} @ ${(p.p * 100).toFixed(0)}% → ${fmt(p.stake / p.p)}</span></div>`).join('')}
+      ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}</span><span>${p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`).join('')}
+      ${ACCT.bal < 100 && !open.length ? '<div class="pos"><span>balance gone</span><button class="buy" onclick="__rpReset()">fresh 50,000</button></div>' : ''}</div>`;
     const nm = new Date().getHours() * 60 + new Date().getMinutes();
     const rows = races.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(rc => {
       const off = raceMin(rc.t) <= nm || winMap[rc.k] !== undefined;
@@ -133,7 +145,7 @@
           return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
             <div class="bar"><div style="width:${(p * 100).toFixed(0)}%"></div></div></span>
             <span class="pct">${(p * 100).toFixed(0)}%</span>
-            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">Buy 25</button></div>`; }).join('')}
+            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">Bet ${stake.toLocaleString('en-GB')}</button></div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
@@ -153,6 +165,7 @@
       render();
     } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">feed unavailable — pull to refresh</div>'; }
   }
+  drawStakes();
   (async () => { await ensureAccount(); await pull(); setInterval(pull, 150000); })();
 })();
 </script>
