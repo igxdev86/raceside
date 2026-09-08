@@ -113,21 +113,33 @@
   const ewTerms = (n, hcp) => n < 5 ? null : n <= 7 ? { pl: 2, fr: '1/4', places: 2 } : hcp ? (n >= 16 ? { pl: 4, fr: '1/4' } : n >= 12 ? { pl: 3, fr: '1/4' } : { pl: 3, fr: '1/5' }) : { pl: 3, fr: '1/5' };
   const fdist = (d) => { const f = Number(d); return f ? (f >= 8 ? Math.floor(f / 8) + 'm' + (f % 8 ? ' ' + (f % 8) + 'f' : '') : f + 'f') : String(d || ''); };
   let SLIP = [];
+  let MULTI = { on: false, stake: 100 };
   window.__rpAdd = (k, h, label, race, ewOk) => {
     const i = SLIP.findIndex(s => s.k === k && s.h === h);
     if (i >= 0) { SLIP.splice(i, 1); } else { SLIP.push({ k, h, label, race, ew: 0, ewOk, stake }); }
+    if (!multiEligible()) MULTI.on = false;
     render(); drawSlip();
   };
+  const multiEligible = () => SLIP.length >= 2 && SLIP.length <= 8 && new Set(SLIP.map(s => s.k)).size === SLIP.length;
+  const multiName = (n) => n === 2 ? 'DOUBLE' : n === 3 ? 'TREBLE' : n + '-FOLD ACCA';
+  window.__rpMultiOn = (on) => { MULTI.on = !!on; drawSlip(); };
+  window.__rpMultiStk = (dir) => { const j = STAKES.indexOf(MULTI.stake); MULTI.stake = STAKES[Math.max(0, Math.min(STAKES.length - 1, j + dir))]; drawSlip(); };
   window.__rpSlipEw = (i, ew) => { if (!SLIP[i]) return; if (ew && !SLIP[i].ewOk) { toast('win only — fewer than 5 runners'); return; } SLIP[i].ew = ew; drawSlip(); };
   window.__rpSlipStk = (i, dir) => { if (!SLIP[i]) return; const j = STAKES.indexOf(SLIP[i].stake); SLIP[i].stake = STAKES[Math.max(0, Math.min(STAKES.length - 1, j + dir))]; drawSlip(); };
-  window.__rpSlipRm = (i) => { SLIP.splice(i, 1); render(); drawSlip(); };
+  window.__rpSlipRm = (i) => { SLIP.splice(i, 1); if (!multiEligible()) MULTI.on = false; render(); drawSlip(); };
   window.__rpPlace = async () => {
     if (!SLIP.length || !CRED) return;
-    const bets = SLIP.slice(); SLIP = []; drawSlip();
+    const bets = SLIP.slice();
+    const doMulti = MULTI.on && multiEligible() ? { legs: bets.map(s => ({ k: s.k, h: s.h })), stake: MULTI.stake, name: multiName(bets.length) } : null;
+    SLIP = []; MULTI.on = false; drawSlip();
     let placed = 0;
     for (const s of bets) {
       const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k: s.k, h: s.h, stake: s.stake, ew: s.ew ? 1 : 0 });
       if (j.ok) { ACCT = j; placed++; } else toast(`${s.label}: ${j.error || 'failed'}`);
+    }
+    if (doMulti) {
+      const j = await api({ op: 'multi', id: CRED.id, token: CRED.token, legs: doMulti.legs, stake: doMulti.stake });
+      if (j.ok) { ACCT = j; placed++; toast(doMulti.name.toLowerCase() + ' on'); } else toast(`${doMulti.name}: ${j.error || 'failed'}`);
     }
     render();
     if (placed) toast(placed + (placed === 1 ? ' bet placed @ SP' : ' bets placed @ SP'));
@@ -136,7 +148,7 @@
     let bar = $('slipbar');
     if (!SLIP.length) { if (bar) bar.remove(); return; }
     if (!bar) { bar = document.createElement('div'); bar.id = 'slipbar'; document.body.appendChild(bar); }
-    const cost = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0);
+    const cost = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0) + (MULTI.on && multiEligible() ? MULTI.stake : 0);
     bar.innerHTML = `<h4>Bet slip · ${SLIP.length}<span style="font-family:var(--mono)">${fmt(cost)}</span></h4>
       ${SLIP.map((s, i) => `<div class="sliprow">
         <span class="snm"><b>${s.h}</b><small>${s.label}</small></span>
@@ -145,7 +157,13 @@
         <span style="font-family:var(--mono);font-weight:800;min-width:44px;text-align:center">$${s.stake.toLocaleString('en-US')}${s.ew ? '×2' : ''}</span>
         <button class="stkbtn" onclick="__rpSlipStk(${i},1)">+</button>
         <button class="xbtn" onclick="__rpSlipRm(${i})">×</button></div>`).join('')}
-      <button class="placebtn" onclick="__rpPlace()">Place ${SLIP.length === 1 ? 'bet' : SLIP.length + ' bets'} @ SP · ${fmt(cost)}</button>`;
+      ${multiEligible() ? `<div class="sliprow" style="border-top:1px dashed rgba(255,194,75,.4)">
+        <span class="snm"><b style="color:#FFC24B">${multiName(SLIP.length)}</b><small>all ${SLIP.length} to win · SP × SP${SLIP.length > 2 ? ' × …' : ''} · win only</small></span>
+        <span class="seg"><button class="${MULTI.on ? '' : 'on'}" onclick="__rpMultiOn(0)">OFF</button><button class="${MULTI.on ? 'on' : ''}" onclick="__rpMultiOn(1)">ON</button></span>
+        ${MULTI.on ? `<button class="stkbtn" onclick="__rpMultiStk(-1)">−</button>
+        <span style="font-family:var(--mono);font-weight:800;min-width:44px;text-align:center">$${MULTI.stake.toLocaleString('en-US')}</span>
+        <button class="stkbtn" onclick="__rpMultiStk(1)">+</button>` : ''}</div>` : ''}
+      <button class="placebtn" onclick="__rpPlace()">Place @ SP · ${fmt(cost)}</button>`;
   }
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
@@ -205,10 +223,10 @@
     const pos = ACCT.pos || [];
     const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).reverse();
     const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
-    const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
+    const lbl = (p) => p.multi ? `${p.mname} · ${p.legs.map(l => l.h).join(' / ')}` : `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
     const px = (p) => (p.ew ? 'E/W ' : '') + (p.sp !== undefined ? '@ SP' : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%'));
     const row = (p) => p.settled
-      ? `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`
+      ? `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.spx ? ' <small style="color:rgba(255,255,255,.55)">SP × ' + p.spx + '</small>' : p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake * (p.ew ? 2 : 1))}</span></div>`
       : `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} ${px(p)}</span></div>`;
     $('rpport').innerHTML = `<div class="mkt"><h3 style="display:flex;justify-content:space-between;align-items:baseline">My bets<span style="font-family:var(--mono);font-size:12px;font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : '−'}${fmt(Math.abs(tot.pl))}</span></h3>
       <div class="sub2">${tot.bets} bets · ${fmt(tot.staked)} staked</div>
