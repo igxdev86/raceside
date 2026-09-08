@@ -48,6 +48,7 @@ export default async function handler(req, res) {
           dist: rc.distance_f || rc.distance || '', going: rc.going || '',
           rtype: rc.race_name && /handicap/i.test(rc.race_name) ? 'Handicap' : (rc.type || rc.race_type || rc.race_class || ''),
           rname: String(rc.race_name || '').slice(0, 60),
+          rclass: String(rc.race_class || '').replace(/^Class\s*/i, ''),
           h: p.x.horse || '', d: Math.round(p.d * 100) / 100,
           mp: Math.round((1 / p.d / over) * 1000) / 10,   // stripped market win %, e.g. 21.4
           rank: i + 1, n: priced.length,
