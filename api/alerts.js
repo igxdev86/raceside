@@ -51,7 +51,7 @@ export default async function handler(req, res) {
   const gate = req.headers['authorization'] === `Bearer ${process.env.CRON_SECRET}` || (req.query.key && (req.query.key === process.env.TWEET_KEY || req.query.key === process.env.CRON_SECRET));
   if (!gate) return res.status(401).json({ ok: false, error: 'unauthorized' });
   if (!key || !to) return res.status(200).json({ ok: false, error: 'set RESEND_API_KEY and EMAIL_TO' });
-  const base = process.env.ALERT_BASE || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://raceside.vercel.app');
+  const base = process.env.ALERT_BASE || 'https://raceside.vercel.app';
   const gj = async (p) => { const r = await fetch(base + p); return r.json(); };
   const now = req.query.now ? new Date(req.query.now) : new Date();
   const nm = ukHM(now);
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
 
   let up = null, store = null;
   try { up = await gj('/api/upcoming?v=4'); store = await gj('/api/peopleall?v=2'); } catch {}
-  if (!(up && up.ok && store && store.ok)) return res.status(200).json({ ok: false, error: 'feeds unavailable' });
+  if (!(up && up.ok && store && store.ok)) return res.status(200).json({ ok: false, error: 'feeds unavailable', base, up: !!(up && up.ok), people: !!(store && store.ok) });
   const pj = pctB(store.jockeys), pt = pctB(store.trainers);
   const by = {};
   (up.rides || []).filter(r => r.day === 'today' && r.d > 1).forEach(r => { (by[rkey(r.t, r.course)] = by[rkey(r.t, r.course)] || { t: r.t, course: r.course, rs: [] }).rs.push(r); });
