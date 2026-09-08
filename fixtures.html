@@ -35,30 +35,43 @@
   const ckey = (c) => String(c || '').toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[^a-z]/g, '');
   const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
   const pctB = (bucket) => { const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
-  // minus-1 of a race under the MINUS CARDS model at SP; null if unrated/too small
-  function m1Of(rc, pj, pt) {
+  // per-race signal picks under the site's model at SP: M1, WR best-in, best jockey, best trainer, best pair
+  function sigsOf(rc, pj, pt, store) {
     const rs = (rc.runners || []).filter(r => r.d > 1);
     if (rs.length < 3) return null;
+    const winI = rs.findIndex(r => r.pos === '1' || r.won === 1);
+    if (winI < 0) return null;
+    const out = {};
+    const rec = (k, i) => { if (i != null && i >= 0) out[k] = { won: i === winI, e: 1 / rs[i].d }; };
     const orVals = rs.map(r => r.ofr).filter(v => v != null);
-    if (orVals.length < 2) return null;
-    const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
     const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
     if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
-    const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
-      return 0.8 * (sc - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
-    const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
-    const rows = rs.map((r, i) => ({ r, edge: ((ex[i] / Z) - 1 / r.d) / (1 / r.d) })).filter(x => isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
-    if (!rows.length || rows[0].edge >= 0) return null;
-    const m1 = rows[0];
-    return { won: m1.r.pos === '1' || m1.r.won === 1, e: 1 / m1.r.d };
+    // M1 (needs ratings)
+    if (orMean != null) {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        return 0.8 * (sc - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+      let mi = -1, me = 0;
+      rs.forEach((r, i) => { const edge = ((ex[i] / Z) - 1 / r.d) / (1 / r.d); if (isFinite(edge) && edge < me) { me = edge; mi = i; } });
+      rec('m1', mi >= 0 ? mi : null);
+    }
+    // WR best-in (strictly best positive advantage)
+    let wi = -1, wv = 0; rs.forEach((r, i) => { const a = adv[r.h]; if (a != null && a > wv) { wv = a; wi = i; } });
+    rec('wr', wi >= 0 ? wi : null);
+    const argmax = (fn) => { let bi = -1, bv = -Infinity, dup = false; rs.forEach((r, i) => { const v = fn(r); if (v == null) return; if (v > bv) { bv = v; bi = i; dup = false; } else if (v === bv) dup = true; }); return dup ? -1 : bi; };
+    rec('j', argmax(r => { const s = (store.jockeys || {})[r.jid]; return s && s.runs >= 50 ? s.wins / s.runs : null; }));
+    rec('t', argmax(r => { const s = (store.trainers || {})[r.tid]; return s && s.runs >= 50 ? s.wins / s.runs : null; }));
+    rec('pair', argmax(r => { const p = (store.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; }));
+    return out;
   }
   async function trackWalk(onDone) {
     let store; try { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); if (!store.ok) throw 0; } catch { const el = $('fxwalk'); if (el) el.textContent = 'people feed unavailable \u2014 reload to retry the track records'; return; }
     const pj = pctB(store.jockeys), pt = pctB(store.trainers);
     const year = new Date().getFullYear();
-    let st = null; try { st = JSON.parse(localStorage.getItem('rsfxm:v1') || 'null'); } catch {}
+    let st = null; try { st = JSON.parse(localStorage.getItem('rsfxm:v2') || 'null'); } catch {}
     if (!(st && String(st.year) === String(year))) st = null;
-    if (!st) { try { const r = await fetch('/api/yearstate?k=trkstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
+    if (!st) { try { const r = await fetch('/api/yearstate?k=trkstate:v2'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
     if (!st) st = { year, lastDate: null, courses: {} };
     onDone(st, false);   // paint whatever is already known before walking
     const yEnd = new Date(Date.now() - 86400000);
@@ -69,10 +82,10 @@
       let j = null; try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
       st.lastDate = dt;
       if (j && j.ok) (j.races || []).forEach(rc => {
-        const m = m1Of(rc, pj, pt); if (!m) return;
+        const sig = sigsOf(rc, pj, pt, store); if (!sig) return;
         const k = ckey(rc.course); if (!k) return;
-        const a = (st.courses[k] = st.courses[k] || { races: 0, w: 0, e: 0 });
-        a.races++; a.e += m.e; if (m.won) a.w++;
+        const a = (st.courses[k] = st.courses[k] || {});
+        Object.entries(sig).forEach(([s2, v]) => { const b = (a[s2] = a[s2] || { r: 0, w: 0, e: 0 }); b.r++; b.e += v.e; if (v.won) b.w++; });
       });
       if (n % 4 === 0 || n === 1) { const doy = (s2) => Math.floor((Date.parse(s2) - Date.parse(year + '-01-01')) / 86400000) + 1; const pct = Math.min(99, Math.round(doy(dt) / doy(yEnd.toISOString().slice(0, 10)) * 100));
         const pe = $('fxpct'); if (pe) pe.textContent = pct + '%';
@@ -80,8 +93,8 @@
         const el = $('fxwalk'); if (el) el.textContent = 'scoring the year\u2026 ' + dt + ' \u00b7 first visit takes a few minutes, then instant for everyone'; }
       if (++n % 10 === 0) onDone(st, false);
     }
-    if (n) { try { localStorage.setItem('rsfxm:v1', JSON.stringify(st)); } catch {}
-      try { fetch('/api/yearstate?k=trkstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
+    if (n) { try { localStorage.setItem('rsfxm:v2', JSON.stringify(st)); } catch {}
+      try { fetch('/api/yearstate?k=trkstate:v2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
     onDone(st, true);
   }
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -113,16 +126,26 @@
     const sub = $('fxsub'); if (sub) sub.textContent = fx.length + ' fixtures \u00b7 ' + courses.length + ' tracks';
     trackWalk((st, done) => {
       if (done) { const p = $('fxprog'); if (p) p.remove(); }
-      const w = $('fxwalk'); if (w && done) w.textContent = 'M1 = the minus horse\u2019s 2026 record at that track (wins / rated races, \u00a31-at-SP A/E in brackets) \u00b7 gold = best strike with 20+ races \u00b7 full-year people stats, map not proof';
+      const w = $('fxwalk'); if (w && done) w.textContent = 'each signal\u2019s 2026 record at that track: strike \u00b7 wins/races \u00b7 (\u00a31-at-SP A/E) \u00b7 \u2605 = the track\u2019s best signal by A/E (20+ races) \u00b7 gold border = best M1 strike \u00b7 full-year people stats, map not proof';
       let best = null;
+      const SIGS = [['m1', 'M1'], ['wr', 'WR'], ['j', 'J'], ['t', 'T'], ['pair', 'PAIR']];
       document.querySelectorAll('#fxgrid [data-ck]').forEach(el => {
         const a = st.courses[el.getAttribute('data-ck')];
         const out = el.querySelector('[data-m1]');
-        if (!a) { if (done) out.textContent = 'M1 \u2014'; return; }
-        if (a.races < 10) { out.textContent = 'M1 ' + a.w + '/' + a.races; return; }
-        const pc2 = Math.round(a.w / a.races * 100);
-        out.innerHTML = 'M1 <b>' + pc2 + '%</b> ' + a.w + '/' + a.races + ' <span style="color:' + (a.w / a.e > 1 ? 'var(--green)' : 'var(--red)') + '">(' + (a.e > 0 ? (a.w / a.e).toFixed(2) : '\u2014') + ')</span>';
-        if (a.races >= 20 && (!best || a.w / a.races > best.v)) best = { el, v: a.w / a.races };
+        if (!a) { if (done) out.textContent = '\u2014'; return; }
+        let bestAe = null;
+        SIGS.forEach(([s2]) => { const b = a[s2]; if (b && b.r >= 20 && b.e > 0 && (!bestAe || b.w / b.e > bestAe.v)) bestAe = { s: s2, v: b.w / b.e }; });
+        out.innerHTML = SIGS.map(([s2, lbl]) => {
+          const b = a[s2];
+          if (!b || !b.r) return '';
+          const hot = bestAe && bestAe.s === s2;
+          const ae2 = b.e > 0 ? (b.w / b.e).toFixed(2) : '\u2014';
+          const body = b.r < 10 ? lbl + ' ' + b.w + '/' + b.r
+            : lbl + ' <b>' + Math.round(b.w / b.r * 100) + '%</b> ' + b.w + '/' + b.r + ' <span style="color:' + (b.w / b.e > 1 ? 'var(--green)' : 'var(--red)') + '">(' + ae2 + ')</span>';
+          return '<div style="' + (hot ? 'color:var(--gold)' : '') + '">' + body + (hot ? ' \u2605' : '') + '</div>';
+        }).join('');
+        const m = a.m1;
+        if (m && m.r >= 20 && (!best || m.w / m.r > best.v)) best = { el, v: m.w / m.r };
       });
       if (best && done) best.el.style.border = '1px solid var(--gold)';
     });
