@@ -49,13 +49,14 @@
     return { won: m1.r.pos === '1' || m1.r.won === 1, e: 1 / m1.r.d };
   }
   async function trackWalk(onDone) {
-    let store; try { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); if (!store.ok) throw 0; } catch { return; }
+    let store; try { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); if (!store.ok) throw 0; } catch { const el = $('fxwalk'); if (el) el.textContent = 'people feed unavailable \u2014 reload to retry the track records'; return; }
     const pj = pctB(store.jockeys), pt = pctB(store.trainers);
     const year = new Date().getFullYear();
     let st = null; try { st = JSON.parse(localStorage.getItem('rsfxm:v1') || 'null'); } catch {}
     if (!(st && String(st.year) === String(year))) st = null;
     if (!st) { try { const r = await fetch('/api/yearstate?k=trkstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
     if (!st) st = { year, lastDate: null, courses: {} };
+    onDone(st, false);   // paint whatever is already known before walking
     const yEnd = new Date(Date.now() - 86400000);
     const start = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
     let n = 0;
@@ -69,11 +70,11 @@
         const a = (st.courses[k] = st.courses[k] || { races: 0, w: 0, e: 0 });
         a.races++; a.e += m.e; if (m.won) a.w++;
       });
-      if (++n % 15 === 0) { const el = $('fxwalk'); if (el) el.textContent = 'scoring the year\u2026 ' + dt; }
+      if (++n % 10 === 0) { const el = $('fxwalk'); if (el) el.textContent = 'scoring the year for minus-1 records\u2026 ' + dt + ' (first visit takes a few minutes, then shared)'; onDone(st, false); }
     }
     if (n) { try { localStorage.setItem('rsfxm:v1', JSON.stringify(st)); } catch {}
       try { fetch('/api/yearstate?k=trkstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
-    onDone(st);
+    onDone(st, true);
   }
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   async function main() {
@@ -101,8 +102,8 @@
       <div class="tile">${dates.map(dt => `<div class="fxday"><span class="d">${fmt(dt)}</span><span class="c">${days[dt].sort().join(' \u00b7 ')}</span></div>`).join('')}</div>
       <div class="sub" style="margin:10px 0">source: ${j.source} \u00b7 ${j.from} \u2192 ${j.to}</div>`;
     const sub = $('fxsub'); if (sub) sub.textContent = fx.length + ' fixtures \u00b7 ' + courses.length + ' tracks';
-    trackWalk((st) => {
-      const w = $('fxwalk'); if (w) w.textContent = 'M1 = the minus horse\u2019s 2026 record at that track (wins / rated races, \u00a31-at-SP A/E in brackets) \u00b7 gold = best strike with 20+ races \u00b7 full-year people stats, map not proof';
+    trackWalk((st, done) => {
+      const w = $('fxwalk'); if (w && done) w.textContent = 'M1 = the minus horse\u2019s 2026 record at that track (wins / rated races, \u00a31-at-SP A/E in brackets) \u00b7 gold = best strike with 20+ races \u00b7 full-year people stats, map not proof';
       let best = null;
       document.querySelectorAll('#fxgrid [data-ck]').forEach(el => {
         const a = st.courses[el.getAttribute('data-ck')];
@@ -112,7 +113,7 @@
         out.innerHTML = 'M1 <b>' + pc2 + '%</b> ' + a.w + '/' + a.races + ' <span style="color:' + (a.w / a.e > 1 ? 'var(--green)' : 'var(--red)') + '">(' + (a.e > 0 ? (a.w / a.e).toFixed(2) : '\u2014') + ')</span>';
         if (a.races >= 20 && (!best || a.w / a.races > best.v)) best = { el, v: a.w / a.races };
       });
-      if (best) best.el.style.border = '1px solid var(--gold)';
+      if (best && done) best.el.style.border = '1px solid var(--gold)';
     });
   }
   main();
