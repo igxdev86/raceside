@@ -60,6 +60,10 @@
 <main>
   <p class="note2">A demo book with a $50,000 demo balance — nothing real is staked or won. No prices are shown: you pick on the horse alone, every bet is taken at <b>SP</b>, and the official starting price is revealed only when the race settles. A winner returns stake × SP; non-runners are voided and refunded. Betting closes at post time and every bet is recorded to your account. Demo dollars only — not betting, not advice.</p>
   <div class="stakes" id="rpstakes"></div>
+  <div class="stakes" style="margin-top:-6px">
+    <button class="stk" onclick="__rpDep()">➕ Deposit $10,000</button>
+    <button class="stk" onclick="__rpWd()">Withdraw $10,000</button>
+  </div>
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
 <div class="note2" style="text-align:center;margin-top:26px">a <a href="/" style="color:rgba(255,255,255,.8)">RACESIDE</a> experiment</div>
@@ -107,6 +111,14 @@
     ACCT = j; render();
     toast(`${fmt(stake)} on ${j.bought.h} @ SP`);
   };
+  window.__rpDep = async () => {
+    const j = await api({ op: 'deposit', id: CRED.id, token: CRED.token, amt: 10000 });
+    if (j.ok) { ACCT = j; render(); toast('deposited $10,000 demo'); } else toast(j.error || 'no deposit');
+  };
+  window.__rpWd = async () => {
+    const j = await api({ op: 'withdraw', id: CRED.id, token: CRED.token, amt: 10000 });
+    if (j.ok) { ACCT = j; render(); toast('withdrew ' + fmt(j.withdrew) + ' demo'); } else toast(j.error || 'no withdraw');
+  };
   window.__rpReset = async () => {
     const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
     if (j.ok) { ACCT = j; render(); toast('fresh $50,000 demo balance'); } else toast(j.error || 'no reset');
@@ -130,15 +142,17 @@
     if (!ACCT) return;
     $('rpbal').textContent = fmt(ACCT.bal);
     const pos = ACCT.pos || [];
-    const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-12).reverse();
+    const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).reverse();
     const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
     const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
     const px = (p) => p.sp !== undefined ? '@ SP' : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%');
-    $('rpport').innerHTML = `<div class="mkt"><h3>Your bets</h3>
-      <div class="sub2">${CRED.id} · demo · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
-      <div class="pos" style="border-top:none"><span>${tot.bets} bets · ${fmt(tot.staked)} staked</span><span style="font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : '−'}${fmt(Math.abs(tot.pl))} settled P/L</span></div>
-      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} ${px(p)}</span></div>`).join('')}
-      ${done.map(p => `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`).join('')}
+    const row = (p) => p.settled
+      ? `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`
+      : `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} ${px(p)}</span></div>`;
+    $('rpport').innerHTML = `<div class="mkt"><h3 style="display:flex;justify-content:space-between;align-items:baseline">My bets<span style="font-family:var(--mono);font-size:12px;font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : '−'}${fmt(Math.abs(tot.pl))}</span></h3>
+      <div class="sub2">${tot.bets} bets · ${fmt(tot.staked)} staked · ${CRED.id} · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in</a></div>
+      ${open.length ? open.map(row).join('') : '<div class="pos" style="color:rgba(255,255,255,.5)">no open bets — pick a horse below</div>'}
+      ${done.length ? `<details ${open.length ? '' : 'open'}><summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.65);padding:8px 0;border-top:1px solid rgba(255,255,255,.14);list-style:none">HISTORY · ${done.length} settled ▾</summary>${done.slice(0, 25).map(row).join('')}</details>` : ''}
       ${ACCT.bal < 100 && !open.length ? '<div class="pos"><span>balance gone</span><button class="buy" onclick="__rpReset()">fresh $50,000</button></div>' : ''}</div>`;
     const nm = new Date().getHours() * 60 + new Date().getMinutes();
     // next off first, then tomorrow, settled sink to the bottom (most recent first)
