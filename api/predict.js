@@ -15,6 +15,7 @@ function supa() {
 }
 const BASE = 'https://raceside.vercel.app';
 const rk = (t, c) => String(t).replace(/\s.*/, '') + '|' + String(c).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const ukDate = (offsetDays) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (offsetDays || 0) * 86400000));
 const hk = (h) => String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
 const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
 const ukHM = (now) => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now || new Date()); const g = (t) => Number(p.find(x => x.type === t).value); return g('hour') * 60 + g('minute'); };
@@ -42,7 +43,8 @@ async function settle(acct) {
   try { const r = await fetch(BASE + '/api/todaywinners'); w = await r.json(); } catch {}
   if (!(w && w.ok)) return false;
   const winMap = {};
-  (w.winners || []).forEach(x => { winMap[rk(x.t, x.course)] = hk(x.h); });
+  const td = ukDate(0);
+  (w.winners || []).forEach(x => { const base = rk(x.t, x.course); winMap[td + '|' + base] = hk(x.h); winMap[base] = hk(x.h); });   // dated + legacy keys
   let changed = false;
   open.forEach(p => {
     const wn = winMap[p.k];
@@ -110,10 +112,11 @@ export default async function handler(req, res) {
     let up = null;
     try { const r = await fetch(BASE + '/api/upcoming?v=4'); up = await r.json(); } catch {}
     if (!(up && up.ok)) return res.status(200).json({ ok: false, error: 'feed unavailable' });
-    const rides = (up.rides || []).filter(r => r.day === 'today' && Number(r.d) > 1 && rk(r.t, r.course) === String(b.k));
+    // markets are keyed by UK date so today and tomorrow never collide: YYYY-MM-DD|time|course
+    const rides = (up.rides || []).filter(r => (r.day === 'today' || r.day === 'tomorrow') && Number(r.d) > 1 && (ukDate(r.day === 'tomorrow' ? 1 : 0) + '|' + rk(r.t, r.course)) === String(b.k));
     if (rides.length < 3) return res.status(200).json({ ok: false, error: 'market not found' });
     const now = req.query && req.query.now ? new Date(String(req.query.now)) : new Date();
-    if (raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'market closed — race is off' });
+    if (rides[0].day === 'today' && raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'market closed — race is off' });
     const pick = rides.find(r => hk(r.h) === hk(String(b.h || '')));
     if (!pick) return res.status(200).json({ ok: false, error: 'horse not found' });
     const Z = rides.reduce((a, r) => a + 1 / r.d, 0);
