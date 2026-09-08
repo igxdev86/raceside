@@ -64,10 +64,10 @@
   .stkbtn{border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer}
   .placebtn{width:100%;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;color:#3A040C;background:linear-gradient(135deg,#FFC24B,#FF9A3D);margin-top:10px}
   .xbtn{border:none;background:transparent;color:rgba(255,255,255,.5);font-size:15px;cursor:pointer;padding:2px 4px}
-  .histbtn{border:none;background:transparent;color:rgba(255,255,255,.45);font-size:10px;font-family:var(--mono);cursor:pointer;padding:3px 0 0;letter-spacing:.08em}
-  .histbox{padding:8px 0 4px;border-top:1px dashed rgba(255,255,255,.12);margin-top:6px}
-  .histbox .sync{font-family:var(--mono);font-size:10.5px;margin-bottom:4px}
-  .histbox .lg{font-size:9.5px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:3px}
+  .histbox{padding:6px 0 2px;margin-top:4px}
+  .histbox .sync{font-family:var(--mono);font-size:11.5px;margin-bottom:4px}
+  .histbox .lg{font-size:10px;color:rgba(255,255,255,.55);font-family:var(--mono);margin-top:4px}
+  .histwait{font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono);padding:6px 0}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1C0206;color:#fff;border-radius:999px;
     padding:11px 20px;font-size:13px;font-weight:700;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);border:1px solid rgba(255,194,75,.4)}
 </style>
@@ -182,40 +182,49 @@
     return dx && dy ? num2 / Math.sqrt(dx * dy) : null;
   }
   const HCACHE = {};
-  window.__rpHist = async (btnId, hid, hname) => {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    const box = btn.nextElementSibling;
-    if (box && box.className === 'histbox') { box.remove(); btn.textContent = 'FORM ▾'; return; }
-    btn.textContent = 'loading…';
-    let j = HCACHE[hid];
-    if (!j) { try { const r = await fetch('/api/horsehist?hid=' + encodeURIComponent(hid) + '&h=' + encodeURIComponent(hname)); j = await r.json(); } catch { j = null; } HCACHE[hid] = j; }
-    btn.textContent = 'FORM ▴';
-    const div = document.createElement('div');
-    div.className = 'histbox';
-    if (!(j && j.ok && j.runs && j.runs.length)) { div.innerHTML = '<div class="lg">no career history available for this horse</div>'; btn.after(div); return; }
-    const runs = j.runs;
-    const W = 300, H = 64, PX = 4;
-    const xs = runs.map((_, i) => PX + i * (W - 2 * PX) / Math.max(1, runs.length - 1));
+  function drawHist(el, j) {
+    if (!(j && j.ok && j.runs && j.runs.length)) { el.innerHTML = '<div class="lg">no career history available</div>'; return; }
+    const runs = j.runs.slice(-12);   // last 12 runs so every number stays readable
+    const W = 360, H = 120, PL = 8, PR = 8, PT = 16, PB = 18;
+    const xs = runs.map((_, i) => PL + i * (W - PL - PR) / Math.max(1, runs.length - 1));
     const ors = runs.map(r => r.ofr), poss = runs.map(r => r.pos);
-    const oMin = Math.min(...ors.filter(v => v != null)), oMax = Math.max(...ors.filter(v => v != null));
-    const pMax = Math.max(...poss.filter(v => v != null), 2);
-    const oy = (v) => v == null ? null : H - PX - (oMax === oMin ? 0.5 : (v - oMin) / (oMax - oMin)) * (H - 2 * PX);
-    const py = (v) => v == null ? null : PX + ((v - 1) / (pMax - 1)) * (H - 2 * PX);   // 1st at top
+    const oHave = ors.filter(v => v != null), pHave = poss.filter(v => v != null);
+    const oMin = oHave.length ? Math.min(...oHave) : 0, oMax = oHave.length ? Math.max(...oHave) : 1;
+    const pMax = Math.max(...(pHave.length ? pHave : [2]), 2);
+    const oy = (v) => v == null ? null : H - PB - (oMax === oMin ? 0.5 : (v - oMin) / (oMax - oMin)) * (H - PT - PB);
+    const py = (v) => v == null ? null : PT + ((v - 1) / (pMax - 1)) * (H - PT - PB);
     const line = (vals, fy, color, dash) => {
       const pts = vals.map((v, i) => fy(v) == null ? null : xs[i].toFixed(1) + ',' + fy(v).toFixed(1)).filter(Boolean);
-      return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" ${dash ? 'stroke-dasharray="3 3"' : ''}/>` : '';
+      return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="4 3"' : ''}/>` : '';
     };
-    const dots = (vals, fy, color) => vals.map((v, i) => fy(v) == null ? '' : `<circle cx="${xs[i].toFixed(1)}" cy="${fy(v).toFixed(1)}" r="2" fill="${color}"/>`).join('');
+    const dotsN = (vals, fy, color, above) => vals.map((v, i) => {
+      const y = fy(v); if (y == null) return '';
+      return `<circle cx="${xs[i].toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>` +
+        `<text x="${xs[i].toFixed(1)}" y="${(y + (above ? -6 : 12)).toFixed(1)}" text-anchor="middle" font-size="9" font-family="monospace" fill="${color}">${v}</text>`;
+    }).join('');
     const both = runs.map(r => (r.ofr != null && r.pos != null) ? [r.ofr, -(r.pos)] : null).filter(Boolean);
     const rho = spearman(both.map(b => b[0]), both.map(b => b[1]));
     const verdict = rho == null ? '' : rho > 0.4 ? 'rating and results agree' : rho < -0.2 ? 'running opposite to the rating' : 'loosely related';
-    div.innerHTML = `
+    el.innerHTML = `
       ${rho != null ? `<div class="sync">sync <b style="color:${rho > 0.2 ? '#B6F09C' : rho < -0.2 ? '#FFB4A6' : '#FFC24B'}">${(rho >= 0 ? '+' : '') + rho.toFixed(2)}</b> · ${verdict}${both.length < 8 ? ' · <span style="color:rgba(255,255,255,.5)">only ' + both.length + ' runs — weak read</span>' : ''}</div>` : ''}
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">${line(ors, oy, '#FFC24B')}${dots(ors, oy, '#FFC24B')}${line(poss, py, 'rgba(255,255,255,.85)', 1)}${dots(poss, py, 'rgba(255,255,255,.85)')}</svg>
-      <div class="lg"><span style="color:#FFC24B">● OR ${oMin === oMax ? oMin : oMin + '–' + oMax}</span> · ○ finish (1st at top, worst ${pMax}) · ${runs.length} runs · ${runs[0].date.slice(0, 7)} → ${runs[runs.length - 1].date.slice(0, 7)}</div>`;
-    btn.after(div);
-  };
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${line(ors, oy, '#FFC24B')}${line(poss, py, 'rgba(255,255,255,.85)', 1)}${dotsN(ors, oy, '#FFC24B', true)}${dotsN(poss, py, '#FFFFFF', false)}</svg>
+      <div class="lg"><span style="color:#FFC24B">● OR (number above point)</span> · ○ finish position (number below · 1st at top) · last ${runs.length} runs · ${runs[0].date.slice(0, 7)} → ${runs[runs.length - 1].date.slice(0, 7)}</div>`;
+  }
+  async function fillHist(el) {
+    const hid = el.getAttribute('data-hid'), hname = el.getAttribute('data-h');
+    if (el.getAttribute('data-done')) return;
+    el.setAttribute('data-done', '1');
+    let j = HCACHE[hid];
+    if (j === undefined) { try { const r = await fetch('/api/horsehist?hid=' + encodeURIComponent(hid) + '&h=' + encodeURIComponent(hname)); j = await r.json(); } catch { j = null; } HCACHE[hid] = j; }
+    drawHist(el, j);
+  }
+  let HIO = null;
+  function armHist() {
+    const boxes = document.querySelectorAll('.histbox[data-hid]:not([data-done])');
+    if (typeof IntersectionObserver === 'undefined') { boxes.forEach(fillHist); return; }
+    if (!HIO) HIO = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) { HIO.unobserve(e.target); fillHist(e.target); } }); }, { rootMargin: '250px' });
+    boxes.forEach(b => HIO.observe(b));
+  }
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
   let ACCT = null;          // { id, bal, pos } — server truth
@@ -311,12 +320,13 @@
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
-          const hbid = 'hb' + rc.k.replace(/[^a-z0-9]/g, '') + hk(r.h);
-          return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>${r.hid ? `<button class="histbtn" id="${hbid}" onclick="__rpHist('${hbid}','${r.hid}','${String(r.h).replace(/'/g, '')}')">FORM ▾</button>` : ''}</span>
-            <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button></div>`; }).join('')}
+          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small></span>
+            <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
+            ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
+    armHist();
   }
 
   async function pull() {
