@@ -28,6 +28,53 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const ckey = (c) => String(c || '').toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[^a-z]/g, '');
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (bucket) => { const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  // minus-1 of a race under the MINUS CARDS model at SP; null if unrated/too small
+  function m1Of(rc, pj, pt) {
+    const rs = (rc.runners || []).filter(r => r.d > 1);
+    if (rs.length < 3) return null;
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    if (orVals.length < 2) return null;
+    const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
+    const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const sc = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+      return 0.8 * (sc - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+    const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+    const rows = rs.map((r, i) => ({ r, edge: ((ex[i] / Z) - 1 / r.d) / (1 / r.d) })).filter(x => isFinite(x.edge)).sort((a, b) => a.edge - b.edge);
+    if (!rows.length || rows[0].edge >= 0) return null;
+    const m1 = rows[0];
+    return { won: m1.r.pos === '1' || m1.r.won === 1, e: 1 / m1.r.d };
+  }
+  async function trackWalk(onDone) {
+    let store; try { const r = await fetch('/api/peopleall?v=2'); store = await r.json(); if (!store.ok) throw 0; } catch { return; }
+    const pj = pctB(store.jockeys), pt = pctB(store.trainers);
+    const year = new Date().getFullYear();
+    let st = null; try { st = JSON.parse(localStorage.getItem('rsfxm:v1') || 'null'); } catch {}
+    if (!(st && String(st.year) === String(year))) st = null;
+    if (!st) { try { const r = await fetch('/api/yearstate?k=trkstate:v1'); const j = await r.json(); if (j && j.state && String(j.state.year) === String(year)) st = j.state; } catch {} }
+    if (!st) st = { year, lastDate: null, courses: {} };
+    const yEnd = new Date(Date.now() - 86400000);
+    const start = st.lastDate ? new Date(Date.parse(st.lastDate) + 86400000) : new Date(year, 0, 1);
+    let n = 0;
+    for (let d = start; d <= yEnd; d = new Date(d.getTime() + 86400000)) {
+      const dt = d.toISOString().slice(0, 10);
+      let j = null; try { const r = await fetch('/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      st.lastDate = dt;
+      if (j && j.ok) (j.races || []).forEach(rc => {
+        const m = m1Of(rc, pj, pt); if (!m) return;
+        const k = ckey(rc.course); if (!k) return;
+        const a = (st.courses[k] = st.courses[k] || { races: 0, w: 0, e: 0 });
+        a.races++; a.e += m.e; if (m.won) a.w++;
+      });
+      if (++n % 15 === 0) { const el = $('fxwalk'); if (el) el.textContent = 'scoring the year\u2026 ' + dt; }
+    }
+    if (n) { try { localStorage.setItem('rsfxm:v1', JSON.stringify(st)); } catch {}
+      try { fetch('/api/yearstate?k=trkstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {} }
+    onDone(st);
+  }
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   async function main() {
     let j = null;
@@ -48,11 +95,25 @@
         <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${fx.length}</span><div class="sub">fixtures</div></div>
         <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${dates.length}</span><div class="sub">racing days</div></div>
         <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${courses.length}</span><div class="sub">tracks</div></div></div>
-      <div class="fxgrid">${courses.map(([c, n]) => `<div class="tile fxc" style="margin:0"><b>${n}</b><span>${c}</span></div>`).join('')}</div>
+      <div class="fxgrid" id="fxgrid">${courses.map(([c, n]) => `<div class="tile fxc" style="margin:0" data-ck="${ckey(c)}"><b>${n}</b><span>${c}</span><div class="sub" style="margin-top:3px;font-size:9.5px" data-m1>\u2026</div></div>`).join('')}</div>
+      <div class="sub" id="fxwalk" style="margin-bottom:10px">scoring the year for minus-1 strike per track\u2026</div>
       ${near ? '<div class="sub" style="margin-bottom:10px">this plan\\u2019s feed only lists the next couple of days \u2014 the full-year calendar needs a fixtures endpoint on the Racing API account. The list below is what it gave.</div>' : ''}
       <div class="tile">${dates.map(dt => `<div class="fxday"><span class="d">${fmt(dt)}</span><span class="c">${days[dt].sort().join(' \u00b7 ')}</span></div>`).join('')}</div>
       <div class="sub" style="margin:10px 0">source: ${j.source} \u00b7 ${j.from} \u2192 ${j.to}</div>`;
     const sub = $('fxsub'); if (sub) sub.textContent = fx.length + ' fixtures \u00b7 ' + courses.length + ' tracks';
+    trackWalk((st) => {
+      const w = $('fxwalk'); if (w) w.textContent = 'M1 = the minus horse\u2019s 2026 record at that track (wins / rated races, \u00a31-at-SP A/E in brackets) \u00b7 gold = best strike with 20+ races \u00b7 full-year people stats, map not proof';
+      let best = null;
+      document.querySelectorAll('#fxgrid [data-ck]').forEach(el => {
+        const a = st.courses[el.getAttribute('data-ck')];
+        const out = el.querySelector('[data-m1]');
+        if (!a || a.races < 10) { out.textContent = a && a.races ? 'M1 ' + a.w + '/' + a.races : 'M1 \u2014'; return; }
+        const pc2 = Math.round(a.w / a.races * 100);
+        out.innerHTML = 'M1 <b>' + pc2 + '%</b> ' + a.w + '/' + a.races + ' <span style="color:' + (a.w / a.e > 1 ? 'var(--green)' : 'var(--red)') + '">(' + (a.e > 0 ? (a.w / a.e).toFixed(2) : '\u2014') + ')</span>';
+        if (a.races >= 20 && (!best || a.w / a.races > best.v)) best = { el, v: a.w / a.races };
+      });
+      if (best) best.el.style.border = '1px solid var(--gold)';
+    });
   }
   main();
 })();
