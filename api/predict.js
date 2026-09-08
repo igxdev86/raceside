@@ -39,22 +39,50 @@ async function kvSet(s, k, v) {
 async function settle(acct) {
   const open = (acct.pos || []).filter(p => !p.settled);
   if (!open.length) return false;
-  let w = null;
-  try { const r = await fetch(BASE + '/api/todaywinners'); w = await r.json(); } catch {}
-  if (!(w && w.ok)) return false;
-  const winMap = {};
-  const td = ukDate(0);
-  (w.winners || []).forEach(x => { const base = rk(x.t, x.course); winMap[td + '|' + base] = hk(x.h); winMap[base] = hk(x.h); });   // dated + legacy keys
   let changed = false;
-  open.forEach(p => {
-    const wn = winMap[p.k];
-    if (wn === undefined) return;
-    p.settled = 1;
-    const hit = wn === hk(p.h);
-    p.won = (p.side === 'no' ? !hit : hit) ? 1 : 0;   // side only exists on legacy market-era positions
-    changed = true;
-    if (p.won) { p.pay = Math.round(p.o ? p.stake * p.o : p.stake / p.p); acct.bal += p.pay; }
-  });
+
+  // SP-era bets: settle from the results feed — winner AND official SP per runner, per bet date
+  const spOpen = open.filter(p => p.sp === null);
+  const dates = [...new Set(spOpen.map(p => String(p.k).slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)))];
+  for (const dt of dates) {
+    let j = null;
+    try { const r = await fetch(BASE + '/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+    if (!(j && j.ok)) continue;
+    const byRace = {};
+    (j.races || []).forEach(rc => { byRace[dt + '|' + rk(rc.t, rc.course)] = rc; });
+    spOpen.filter(p => String(p.k).slice(0, 10) === dt).forEach(p => {
+      const rc = byRace[p.k];
+      if (!rc || !(rc.runners || []).some(r => r.pos === '1' || r.won === 1)) return;   // result not in yet
+      const mine = (rc.runners || []).find(r => hk(r.h) === hk(p.h));
+      changed = true;
+      if (!mine) { p.settled = 1; p.won = 0; p.voided = 1; p.pay = p.stake; acct.bal += p.stake; return; }   // non-runner: stake back
+      p.sp = Number(mine.d) > 1 ? Number(mine.d) : null;
+      p.settled = 1;
+      p.won = (mine.pos === '1' || mine.won === 1) ? 1 : 0;
+      if (p.won) { p.pay = Math.round(p.stake * (p.sp || p.g || 0)); acct.bal += p.pay; }
+    });
+  }
+
+  // legacy market-era and odds-era bets: winner feed as before
+  const legacy = open.filter(p => p.sp !== null && p.sp === undefined || (p.o || p.p) && !p.settled);
+  if (legacy.length) {
+    let w = null;
+    try { const r = await fetch(BASE + '/api/todaywinners'); w = await r.json(); } catch {}
+    if (w && w.ok) {
+      const winMap = {};
+      const td = ukDate(0);
+      (w.winners || []).forEach(x => { const base = rk(x.t, x.course); winMap[td + '|' + base] = hk(x.h); winMap[base] = hk(x.h); });
+      legacy.forEach(p => {
+        const wn = winMap[p.k];
+        if (wn === undefined) return;
+        p.settled = 1;
+        const hit = wn === hk(p.h);
+        p.won = (p.side === 'no' ? !hit : hit) ? 1 : 0;
+        changed = true;
+        if (p.won) { p.pay = Math.round(p.o ? p.stake * p.o : p.stake / p.p); acct.bal += p.pay; }
+      });
+    }
+  }
   return changed;
 }
 
@@ -122,12 +150,12 @@ export default async function handler(req, res) {
     if (rides[0].day === 'today' && raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'market closed — race is off' });
     const pick = rides.find(r => hk(r.h) === hk(String(b.h || '')));
     if (!pick) return res.status(200).json({ ok: false, error: 'horse not found' });
-    const o = Number(pick.d);                          // the server's odds — client numbers ignored
-    if (!(o > 1 && o < 1000)) return res.status(200).json({ ok: false, error: 'odds out of range' });
+    // SP bet: no price locked at strike — settles at the official starting price from the results feed
+    const g = Number(pick.d);                          // current price, recorded as a guide only
     acct.bal -= stake;
-    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, o, stake, at: new Date().toISOString() }]);
+    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, sp: null, g, stake, at: new Date().toISOString() }]);
     if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
-    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, o, stake } });
+    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, g, stake } });
   }
 
   return res.status(200).json({ ok: false, error: 'unknown op' });
