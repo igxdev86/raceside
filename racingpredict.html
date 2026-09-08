@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RACINGPREDICT</title>
-<script src="/nav.js?v=1" defer></script>
+<script src="/nav.js?v=2" defer></script>
 <style>
   :root{--gold:#FFC24B;--mono:'SF Mono',ui-monospace,Menlo,monospace}
-  body{margin:0;padding:0 14px 60px;color:#fff;font-family:-apple-system,'Inter',system-ui,sans-serif;
-    background:linear-gradient(175deg,#4A050F 0%,#8E0E22 38%,#C41230 75%,#E0243C 100%) fixed;min-height:100vh}
+  html{background:#4A050F}
+  body{margin:0;padding:0 14px 60px;color:#fff !important;font-family:-apple-system,'Inter',system-ui,sans-serif !important;
+    background:linear-gradient(175deg,#4A050F 0%,#8E0E22 38%,#C41230 75%,#E0243C 100%) fixed !important;min-height:100vh}
   header.rp{display:flex;justify-content:space-between;align-items:center;padding:20px 2px 14px;position:sticky;top:0;z-index:5;
     background:linear-gradient(180deg,rgba(58,4,12,.92),rgba(58,4,12,0));backdrop-filter:blur(6px)}
   .rpmark{font-weight:900;font-size:21px;letter-spacing:-.02em;text-shadow:0 2px 12px rgba(0,0,0,.4)}
@@ -41,11 +42,11 @@
 </style>
 </head>
 <body>
-<header class="rp"><div class="rpmark">RACING<span>PREDICT</span></div><div class="bal" id="rpbal">\u2014</div></header>
+<header class="rp"><div class="rpmark">RACING<span>PREDICT</span></div><div class="bal" id="rpbal">—</div></header>
 <main>
-  <p class="note2">Play points, not money. Every race is a market: the percentage is the crowd\u2019s implied chance from live odds (overround removed). Buy a horse at its percentage; a winner pays stake \u00f7 chance. Prices refresh every few minutes and buying closes at post time. Purely a way of keeping score \u2014 not betting, not advice.</p>
+  <p class="note2">Play points, not money. Every race is a market: the percentage is the crowd’s implied chance from live odds (overround removed). Buy a horse at its percentage; a winner pays stake ÷ chance. Prices refresh every few minutes and buying closes at post time. Purely a way of keeping score — not betting, not advice.</p>
   <div id="rpport"></div>
-  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets\u2026</div></div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
 </main>
 <script>
 (() => {
@@ -68,7 +69,7 @@
     W.bal -= stake;
     W.pos.push({ k, h, p, stake, at: Date.now() });
     save(); render();
-    toast(`bought ${h} \u00b7 ${stake} pts at ${(p * 100).toFixed(0)}%`);
+    toast(`bought ${h} · ${stake} pts at ${(p * 100).toFixed(0)}%`);
   };
   window.__rpReset = () => { W = { bal: 1000, pos: [] }; save(); render(); toast('fresh 1,000 points'); };
 
@@ -79,7 +80,7 @@
       if (wn === undefined) return;
       p.settled = 1;
       p.won = wn === p.h.toLowerCase().replace(/[^a-z0-9]/g, '') ? 1 : 0;
-      if (p.won) { p.pay = p.stake / p.p; W.bal += p.pay; toast(`\u2705 ${p.h} won \u00b7 +${fmt(p.pay)} pts`); }
+      if (p.won) { p.pay = p.stake / p.p; W.bal += p.pay; toast(`✅ ${p.h} won · +${fmt(p.pay)} pts`); }
     });
     save();
   }
@@ -88,9 +89,9 @@
     $('rpbal').textContent = fmt(W.bal) + ' pts';
     const open = W.pos.filter(p => !p.settled), done = W.pos.filter(p => p.settled).slice(-8).reverse();
     $('rpport').innerHTML = (open.length || done.length) ? `<div class="mkt"><h3>Your positions</h3>
-      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${p.h}</span><span>${p.stake} pts @ ${(p.p * 100).toFixed(0)}% \u2192 ${fmt(p.stake / p.p)}</span></div>`).join('')}
-      ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${p.h}</span><span>${p.won ? '+' + fmt(p.pay) : '\u2212' + p.stake} pts</span></div>`).join('')}
-      ${W.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again \u00b7 1,000 pts</button></div>' : ''}</div>` : '';
+      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${p.h}</span><span>${p.stake} pts @ ${(p.p * 100).toFixed(0)}% → ${fmt(p.stake / p.p)}</span></div>`).join('')}
+      ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${p.h}</span><span>${p.won ? '+' + fmt(p.pay) : '−' + p.stake} pts</span></div>`).join('')}
+      ${W.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again · 1,000 pts</button></div>' : ''}</div>` : '';
     const nm = new Date().getHours() * 60 + new Date().getMinutes();
     const rows = races.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(rc => {
       const off = raceMin(rc.t) <= nm || winMap[rc.k] !== undefined;
@@ -98,9 +99,9 @@
       const ocs = rc.rs.map((r, i) => ({ r, p: inv[i] / Z })).sort((a, b) => b.p - a.p);
       const wn = winMap[rc.k];
       return `<div class="mkt"><h3>Who wins the ${rc.t} at ${shortC(rc.course)}?</h3>
-        <div class="sub2">${rc.rs.length} runners \u00b7 ${off ? (wn !== undefined ? 'settled' : 'off \u2014 waiting on result') : 'buying open until ' + rc.t}</div>
+        <div class="sub2">${rc.rs.length} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'buying open until ' + rc.t}</div>
         ${ocs.map(({ r, p }) => { const wonThis = wn !== undefined && wn === r.h.toLowerCase().replace(/[^a-z0-9]/g, '');
-          return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' \u2705' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
+          return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
             <div class="bar"><div style="width:${(p * 100).toFixed(0)}%"></div></div></span>
             <span class="pct">${(p * 100).toFixed(0)}%</span>
             <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${r.h.replace(/'/g, '')}',${p.toFixed(4)},25)">Buy 25</button></div>`; }).join('')}
@@ -120,7 +121,7 @@
       }
       if (w && w.ok) { winMap = {}; (w.winners || []).forEach(x => { winMap[rk(x.t, x.course)] = String(x.h).toLowerCase().replace(/[^a-z0-9]/g, ''); }); }
       settle(); render();
-    } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">feed unavailable \u2014 pull to refresh</div>'; }
+    } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">feed unavailable — pull to refresh</div>'; }
   }
   pull();
   setInterval(pull, 150000);
