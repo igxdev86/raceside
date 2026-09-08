@@ -49,7 +49,10 @@ async function settle(acct) {
   open.forEach(p => {
     const wn = winMap[p.k];
     if (wn === undefined) return;
-    p.settled = 1; p.won = wn === hk(p.h) ? 1 : 0; changed = true;
+    p.settled = 1;
+    const hit = wn === hk(p.h);
+    p.won = (p.side === 'no' ? !hit : hit) ? 1 : 0;
+    changed = true;
     if (p.won) { p.pay = Math.round(p.stake / p.p); acct.bal += p.pay; }
   });
   return changed;
@@ -119,12 +122,15 @@ export default async function handler(req, res) {
     if (rides[0].day === 'today' && raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'market closed — race is off' });
     const pick = rides.find(r => hk(r.h) === hk(String(b.h || '')));
     if (!pick) return res.status(200).json({ ok: false, error: 'horse not found' });
+    const side = b.side === 'no' ? 'no' : 'yes';
     const Z = rides.reduce((a, r) => a + 1 / r.d, 0);
-    const p = (1 / pick.d) / Z;                       // the server's price — client numbers ignored
+    const yes = (1 / pick.d) / Z;                     // the server's price — client numbers ignored
+    const p = side === 'no' ? 1 - yes : yes;
+    if (!(p > 0.005 && p < 0.995)) return res.status(200).json({ ok: false, error: 'price out of range' });
     acct.bal -= stake;
-    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, p: Number(p.toFixed(4)), d: pick.d, stake, at: new Date().toISOString() }]);
+    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, side, p: Number(p.toFixed(4)), d: pick.d, stake, at: new Date().toISOString() }]);
     if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
-    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, p: Number(p.toFixed(4)), stake } });
+    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, side, p: Number(p.toFixed(4)), stake } });
   }
 
   return res.status(200).json({ ok: false, error: 'unknown op' });
