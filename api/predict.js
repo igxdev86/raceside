@@ -128,6 +128,23 @@ export default async function handler(req, res) {
     return res.status(200).json(pub(acct));
   }
 
+  if (op === 'deposit') {
+    const amt = Math.floor(Number(b.amt || 10000));
+    if (!(amt >= 100 && amt <= 100000)) return res.status(200).json({ ok: false, error: 'deposit 100–100,000' });
+    if (acct.bal + amt > 10000000) return res.status(200).json({ ok: false, error: 'balance cap reached' });
+    acct.bal += amt;
+    await kvSet(s, 'rpacct:' + acct.id, acct);
+    return res.status(200).json(pub(acct));
+  }
+
+  if (op === 'withdraw') {
+    const amt = Math.min(Math.floor(Number(b.amt || 10000)), acct.bal);
+    if (!(amt > 0)) return res.status(200).json({ ok: false, error: 'nothing to withdraw' });
+    acct.bal -= amt;
+    await kvSet(s, 'rpacct:' + acct.id, acct);
+    return res.status(200).json({ ...pub(acct), withdrew: amt });
+  }
+
   if (op === 'reset') {
     if ((acct.pos || []).some(p => !p.settled)) return res.status(200).json({ ok: false, error: 'open positions' });
     if (acct.bal >= 100) return res.status(200).json({ ok: false, error: 'not bust' });
