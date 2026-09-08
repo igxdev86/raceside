@@ -60,45 +60,67 @@
   const $ = (id) => document.getElementById(id);
   const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
   const rk = (t, c) => String(t).replace(/\s.*/, '') + '|' + String(c).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const hk = (x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');
   const shortC = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '');
   const fmt = (n) => Math.round(n).toLocaleString('en-GB');
-
-  let W = null;
-  try { W = JSON.parse(localStorage.getItem('rp:v1') || 'null'); } catch {}
-  if (!W || typeof W.bal !== 'number') W = { bal: 1000, pos: [] };
-  const save = () => { try { localStorage.setItem('rp:v1', JSON.stringify(W)); } catch {} };
-
-  let races = [], winMap = {};
   const toast = (msg) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
 
-  window.__rpBuy = (k, h, p, stake) => {
-    if (W.bal < stake) { toast('not enough points'); return; }
-    W.bal -= stake;
-    W.pos.push({ k, h, p, stake, at: Date.now() });
-    save(); render();
-    toast(`bought ${h} · ${stake} pts at ${(p * 100).toFixed(0)}%`);
-  };
-  window.__rpReset = () => { W = { bal: 1000, pos: [] }; save(); render(); toast('fresh 1,000 points'); };
+  let CRED = null;
+  try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
+  let ACCT = null;          // { id, bal, pos } — server truth
+  let races = [], winMap = {};
 
-  function settle() {
-    W.pos.forEach(p => {
-      if (p.settled) return;
-      const wn = winMap[p.k];
-      if (wn === undefined) return;
-      p.settled = 1;
-      p.won = wn === p.h.toLowerCase().replace(/[^a-z0-9]/g, '') ? 1 : 0;
-      if (p.won) { p.pay = p.stake / p.p; W.bal += p.pay; toast(`✅ ${p.h} won · +${fmt(p.pay)} pts`); }
-    });
-    save();
+  const api = async (body) => {
+    const r = await fetch('/api/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return r.json();
+  };
+  const saveCred = () => { try { localStorage.setItem('rpacct:v1', JSON.stringify(CRED)); } catch {} };
+
+  async function ensureAccount() {
+    if (CRED && CRED.id && CRED.token) {
+      const j = await api({ op: 'state', id: CRED.id, token: CRED.token });
+      if (j.ok) { ACCT = j; return; }
+    }
+    const j = await api({ op: 'new' });
+    if (j.ok) { CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; toast('account created · 1,000 pts'); }
   }
 
+  window.__rpBuy = async (k, h) => {
+    if (!CRED) return;
+    const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, stake: 25 });
+    if (!j.ok) { toast(j.error || 'buy failed'); return; }
+    ACCT = j; render();
+    toast(`bought ${j.bought.h} · 25 pts at ${(j.bought.p * 100).toFixed(0)}%`);
+  };
+  window.__rpReset = async () => {
+    const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
+    if (j.ok) { ACCT = j; render(); toast('fresh 1,000 points'); } else toast(j.error || 'no reset');
+  };
+  window.__rpLogin = async () => {
+    const code = prompt('Paste your account code (id.secret):');
+    if (!code) return;
+    const j = await api({ op: 'login', code: code.trim() });
+    if (!j.ok) { toast('bad code'); return; }
+    CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; render();
+    toast('welcome back · ' + fmt(j.bal) + ' pts');
+  };
+  window.__rpCode = () => {
+    if (!CRED) return;
+    const code = CRED.id + '.' + CRED.token;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(() => toast('account code copied — keep it safe')).catch(() => prompt('Your account code — save it:', code));
+    else prompt('Your account code — save it:', code);
+  };
+
   function render() {
-    $('rpbal').textContent = fmt(W.bal) + ' pts';
-    const open = W.pos.filter(p => !p.settled), done = W.pos.filter(p => p.settled).slice(-8).reverse();
-    $('rpport').innerHTML = (open.length || done.length) ? `<div class="mkt"><h3>Your positions</h3>
+    if (!ACCT) return;
+    $('rpbal').textContent = fmt(ACCT.bal) + ' pts';
+    const pos = ACCT.pos || [];
+    const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-8).reverse();
+    $('rpport').innerHTML = `<div class="mkt"><h3>Your account</h3>
+      <div class="sub2">${CRED.id} · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
       ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${p.h}</span><span>${p.stake} pts @ ${(p.p * 100).toFixed(0)}% → ${fmt(p.stake / p.p)}</span></div>`).join('')}
       ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${p.h}</span><span>${p.won ? '+' + fmt(p.pay) : '−' + p.stake} pts</span></div>`).join('')}
-      ${W.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again · 1,000 pts</button></div>' : ''}</div>` : '';
+      ${ACCT.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again · 1,000 pts</button></div>' : ''}</div>`;
     const nm = new Date().getHours() * 60 + new Date().getMinutes();
     const rows = races.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(rc => {
       const off = raceMin(rc.t) <= nm || winMap[rc.k] !== undefined;
@@ -107,14 +129,14 @@
       const wn = winMap[rc.k];
       return `<div class="mkt"><h3>Who wins the ${rc.t} at ${shortC(rc.course)}?</h3>
         <div class="sub2">${rc.rs.length} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'buying open until ' + rc.t}</div>
-        ${ocs.map(({ r, p }) => { const wonThis = wn !== undefined && wn === r.h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        ${ocs.map(({ r, p }) => { const wonThis = wn !== undefined && wn === hk(r.h);
           return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
             <div class="bar"><div style="width:${(p * 100).toFixed(0)}%"></div></div></span>
             <span class="pct">${(p * 100).toFixed(0)}%</span>
-            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${r.h.replace(/'/g, '')}',${p.toFixed(4)},25)">Buy 25</button></div>`; }).join('')}
+            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">Buy 25</button></div>`; }).join('')}
       </div>`;
     }).join('');
-    $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:var(--dim)">no markets today</div>';
+    $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
   }
 
   async function pull() {
@@ -126,12 +148,12 @@
         (up.rides || []).filter(r => r.day === 'today' && Number(r.d) > 1).forEach(r => { const k = rk(r.t, r.course); (by[k] = by[k] || { k, t: r.t, course: r.course, rs: [] }).rs.push(r); });
         races = Object.values(by).filter(rc => rc.rs.length >= 3);
       }
-      if (w && w.ok) { winMap = {}; (w.winners || []).forEach(x => { winMap[rk(x.t, x.course)] = String(x.h).toLowerCase().replace(/[^a-z0-9]/g, ''); }); }
-      settle(); render();
-    } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">feed unavailable — pull to refresh</div>'; }
+      if (w && w.ok) { winMap = {}; (w.winners || []).forEach(x => { winMap[rk(x.t, x.course)] = hk(x.h); }); }
+      if (CRED && ACCT) { const j = await api({ op: 'state', id: CRED.id, token: CRED.token }); if (j.ok) ACCT = j; }
+      render();
+    } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">feed unavailable — pull to refresh</div>'; }
   }
-  pull();
-  setInterval(pull, 150000);
+  (async () => { await ensureAccount(); await pull(); setInterval(pull, 150000); })();
 })();
 </script>
 </body>
