@@ -4,6 +4,7 @@
 // POST { op:'state', id, token }             → settle matured positions, return state
 // POST { op:'buy', id, token, k, h, stake }  → server prices the horse from the live feed and executes
 // Accounts live in rs_kv as rpacct:<id>. The server computes the implied % — the client's number is never trusted.
+// Demo balance: 50,000. Every bet is recorded with race, price and outcome; totals ride along.
 
 export const config = { maxDuration: 30 };
 
@@ -52,7 +53,13 @@ async function settle(acct) {
   return changed;
 }
 
-const pub = (acct) => ({ ok: true, id: acct.id, bal: Math.round(acct.bal), pos: (acct.pos || []).slice(-40) });
+const pub = (acct) => {
+  const pos = acct.pos || [];
+  const tot = { bets: pos.length, staked: 0, returned: 0 };
+  pos.forEach(p => { tot.staked += p.stake; if (p.settled && p.won) tot.returned += p.pay || 0; });
+  tot.pl = Math.round(tot.returned - pos.filter(p => p.settled).reduce((a, p) => a + p.stake, 0));
+  return { ok: true, id: acct.id, bal: Math.round(acct.bal), pos: pos.slice(-60), tot };
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
@@ -63,21 +70,25 @@ export default async function handler(req, res) {
 
   if (op === 'new') {
     const id = 'rp' + rand(6), token = rand(24);
-    const acct = { id, token, bal: 1000, pos: [], created: new Date().toISOString() };
+    const acct = { id, token, bal: 50000, mv2: 1, pos: [], created: new Date().toISOString() };
     if (!await kvSet(s, 'rpacct:' + id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
     return res.status(200).json({ ...pub(acct), token });
   }
+
+  const migrate = (a) => { if (a && !a.mv2) { a.bal += 49000; a.mv2 = 1; return true; } return false; };
 
   if (op === 'login') {
     const [id, token] = String(b.code || '').trim().split('.');
     const acct = id ? await kvGet(s, 'rpacct:' + id) : null;
     if (!acct || acct.token !== token) return res.status(200).json({ ok: false, error: 'bad code' });
+    if (migrate(acct)) await kvSet(s, 'rpacct:' + acct.id, acct);
     if (await settle(acct)) await kvSet(s, 'rpacct:' + acct.id, acct);
     return res.status(200).json({ ...pub(acct), token: acct.token });
   }
 
   const acct = b.id ? await kvGet(s, 'rpacct:' + String(b.id)) : null;
   if (!acct || acct.token !== b.token) return res.status(200).json({ ok: false, error: 'bad account' });
+  if (migrate(acct)) await kvSet(s, 'rpacct:' + acct.id, acct);
 
   if (op === 'state') {
     if (await settle(acct)) await kvSet(s, 'rpacct:' + acct.id, acct);
@@ -86,15 +97,15 @@ export default async function handler(req, res) {
 
   if (op === 'reset') {
     if ((acct.pos || []).some(p => !p.settled)) return res.status(200).json({ ok: false, error: 'open positions' });
-    if (acct.bal >= 10) return res.status(200).json({ ok: false, error: 'not bust' });
-    acct.bal = 1000; acct.pos = [];
+    if (acct.bal >= 100) return res.status(200).json({ ok: false, error: 'not bust' });
+    acct.bal = 50000; acct.pos = [];
     await kvSet(s, 'rpacct:' + acct.id, acct);
     return res.status(200).json(pub(acct));
   }
 
   if (op === 'buy') {
     const stake = Math.floor(Number(b.stake));
-    if (!(stake >= 5 && stake <= 200)) return res.status(200).json({ ok: false, error: 'stake 5–200' });
+    if (!(stake >= 10 && stake <= 5000)) return res.status(200).json({ ok: false, error: 'stake 10–5,000' });
     if (acct.bal < stake) return res.status(200).json({ ok: false, error: 'not enough points' });
     let up = null;
     try { const r = await fetch(BASE + '/api/upcoming?v=4'); up = await r.json(); } catch {}
@@ -108,7 +119,7 @@ export default async function handler(req, res) {
     const Z = rides.reduce((a, r) => a + 1 / r.d, 0);
     const p = (1 / pick.d) / Z;                       // the server's price — client numbers ignored
     acct.bal -= stake;
-    acct.pos = (acct.pos || []).concat([{ k: b.k, h: pick.h, p: Number(p.toFixed(4)), stake, at: new Date().toISOString() }]);
+    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, p: Number(p.toFixed(4)), d: pick.d, stake, at: new Date().toISOString() }]);
     if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
     return res.status(200).json({ ...pub(acct), bought: { h: pick.h, p: Number(p.toFixed(4)), stake } });
   }
