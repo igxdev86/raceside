@@ -44,7 +44,7 @@ const ukHM = (now) => {
   return g('hour') * 60 + g('minute');
 };
 const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
-const rkey = (t, course) => String(t).replace(/\s.*/, '') + '|' + String(course).toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[^a-z]/g, '');
+const rkey = (t, course) => String(t).replace(/\s.*/, '') + '|' + String(course).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export default async function handler(req, res) {
   const key = process.env.RESEND_API_KEY, to = process.env.EMAIL_TO;
@@ -92,11 +92,15 @@ export default async function handler(req, res) {
 
   // 2) results for sent races
   let winners = null;
-  try { winners = await gj('/api/todaywinners?v=3'); } catch {}
+  try { winners = await gj('/api/todaywinners'); } catch {}
+  out.winnersSeen = winners && winners.ok ? (winners.winners || []).length : -1;
+  out.sentKeys = Object.keys(st.sent);
+  out.unmatched = [];
   if (winners && winners.ok) {
     for (const w of winners.winners || []) {
       const k = rkey(w.t, w.course);
-      if (!st.sent[k] || st.resulted[k]) continue;
+      if (!st.sent[k]) { out.unmatched.push(k); continue; }
+      if (st.resulted[k]) continue;
       const picks = st.picks[k] || [];
       const hit = picks.find(p => p.h === w.h);
       const list = picks.map(p => `${p.h === w.h ? '✅' : '❌'} ${p.h} (${p.pts}) @ ${p.d}`).join('<br>') || 'no scored picks';
