@@ -121,7 +121,7 @@
         if (!store.ok || !up.ok) throw new Error('bad');
         up.rides = applyStone(up.rides);
       }
-    } catch { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh</div>'; return; }
+    } catch (err) { $('app').innerHTML = '<div class="state">couldn\u2019t load \u2014 refresh<br><small style="color:var(--faint)">' + String(err && err.message || err) + ' \u00b7 people:' + String(!!(store && store.ok)) + ' feed:' + String(!!(up && up.ok)) + '</small></div>'; return; }
     const winMap = {};
     const posMap = {};   // rkey -> { nameN(horse): finishing pos } from today's results feed
     let posRaces = -1;
@@ -457,7 +457,17 @@
       document.body.appendChild(el);
     };
     function render() {
-      if (!cards.length) { $('app').innerHTML = '<div class="state">no races priced today</div>'; return; }
+      if (!cards.length) {
+        const rides = (up && up.rides) || [];
+        const tRides = rides.filter(r => r.day === 'today');
+        const priced = tRides.filter(r => Number(r.d) > 1);
+        const snapN = Object.keys(SNAP.races || {}).length;
+        const nmD = new Date().getHours() * 60 + new Date().getMinutes();
+        const snapPast = Object.values(SNAP.races || {}).filter(s => raceMin(s.t) <= nmD).length;
+        const sample = tRides[0] ? (tRides[0].t + ' ' + tRides[0].course + ' ' + tRides[0].h + ' d=' + tRides[0].d) : 'none';
+        $('app').innerHTML = '<div class="state">no races priced today<br><small style="color:var(--faint)">diagnostics \u00b7 feed rides: ' + rides.length + ' \u00b7 today: ' + tRides.length + ' \u00b7 with odds: ' + priced.length + ' \u00b7 pre-off record: ' + snapN + ' races (' + snapPast + ' past) \u00b7 first ride: ' + sample + '</small></div>';
+        return;
+      }
       const cmpCards = sortKey === 'time' ? TIME_CMP : SORTS[sortKey].f;
       const nowM0 = new Date().getHours() * 60 + new Date().getMinutes();
       const isPast = (c) => !QD && (winMap[rkeyN(c.t, c.course)] !== undefined || raceMin(c.t) < nowM0 - 10);
