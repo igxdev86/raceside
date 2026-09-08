@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     const mins = raceMin(rc.t) - nm;
     if (st.sent[k] || mins <= 4 || mins > 10 || rc.rs.length < 3) continue;
     const sc = scoreRace(rc.rs, store, pj, pt);
-    const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 4).sort((a, b) => b.s.pts - a.s.pts).slice(0, 3);
+    const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);   // same cut as the SCORES modal
     if (!picks.length) { st.sent[k] = 1; continue; }
     const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td></tr>`).join('');
     const okS = await send(`🏇 ${rc.t} ${rc.course} — off in ~${mins} min`,
