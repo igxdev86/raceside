@@ -58,7 +58,7 @@
   <div class="bal" id="rpbal">—</div>
 </header>
 <main>
-  <p class="note2">A demo book with a 50,000 demo balance — nothing real is staked or won. Every bet is taken at <b>SP</b>: the official starting price at the off, settled from the results feed, so the price on the board is only a guide. A winner returns stake × SP; non-runners are voided and refunded. Betting closes at post time and every bet is recorded to your account. Not betting, not advice.</p>
+  <p class="note2">A demo book with a 50,000 demo balance — nothing real is staked or won. No prices are shown: you pick on the horse alone, every bet is taken at <b>SP</b>, and the official starting price is revealed only when the race settles. A winner returns stake × SP; non-runners are voided and refunded. Betting closes at post time and every bet is recorded to your account. Not betting, not advice.</p>
   <div class="stakes" id="rpstakes"></div>
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
@@ -105,7 +105,7 @@
     const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, stake });
     if (!j.ok) { toast(j.error || 'bet failed'); return; }
     ACCT = j; render();
-    toast(`${stake.toLocaleString('en-GB')} on ${j.bought.h} @ SP (now ${j.bought.g})`);
+    toast(`${stake.toLocaleString('en-GB')} on ${j.bought.h} @ SP`);
   };
   window.__rpReset = async () => {
     const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
@@ -133,7 +133,7 @@
     const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-12).reverse();
     const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
     const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
-    const px = (p) => p.sp !== undefined ? '@ SP' + (p.g ? ' (now ' + p.g + ')' : '') : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%');
+    const px = (p) => p.sp !== undefined ? '@ SP' : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%');
     $('rpport').innerHTML = `<div class="mkt"><h3>Your bets</h3>
       <div class="sub2">${CRED.id} · demo · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
       <div class="pos" style="border-top:none"><span>${tot.bets} bets · ${fmt(tot.staked)} staked</span><span style="font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : ''}${fmt(tot.pl)} settled P/L</span></div>
@@ -154,13 +154,12 @@
       const hdr = g !== lastGrp ? `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:rgba(255,255,255,.7);margin:${lastGrp === null ? '4px' : '22px'} 2px 10px">${GH[g]}</div>` : '';
       lastGrp = g;
       const off = g === 2;
-      const ocs = rc.rs.slice().sort((a, b) => a.d - b.d);
+      const ocs = rc.rs.slice();   // feed order — no odds shown, so no odds-implied ordering either
       const wn = winMap[rc.k];
       return `${hdr}<div class="mkt"><h3>${rc.t} ${shortC(rc.course)}</h3>
         <div class="sub2">${rc.rs.length} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small></span>
-            <span class="pct">${r.d}</span>
             <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">SP ${stake.toLocaleString('en-GB')}</button></div>`; }).join('')}
       </div>`;
     }).join('');
