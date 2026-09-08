@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACESIDE · 2026 FIXTURES</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  .fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+  .fxc{padding:9px 11px}
+  .fxc b{font-family:var(--mono);font-size:17px;display:block}
+  .fxc span{font-size:10px;color:var(--dim);letter-spacing:.03em}
+  .fxday{padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+  .fxday .d{flex:none;width:112px;font-family:var(--mono);font-size:11px;color:var(--ink)}
+  .fxday .c{font-size:12px;color:var(--dim)}
+  .big{font-size:24px;font-weight:800;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">2026 <b>FIXTURES</b><small id="fxsub">upcoming GB &amp; IRE</small></div>
+</header>
+<main>
+  <p class="note">Every upcoming fixture the feed will give — date and course, nothing else. Track tiles count each course’s remaining meetings.</p>
+  <div id="app"><div class="state"><div class="spinner"></div>loading fixtures\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  async function main() {
+    let j = null;
+    try { const r = await fetch('/api/fixtures'); j = await r.json(); } catch {}
+    if (!(j && j.ok)) { $('app').innerHTML = '<div class="state">fixtures feed unavailable</div>'; return; }
+    const fx = j.fixtures || [];
+    if (!fx.length) { $('app').innerHTML = '<div class="state">no upcoming fixtures returned</div>'; return; }
+    const counts = {};
+    fx.forEach(f => { counts[f.course] = (counts[f.course] || 0) + 1; });
+    const courses = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const days = {};
+    fx.forEach(f => { (days[f.date] = days[f.date] || []).push(f.course); });
+    const dates = Object.keys(days).sort();
+    const fmt = (dt) => { const d = new Date(dt + 'T12:00:00'); return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()]; };
+    const near = j.source === 'racecards-fallback';
+    $('app').innerHTML =
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${fx.length}</span><div class="sub">fixtures</div></div>
+        <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${dates.length}</span><div class="sub">racing days</div></div>
+        <div class="tile" style="padding:10px 14px;margin:0"><span class="big">${courses.length}</span><div class="sub">tracks</div></div></div>
+      <div class="fxgrid">${courses.map(([c, n]) => `<div class="tile fxc" style="margin:0"><b>${n}</b><span>${c}</span></div>`).join('')}</div>
+      ${near ? '<div class="sub" style="margin-bottom:10px">this plan\\u2019s feed only lists the next couple of days \u2014 the full-year calendar needs a fixtures endpoint on the Racing API account. The list below is what it gave.</div>' : ''}
+      <div class="tile">${dates.map(dt => `<div class="fxday"><span class="d">${fmt(dt)}</span><span class="c">${days[dt].sort().join(' \u00b7 ')}</span></div>`).join('')}</div>
+      <div class="sub" style="margin:10px 0">source: ${j.source} \u00b7 ${j.from} \u2192 ${j.to}</div>`;
+    const sub = $('fxsub'); if (sub) sub.textContent = fx.length + ' fixtures \u00b7 ' + courses.length + ' tracks';
+  }
+  main();
+})();
+</script>
+</body>
+</html>
