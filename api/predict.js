@@ -1,4 +1,4 @@
-// RACINGPREDICT — accounts, balance, buys, settlement. Server-side truth.
+// RACINGPREDICT — a demo book. Accounts, balance, bets at live odds, settlement. Server-side truth.
 // POST { op:'new' }                          → create account { id, token, bal:1000 }
 // POST { op:'login', code }                  → code = "id.token" → account state
 // POST { op:'state', id, token }             → settle matured positions, return state
@@ -51,9 +51,9 @@ async function settle(acct) {
     if (wn === undefined) return;
     p.settled = 1;
     const hit = wn === hk(p.h);
-    p.won = (p.side === 'no' ? !hit : hit) ? 1 : 0;
+    p.won = (p.side === 'no' ? !hit : hit) ? 1 : 0;   // side only exists on legacy market-era positions
     changed = true;
-    if (p.won) { p.pay = Math.round(p.stake / p.p); acct.bal += p.pay; }
+    if (p.won) { p.pay = Math.round(p.o ? p.stake * p.o : p.stake / p.p); acct.bal += p.pay; }
   });
   return changed;
 }
@@ -122,15 +122,12 @@ export default async function handler(req, res) {
     if (rides[0].day === 'today' && raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'market closed — race is off' });
     const pick = rides.find(r => hk(r.h) === hk(String(b.h || '')));
     if (!pick) return res.status(200).json({ ok: false, error: 'horse not found' });
-    const side = b.side === 'no' ? 'no' : 'yes';
-    const Z = rides.reduce((a, r) => a + 1 / r.d, 0);
-    const yes = (1 / pick.d) / Z;                     // the server's price — client numbers ignored
-    const p = side === 'no' ? 1 - yes : yes;
-    if (!(p > 0.005 && p < 0.995)) return res.status(200).json({ ok: false, error: 'price out of range' });
+    const o = Number(pick.d);                          // the server's odds — client numbers ignored
+    if (!(o > 1 && o < 1000)) return res.status(200).json({ ok: false, error: 'odds out of range' });
     acct.bal -= stake;
-    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, side, p: Number(p.toFixed(4)), d: pick.d, stake, at: new Date().toISOString() }]);
+    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, o, stake, at: new Date().toISOString() }]);
     if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
-    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, side, p: Number(p.toFixed(4)), stake } });
+    return res.status(200).json({ ...pub(acct), bought: { h: pick.h, o, stake } });
   }
 
   return res.status(200).json({ ok: false, error: 'unknown op' });
