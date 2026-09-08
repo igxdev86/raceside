@@ -45,6 +45,23 @@
   .stakes{display:flex;gap:8px;margin:0 2px 14px;flex-wrap:wrap}
   .stk{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:7px 14px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer}
   .stk.on{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C;border-color:transparent}
+  .meta{font-size:10.5px;color:rgba(255,255,255,.55);margin:2px 0 8px;line-height:1.5}
+  .ewchip{display:inline-block;background:rgba(255,194,75,.16);color:#FFC24B;border-radius:6px;padding:1px 7px;font-family:var(--mono);font-size:10px;font-weight:700;margin-left:6px}
+  .addbtn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:9px 13px;font-weight:800;font-size:12px;cursor:pointer}
+  .addbtn.inslip{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C;border-color:transparent}
+  .addbtn[disabled]{opacity:.3;cursor:default}
+  #slipbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#1C0206;border-top:1px solid rgba(255,194,75,.4);box-shadow:0 -10px 30px rgba(0,0,0,.5);padding:12px 14px 16px;max-height:70vh;overflow:auto}
+  #slipbar h4{margin:0 0 4px;font-size:14px;display:flex;justify-content:space-between}
+  .sliprow{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid rgba(255,255,255,.12);font-size:12px}
+  .sliprow .snm{flex:1;min-width:0}
+  .sliprow .snm b{display:block;font-size:13px}
+  .sliprow .snm small{color:rgba(255,255,255,.55);font-size:10px}
+  .seg{display:flex;border:1px solid rgba(255,255,255,.3);border-radius:8px;overflow:hidden}
+  .seg button{border:none;background:transparent;color:rgba(255,255,255,.7);padding:6px 9px;font-size:10.5px;font-weight:800;cursor:pointer;font-family:var(--mono)}
+  .seg button.on{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C}
+  .stkbtn{border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer}
+  .placebtn{width:100%;border:none;border-radius:12px;padding:13px;font-weight:900;font-size:14px;cursor:pointer;color:#3A040C;background:linear-gradient(135deg,#FFC24B,#FF9A3D);margin-top:10px}
+  .xbtn{border:none;background:transparent;color:rgba(255,255,255,.5);font-size:15px;cursor:pointer;padding:2px 4px}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1C0206;color:#fff;border-radius:999px;
     padding:11px 20px;font-size:13px;font-weight:700;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);border:1px solid rgba(255,194,75,.4)}
 </style>
@@ -84,6 +101,43 @@
   if (!STAKES.includes(stake)) stake = 100;
   window.__rpStake = (v) => { stake = v; try { localStorage.setItem('rpstake', String(v)); } catch {} drawStakes(); render(); };
   function drawStakes() { $('rpstakes').innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.6);align-self:center">bet size</span>' + STAKES.map(v => `<button class="stk${v === stake ? ' on' : ''}" onclick="__rpStake(${v})">$${v.toLocaleString('en-US')}</button>`).join(''); }
+  const ewTerms = (n, hcp) => n < 5 ? null : n <= 7 ? { pl: 2, fr: '1/4', places: 2 } : hcp ? (n >= 16 ? { pl: 4, fr: '1/4' } : n >= 12 ? { pl: 3, fr: '1/4' } : { pl: 3, fr: '1/5' }) : { pl: 3, fr: '1/5' };
+  const fdist = (d) => { const f = Number(d); return f ? (f >= 8 ? Math.floor(f / 8) + 'm' + (f % 8 ? ' ' + (f % 8) + 'f' : '') : f + 'f') : String(d || ''); };
+  let SLIP = [];
+  window.__rpAdd = (k, h, label, race, ewOk) => {
+    const i = SLIP.findIndex(s => s.k === k && s.h === h);
+    if (i >= 0) { SLIP.splice(i, 1); } else { SLIP.push({ k, h, label, race, ew: 0, ewOk, stake }); }
+    render(); drawSlip();
+  };
+  window.__rpSlipEw = (i, ew) => { if (!SLIP[i]) return; if (ew && !SLIP[i].ewOk) { toast('win only — fewer than 5 runners'); return; } SLIP[i].ew = ew; drawSlip(); };
+  window.__rpSlipStk = (i, dir) => { if (!SLIP[i]) return; const j = STAKES.indexOf(SLIP[i].stake); SLIP[i].stake = STAKES[Math.max(0, Math.min(STAKES.length - 1, j + dir))]; drawSlip(); };
+  window.__rpSlipRm = (i) => { SLIP.splice(i, 1); render(); drawSlip(); };
+  window.__rpPlace = async () => {
+    if (!SLIP.length || !CRED) return;
+    const bets = SLIP.slice(); SLIP = []; drawSlip();
+    let placed = 0;
+    for (const s of bets) {
+      const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k: s.k, h: s.h, stake: s.stake, ew: s.ew ? 1 : 0 });
+      if (j.ok) { ACCT = j; placed++; } else toast(`${s.label}: ${j.error || 'failed'}`);
+    }
+    render();
+    if (placed) toast(placed + (placed === 1 ? ' bet placed @ SP' : ' bets placed @ SP'));
+  };
+  function drawSlip() {
+    let bar = $('slipbar');
+    if (!SLIP.length) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'slipbar'; document.body.appendChild(bar); }
+    const cost = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0);
+    bar.innerHTML = `<h4>Bet slip · ${SLIP.length}<span style="font-family:var(--mono)">${fmt(cost)}</span></h4>
+      ${SLIP.map((s, i) => `<div class="sliprow">
+        <span class="snm"><b>${s.h}</b><small>${s.label}</small></span>
+        <span class="seg"><button class="${s.ew ? '' : 'on'}" onclick="__rpSlipEw(${i},0)">WIN</button><button class="${s.ew ? 'on' : ''}" onclick="__rpSlipEw(${i},1)">E/W</button></span>
+        <button class="stkbtn" onclick="__rpSlipStk(${i},-1)">−</button>
+        <span style="font-family:var(--mono);font-weight:800;min-width:44px;text-align:center">$${s.stake.toLocaleString('en-US')}${s.ew ? '×2' : ''}</span>
+        <button class="stkbtn" onclick="__rpSlipStk(${i},1)">+</button>
+        <button class="xbtn" onclick="__rpSlipRm(${i})">×</button></div>`).join('')}
+      <button class="placebtn" onclick="__rpPlace()">Place ${SLIP.length === 1 ? 'bet' : SLIP.length + ' bets'} @ SP · ${fmt(cost)}</button>`;
+  }
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
   let ACCT = null;          // { id, bal, pos } — server truth
@@ -145,7 +199,7 @@
     const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).reverse();
     const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
     const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
-    const px = (p) => p.sp !== undefined ? '@ SP' : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%');
+    const px = (p) => (p.ew ? 'E/W ' : '') + (p.sp !== undefined ? '@ SP' : (p.o ? '@ ' + p.o : '@ ' + (p.p * 100).toFixed(0) + '%'));
     const row = (p) => p.settled
       ? `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`
       : `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} ${px(p)}</span></div>`;
@@ -170,11 +224,19 @@
       const off = g === 2;
       const ocs = rc.rs.slice();   // feed order — no odds shown, so no odds-implied ordering either
       const wn = winMap[rc.k];
-      return `${hdr}<div class="mkt"><h3>${rc.t} ${shortC(rc.course)}</h3>
-        <div class="sub2">${rc.rs.length} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
+      const r0 = rc.rs[0] || {};
+      const n = Number(r0.n) || rc.rs.length;
+      const hcp = /handicap/i.test(String(r0.rtype || '') + ' ' + String(r0.rname || ''));
+      const terms = ewTerms(n, hcp);
+      const metaBits = [r0.rname, r0.rclass ? 'Class ' + r0.rclass : (r0.rtype && !/handicap/i.test(r0.rname || '') ? r0.rtype : ''), fdist(r0.dist), r0.going].filter(Boolean);
+      const raceLabel = rc.t + ' ' + shortC(rc.course);
+      return `${hdr}<div class="mkt"><h3>${raceLabel}</h3>
+        <div class="meta">${metaBits.join(' · ')}<span class="ewchip">${terms ? 'E/W ' + terms.pl + ' places @ ' + terms.fr : 'WIN ONLY'}</span></div>
+        <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
+          const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
           return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small></span>
-            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">SP $${stake.toLocaleString('en-US')}</button></div>`; }).join('')}
+            <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button></div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
