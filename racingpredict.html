@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACINGPREDICT</title>
+<script src="/nav.js?v=1" defer></script>
+<style>
+  :root{--bg:#F6F6F2;--card:#FFFFFF;--ink:#14141F;--dim:#6B6B7A;--faint:#A5A5B3;--line:#ECECE6;
+    --green:#1F9D63;--greenbg:#E7F6EE;--red:#DE4D33;--redbg:#FBEDE9;--gold:#B98A1F;--blue:#2D5BFF;
+    --mono:'SF Mono',ui-monospace,Menlo,monospace}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,'Inter',system-ui,sans-serif;margin:0;padding:0 14px 60px}
+  header.rp{display:flex;justify-content:space-between;align-items:center;padding:18px 2px 12px;position:sticky;top:0;background:var(--bg);z-index:5}
+  .rpmark{font-weight:800;font-size:19px;letter-spacing:-.02em}
+  .rpmark span{color:var(--green)}
+  .bal{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-family:var(--mono);font-size:13px;font-weight:700;box-shadow:0 1px 2px rgba(20,20,31,.05)}
+  .mkt{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(20,20,31,.05)}
+  .mkt h3{margin:0 0 2px;font-size:15px}
+  .mkt .sub2{font-size:11px;color:var(--dim);margin-bottom:8px}
+  .oc{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .oc .nm{flex:1;min-width:0}
+  .oc .nm b{font-size:13.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .oc .nm small{color:var(--dim);font-size:10.5px}
+  .pct{font-family:var(--mono);font-weight:800;font-size:20px;width:64px;text-align:right}
+  .buy{border:none;border-radius:10px;padding:9px 12px;font-weight:700;font-size:12px;cursor:pointer;background:var(--greenbg);color:var(--green)}
+  .buy:active{transform:scale(.97)}
+  .buy[disabled]{opacity:.35;cursor:default}
+  .bar{height:4px;border-radius:2px;background:var(--line);margin-top:5px;overflow:hidden}
+  .bar div{height:100%;background:var(--green)}
+  .pos{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px;padding:7px 0;border-top:1px solid var(--line)}
+  .chipw{background:var(--greenbg);color:var(--green);border-radius:6px;padding:1px 7px;font-weight:700}
+  .chipl{background:var(--redbg);color:var(--red);border-radius:6px;padding:1px 7px;font-weight:700}
+  .chipo{background:#EFEFFB;color:var(--blue);border-radius:6px;padding:1px 7px;font-weight:700}
+  .note2{font-size:11px;color:var(--faint);margin:14px 2px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:600;z-index:50;box-shadow:0 6px 20px rgba(20,20,31,.25)}
+</style>
+</head>
+<body>
+<header class="rp"><div class="rpmark">RACING<span>PREDICT</span></div><div class="bal" id="rpbal">\u2014</div></header>
+<main>
+  <p class="note2">Play points, not money. Every race is a market: the percentage is the crowd\u2019s implied chance from live odds (overround removed). Buy a horse at its percentage; a winner pays stake \u00f7 chance. Prices refresh every few minutes and buying closes at post time. Purely a way of keeping score \u2014 not betting, not advice.</p>
+  <div id="rpport"></div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets\u2026</div></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+  const rk = (t, c) => String(t).replace(/\s.*/, '') + '|' + String(c).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const shortC = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '');
+  const fmt = (n) => Math.round(n).toLocaleString('en-GB');
+
+  let W = null;
+  try { W = JSON.parse(localStorage.getItem('rp:v1') || 'null'); } catch {}
+  if (!W || typeof W.bal !== 'number') W = { bal: 1000, pos: [] };
+  const save = () => { try { localStorage.setItem('rp:v1', JSON.stringify(W)); } catch {} };
+
+  let races = [], winMap = {};
+  const toast = (msg) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
+
+  window.__rpBuy = (k, h, p, stake) => {
+    if (W.bal < stake) { toast('not enough points'); return; }
+    W.bal -= stake;
+    W.pos.push({ k, h, p, stake, at: Date.now() });
+    save(); render();
+    toast(`bought ${h} \u00b7 ${stake} pts at ${(p * 100).toFixed(0)}%`);
+  };
+  window.__rpReset = () => { W = { bal: 1000, pos: [] }; save(); render(); toast('fresh 1,000 points'); };
+
+  function settle() {
+    W.pos.forEach(p => {
+      if (p.settled) return;
+      const wn = winMap[p.k];
+      if (wn === undefined) return;
+      p.settled = 1;
+      p.won = wn === p.h.toLowerCase().replace(/[^a-z0-9]/g, '') ? 1 : 0;
+      if (p.won) { p.pay = p.stake / p.p; W.bal += p.pay; toast(`\u2705 ${p.h} won \u00b7 +${fmt(p.pay)} pts`); }
+    });
+    save();
+  }
+
+  function render() {
+    $('rpbal').textContent = fmt(W.bal) + ' pts';
+    const open = W.pos.filter(p => !p.settled), done = W.pos.filter(p => p.settled).slice(-8).reverse();
+    $('rpport').innerHTML = (open.length || done.length) ? `<div class="mkt"><h3>Your positions</h3>
+      ${open.map(p => `<div class="pos"><span><span class="chipo">OPEN</span> ${p.h}</span><span>${p.stake} pts @ ${(p.p * 100).toFixed(0)}% \u2192 ${fmt(p.stake / p.p)}</span></div>`).join('')}
+      ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${p.h}</span><span>${p.won ? '+' + fmt(p.pay) : '\u2212' + p.stake} pts</span></div>`).join('')}
+      ${W.bal < 10 && !open.length ? '<div class="pos"><span>out of points</span><button class="buy" onclick="__rpReset()">start again \u00b7 1,000 pts</button></div>' : ''}</div>` : '';
+    const nm = new Date().getHours() * 60 + new Date().getMinutes();
+    const rows = races.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(rc => {
+      const off = raceMin(rc.t) <= nm || winMap[rc.k] !== undefined;
+      const inv = rc.rs.map(r => 1 / r.d); const Z = inv.reduce((a, b) => a + b, 0);
+      const ocs = rc.rs.map((r, i) => ({ r, p: inv[i] / Z })).sort((a, b) => b.p - a.p);
+      const wn = winMap[rc.k];
+      return `<div class="mkt"><h3>Who wins the ${rc.t} at ${shortC(rc.course)}?</h3>
+        <div class="sub2">${rc.rs.length} runners \u00b7 ${off ? (wn !== undefined ? 'settled' : 'off \u2014 waiting on result') : 'buying open until ' + rc.t}</div>
+        ${ocs.map(({ r, p }) => { const wonThis = wn !== undefined && wn === r.h.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' \u2705' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
+            <div class="bar"><div style="width:${(p * 100).toFixed(0)}%"></div></div></span>
+            <span class="pct">${(p * 100).toFixed(0)}%</span>
+            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${r.h.replace(/'/g, '')}',${p.toFixed(4)},25)">Buy 25</button></div>`; }).join('')}
+      </div>`;
+    }).join('');
+    $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:var(--dim)">no markets today</div>';
+  }
+
+  async function pull() {
+    try {
+      const [ru, rw] = await Promise.all([fetch('/api/upcoming?v=4'), fetch('/api/todaywinners')]);
+      const up = await ru.json(), w = await rw.json();
+      if (up && up.ok) {
+        const by = {};
+        (up.rides || []).filter(r => r.day === 'today' && Number(r.d) > 1).forEach(r => { const k = rk(r.t, r.course); (by[k] = by[k] || { k, t: r.t, course: r.course, rs: [] }).rs.push(r); });
+        races = Object.values(by).filter(rc => rc.rs.length >= 3);
+      }
+      if (w && w.ok) { winMap = {}; (w.winners || []).forEach(x => { winMap[rk(x.t, x.course)] = String(x.h).toLowerCase().replace(/[^a-z0-9]/g, ''); }); }
+      settle(); render();
+    } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">feed unavailable \u2014 pull to refresh</div>'; }
+  }
+  pull();
+  setInterval(pull, 150000);
+})();
+</script>
+</body>
+</html>
