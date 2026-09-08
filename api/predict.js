@@ -19,6 +19,8 @@ const ukDate = (offsetDays) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Eur
 const hk = (h) => String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
 const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
 const ukHM = (now) => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now || new Date()); const g = (t) => Number(p.find(x => x.type === t).value); return g('hour') * 60 + g('minute'); };
+// standard UK each-way terms from field size + handicap status; null = win only
+const ewTerms = (n, hcp) => n < 5 ? null : n <= 7 ? { pl: 2, fr: 0.25 } : hcp ? (n >= 16 ? { pl: 4, fr: 0.25 } : n >= 12 ? { pl: 3, fr: 0.25 } : { pl: 3, fr: 0.2 }) : { pl: 3, fr: 0.2 };
 const rand = (n) => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
 
 async function kvGet(s, k) {
@@ -55,11 +57,18 @@ async function settle(acct) {
       if (!rc || !(rc.runners || []).some(r => r.pos === '1' || r.won === 1)) return;   // result not in yet
       const mine = (rc.runners || []).find(r => hk(r.h) === hk(p.h));
       changed = true;
-      if (!mine) { p.settled = 1; p.won = 0; p.voided = 1; p.pay = p.stake; acct.bal += p.stake; return; }   // non-runner: stake back
+      const cost = p.ew ? p.stake * 2 : p.stake;
+      if (!mine) { p.settled = 1; p.won = 0; p.voided = 1; p.pay = cost; acct.bal += cost; return; }   // non-runner: full stake back
       p.sp = Number(mine.d) > 1 ? Number(mine.d) : null;
       p.settled = 1;
-      p.won = (mine.pos === '1' || mine.won === 1) ? 1 : 0;
-      if (p.won) { p.pay = Math.round(p.stake * (p.sp || p.g || 0)); acct.bal += p.pay; }
+      const sp = p.sp || p.g || 0;
+      const posN = Number(mine.pos) || (mine.won === 1 ? 1 : 99);
+      let pay = 0;
+      if (posN === 1) pay += p.stake * sp;                                        // win part
+      if (p.ew && p.pl && posN <= p.pl) pay += p.stake * (1 + (sp - 1) * p.fr);   // place part at fractional odds
+      p.won = pay > 0 ? 1 : 0;
+      p.placed = p.ew && posN <= (p.pl || 0) ? posN : undefined;
+      if (pay > 0) { p.pay = Math.round(pay); acct.bal += p.pay; }
     });
   }
 
@@ -169,8 +178,17 @@ export default async function handler(req, res) {
     if (!pick) return res.status(200).json({ ok: false, error: 'horse not found' });
     // SP bet: no price locked at strike — settles at the official starting price from the results feed
     const g = Number(pick.d);                          // current price, recorded as a guide only
-    acct.bal -= stake;
-    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, sp: null, g, stake, at: new Date().toISOString() }]);
+    const n = Number(rides[0].n) || rides.length;
+    const hcp = /handicap/i.test(String(rides[0].rtype || '') + ' ' + String(rides[0].rname || ''));
+    let ew = 0, terms = null, cost = stake;
+    if (b.ew) {
+      terms = ewTerms(n, hcp);
+      if (!terms) return res.status(200).json({ ok: false, error: 'win only — fewer than 5 runners' });
+      ew = 1; cost = stake * 2;                         // an E/W bet is a win stake AND a place stake
+      if (acct.bal < cost) return res.status(200).json({ ok: false, error: 'not enough for E/W (2× stake)' });
+    }
+    acct.bal -= cost;
+    acct.pos = (acct.pos || []).concat([{ k: b.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h, sp: null, g, stake, ew, ...(terms ? { pl: terms.pl, fr: terms.fr } : {}), at: new Date().toISOString() }]);
     if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
     return res.status(200).json({ ...pub(acct), bought: { h: pick.h, g, stake } });
   }
