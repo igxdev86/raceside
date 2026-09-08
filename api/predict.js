@@ -72,6 +72,38 @@ async function settle(acct) {
     });
   }
 
+  // multiples: resolve leg by leg from the results feed; any lost leg kills the bet, NR legs void out
+  const multis = open.filter(p => p.multi && !p.settled);
+  if (multis.length) {
+    const mdates = [...new Set(multis.flatMap(p => p.legs.map(l => String(l.k).slice(0, 10))).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)))];
+    const races = {};
+    for (const dt of mdates) {
+      let j = null;
+      try { const r = await fetch(BASE + '/api/priceday?v=5&date=' + dt); j = await r.json(); } catch {}
+      if (j && j.ok) (j.races || []).forEach(rc => { races[dt + '|' + rk(rc.t, rc.course)] = rc; });
+    }
+    multis.forEach(p => {
+      let anyLost = false, allDone = true, product = 1, voids = 0;
+      for (const l of p.legs) {
+        const rc = races[l.k];
+        if (!rc || !(rc.runners || []).some(r => r.pos === '1' || r.won === 1)) { allDone = false; continue; }
+        const mine = (rc.runners || []).find(r => hk(r.h) === hk(l.h));
+        if (!mine) { l.void = 1; voids++; continue; }                    // non-runner: leg drops out
+        l.sp = Number(mine.d) > 1 ? Number(mine.d) : 1;
+        if (mine.pos === '1' || mine.won === 1) { l.won = 1; product *= l.sp; }
+        else { l.won = 0; anyLost = true; }
+      }
+      if (anyLost) { p.settled = 1; p.won = 0; changed = true; return; } // dead the moment a leg loses
+      if (!allDone) return;                                             // still running
+      p.settled = 1; changed = true;
+      if (voids === p.legs.length) { p.voided = 1; p.won = 0; p.pay = p.stake; acct.bal += p.stake; return; }
+      p.spx = Math.round(product * 100) / 100;
+      p.pay = Math.round(p.stake * product);
+      p.won = 1;
+      acct.bal += p.pay;
+    });
+  }
+
   // legacy market-era and odds-era bets: winner feed as before
   const legacy = open.filter(p => p.sp !== null && p.sp === undefined || (p.o || p.p) && !p.settled);
   if (legacy.length) {
@@ -160,6 +192,33 @@ export default async function handler(req, res) {
     acct.bal = 50000; acct.pos = [];
     await kvSet(s, 'rpacct:' + acct.id, acct);
     return res.status(200).json(pub(acct));
+  }
+
+  if (op === 'multi') {
+    const stake = Math.floor(Number(b.stake));
+    if (!(stake >= 10 && stake <= 5000)) return res.status(200).json({ ok: false, error: 'stake 10–5,000' });
+    if (acct.bal < stake) return res.status(200).json({ ok: false, error: 'not enough' });
+    const legsIn = Array.isArray(b.legs) ? b.legs : [];
+    if (legsIn.length < 2 || legsIn.length > 8) return res.status(200).json({ ok: false, error: '2–8 legs' });
+    if (new Set(legsIn.map(l => String(l.k))).size !== legsIn.length) return res.status(200).json({ ok: false, error: 'one leg per race' });
+    let up = null;
+    try { const r = await fetch(BASE + '/api/upcoming?v=4'); up = await r.json(); } catch {}
+    if (!(up && up.ok)) return res.status(200).json({ ok: false, error: 'feed unavailable' });
+    const now = req.query && req.query.now ? new Date(String(req.query.now)) : new Date();
+    const legs = [];
+    for (const l of legsIn) {
+      const rides = (up.rides || []).filter(r => (r.day === 'today' || r.day === 'tomorrow') && Number(r.d) > 1 && (ukDate(r.day === 'tomorrow' ? 1 : 0) + '|' + rk(r.t, r.course)) === String(l.k));
+      if (rides.length < 3) return res.status(200).json({ ok: false, error: 'market not found: ' + l.k });
+      if (rides[0].day === 'today' && raceMin(rides[0].t) <= ukHM(now)) return res.status(200).json({ ok: false, error: 'a leg is already off' });
+      const pick = rides.find(r => hk(r.h) === hk(String(l.h || '')));
+      if (!pick) return res.status(200).json({ ok: false, error: 'horse not found: ' + l.h });
+      legs.push({ k: l.k, t: rides[0].t, course: String(rides[0].course).replace(/\s*\([^)]*\)/g, ''), h: pick.h });
+    }
+    const names = { 2: 'DOUBLE', 3: 'TREBLE' };
+    acct.bal -= stake;
+    acct.pos = (acct.pos || []).concat([{ multi: 1, mname: names[legs.length] || legs.length + '-FOLD', legs, sp: null, stake, at: new Date().toISOString() }]);
+    if (!await kvSet(s, 'rpacct:' + acct.id, acct)) return res.status(200).json({ ok: false, error: 'store write failed' });
+    return res.status(200).json({ ...pub(acct), bought: { multi: 1, legs: legs.length, stake } });
   }
 
   if (op === 'buy') {
