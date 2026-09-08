@@ -11,6 +11,8 @@
     background:linear-gradient(175deg,#4A050F 0%,#8E0E22 38%,#C41230 75%,#E0243C 100%) fixed;min-height:100vh}
   header.rp{display:flex;justify-content:space-between;align-items:center;padding:20px 2px 14px;position:sticky;top:0;z-index:5;
     background:linear-gradient(180deg,rgba(58,4,12,.92),rgba(58,4,12,0));backdrop-filter:blur(6px)}
+  .amrow{display:block;width:100%;text-align:left;border:none;background:transparent;color:#fff;font-size:12.5px;font-weight:600;padding:9px 10px;border-radius:9px;cursor:pointer}
+  .amrow:active{background:rgba(255,255,255,.08)}
   .rpmark{font-weight:900;font-size:28px;letter-spacing:-.03em;text-shadow:0 2px 12px rgba(0,0,0,.4)}
   .tag{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
   .rpmark span{background:linear-gradient(90deg,#FFC24B,#FF8A3D);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -72,15 +74,22 @@
     <div class="rpmark">RACING<span>PREDICT</span></div>
     <div class="tag">the demo book · nothing real staked</div>
   </div>
-  <div class="bal" id="rpbal">—</div>
+  <div class="bal" style="display:flex;align-items:center;gap:8px">
+    <span id="rpbal">—</span>
+    <button id="rpacctbtn" onclick="__rpMenu()" aria-label="account" style="border:none;background:rgba(58,4,12,.18);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3A040C" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </div>
+  <div id="acctmenu" style="display:none;position:absolute;right:14px;top:64px;z-index:45;background:#1C0206;border:1px solid rgba(255,194,75,.4);border-radius:14px;padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.55);min-width:200px">
+    <div id="amid" style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.6);padding:8px 10px"></div>
+    <button class="amrow" onclick="__rpCode();__rpMenu()">Copy account code</button>
+    <button class="amrow" onclick="__rpMenu();__rpLogin()">Log in with a code</button>
+  </div>
 </header>
 <main>
   <p class="note2">A demo book with a $50,000 demo balance — nothing real is staked or won. No prices are shown: you pick on the horse alone, every bet is taken at <b>SP</b>, and the official starting price is revealed only when the race settles. A winner returns stake × SP; non-runners are voided and refunded. Betting closes at post time and every bet is recorded to your account. Demo dollars only — not betting, not advice.</p>
   <div class="stakes" id="rpstakes"></div>
-  <div class="stakes" style="margin-top:-6px">
-    <button class="stk" onclick="__rpDep()">➕ Deposit $10,000</button>
-    <button class="stk" onclick="__rpWd()">Withdraw $10,000</button>
-  </div>
+
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
 <div class="note2" style="text-align:center;margin-top:26px">a <a href="/" style="color:rgba(255,255,255,.8)">RACESIDE</a> experiment</div>
@@ -165,14 +174,6 @@
     ACCT = j; render();
     toast(`${fmt(stake)} on ${j.bought.h} @ SP`);
   };
-  window.__rpDep = async () => {
-    const j = await api({ op: 'deposit', id: CRED.id, token: CRED.token, amt: 10000 });
-    if (j.ok) { ACCT = j; render(); toast('deposited $10,000 demo'); } else toast(j.error || 'no deposit');
-  };
-  window.__rpWd = async () => {
-    const j = await api({ op: 'withdraw', id: CRED.id, token: CRED.token, amt: 10000 });
-    if (j.ok) { ACCT = j; render(); toast('withdrew ' + fmt(j.withdrew) + ' demo'); } else toast(j.error || 'no withdraw');
-  };
   window.__rpReset = async () => {
     const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
     if (j.ok) { ACCT = j; render(); toast('fresh $50,000 demo balance'); } else toast(j.error || 'no reset');
@@ -184,6 +185,12 @@
     if (!j.ok) { toast('bad code'); return; }
     CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; render();
     toast('welcome back · ' + fmt(j.bal));
+  };
+  window.__rpMenu = () => {
+    const m = $('acctmenu');
+    const show = m.style.display === 'none';
+    m.style.display = show ? 'block' : 'none';
+    if (show && CRED) $('amid').textContent = CRED.id + ' · demo';
   };
   window.__rpCode = () => {
     if (!CRED) return;
@@ -204,7 +211,7 @@
       ? `<div class="pos"><span>${p.voided ? '<span class="chipo">VOID</span>' : p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}${p.sp ? ' <small style="color:rgba(255,255,255,.55)">SP ' + p.sp + '</small>' : ''}</span><span>${p.voided ? '±0' : p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`
       : `<div class="pos"><span><span class="chipo">OPEN</span> ${lbl(p)}</span><span>${fmt(p.stake)} ${px(p)}</span></div>`;
     $('rpport').innerHTML = `<div class="mkt"><h3 style="display:flex;justify-content:space-between;align-items:baseline">My bets<span style="font-family:var(--mono);font-size:12px;font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : '−'}${fmt(Math.abs(tot.pl))}</span></h3>
-      <div class="sub2">${tot.bets} bets · ${fmt(tot.staked)} staked · ${CRED.id} · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in</a></div>
+      <div class="sub2">${tot.bets} bets · ${fmt(tot.staked)} staked</div>
       ${open.length ? open.map(row).join('') : '<div class="pos" style="color:rgba(255,255,255,.5)">no open bets — pick a horse below</div>'}
       ${done.length ? `<details ${open.length ? '' : 'open'}><summary style="cursor:pointer;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.65);padding:8px 0;border-top:1px solid rgba(255,255,255,.14);list-style:none">HISTORY · ${done.length} settled ▾</summary>${done.slice(0, 25).map(row).join('')}</details>` : ''}
       ${ACCT.bal < 100 && !open.length ? '<div class="pos"><span>balance gone</span><button class="buy" onclick="__rpReset()">fresh $50,000</button></div>' : ''}</div>`;
