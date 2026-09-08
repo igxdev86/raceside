@@ -135,11 +135,19 @@
       ${done.map(p => `<div class="pos"><span>${p.won ? '<span class="chipw">WON</span>' : '<span class="chipl">LOST</span>'} ${lbl(p)}</span><span>${p.won ? '+' + fmt(p.pay) : '−' + fmt(p.stake)}</span></div>`).join('')}
       ${ACCT.bal < 100 && !open.length ? '<div class="pos"><span>balance gone</span><button class="buy" onclick="__rpReset()">fresh 50,000</button></div>' : ''}</div>`;
     const nm = new Date().getHours() * 60 + new Date().getMinutes();
-    let lastDay = null;
-    const rows = races.slice().sort((a, b) => (a.day === b.day ? raceMin(a.t) - raceMin(b.t) : a.day === 'today' ? -1 : 1)).map(rc => {
-      const hdr = rc.day !== lastDay ? `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:rgba(255,255,255,.7);margin:${lastDay ? '22px' : '4px'} 2px 10px">${rc.day === 'today' ? 'TODAY' : 'TOMORROW'}</div>` : '';
-      lastDay = rc.day;
-      const off = rc.day === 'today' && (raceMin(rc.t) <= nm || winMap[rc.k] !== undefined);
+    // next off first, then tomorrow, settled sink to the bottom (most recent first)
+    const grp = (rc) => (rc.day === 'today' && (raceMin(rc.t) <= nm || winMap[rc.k] !== undefined)) ? 2 : (rc.day === 'today' ? 0 : 1);
+    const GH = ['NEXT UP · TODAY', 'TOMORROW', 'SETTLED · TODAY'];
+    let lastGrp = null;
+    const rows = races.slice().sort((a, b) => {
+      const ga = grp(a), gb = grp(b);
+      if (ga !== gb) return ga - gb;
+      return ga === 2 ? raceMin(b.t) - raceMin(a.t) : raceMin(a.t) - raceMin(b.t);
+    }).map(rc => {
+      const g = grp(rc);
+      const hdr = g !== lastGrp ? `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:rgba(255,255,255,.7);margin:${lastGrp === null ? '4px' : '22px'} 2px 10px">${GH[g]}</div>` : '';
+      lastGrp = g;
+      const off = g === 2;
       const inv = rc.rs.map(r => 1 / r.d); const Z = inv.reduce((a, b) => a + b, 0);
       const ocs = rc.rs.map((r, i) => ({ r, p: inv[i] / Z })).sort((a, b) => b.p - a.p);
       const wn = winMap[rc.k];
