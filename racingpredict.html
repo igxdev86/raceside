@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RACINGPREDICT</title>
-<script src="/nav.js?v=2" defer></script>
 <style>
   :root{--gold:#FFC24B;--mono:'SF Mono',ui-monospace,Menlo,monospace}
   html{background:#4A050F}
-  body{margin:0;padding:0 14px 60px;color:#fff !important;font-family:-apple-system,'Inter',system-ui,sans-serif !important;
-    background:linear-gradient(175deg,#4A050F 0%,#8E0E22 38%,#C41230 75%,#E0243C 100%) fixed !important;min-height:100vh}
+  body{margin:0;padding:0 14px 60px;color:#fff;font-family:-apple-system,'Inter',system-ui,sans-serif;
+    background:linear-gradient(175deg,#4A050F 0%,#8E0E22 38%,#C41230 75%,#E0243C 100%) fixed;min-height:100vh}
   header.rp{display:flex;justify-content:space-between;align-items:center;padding:20px 2px 14px;position:sticky;top:0;z-index:5;
     background:linear-gradient(180deg,rgba(58,4,12,.92),rgba(58,4,12,0));backdrop-filter:blur(6px)}
-  .rpmark{font-weight:900;font-size:21px;letter-spacing:-.02em;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+  .rpmark{font-weight:900;font-size:28px;letter-spacing:-.03em;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+  .tag{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
   .rpmark span{background:linear-gradient(90deg,#FFC24B,#FF8A3D);-webkit-background-clip:text;background-clip:text;color:transparent}
   .bal{background:linear-gradient(135deg,#FFC24B,#FF9A3D);color:#3A040C;border:none;border-radius:999px;padding:8px 16px;
     font-family:var(--mono);font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.35)}
@@ -42,11 +42,18 @@
 </style>
 </head>
 <body>
-<header class="rp"><div class="rpmark">RACING<span>PREDICT</span></div><div class="bal" id="rpbal">—</div></header>
+<header class="rp">
+  <div>
+    <div class="rpmark">RACING<span>PREDICT</span></div>
+    <div class="tag">back yourself against the crowd</div>
+  </div>
+  <div class="bal" id="rpbal">—</div>
+</header>
 <main>
   <p class="note2">Play points, not money. Every race is a market: the percentage is the crowd’s implied chance from live odds (overround removed). Buy a horse at its percentage; a winner pays stake ÷ chance. Prices refresh every few minutes and buying closes at post time. Purely a way of keeping score — not betting, not advice.</p>
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
+<div class="note2" style="text-align:center;margin-top:26px">a <a href="/" style="color:rgba(255,255,255,.8)">RACESIDE</a> experiment</div>
 </main>
 <script>
 (() => {
