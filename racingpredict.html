@@ -28,6 +28,11 @@
   .pct{font-family:var(--mono);font-weight:800;font-size:22px;width:66px;text-align:right;text-shadow:0 2px 10px rgba(0,0,0,.35)}
   .buy{border:none;border-radius:12px;padding:10px 13px;font-weight:800;font-size:12px;cursor:pointer;color:#A3122A;
     background:linear-gradient(180deg,#FFFFFF,#FFE9D6);box-shadow:0 4px 12px rgba(30,2,8,.4)}
+  .byes{border:none;border-radius:10px;padding:9px 10px;font-weight:800;font-size:11.5px;font-family:var(--mono);cursor:pointer;color:#0B4020;
+    background:linear-gradient(180deg,#B6F09C,#7BDF8E);box-shadow:0 3px 10px rgba(30,2,8,.35);min-width:64px}
+  .bno{border:none;border-radius:10px;padding:9px 10px;font-weight:800;font-size:11.5px;font-family:var(--mono);cursor:pointer;color:#5A0A14;
+    background:linear-gradient(180deg,#FFC9BC,#FF9C86);box-shadow:0 3px 10px rgba(30,2,8,.35);min-width:64px}
+  .byes[disabled],.bno[disabled]{opacity:.3;cursor:default;box-shadow:none}
   .buy:active{transform:scale(.96)}
   .buy[disabled]{opacity:.3;cursor:default;box-shadow:none}
   .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin-top:6px;overflow:hidden}
@@ -53,7 +58,7 @@
   <div class="bal" id="rpbal">—</div>
 </header>
 <main>
-  <p class="note2">A demo book with a 50,000 demo balance — nothing real is staked or won. Every race is a market: the percentage is the crowd’s implied chance from live odds with the bookmaker’s margin stripped out, so the game is exactly fair. Back a horse at its percentage; a winner returns stake ÷ chance. Betting closes at post time and every bet is recorded to your account. Not betting, not advice.</p>
+  <p class="note2">A demo book with a 50,000 demo balance — nothing real is staked or won. Every race is a market and every horse has two sides: <b>Yes</b> buys the horse to win at its implied chance, <b>No</b> buys it to lose at one minus that — crowd prices from live odds with the bookmaker’s margin stripped out, so the game is exactly fair. A winning side returns stake ÷ price. Betting closes at post time and every bet is recorded to your account. Not betting, not advice.</p>
   <div class="stakes" id="rpstakes"></div>
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
@@ -95,12 +100,12 @@
     if (j.ok) { CRED = { id: j.id, token: j.token }; saveCred(); ACCT = j; toast('demo account created · 50,000'); }
   }
 
-  window.__rpBuy = async (k, h) => {
+  window.__rpBuy = async (k, h, side) => {
     if (!CRED) return;
-    const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, stake });
+    const j = await api({ op: 'buy', id: CRED.id, token: CRED.token, k, h, side, stake });
     if (!j.ok) { toast(j.error || 'bet failed'); return; }
     ACCT = j; render();
-    toast(`bet ${stake.toLocaleString('en-GB')} on ${j.bought.h} at ${(j.bought.p * 100).toFixed(0)}%`);
+    toast(`${j.bought.side.toUpperCase()} ${j.bought.h} · ${stake.toLocaleString('en-GB')} at ${(j.bought.p * 100).toFixed(0)}%`);
   };
   window.__rpReset = async () => {
     const j = await api({ op: 'reset', id: CRED.id, token: CRED.token });
@@ -127,7 +132,7 @@
     const pos = ACCT.pos || [];
     const open = pos.filter(p => !p.settled), done = pos.filter(p => p.settled).slice(-12).reverse();
     const tot = ACCT.tot || { bets: 0, staked: 0, returned: 0, pl: 0 };
-    const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.h}`.trim();
+    const lbl = (p) => `${p.t || ''} ${p.course || ''} · ${p.side === 'no' ? 'NO ' : ''}${p.h}`.trim();
     $('rpport').innerHTML = `<div class="mkt"><h3>Your bets</h3>
       <div class="sub2">${CRED.id} · demo · <a href="#" onclick="__rpCode();return false" style="color:rgba(255,255,255,.85)">copy account code</a> · <a href="#" onclick="__rpLogin();return false" style="color:rgba(255,255,255,.85)">log in with a code</a></div>
       <div class="pos" style="border-top:none"><span>${tot.bets} bets · ${fmt(tot.staked)} staked</span><span style="font-weight:800;color:${tot.pl >= 0 ? '#B6F09C' : '#FFB4A6'}">${tot.pl >= 0 ? '+' : ''}${fmt(tot.pl)} settled P/L</span></div>
@@ -157,7 +162,8 @@
           return `<div class="oc"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}</small>
             <div class="bar"><div style="width:${(p * 100).toFixed(0)}%"></div></div></span>
             <span class="pct">${(p * 100).toFixed(0)}%</span>
-            <button class="buy" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}')">Bet ${stake.toLocaleString('en-GB')}</button></div>`; }).join('')}
+            <button class="byes" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}','yes')">Yes ${(p * 100).toFixed(0)}¢</button>
+            <button class="bno" ${off ? 'disabled' : ''} onclick="__rpBuy('${rc.k}','${hk(r.h)}','no')">No ${((1 - p) * 100).toFixed(0)}¢</button></div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
