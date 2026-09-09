@@ -229,6 +229,38 @@
     if (!HIO) HIO = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) { HIO.unobserve(e.target); fillHist(e.target); } }); }, { rootMargin: '250px' });
     boxes.forEach(b => HIO.observe(b));
   }
+  // the MINUS page's score engine, same grading: each signal pays 5/3/1 for its top three
+  let PEOPLE = null;
+  const PTS5 = [5, 3, 1];
+  const clm2 = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB2 = (bucket) => { const list = Object.entries(bucket || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b) => b.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  function scoreRace2(rs, store, pj, pt) {
+    const sc = {}; const tag = (h2, t2, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t2); };
+    const rank = (label, fn) => {
+      const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b) => b.v - a.v);
+      vals.slice(0, 3).forEach((e, k) => tag(rs[e.i].h, label + (k + 1), PTS5[k]));
+    };
+    const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+    rank('J', (r) => strike(store.jockeys, r.jid, 50));
+    rank('T', (r) => strike(store.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (store.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b) => a + b, 0) / orVals.length : null;
+    const ok = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok.length >= 2) { const top = ok.reduce((a, b) => b.ofr > a.ofr ? b : a, ok[0]); const car = (r) => r.lbs - clm2(r.jockey); const tc = car(top); ok.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    if (orMean != null) {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+      rank('M', (r) => { const i = rs.indexOf(r); const e2 = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; return e2 != null && isFinite(e2) && e2 < 0 ? -e2 : null; });
+    }
+    return sc;
+  }
+  const xs1P = (r) => { const js = ((PEOPLE || {}).jockeys || {})[r.jid], ts = ((PEOPLE || {}).trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return (js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d; };
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
   let ACCT = null;          // { id, bal, pos } — server truth
@@ -319,12 +351,14 @@
       const terms = ewTerms(n, hcp);
       const metaBits = [r0.rname, r0.rclass ? 'Class ' + r0.rclass : (r0.rtype && !/handicap/i.test(r0.rname || '') ? r0.rtype : ''), fdist(r0.dist), r0.going].filter(Boolean);
       const raceLabel = rc.t + ' ' + shortC(rc.course);
+      const scMap = (!off && PEOPLE && PEOPLE.ok) ? scoreRace2(rc.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)) : {};
       return `${hdr}<div class="mkt"><h3>${raceLabel}</h3>
         <div class="meta">${metaBits.join(' · ')}<span class="ewchip">${terms ? 'E/W ' + terms.pl + ' places @ ' + terms.fr : 'WIN ONLY'}</span></div>
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
-          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${!off && r.ofr != null ? ' \u00b7 <b style="color:#FFC24B">OR ' + r.ofr + '</b>' : ''}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
+          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${!off && r.d > 1 ? ' \u00b7 @ ' + r.d : ''}${!off && r.ofr != null ? ' \u00b7 <b style="color:#FFC24B">OR ' + r.ofr + '</b>' : ''}${(() => { const s5 = scMap[r.h]; if (!s5 || s5.pts < 5) return ''; const x5 = xs1P(r);
+              return ' \u00b7 <b style="color:#FFC24B">\u2605 ' + s5.pts + '</b>' + (x5 != null ? ' \u00b7 XS1 <b style="color:' + (x5 >= 15 ? '#FFC24B' : 'rgba(255,255,255,.75)') + '">' + x5.toFixed(1) + '</b>' : ''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
             ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
@@ -343,6 +377,7 @@
         races = Object.values(by).filter(rc => rc.rs.length >= 3);
       }
       if (w && w.ok) { winMap = {}; const td = ukDate(0); (w.winners || []).forEach(x => { winMap[td + '|' + rk(x.t, x.course)] = hk(x.h); }); }
+      try { if (!PEOPLE) PEOPLE = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
       // today's settled races from the results feed — races the live feed has already dropped
       try {
         const rr = await fetch('/api/priceday?v=5&date=' + ukDate(0));
