@@ -209,8 +209,9 @@
     const verdict = rho == null ? '' : rho > 0.4 ? 'rating and results agree' : rho < -0.2 ? 'running opposite to the rating' : 'loosely related';
     el.innerHTML = `
       ${rho != null ? `<div class="sync">sync <b style="color:${rho > 0.2 ? '#B6F09C' : rho < -0.2 ? '#FFB4A6' : '#FFC24B'}">${(rho >= 0 ? '+' : '') + rho.toFixed(2)}</b> · ${verdict}${both.length < 8 ? ' · <span style="color:rgba(255,255,255,.5)">only ' + both.length + ' runs — weak read</span>' : ''}</div>` : ''}
+      <details><summary style="cursor:pointer;font-family:var(--mono);font-size:9.5px;color:rgba(255,255,255,.5);list-style:none;padding:2px 0">FORM CHART · ${runs.length} runs ▾</summary>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${line(ors, oy, '#FFC24B')}${line(poss, py, 'rgba(255,255,255,.85)', 1)}${dotsN(ors, oy, '#FFC24B', true)}${dotsN(poss, py, '#FFFFFF', false)}${clsRow}</svg>
-      <div class="lg"><span style="color:#FFC24B">● OR (number above point)</span> · ○ finish position (number below · 1st at top) · bottom row = race class · last ${runs.length} runs · ${runs[0].date.slice(0, 7)} → ${runs[runs.length - 1].date.slice(0, 7)}</div>`;
+      <div class="lg"><span style="color:#FFC24B">● OR (number above point)</span> · ○ finish position (number below · 1st at top) · bottom row = race class · last ${runs.length} runs · ${runs[0].date.slice(0, 7)} → ${runs[runs.length - 1].date.slice(0, 7)}</div></details>`;
   }
   async function fillHist(el) {
     const hid = el.getAttribute('data-hid'), hname = el.getAttribute('data-h');
@@ -322,7 +323,7 @@
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
-          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
+          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${!off && r.ofr != null ? ' \u00b7 <b style="color:#FFC24B">OR ' + r.ofr + '</b>' : ''}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
             ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
