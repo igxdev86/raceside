@@ -93,6 +93,7 @@
 <main>
   <p class="note2">A demo book with a $50,000 demo balance — nothing real is staked or won. No prices are shown: you pick on the horse alone, every bet is taken at <b>SP</b>, and the official starting price is revealed only when the race settles. A winner returns stake × SP; non-runners are voided and refunded. Betting closes at post time and every bet is recorded to your account. Demo dollars only — not betting, not advice.</p>
   <div class="stakes" id="rpstakes"></div>
+  <div id="markboard"></div>
 
   <div id="rpport"></div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading markets…</div></div>
@@ -302,6 +303,46 @@
   const xs1P = (r) => { const js = ((PEOPLE || {}).jockeys || {})[r.jid], ts = ((PEOPLE || {}).trainers || {})[r.tid];
     if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
     return (js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d; };
+  // ON THE MARK — whole-day scan of wins/places on today's rating
+  const MARKS = { rows: null, done: 0, total: 0, running: false };
+  function markCounts(runs, mark) {
+    const on = (runs || []).filter(r => r.ofr != null && Math.abs(r.ofr - mark) <= 1);
+    return { nw: on.filter(r => r.pos === 1).length, np: on.filter(r => r.pos === 2 || r.pos === 3).length };
+  }
+  function markBoard() {
+    const el = document.getElementById('markboard');
+    if (!el) return;
+    const cands = [];
+    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes) return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
+    if (!cands.length) { el.innerHTML = ''; return; }
+    let inner = `<div style="border:1px solid rgba(255,194,75,.5);border-radius:14px;padding:12px 14px;margin:10px 0;background:rgba(0,0,0,.18)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#FFC24B">\u25cf ON THE MARK \u00b7 TODAY</b>
+      ${MARKS.running ? `<span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.6)">scanning ${MARKS.done}/${MARKS.total}\u2026</span>` : `<button onclick="__rpScanMarks()" style="border:1px solid #FFC24B;background:transparent;color:#FFC24B;border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:9.5px;cursor:pointer;font-weight:700">${MARKS.rows ? 'RESCAN' : 'SCAN ' + cands.length + ' RUNNERS'}</button>`}</div>`;
+    if (MARKS.rows) {
+      inner += MARKS.rows.length ? MARKS.rows.map(x => `<div onclick="var m=document.querySelector('.mkt[data-k=&quot;${x.k}&quot;]'); if(m) m.scrollIntoView({behavior:'smooth',block:'start'})" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.12);cursor:pointer;font-size:12px;align-items:baseline">
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:#FFC24B;font-family:var(--mono)">${'\u25cf'.repeat(Math.min(x.nw, 4))}${'\u25d0'.repeat(Math.min(x.np, 4))}</b> <b>${x.h}</b> <small style="color:rgba(255,255,255,.55)">OR ${x.ofr}</small></span>
+          <span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.7)">${String(x.t).replace(/\s.*/, '')} ${String(x.course).replace(/\s*\([^)]*\)/g, '').slice(0, 9)} \u00b7 <b style="color:#39FF6A">@ ${x.d}</b></span></div>`).join('')
+        : `<div style="font-size:11px;color:rgba(255,255,255,.55);padding:6px 0">no runner today has won or placed on its current mark</div>`;
+      inner += `<div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.45);margin-top:5px">\u25cf win \u00b7 \u25d0 2nd/3rd \u00b7 on today's OR \u00b11lb \u00b7 tap to jump to the race</div>`;
+    }
+    el.innerHTML = inner + '</div>';
+  }
+  window.__rpScanMarks = async () => {
+    if (MARKS.running) return;
+    const cands = [];
+    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes) return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
+    MARKS.running = true; MARKS.done = 0; MARKS.total = cands.length; markBoard();
+    const out = [];
+    const work = cands.slice();
+    const lane = async () => { while (work.length) { const c = work.shift();
+      let j = HCACHE[c.hid];
+      if (j === undefined) { try { j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(c.hid) + '&h=' + encodeURIComponent(c.h))).json(); } catch { j = null; } HCACHE[c.hid] = j; }
+      if (j && j.ok && j.runs) { const { nw, np } = markCounts(j.runs, c.ofr); if (nw + np > 0) out.push({ ...c, nw, np }); }
+      MARKS.done++; if (MARKS.done % 5 === 0) markBoard(); } };
+    await Promise.all([lane(), lane(), lane(), lane()]);
+    out.sort((a, b) => (b.nw + b.np * 0.5) - (a.nw + a.np * 0.5));
+    MARKS.rows = out; MARKS.running = false; markBoard();
+  };
   const RSORT = {};
   window.__rpSort = (k, key) => { RSORT[k] = RSORT[k] === key ? 'feed' : key; render(); };
   let CRED = null;
@@ -406,7 +447,7 @@
       const terms = ewTerms(n, hcp);
       const metaBits = [r0.rname, r0.rclass ? 'Class ' + r0.rclass : (r0.rtype && !/handicap/i.test(r0.rname || '') ? r0.rtype : ''), fdist(r0.dist), r0.going].filter(Boolean);
       const raceLabel = rc.t + ' ' + shortC(rc.course);
-      return `${hdr}<div class="mkt"><h3>${raceLabel}</h3>
+      return `${hdr}<div class="mkt" data-k="${rc.k}"><h3>${raceLabel}</h3>
         <div class="meta">${metaBits.join(' · ')}<span class="ewchip">${terms ? 'E/W ' + terms.pl + ' places @ ' + terms.fr : 'WIN ONLY'}</span></div>
         ${!off ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 2px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em">${[['feed','CARD'],['sp','SP'],['or','OR'],['wr','WR'],['wt','WT'],['xs1','XS1'],['star','\u2605']].map(([sk, lb]) => `<button onclick="__rpSort('${rc.k}','${sk}')" style="border:1px solid ${skey === sk ? '#FFC24B' : 'rgba(255,255,255,.25)'};background:${skey === sk ? '#FFC24B' : 'transparent'};color:${skey === sk ? '#4A050F' : 'rgba(255,255,255,.7)'};border-radius:999px;padding:2px 8px;cursor:pointer;font-weight:700">${lb}</button>`).join('')}</div>` : ''}
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
@@ -425,6 +466,8 @@
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
     armHist();
     armOwners();
+    window.__rpRaces = races;
+    markBoard();
   }
 
   async function pull() {
