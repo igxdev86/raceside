@@ -82,11 +82,38 @@ export default async function handler(req, res) {
     const mins = raceMin(rc.t) - nm;
     if (st.sent[k] || mins <= 4 || mins > 10 || rc.rs.length < 3) continue;
     const sc = scoreRace(rc.rs, store, pj, pt);
+    const xs1 = (r) => { const js = (store.jockeys || {})[r.jid], ts = (store.trainers || {})[r.tid];
+      if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+      return (js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d; };
+    const xcell = (r) => { const v = xs1(r); return v == null ? '\u2014' : `<b style="color:${v >= 15 ? '#B8860B' : '#666'}">${v.toFixed(1)}</b>`; };
     const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);   // same cut as the SCORES modal
     if (!picks.length) { st.sent[k] = 1; continue; }
-    const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td></tr>`).join('');
+    const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td><td style="padding:4px 8px">XS1 ${xcell(p.r)}</td></tr>`).join('');
+    // full card below: every runner, deepest minus first
+    const strike = (b, id) => { const s2 = (b || {})[id]; return s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null; };
+    const edges = (() => { const m = {}; rc.rs.forEach(r => { m[r.h] = null; });
+      const orVals = rc.rs.map(r => r.ofr).filter(v => v != null);
+      if (orVals.length < 2) return m;
+      const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
+      const ok2 = rc.rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+      if (ok2.length >= 2) { const top = ok2.reduce((a, b) => b.ofr > a.ofr ? b : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+      const s3 = rc.rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s3.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+      rc.rs.forEach((r, i) => { const e2 = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; m[r.h] = e2 != null && isFinite(e2) ? e2 : null; });
+      return m; })();
+    const cardRows = rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h];
+        return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
+      .map(r => { const e2 = edges[r.h]; const s4 = sc[r.h];
+        return `<tr><td style="padding:3px 8px">${r.h}${s4 && s4.pts >= 9 ? ' <b>' + s4.pts + '</b>' : ''}</td>
+          <td style="padding:3px 8px;color:#666">${strike(store.jockeys, r.jid) != null ? strike(store.jockeys, r.jid) : '\u2014'}/${strike(store.trainers, r.tid) != null ? strike(store.trainers, r.tid) : '\u2014'}</td>
+          <td style="padding:3px 8px;color:${e2 != null && e2 < 0 ? '#B00020' : '#2A7A3B'}">${e2 == null ? '\u2014' : (e2 > 0 ? '+' : '') + Math.round(e2 * 100) + '%'}</td>
+          <td style="padding:3px 8px">@ ${r.d}</td><td style="padding:3px 8px">${xcell(r)}</td></tr>`; }).join('');
     const okS = await send(`🏇 ${rc.t} ${rc.course} — off in ~${mins} min`,
-      `<div style="font-family:monospace"><h3 style="margin:0 0 6px">${rc.t} ${String(rc.course).toUpperCase()} · SCORES picks</h3><table>${rows}</table><p style="color:#999;font-size:12px">score = each signal pays 5/3/1 for its top three · a design, not a finding · not advice</p></div>`);
+      `<div style="font-family:monospace"><h3 style="margin:0 0 6px">${rc.t} ${String(rc.course).toUpperCase()} · SCORES picks</h3><table>${rows}</table>
+      <h4 style="margin:12px 0 4px;color:#444">FULL CARD · deepest minus first</h4>
+      <table style="font-size:12px"><tr style="color:#999;font-size:10px"><td style="padding:2px 8px">HORSE · SCORE</td><td style="padding:2px 8px">J/T%</td><td style="padding:2px 8px">EDGE</td><td style="padding:2px 8px">SP</td><td style="padding:2px 8px">XS1</td></tr>${cardRows}</table>
+      <p style="color:#999;font-size:12px">score = each signal pays 5/3/1 for its top three · XS1 = (J% + T%) / SP · a design, not a finding · not advice</p></div>`);
     if (okS) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k); }
   }
 
