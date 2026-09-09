@@ -289,6 +289,8 @@
   const xs1P = (r) => { const js = ((PEOPLE || {}).jockeys || {})[r.jid], ts = ((PEOPLE || {}).trainers || {})[r.tid];
     if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
     return (js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d; };
+  const RSORT = {};
+  window.__rpSort = (k, key) => { RSORT[k] = RSORT[k] === key ? 'feed' : key; render(); };
   let CRED = null;
   try { CRED = JSON.parse(localStorage.getItem('rpacct:v1') || 'null'); } catch {}
   let ACCT = null;          // { id, bal, pos } — server truth
@@ -371,7 +373,19 @@
       const hdr = g !== lastGrp ? `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:rgba(255,255,255,.7);margin:${lastGrp === null ? '4px' : '22px'} 2px 10px">${GH[g]}</div>` : '';
       lastGrp = g;
       const off = g === 2;
-      const ocs = rc.rs.slice();   // feed order — no odds shown, so no odds-implied ordering either
+      const scMap = (!off && PEOPLE && PEOPLE.ok) ? scoreRace2(rc.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)) : {};
+      const advM2 = (() => { const ok2 = rc.rs.filter(r => r.ofr != null && r.lbs != null); const m = {};
+        if (ok2.length >= 2) { const top = ok2.reduce((a, b) => b.ofr > a.ofr ? b : a, ok2[0]); const car = (r) => r.lbs - clm2(r.jockey); const tc = car(top); ok2.forEach(r => { m[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+        return m; })();
+      const skey = RSORT[rc.k] || 'feed';
+      const sval = (r) => skey === 'sp' ? (r.d > 1 ? r.d : 1e9)
+        : skey === 'or' ? (r.ofr != null ? -r.ofr : 1e9)
+        : skey === 'wr' ? (advM2[r.h] != null ? -advM2[r.h] : 1e9)
+        : skey === 'wt' ? (r.lbs != null ? -r.lbs : 1e9)
+        : skey === 'xs1' ? (() => { const v = xs1P(r); return v != null ? -v : 1e9; })()
+        : skey === 'star' ? (() => { const s6 = scMap[r.h]; return s6 ? -s6.pts : 1e9; })()
+        : 0;
+      const ocs = skey === 'feed' ? rc.rs.slice() : rc.rs.slice().sort((a, b) => sval(a) - sval(b));
       const wn = winMap[rc.k];
       const r0 = rc.rs[0] || {};
       const n = Number(r0.n) || rc.rs.length;
@@ -379,14 +393,18 @@
       const terms = ewTerms(n, hcp);
       const metaBits = [r0.rname, r0.rclass ? 'Class ' + r0.rclass : (r0.rtype && !/handicap/i.test(r0.rname || '') ? r0.rtype : ''), fdist(r0.dist), r0.going].filter(Boolean);
       const raceLabel = rc.t + ' ' + shortC(rc.course);
-      const scMap = (!off && PEOPLE && PEOPLE.ok) ? scoreRace2(rc.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)) : {};
       return `${hdr}<div class="mkt"><h3>${raceLabel}</h3>
         <div class="meta">${metaBits.join(' · ')}<span class="ewchip">${terms ? 'E/W ' + terms.pl + ' places @ ' + terms.fr : 'WIN ONLY'}</span></div>
+        ${!off ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 2px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em">${[['feed','CARD'],['sp','SP'],['or','OR'],['wr','WR'],['wt','WT'],['xs1','XS1'],['star','\u2605']].map(([sk, lb]) => `<button onclick="__rpSort('${rc.k}','${sk}')" style="border:1px solid ${skey === sk ? '#FFC24B' : 'rgba(255,255,255,.25)'};background:${skey === sk ? '#FFC24B' : 'transparent'};color:${skey === sk ? '#4A050F' : 'rgba(255,255,255,.7)'};border-radius:999px;padding:2px 8px;cursor:pointer;font-weight:700">${lb}</button>`).join('')}</div>` : ''}
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
           return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${!off && r.d > 1 ? ' \u00b7 <b style="color:#39FF6A">@ ' + r.d + '</b>' : ''}${!off && r.ofr != null ? ' \u00b7 <b style="color:#FFC24B">OR ' + r.ofr + '</b>' : ''}${(() => { const s5 = scMap[r.h]; if (!s5 || s5.pts < 5) return ''; const x5 = xs1P(r);
-              return ' \u00b7 <b style="color:#FFC24B">\u2605 ' + s5.pts + '</b>' + (x5 != null ? ' \u00b7 XS1 <b style="color:' + (x5 >= 15 ? '#FFC24B' : 'rgba(255,255,255,.75)') + '">' + x5.toFixed(1) + '</b>' : ''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}<span data-wyc="1" data-oid="${r.oid || ''}"><span data-wy></span><span data-wc></span></span>${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
+              return ' \u00b7 <b style="color:#FFC24B">\u2605 ' + s5.pts + '</b>' + (x5 != null ? ' \u00b7 XS1 <b style="color:' + (x5 >= 15 ? '#FFC24B' : 'rgba(255,255,255,.75)') + '">' + x5.toFixed(1) + '</b>' : ''); })()}${!off && r.lbs != null ? ' \u00b7 ' + Math.floor(r.lbs / 14) + '-' + (r.lbs % 14) : ''}${(() => { if (off) return ''; const a2 = advM2[r.h]; if (a2 == null) return '';
+              return ' \u00b7 WR <b style="color:' + (a2 > 0 ? '#FFC24B' : 'rgba(255,255,255,.6)') + '">' + (a2 > 0 ? '+' : '') + a2 + '</b>'; })()}${(() => { const s5 = scMap[r.h]; if (off || !s5) return '';
+              const L = { J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
+              const tops = s5.tags.filter(t2 => L[t2]).map(t2 => L[t2]);
+              return tops.map(t2 => ' <span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:5px;padding:0 4px;font-size:8px;font-weight:700;letter-spacing:.05em">' + t2 + '</span>').join(''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}<span data-wyc="1" data-oid="${r.oid || ''}"><span data-wy></span><span data-wc></span></span>${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
             ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" data-course="${String(rc.course).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
