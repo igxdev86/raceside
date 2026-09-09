@@ -231,6 +231,13 @@
         const wc = rec(j.runs.filter(r => normC(r.course) === here));
         const wcs = span.querySelector('[data-wc]');
         if (wc && wcs) wcs.innerHTML = ' \u00b7 <b style="color:rgba(255,255,255,.8)">WC ' + wc + '</b>';
+        // wins on (or within 1lb of) today's mark — one gold circle each
+        const mark = Number(el.getAttribute('data-ofr'));
+        if (Number.isFinite(mark) && mark > 0) {
+          const nw = j.runs.filter(r => r.pos === 1 && r.ofr != null && Math.abs(r.ofr - mark) <= 1).length;
+          const orm = span.querySelector('[data-orm]');
+          if (nw > 0 && orm) orm.innerHTML = ' \u00b7 <b style="color:#FFC24B" title="won ' + nw + '\u00d7 off ' + (mark - 1) + '\u2013' + (mark + 1) + '">' + '\u25cf'.repeat(Math.min(nw, 4)) + (nw > 4 ? '\u00d7' + nw : '') + '</b>';
+        }
       }
     } catch {}
   }
@@ -404,9 +411,9 @@
               return ' \u00b7 WR <b style="color:' + (a2 > 0 ? '#FFC24B' : 'rgba(255,255,255,.6)') + '">' + (a2 > 0 ? '+' : '') + a2 + '</b>'; })()}${(() => { const s5 = scMap[r.h]; if (off || !s5) return '';
               const L = { J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
               const tops = s5.tags.filter(t2 => L[t2]).map(t2 => L[t2]);
-              return tops.map(t2 => ' <span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:5px;padding:0 4px;font-size:8px;font-weight:700;letter-spacing:.05em">' + t2 + '</span>').join(''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}<span data-wyc="1" data-oid="${r.oid || ''}"><span data-wy></span><span data-wc></span></span>${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
+              return tops.map(t2 => ' <span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:5px;padding:0 4px;font-size:8px;font-weight:700;letter-spacing:.05em">' + t2 + '</span>').join(''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}<span data-wyc="1" data-oid="${r.oid || ''}"><span data-wy></span><span data-wc></span><span data-orm></span></span>${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
-            ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" data-course="${String(rc.course).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
+            ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" data-course="${String(rc.course).replace(/"/g, '')}" data-ofr="${r.ofr != null ? r.ofr : ''}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
