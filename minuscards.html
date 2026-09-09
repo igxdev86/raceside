@@ -737,6 +737,28 @@
             <span style="white-space:nowrap;font-family:var(--mono)"><b style="color:var(--red);font-size:16px">${Math.round(f.x.edge * 100)}%</b> <span style="color:var(--dim)">@ ${f.x.r.d || '\u2014'}</span></span></div>
           ${upMinus.slice(1).map(e => `<div style="display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11px;color:var(--dim);padding:3px 0;border-top:1px solid var(--line);cursor:pointer" onclick="__mcGo('${cid(e.c.t, e.c.course)}')"><span><b style="color:var(--ink)">${String(e.c.t).replace(/\s.*/, '')}</b> ${String(e.c.course).replace(/\s*\([^)]*\)/g, '').slice(0, 12)} ${e.x.r.h}</span><span><b style="color:var(--red)">${Math.round(e.x.edge * 100)}%</b> @ ${e.x.r.d || '\u2014'}</span></div>`).join('')}
           <div class="sub" style="margin-top:5px">the horse the market backs hardest beyond the model \u00b7 moves to the next race at each off</div></div>`; })() : '';
+      // the next race to go, as a board at the very top
+      const nextBoard = (() => {
+        if (QD) return '';
+        const nxt = cards.filter(c => !c.stale && winMap[rkeyN(c.t, c.course)] === undefined && raceMin(c.t) > nowMA)
+          .sort((a, b) => raceMin(a.t) - raceMin(b.t))[0];
+        if (!nxt) return '';
+        ensureScore(nxt);
+        const mins = raceMin(nxt.t) - nowMA;
+        const rows2 = nxt.rows.slice().sort((a, b) => (a.edge == null) - (b.edge == null) || a.edge - b.edge);
+        const shown = rows2.slice(0, 6);
+        return `<div class="tile" style="margin-bottom:12px;border:2px solid var(--gold)">
+          <div onclick="__mcGo('${cid(nxt.t, nxt.course)}')" style="display:flex;justify-content:space-between;align-items:baseline;cursor:pointer">
+            <span style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--gold)">NEXT RACE \u00b7 ${String(nxt.t).replace(/\s.*/, '')} ${String(nxt.course).replace(/\s*\([^)]*\)/g, '').toUpperCase().slice(0, 14)}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:${mins <= 5 ? 'var(--red)' : 'var(--dim)'}">off in ${mins}m \u2192</span></div>
+          ${shown.map(x => { const s = (nxt.__score || {})[x.r.h]; const isM = x.r === nxt.deepest.r;
+            const isW = nxt.wrBest === x.r.h; const isO = nxt.maxOr != null && x.r.ofr === nxt.maxOr;
+            return `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:11.5px;font-family:var(--mono)">
+              <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s && s.pts >= 9 ? `<b style="background:${s.pts >= 15 ? 'var(--gold)' : '#F6E7B8'};color:#101418;border-radius:5px;padding:0 5px;font-size:10.5px">${s.pts}</b> ` : ''}<b>${x.r.h}</b>${isM ? ' <small style="color:var(--red);font-weight:700">M</small>' : ''}${isW ? ' <small style="color:var(--gold);font-weight:700">WR</small>' : ''}${isO ? ' <small style="color:var(--blue);font-weight:700">OR</small>' : ''}</span>
+              <span style="white-space:nowrap"><b style="color:${x.edge != null && x.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${x.edge != null ? (x.edge > 0 ? '+' : '') + Math.round(x.edge * 100) + '%' : '\u2014'}</b> @ ${x.r.d || '\u2014'}</span></div>`; }).join('')}
+          ${rows2.length > shown.length ? `<div class="sub" style="margin-top:5px;cursor:pointer" onclick="__mcGo('${cid(nxt.t, nxt.course)}')">+${rows2.length - shown.length} more \u2192 full card</div>` : ''}
+        </div>`;
+      })();
       // zero-tap SCORES: the three strongest upcoming score horses, inline
       const strongInline = (() => {
         if (QD) return '';
@@ -754,7 +776,7 @@
             <span style="white-space:nowrap"><small style="color:var(--dim)">${e.tags.slice(0, 4).join('\u00b7')}</small> @ ${e.d || '\u2014'}</span></div>`).join('')}
           <div class="sub" style="margin-top:5px">graded 5/3/1 by six signals \u00b7 a design, not a finding</div></div>`;
       })();
-      const boards = strongInline + sigTiles + lowTile + `<div class="mcboards">` +
+      const boards = nextBoard + strongInline + sigTiles + lowTile + `<div class="mcboards">` +
         board('TOP MINUS', minusTop.map(mRace).join(''), 'none today') +
         board('TOP PAIRS', cards.slice().sort((a, b) => raceMin(a.t) - raceMin(b.t)).map(pRace).join(''), 'no partnerships with 10+ runs together today') +
         board('TOP WR', wrTop.map(w => bRow(`<b>${w.t.replace(/\s.*/,'')}</b> ${shortC(w.course)} ${w.h}${resMark(w.t, w.course, w.h)}`, `<b style="color:var(--gold)">+${w.adv}</b> <b style="color:${w.edge < 0 ? 'var(--red)' : 'var(--dim)'}">${w.edge != null ? (w.edge > 0 ? '+' : '') + Math.round(w.edge * 100) : '\u2014'}</b> @ ${w.d || '\u2014'}`)).join(''), 'no strict best-ins') +
