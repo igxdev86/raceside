@@ -185,7 +185,7 @@
   function drawHist(el, j) {
     if (!(j && j.ok && j.runs && j.runs.length)) { el.innerHTML = '<div class="lg">no career history available</div>'; return; }
     const runs = j.runs.slice(-12);   // last 12 runs so every number stays readable
-    const W = 360, H = 120, PL = 8, PR = 8, PT = 16, PB = 18;
+    const W = 360, H = 84, PL = 8, PR = 8, PT = 12, PB = 14;
     const xs = runs.map((_, i) => PL + i * (W - PL - PR) / Math.max(1, runs.length - 1));
     const ors = runs.map(r => r.ofr), poss = runs.map(r => r.pos);
     const oHave = ors.filter(v => v != null), pHave = poss.filter(v => v != null);
@@ -199,8 +199,8 @@
     };
     const dotsN = (vals, fy, color, above) => vals.map((v, i) => {
       const y = fy(v); if (y == null) return '';
-      return `<circle cx="${xs[i].toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>` +
-        `<text x="${xs[i].toFixed(1)}" y="${(y + (above ? -6 : 12)).toFixed(1)}" text-anchor="middle" font-size="9" font-family="monospace" fill="${color}">${v}</text>`;
+      return `<circle cx="${xs[i].toFixed(1)}" cy="${y.toFixed(1)}" r="2.4" fill="${color}"/>` +
+        `<text x="${xs[i].toFixed(1)}" y="${(y + (above ? -5 : 10)).toFixed(1)}" text-anchor="middle" font-size="8" font-family="monospace" fill="${color}">${v}</text>`;
     }).join('');
     const clsRow = runs.some(r => r.cls != null) ? runs.map((r, i) => r.cls == null ? '' :
       `<text x="${xs[i].toFixed(1)}" y="${H - 2}" text-anchor="middle" font-size="8" font-family="monospace" fill="rgba(255,255,255,.45)">${String(r.cls).slice(0, 3)}</text>`).join('') : '';
@@ -322,7 +322,7 @@
         <div class="sub2">${n} runners · ${off ? (wn !== undefined ? 'settled' : 'off — waiting on result') : 'betting open until ' + rc.t + (rc.day === 'tomorrow' ? ' tomorrow' : '')}</div>
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
-          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}</small></span>
+          return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
             ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
@@ -341,6 +341,25 @@
         races = Object.values(by).filter(rc => rc.rs.length >= 3);
       }
       if (w && w.ok) { winMap = {}; const td = ukDate(0); (w.winners || []).forEach(x => { winMap[td + '|' + rk(x.t, x.course)] = hk(x.h); }); }
+      // today's settled races from the results feed — races the live feed has already dropped
+      try {
+        const rr = await fetch('/api/priceday?v=5&date=' + ukDate(0));
+        const pj = await rr.json();
+        if (pj && pj.ok) {
+          const have = new Set(races.map(rc => rc.k));
+          const td = ukDate(0);
+          (pj.races || []).forEach(rc => {
+            const win = (rc.runners || []).find(r => r.pos === '1' || r.won === 1);
+            if (!win) return;
+            const k = td + '|' + rk(rc.t, rc.course);
+            winMap[k] = hk(win.h);
+            if (have.has(k)) return;
+            const rs = (rc.runners || []).map(r => ({ h: r.h, jockey: r.jockey || '', own: r.own || null, hid: r.hid || null, d: Number(r.d) > 1 ? r.d : null, pos: r.pos,
+              n: (rc.runners || []).length, rtype: rc.rtype || '', rname: rc.rname || '', rclass: rc.rclass || '', dist: rc.dist, going: rc.going }));
+            if (rs.length >= 3) races.push({ k, day: 'today', t: rc.t, course: rc.course, rs, fromRes: 1 });
+          });
+        }
+      } catch {}
       if (CRED && ACCT) { const j = await api({ op: 'state', id: CRED.id, token: CRED.token }); if (j.ok) ACCT = j; }
       render();
     } catch { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">feed unavailable — pull to refresh</div>'; }
