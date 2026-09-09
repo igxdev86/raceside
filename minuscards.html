@@ -618,7 +618,11 @@
       const mRace = (c) => {
         const top3 = c.rows.filter(x => x.edge != null && isFinite(x.edge)).sort((a, b) => a.edge - b.edge).slice(0, 3);
         return `<div style="padding:4px 0;border-bottom:1px solid var(--line)"><div onclick="__mcGo('${cid(c.t, c.course)}')" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer"><b style="color:var(--blue)">${c.t.replace(/\s.*/,'')}</b> ${shortC(c.course).toUpperCase()} <span style="color:var(--faint)">\u2193</span></div>` +
-          top3.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)}</span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${x.edge < 0 ? 'var(--red)' : 'var(--faint)'}">${(x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</b> @ ${x.r.d}</span></div>`).join('') + `</div>`;
+          top3.map(x => { const js = (store.jockeys || {})[x.r.jid], ts = (store.trainers || {})[x.r.tid];
+          const jf = js && js.runs >= 50 ? js.wins / js.runs * 100 : null;
+          const tf = ts && ts.runs >= 50 ? ts.wins / ts.runs * 100 : null;
+          const xs1 = (jf != null && tf != null && x.r.d > 1) ? (jf + tf) / x.r.d : null;
+          return `<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0 1px 10px;font-size:10.5px;font-family:var(--mono)"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)">${x.r.h}${resMark(c.t, c.course, x.r.h)}</span><span style="white-space:nowrap;color:var(--dim)"><b style="color:${x.edge < 0 ? 'var(--red)' : 'var(--faint)'}">${(x.edge > 0 ? '+' : '') + Math.round(x.edge * 100)}</b> @ ${x.r.d} <b style="color:${xs1 != null && xs1 >= 15 ? 'var(--gold)' : 'var(--faint)'}">XS1 ${xs1 != null ? xs1.toFixed(1) : '\u2014'}</b></span></div>`; }).join('') + `</div>`;
       };
       // top pairs per race: jockey × trainer partnerships ranked by A/E (10+ runs together)
       const pRace = (c) => {
