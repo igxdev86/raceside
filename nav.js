@@ -20,13 +20,24 @@
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
-      ['/thewr.html', 'WR', ['TIPTREE', '/tiptree.html'], ['FIT', '/fit.html'], ['GAP', '/gap.html'], ['SIGNALS', '/signals.html'], ['OPTIMAL', '/optimal.html'], ['FRAME', '/tricast.html'], ['FIXTURES', '/fixtures.html'], ['PREDICT', '/racingpredict.html']],
+      ['/thewr.html', 'WR'],
       ['/firstpairs.html', 'PAIRS'],
       ['/thehour.html', 'HOUR'],
+      ['/tiptree.html', 'TIPTREE'],
+      ['/fit.html', 'FIT'],
+      ['/gap.html', 'GAP'],
+      ['/signals.html', 'SIGNALS'],
+      ['/optimal.html', 'OPTIMAL'],
+      ['/tricast.html', 'FRAME'],
+      ['/fixtures.html', 'FIXTURES'],
+      ['/racingpredict.html', 'PREDICT'],
       ['/martingale.html', 'MGALE'],
       ['/groups.html', 'GROUPS'],
       ['/sires.html', 'SIRES'],
       ['/trebles.html', 'TREBLES'],
+    ]],
+    ['LISTEN', [
+      ['https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu', 'RACING RADIO', 1],
     ]],
   ];
   function mount() {
@@ -60,6 +71,7 @@
         var on = here === p[0];
         a.href = p[0];
         a.textContent = p[1];
+        if (p[2]) { a.target = '_blank'; a.rel = 'noopener'; }
         if (on) { a.className = 'on'; a.setAttribute('aria-current', 'page'); }
         row.appendChild(a);
         if (on) setTimeout(function () { a.scrollIntoView({ inline: 'center', block: 'nearest' }); }, 0);
