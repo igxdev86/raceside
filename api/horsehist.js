@@ -24,8 +24,11 @@ export default async function handler(req, res) {
     }
     const date = String(r.date || r.race_date || r.off_dt || '').slice(0, 10);
     if (!date) return null;
+    const cls = (() => { const c = String(r.class || r.race_class || '').match(/\d/); return c ? Number(c[0]) : (r.pattern ? String(r.pattern) : null); })();
     return {
       date,
+      cls,
+      rname: String(r.race_name || '').slice(0, 40) || null,
       course: String(r.course || '').replace(/\s*\([^)]*\)/g, ''),
       ofr: num(mine.ofr != null ? mine.ofr : (mine.or != null ? mine.or : mine.official_rating)),
       pos: (() => { const p = parseInt(mine.position != null ? mine.position : mine.pos, 10); return Number.isFinite(p) && p > 0 ? p : null; })(),
