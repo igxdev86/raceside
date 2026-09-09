@@ -49,7 +49,7 @@ export default async function handler(req, res) {
           rtype: rc.race_name && /handicap/i.test(rc.race_name) ? 'Handicap' : (rc.type || rc.race_type || rc.race_class || ''),
           rname: String(rc.race_name || '').slice(0, 60),
           rclass: String(rc.race_class || '').replace(/^Class\s*/i, ''),
-          h: p.x.horse || '', hid: p.x.horse_id || null, d: Math.round(p.d * 100) / 100,
+          h: p.x.horse || '', hid: p.x.horse_id || null, own: p.x.owner || null, d: Math.round(p.d * 100) / 100,
           mp: Math.round((1 / p.d / over) * 1000) / 10,   // stripped market win %, e.g. 21.4
           rank: i + 1, n: priced.length,
           jid: p.x.jockey_id || null, tid: p.x.trainer_id || null,
