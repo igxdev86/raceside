@@ -231,12 +231,18 @@
         const wc = rec(j.runs.filter(r => normC(r.course) === here));
         const wcs = span.querySelector('[data-wc]');
         if (wc && wcs) wcs.innerHTML = ' \u00b7 <b style="color:rgba(255,255,255,.8)">WC ' + wc + '</b>';
-        // wins on (or within 1lb of) today's mark — one gold circle each
+        // form on today's mark (\u00b11lb): full gold circle per win, half circle per 2nd/3rd
         const mark = Number(el.getAttribute('data-ofr'));
         if (Number.isFinite(mark) && mark > 0) {
-          const nw = j.runs.filter(r => r.pos === 1 && r.ofr != null && Math.abs(r.ofr - mark) <= 1).length;
+          const onMark = j.runs.filter(r => r.ofr != null && Math.abs(r.ofr - mark) <= 1);
+          const nw = onMark.filter(r => r.pos === 1).length;
+          const np = onMark.filter(r => r.pos === 2 || r.pos === 3).length;
           const orm = span.querySelector('[data-orm]');
-          if (nw > 0 && orm) orm.innerHTML = ' \u00b7 <b style="color:#FFC24B" title="won ' + nw + '\u00d7 off ' + (mark - 1) + '\u2013' + (mark + 1) + '">' + '\u25cf'.repeat(Math.min(nw, 4)) + (nw > 4 ? '\u00d7' + nw : '') + '</b>';
+          if ((nw > 0 || np > 0) && orm) {
+            const marks = '\u25cf'.repeat(Math.min(nw, 4)) + (nw > 4 ? '\u00d7' + nw + ' ' : '') + '\u25d0'.repeat(Math.min(np, 4)) + (np > 4 ? '\u00d7' + np : '');
+            const tip = [nw ? 'won ' + nw + '\u00d7' : '', np ? 'placed ' + np + '\u00d7' : ''].filter(Boolean).join(' \u00b7 ') + ' off ' + (mark - 1) + '\u2013' + (mark + 1);
+            orm.innerHTML = ' \u00b7 <b style="color:#FFC24B" title="' + tip + '">' + marks + '</b>';
+          }
         }
       }
     } catch {}
