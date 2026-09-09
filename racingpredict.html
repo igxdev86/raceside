@@ -221,6 +221,22 @@
     let j = HCACHE[hid];
     if (j === undefined) { try { const r = await fetch('/api/horsehist?hid=' + encodeURIComponent(hid) + '&h=' + encodeURIComponent(hname)); j = await r.json(); } catch { j = null; } HCACHE[hid] = j; }
     drawHist(el, j);
+    // WY = the horse's wins/runs this year · WC = wins/runs at this course (from the runs on record)
+    try {
+      const span = el.closest('.oc') && el.closest('.oc').querySelector('[data-wyc]');
+      if (span && j && j.ok && j.runs && j.runs.length) {
+        const yr = String(new Date().getFullYear());
+        const normC = (c) => String(c || '').toLowerCase().replace(/\s*\([^)]*\)/g, '').trim();
+        const here = normC(el.getAttribute('data-course'));
+        const rec = (list) => { const n = list.length; const w2 = list.filter(r => r.pos === 1).length; return n ? w2 + '/' + n : null; };
+        const wy = rec(j.runs.filter(r => String(r.date).slice(0, 4) === yr));
+        const wc = rec(j.runs.filter(r => normC(r.course) === here));
+        const bits = [];
+        if (wy) bits.push('WY ' + wy);
+        if (wc) bits.push('WC ' + wc);
+        if (bits.length) span.innerHTML = ' \u00b7 <b style="color:rgba(255,255,255,.8)">' + bits.join(' \u00b7 ') + '</b>';
+      }
+    } catch {}
   }
   let HIO = null;
   function armHist() {
@@ -358,9 +374,9 @@
         ${ocs.map((r) => { const wonThis = wn !== undefined && wn === hk(r.h);
           const inSlip = SLIP.some(s => s.k === rc.k && s.h === hk(r.h));
           return `<div class="oc" style="flex-wrap:wrap"><span class="nm"><b>${r.h}${wonThis ? ' ✅' : ''}</b><small>${(r.jockey || '').replace(/\s*\(\d\)/, '')}${!off && r.d > 1 ? ' \u00b7 @ ' + r.d : ''}${!off && r.ofr != null ? ' \u00b7 <b style="color:#FFC24B">OR ' + r.ofr + '</b>' : ''}${(() => { const s5 = scMap[r.h]; if (!s5 || s5.pts < 5) return ''; const x5 = xs1P(r);
-              return ' \u00b7 <b style="color:#FFC24B">\u2605 ' + s5.pts + '</b>' + (x5 != null ? ' \u00b7 XS1 <b style="color:' + (x5 >= 15 ? '#FFC24B' : 'rgba(255,255,255,.75)') + '">' + x5.toFixed(1) + '</b>' : ''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
+              return ' \u00b7 <b style="color:#FFC24B">\u2605 ' + s5.pts + '</b>' + (x5 != null ? ' \u00b7 XS1 <b style="color:' + (x5 >= 15 ? '#FFC24B' : 'rgba(255,255,255,.75)') + '">' + x5.toFixed(1) + '</b>' : ''); })()}${r.own ? ' \u00b7 ' + String(r.own).slice(0, 26) : ''}<span data-wyc="1"></span>${off && r.d ? ' \u00b7 SP ' + r.d : ''}${off && r.pos && r.pos !== '1' ? ' \u00b7 ' + r.pos + (({2:'nd',3:'rd'})[r.pos] || 'th') : ''}</small></span>
             <button class="addbtn${inSlip ? ' inslip' : ''}" ${off ? 'disabled' : ''} onclick="__rpAdd('${rc.k}','${hk(r.h)}','${(r.h + ' · ' + raceLabel).replace(/'/g, '')}','${raceLabel.replace(/'/g, '')}',${terms ? 'true' : 'false'})">${inSlip ? '✓ Slipped' : '+ Slip'}</button>
-            ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
+            ${r.hid ? `<div class="histbox" data-hid="${r.hid}" data-h="${String(r.h).replace(/"/g, '')}" data-course="${String(rc.course).replace(/"/g, '')}" style="flex-basis:100%"><div class="histwait">career…</div></div>` : ''}</div>`; }).join('')}
       </div>`;
     }).join('');
     $('app').innerHTML = rows || '<div style="padding:30px;text-align:center;color:rgba(255,255,255,.7)">no markets today</div>';
