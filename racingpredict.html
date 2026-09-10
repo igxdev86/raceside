@@ -320,19 +320,31 @@
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#FFC24B">\u25cf ON THE MARK \u00b7 TODAY</b>
       ${MARKS.running ? `<span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.6)">scanning ${MARKS.done}/${MARKS.total}\u2026</span>` : `<button onclick="__rpScanMarks()" style="border:1px solid #FFC24B;background:transparent;color:#FFC24B;border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:9.5px;cursor:pointer;font-weight:700">${MARKS.rows ? 'RESCAN' : 'SCAN ' + cands.length + ' RUNNERS'}</button>`}</div>`;
     if (MARKS.rows) {
-      inner += MARKS.rows.length ? MARKS.rows.map(x => `<div onclick="var m=document.querySelector('.mkt[data-k=&quot;${x.k}&quot;]'); if(m) m.scrollIntoView({behavior:'smooth',block:'start'})" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.12);cursor:pointer;font-size:12px;align-items:baseline">
-          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:#FFC24B;font-family:var(--mono)">${'\u25cf'.repeat(Math.min(x.nw, 4))}${'\u25d0'.repeat(Math.min(x.np, 4))}</b> <b>${x.h}</b> <small style="color:rgba(255,255,255,.55)">OR ${x.ofr}</small>${(() => { const rc2 = (window.__rpRaces || []).find(r2 => r2.k === x.k); if (!rc2 || !(PEOPLE && PEOPLE.ok)) return '';
-            const sc2 = (markBoard.__sc = markBoard.__sc || {})[x.k] || ((markBoard.__sc[x.k] = scoreRace2(rc2.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers))));
-            const s7 = sc2[x.h]; if (!s7) return '';
-            const L2 = { J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
-            const chips = s7.tags.filter(t3 => L2[t3]).map(t3 => '<span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:4px;padding:0 3px;font-size:7.5px;font-weight:700;letter-spacing:.04em">' + L2[t3] + '</span>').join(' ');
-            return (s7.pts >= 5 ? ' <b style="color:#FFC24B;font-size:10.5px">\u2605 ' + s7.pts + '</b>' : '') + (chips ? ' ' + chips : ''); })()}</span>
-          <span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.7)">${String(x.t).replace(/\s.*/, '')} ${String(x.course).replace(/\s*\([^)]*\)/g, '').slice(0, 9)} \u00b7 <b style="color:#39FF6A">@ ${x.d}</b></span></div>`).join('')
-        : `<div style="font-size:11px;color:rgba(255,255,255,.55);padding:6px 0">no runner today has won or placed on its current mark</div>`;
+      const L2 = { star: '\u2605', J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
+      const scFor = (x) => { const rc2 = (window.__rpRaces || []).find(r2 => r2.k === x.k); if (!rc2 || !(PEOPLE && PEOPLE.ok)) return null;
+        const sc2 = markBoard.__sc[x.k] || (markBoard.__sc[x.k] = scoreRace2(rc2.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)));
+        return sc2[x.h] || null; };
+      const rowsData = MARKS.rows.map(x => { const s7 = scFor(x); const keys = [];
+        if (s7 && s7.pts >= 5) keys.push('star');
+        if (s7) s7.tags.forEach(t3 => { if (L2[t3] && t3 !== 'star') keys.push(t3); });
+        return { x, s7, keys }; });
+      MARKS.flt = MARKS.flt || new Set();
+      const shown = MARKS.flt.size ? rowsData.filter(rd => rd.keys.some(k2 => MARKS.flt.has(k2))) : rowsData;
+      const counts = {};
+      rowsData.forEach(rd => rd.keys.forEach(k2 => { counts[k2] = (counts[k2] || 0) + 1; }));
+      inner += `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 2px">${Object.keys(L2).filter(k2 => counts[k2]).map(k2 => { const on = MARKS.flt.has(k2);
+        return `<button onclick="__rpMarkFlt('${k2}')" style="border:1px solid ${on ? '#FFC24B' : 'rgba(255,255,255,.3)'};background:${on ? '#FFC24B' : 'transparent'};color:${on ? '#4A050F' : 'rgba(255,255,255,.75)'};border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:8.5px;cursor:pointer;font-weight:700">${L2[k2]} ${counts[k2]}</button>`; }).join('')}</div>`;
+      inner += shown.length ? shown.map(rd => { const x = rd.x; const s7 = rd.s7;
+          const chips = rd.keys.filter(k2 => k2 !== 'star').map(k2 => '<span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:4px;padding:0 3px;font-size:7.5px;font-weight:700;letter-spacing:.04em">' + L2[k2] + '</span>').join(' ');
+          return `<div onclick="var m=document.querySelector('.mkt[data-k=&quot;${x.k}&quot;]'); if(m) m.scrollIntoView({behavior:'smooth',block:'start'})" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.12);cursor:pointer;font-size:12px;align-items:baseline">
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:#FFC24B;font-family:var(--mono)">${'\u25cf'.repeat(Math.min(x.nw, 4))}${'\u25d0'.repeat(Math.min(x.np, 4))}</b> <b>${x.h}</b> <small style="color:rgba(255,255,255,.55)">OR ${x.ofr}</small>${s7 && s7.pts >= 5 ? ' <b style="color:#FFC24B;font-size:10.5px">\u2605 ' + s7.pts + '</b>' : ''}${chips ? ' ' + chips : ''}</span>
+          <span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.7)">${String(x.t).replace(/\s.*/, '')} ${String(x.course).replace(/\s*\([^)]*\)/g, '').slice(0, 9)} \u00b7 <b style="color:#39FF6A">@ ${x.d}</b></span></div>`; }).join('')
+        : `<div style="font-size:11px;color:rgba(255,255,255,.55);padding:6px 0">${MARKS.flt.size ? 'no mark horses carry that signal today' : 'no runner today has won or placed on its current mark'}</div>`;
       inner += `<div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.45);margin-top:5px">\u25cf win \u00b7 \u25d0 2nd/3rd \u00b7 on today's OR \u00b11lb \u00b7 tap to jump to the race</div>`;
     }
     el.innerHTML = inner + '</div>';
   }
+  window.__rpMarkFlt = (k2) => { MARKS.flt = MARKS.flt || new Set(); MARKS.flt.has(k2) ? MARKS.flt.delete(k2) : MARKS.flt.add(k2); markBoard(); };
   window.__rpScanMarks = async () => {
     if (MARKS.running) return;
     const cands = [];
