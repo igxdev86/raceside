@@ -114,7 +114,14 @@ export default async function handler(req, res) {
       <h4 style="margin:12px 0 4px;color:#444">FULL CARD · deepest minus first</h4>
       <table style="font-size:12px"><tr style="color:#999;font-size:10px"><td style="padding:2px 8px">HORSE · SCORE</td><td style="padding:2px 8px">J/T%</td><td style="padding:2px 8px">EDGE</td><td style="padding:2px 8px">SP</td><td style="padding:2px 8px">XS1</td></tr>${cardRows}</table>
       <p style="color:#999;font-size:12px">score = each signal pays 5/3/1 for its top three · XS1 = (J% + T%) / SP · a design, not a finding · not advice</p></div>`);
-    if (okS) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k); }
+    if (okS) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
+      st.prints = st.prints || [];
+      st.prints.push({ ts: Date.now(), k, t: rc.t, course: rc.course, mins,
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
+        card: rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
+          .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: strike(store.jockeys, r.jid), tr: strike(store.trainers, r.tid),
+            e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: (() => { const v = xs1(r); return v != null ? Math.round(v * 10) / 10 : null; })() })) });
+      st.prints = st.prints.slice(-120); }
   }
 
   // 2) results for sent races
@@ -129,6 +136,7 @@ export default async function handler(req, res) {
       if (!st.sent[k]) { out.unmatched.push(k); continue; }
       if (st.resulted[k]) continue;
       const picks = st.picks[k] || [];
+      (st.prints || []).forEach(p => { if (p.k === k && !p.w) { p.w = w.h; p.hit = picks.some(x => String(x.h).toLowerCase() === String(w.h).toLowerCase()); } });
       const hit = picks.find(p => p.h === w.h);
       const list = picks.map(p => `${p.h === w.h ? '✅' : '❌'} ${p.h} (${p.pts}) @ ${p.d}`).join('<br>') || 'no scored picks';
       const okS = await send(`${hit ? '✅' : '❌'} ${w.t} ${w.course} — ${w.h} won`,
