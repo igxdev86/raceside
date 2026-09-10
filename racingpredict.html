@@ -314,7 +314,7 @@
     if (!el) return;
     markBoard.__sc = {};
     const cands = [];
-    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes) return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
+    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes || rc.day !== 'today') return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
     if (!cands.length) { el.innerHTML = ''; return; }
     let inner = `<div style="border:1px solid rgba(255,194,75,.5);border-radius:14px;padding:12px 14px;margin:10px 0;background:rgba(0,0,0,.18)">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#FFC24B">\u25cf ON THE MARK \u00b7 TODAY</b>
@@ -348,7 +348,7 @@
   window.__rpScanMarks = async () => {
     if (MARKS.running) return;
     const cands = [];
-    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes) return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
+    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes || rc.day !== 'today') return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
     MARKS.running = true; MARKS.done = 0; MARKS.total = cands.length; markBoard();
     const out = [];
     const work = cands.slice();
