@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRINTS — RACESIDE</title>
+<style>
+  :root{--bg:#101418;--tile:#171D23;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--blue:#6FA8FF;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{font-size:19px;margin:14px 0 2px}
+  .sub{color:var(--dim);font-size:12px}
+  .tile{background:var(--tile);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .hd b{font-size:14px}
+  .when{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .pick{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
+  .pts{font-family:var(--mono);background:#F6E7B8;color:#101418;border-radius:6px;padding:0 6px;font-weight:700;font-size:12px}
+  .pts.big{background:var(--gold)}
+  .tags{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .xs{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .xs.hot{color:var(--gold);font-weight:700}
+  details{margin-top:6px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--faint);list-style:none}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin-top:4px}
+  td,th{padding:3px 4px;text-align:right;border-bottom:1px solid var(--line)}
+  td:first-child,th:first-child{text-align:left}
+  th{color:var(--faint);font-weight:400;font-size:9px;letter-spacing:.08em}
+  .res{font-size:12px;font-family:var(--mono)}
+  .day{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--faint);margin:20px 0 4px}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PRINTS</h1>
+  <div class="sub">every pre-off print, exactly as it was emailed — picks, full card, then the result stamped on. the inbox, as a page.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading prints…</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
+</div>
+<script src="/nav.js?v=4" defer></script>
+<script>
+'use strict';
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  let st = null;
+  try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state; } catch {}
+  const prints = (st && st.prints) ? st.prints.slice().reverse() : [];
+  if (!prints.length) {
+    $('app').innerHTML = '<div class="tile"><b>no prints yet today</b><div class="sub" style="margin-top:4px">prints appear here the moment each pre-off email goes out (4\u201310 minutes before the off). yesterday\u2019s prints clear when the new racing day starts.</div></div>';
+    return;
+  }
+  const sent = prints.length, resulted = prints.filter(p => p.w).length, hits = prints.filter(p => p.hit).length;
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${sent} prints</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits > 0 ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span></div>`;
+  const fmtT = (ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+  const rows = prints.map(p => {
+    const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
+    const pickRows = (p.picks || []).map(x => `<div class="pick">
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && String(p.w).toLowerCase() === String(x.h).toLowerCase() ? ' \u2705' : ''}</b> <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
+      <span style="white-space:nowrap">@ ${x.d}${x.xs1 != null ? ` <span class="xs${x.xs1 >= 15 ? ' hot' : ''}">XS1 ${x.xs1}</span>` : ''}</span></div>`).join('');
+    const cardRows = (p.card || []).map(r => `<tr><td>${r.h}${r.pts >= 9 ? ' <b>' + r.pts + '</b>' : ''}${p.w && String(p.w).toLowerCase() === String(r.h).toLowerCase() ? ' \u2705' : ''}</td>
+      <td>${r.j != null ? r.j : '\u2014'}/${r.tr != null ? r.tr : '\u2014'}</td>
+      <td style="color:${r.e != null && r.e < 0 ? 'var(--red)' : 'var(--green)'}">${r.e != null ? (r.e > 0 ? '+' : '') + r.e + '%' : '\u2014'}</td>
+      <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
+    return `<div class="tile">
+      <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}</b><span>${res}</span></div>
+      <div class="when">printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off</div>
+      ${pickRows}
+      ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
+    </div>`;
+  }).join('');
+  $('app').innerHTML = chips + rows;
+})();
+</script>
+</body>
+</html>
