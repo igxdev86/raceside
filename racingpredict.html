@@ -313,37 +313,50 @@
     const el = document.getElementById('markboard');
     if (!el) return;
     markBoard.__sc = {};
+    MARKS.tab = MARKS.tab || 'mark';
+    MARKS.flt = MARKS.flt || new Set();
+    const L2 = { star: '\u2605', J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
+    const todayRcs = (window.__rpRaces || []).filter(rc => !rc.fromRes && rc.day === 'today');
+    const scOf = (rc) => markBoard.__sc[rc.k] || (markBoard.__sc[rc.k] = (PEOPLE && PEOPLE.ok) ? scoreRace2(rc.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)) : {});
+    const keysOf = (s7) => { const ks = []; if (s7 && s7.pts >= 5) ks.push('star'); if (s7) s7.tags.forEach(t3 => { if (L2[t3]) ks.push(t3); }); return ks; };
     const cands = [];
-    (window.__rpRaces || []).forEach(rc => { if (rc.fromRes || rc.day !== 'today') return; rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push({ hid: r.hid, h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k }); }); });
-    if (!cands.length) { el.innerHTML = ''; return; }
+    todayRcs.forEach(rc => rc.rs.forEach(r => { if (r.hid && r.ofr != null && r.d > 1) cands.push(1); }));
+    const tabBtn = (id2, lb) => `<button onclick="__rpMarkTab('${id2}')" style="border:none;background:transparent;color:${MARKS.tab === id2 ? '#FFC24B' : 'rgba(255,255,255,.5)'};font-family:var(--mono);font-size:10px;letter-spacing:.1em;font-weight:700;cursor:pointer;padding:0;border-bottom:2px solid ${MARKS.tab === id2 ? '#FFC24B' : 'transparent'}">${lb}</button>`;
+    let rowsData = [];
+    let head = '';
+    if (MARKS.tab === 'mark') {
+      head = MARKS.running ? `<span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.6)">scanning ${MARKS.done}/${MARKS.total}\u2026</span>`
+        : `<button onclick="__rpScanMarks()" style="border:1px solid #FFC24B;background:transparent;color:#FFC24B;border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:9.5px;cursor:pointer;font-weight:700">${MARKS.rows ? 'RESCAN' : 'SCAN ' + cands.length + ' RUNNERS'}</button>`;
+      if (MARKS.rows) rowsData = MARKS.rows.map(x => { const rc2 = todayRcs.find(r2 => r2.k === x.k); const s7 = rc2 ? (scOf(rc2)[x.h] || null) : null;
+        return { x, s7, keys: keysOf(s7) }; });
+    } else {
+      // SCORES: every 5+ scored horse today, chronological — no scan needed
+      todayRcs.forEach(rc => { const sc2 = scOf(rc);
+        rc.rs.forEach(r => { const s7 = sc2[r.h]; if (s7 && s7.pts >= 5) { const mk2 = (r.hid && HCACHE[r.hid] && HCACHE[r.hid].ok) ? markCounts(HCACHE[r.hid].runs, r.ofr) : { nw: 0, np: 0 };
+          rowsData.push({ x: { h: r.h, ofr: r.ofr, d: r.d, t: rc.t, course: rc.course, k: rc.k, nw: mk2.nw, np: mk2.np }, s7, keys: keysOf(s7) }); } }); });
+      rowsData.sort((a, b) => raceMin(a.x.t) - raceMin(b.x.t) || b.s7.pts - a.s7.pts);
+    }
     let inner = `<div style="border:1px solid rgba(255,194,75,.5);border-radius:14px;padding:12px 14px;margin:10px 0;background:rgba(0,0,0,.18)">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#FFC24B">\u25cf ON THE MARK \u00b7 TODAY</b>
-      ${MARKS.running ? `<span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.6)">scanning ${MARKS.done}/${MARKS.total}\u2026</span>` : `<button onclick="__rpScanMarks()" style="border:1px solid #FFC24B;background:transparent;color:#FFC24B;border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:9.5px;cursor:pointer;font-weight:700">${MARKS.rows ? 'RESCAN' : 'SCAN ' + cands.length + ' RUNNERS'}</button>`}</div>`;
-    if (MARKS.rows) {
-      const L2 = { star: '\u2605', J1: 'TOP J', T1: 'TOP T', PAIR1: 'TOP PAIR', WR1: 'TOP WR', OR1: 'TOP OR', M1: 'TOP MINUS' };
-      const scFor = (x) => { const rc2 = (window.__rpRaces || []).find(r2 => r2.k === x.k); if (!rc2 || !(PEOPLE && PEOPLE.ok)) return null;
-        const sc2 = markBoard.__sc[x.k] || (markBoard.__sc[x.k] = scoreRace2(rc2.rs, PEOPLE, pctB2(PEOPLE.jockeys), pctB2(PEOPLE.trainers)));
-        return sc2[x.h] || null; };
-      const rowsData = MARKS.rows.map(x => { const s7 = scFor(x); const keys = [];
-        if (s7 && s7.pts >= 5) keys.push('star');
-        if (s7) s7.tags.forEach(t3 => { if (L2[t3] && t3 !== 'star') keys.push(t3); });
-        return { x, s7, keys }; });
-      MARKS.flt = MARKS.flt || new Set();
-      const shown = MARKS.flt.size ? rowsData.filter(rd => rd.keys.some(k2 => MARKS.flt.has(k2))) : rowsData;
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="display:flex;gap:12px">${tabBtn('mark', '\u25cf ON THE MARK')}${tabBtn('scores', '\u2605 SCORES')}<span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.4)">TODAY</span></span>${head}</div>`;
+    const showRows = MARKS.tab === 'scores' || MARKS.rows;
+    if (showRows) {
       const counts = {};
       rowsData.forEach(rd => rd.keys.forEach(k2 => { counts[k2] = (counts[k2] || 0) + 1; }));
+      const shown = MARKS.flt.size ? rowsData.filter(rd => rd.keys.some(k2 => MARKS.flt.has(k2))) : rowsData;
       inner += `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 2px">${Object.keys(L2).filter(k2 => counts[k2]).map(k2 => { const on = MARKS.flt.has(k2);
         return `<button onclick="__rpMarkFlt('${k2}')" style="border:1px solid ${on ? '#FFC24B' : 'rgba(255,255,255,.3)'};background:${on ? '#FFC24B' : 'transparent'};color:${on ? '#4A050F' : 'rgba(255,255,255,.75)'};border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:8.5px;cursor:pointer;font-weight:700">${L2[k2]} ${counts[k2]}</button>`; }).join('')}</div>`;
       inner += shown.length ? shown.map(rd => { const x = rd.x; const s7 = rd.s7;
           const chips = rd.keys.filter(k2 => k2 !== 'star').map(k2 => '<span style="border:1px solid #FFC24B;color:#FFC24B;border-radius:4px;padding:0 3px;font-size:7.5px;font-weight:700;letter-spacing:.04em">' + L2[k2] + '</span>').join(' ');
+          const circ = (x.nw || x.np) ? `<b style="color:#FFC24B;font-family:var(--mono)">${'\u25cf'.repeat(Math.min(x.nw, 4))}${'\u25d0'.repeat(Math.min(x.np, 4))}</b> ` : '';
           return `<div onclick="var m=document.querySelector('.mkt[data-k=&quot;${x.k}&quot;]'); if(m) m.scrollIntoView({behavior:'smooth',block:'start'})" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.12);cursor:pointer;font-size:12px;align-items:baseline">
-          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:#FFC24B;font-family:var(--mono)">${'\u25cf'.repeat(Math.min(x.nw, 4))}${'\u25d0'.repeat(Math.min(x.np, 4))}</b> <b>${x.h}</b> <small style="color:rgba(255,255,255,.55)">OR ${x.ofr}</small>${s7 && s7.pts >= 5 ? ' <b style="color:#FFC24B;font-size:10.5px">\u2605 ' + s7.pts + '</b>' : ''}${chips ? ' ' + chips : ''}</span>
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${circ}<b>${x.h}</b> <small style="color:rgba(255,255,255,.55)">OR ${x.ofr != null ? x.ofr : '\u2014'}</small>${s7 && s7.pts >= 5 ? ' <b style="color:#FFC24B;font-size:10.5px">\u2605 ' + s7.pts + '</b>' : ''}${chips ? ' ' + chips : ''}</span>
           <span style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.7)">${String(x.t).replace(/\s.*/, '')} ${String(x.course).replace(/\s*\([^)]*\)/g, '').slice(0, 9)} \u00b7 <b style="color:#39FF6A">@ ${x.d}</b></span></div>`; }).join('')
-        : `<div style="font-size:11px;color:rgba(255,255,255,.55);padding:6px 0">${MARKS.flt.size ? 'no mark horses carry that signal today' : 'no runner today has won or placed on its current mark'}</div>`;
-      inner += `<div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.45);margin-top:5px">\u25cf win \u00b7 \u25d0 2nd/3rd \u00b7 on today's OR \u00b11lb \u00b7 tap to jump to the race</div>`;
+        : `<div style="font-size:11px;color:rgba(255,255,255,.55);padding:6px 0">${MARKS.flt.size ? 'nothing carries that signal today' : MARKS.tab === 'scores' ? 'no horse scores 5+ today' : 'no runner today has won or placed on its current mark'}</div>`;
+      inner += `<div style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.45);margin-top:5px">${MARKS.tab === 'mark' ? '\u25cf win \u00b7 \u25d0 2nd/3rd \u00b7 on today\u2019s OR \u00b11lb \u00b7 ' : '\u2605 = graded 5/3/1 by six signals \u00b7 circles shown when scanned \u00b7 '}tap to jump to the race</div>`;
     }
     el.innerHTML = inner + '</div>';
   }
+  window.__rpMarkTab = (t2) => { MARKS.tab = t2; markBoard(); };
   window.__rpMarkFlt = (k2) => { MARKS.flt = MARKS.flt || new Set(); MARKS.flt.has(k2) ? MARKS.flt.delete(k2) : MARKS.flt.add(k2); markBoard(); };
   window.__rpScanMarks = async () => {
     if (MARKS.running) return;
