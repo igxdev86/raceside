@@ -49,7 +49,20 @@
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state; } catch {}
   try { wj = await (await fetch('/api/todaywinners')).json(); } catch {}
   try { pd = await (await fetch('/api/priceday?v=5&date=' + ukd)).json(); } catch {}
-  const prints = (st && st.prints) ? st.prints.slice().reverse() : [];
+  let prints = (st && st.prints) ? st.prints.slice() : [];
+  // reconstruct today's earlier prints from the alert log (emails sent before print storage existed)
+  if (st && st.picks) {
+    const have = new Set(prints.map(p => p.k));
+    Object.keys(st.picks).forEach(k => {
+      if (have.has(k)) return;
+      const bits = String(k).split('|');
+      const cap = (s2) => s2.charAt(0).toUpperCase() + s2.slice(1);
+      prints.push({ ts: null, k, t: bits[0] || '?', course: cap(bits[1] || ''), mins: null, legacy: 1,
+        picks: (st.picks[k] || []).map(x => ({ h: x.h, pts: x.pts, tags: [], d: x.d, xs1: null })), card: [] });
+    });
+  }
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  prints.sort((a, b) => t2m(b.t) - t2m(a.t));
   // live match against today's winners — no waiting for the next alert pass to stamp
   const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   {
@@ -77,7 +90,7 @@
       <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
     return `<div class="tile">
       <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}</b><span>${res}</span></div>
-      <div class="when">printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off</div>
+      <div class="when">${p.legacy ? 'reconstructed from today\u2019s email log \u00b7 sent pre-off' : `printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off`}</div>
       ${pickRows}
       ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
     </div>`;
