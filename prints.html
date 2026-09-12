@@ -49,6 +49,9 @@
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state; } catch {}
   try { wj = await (await fetch('/api/todaywinners')).json(); } catch {}
   try { pd = await (await fetch('/api/priceday?v=5&date=' + ukd)).json(); } catch {}
+  let people = null;
+  try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   let prints = (st && st.prints) ? st.prints.slice() : [];
   // reconstruct today's earlier prints from the alert log (emails sent before print storage existed)
   if (st && st.picks) {
@@ -61,10 +64,64 @@
         picks: (st.picks[k] || []).map(x => ({ h: x.h, pts: x.pts, tags: [], d: x.d, xs1: null })), card: [] });
     });
   }
+  // reprint the whole day from the results record: same score engine, at SP
+  if (pd && pd.ok && people && people.ok) {
+    const PTS = [5, 3, 1];
+    const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+    const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+    const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+    const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+    const xs1 = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+      if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+      return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+    const scoreRace = (rs) => {
+      const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+      const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+        vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+      rank('J', (r) => strike(people.jockeys, r.jid, 50));
+      rank('T', (r) => strike(people.trainers, r.tid, 50));
+      rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+      const orVals = rs.map(r => r.ofr).filter(v => v != null);
+      const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+      const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+      if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+      rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+      rank('OR', (r) => r.ofr != null ? r.ofr : null);
+      let edges = {};
+      if (orMean != null) {
+        const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+          return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+        const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+        rs.forEach((r, i) => { const e2 = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; if (e2 != null && isFinite(e2)) { edges[r.h] = e2; if (e2 < 0) {} } });
+        const negs = rs.map((r, i) => ({ r, e: edges[r.h] })).filter(x => x.e != null && x.e < 0).sort((a, b2) => a.e - b2.e);
+        negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+        rs.forEach(r => { if (edges[r.h] != null && edges[r.h] > 0) tag(r.h, '+', 1); });
+      }
+      return { sc, edges };
+    };
+    const have = new Set(prints.map(p => rk(p.t, p.course)));
+    (pd.races || []).forEach(r2 => {
+      const key = rk(r2.t, r2.course);
+      if (have.has(key)) return;
+      const rs = (r2.runners || []).filter(x => Number(x.d) > 1).map(x => ({ h: x.h, jockey: x.jockey, jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d), pos: x.pos }));
+      if (rs.length < 3) return;
+      const { sc, edges } = scoreRace(rs);
+      const picks = rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b2) => b2.s.pts - a.s.pts).slice(0, 4);
+      if (!picks.length) return;
+      const win = rs.find(r => r.pos === '1');
+      prints.push({ ts: null, k: key, t: r2.t, course: r2.course, mins: null, reprint: 1,
+        w: win ? win.h : undefined, hit: win ? picks.some(p => String(p.r.h).toLowerCase() === String(win.h).toLowerCase()) : undefined,
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: xs1(p.r) })),
+        card: rs.slice().sort((a, b2) => { const ea = edges[a.h], eb = edges[b2.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
+          .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: (() => { const v = strike(people.jockeys, r.jid, 50); return v != null ? Math.round(v * 100) : null; })(),
+            tr: (() => { const v = strike(people.trainers, r.tid, 50); return v != null ? Math.round(v * 100) : null; })(),
+            e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: xs1(r) })) });
+    });
+  }
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
   prints.sort((a, b) => t2m(b.t) - t2m(a.t));
   // live match against today's winners — no waiting for the next alert pass to stamp
-  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+
   {
     const wm = {};
     if (pd && pd.ok) (pd.races || []).forEach(r2 => { const win = (r2.runners || []).find(x => x.pos === '1' || x.won === 1); if (win) wm[rk(r2.t, r2.course)] = win.h; });
@@ -91,7 +148,7 @@
       <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
     return `<div class="tile">
       <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}${p.day ? ` <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${p.day}</small>` : ''}</b><span>${res}</span></div>
-      <div class="when">${p.legacy ? 'reconstructed from today\u2019s email log \u00b7 sent pre-off' : `printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off`}</div>
+      <div class="when">${p.reprint ? 'reprinted from the day\u2019s record \u00b7 same engine, at SP' : p.legacy ? 'reconstructed from today\u2019s email log \u00b7 sent pre-off' : `printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off`}</div>
       ${pickRows}
       ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
     </div>`;
