@@ -151,6 +151,9 @@ export default async function handler(req, res) {
     }
   }
 
-  try { await fetch(base + '/api/yearstate?k=alertstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); } catch {}
+  st.lastDate = today;   // the state store requires lastDate and rejects saves without it
+  let stSave = null;
+  try { const sr = await fetch(base + '/api/yearstate?k=alertstate:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }); stSave = sr.status; } catch (e) { stSave = String(e.message || e); }
+  out.stateSave = stSave;
   return res.status(200).json(out);
 }
