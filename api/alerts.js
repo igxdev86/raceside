@@ -58,7 +58,13 @@ export default async function handler(req, res) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now);
 
   let st = null;
-  try { const j = await gj('/api/yearstate?k=alertstate:v1'); if (j && j.state && j.state.date === today) st = j.state; } catch {}
+  try { const j = await gj('/api/yearstate?k=alertstate:v1');
+    if (j && j.state && j.state.date === today) st = j.state;
+    else if (j && j.state) {
+      // new racing day: reset the send/result ledgers but carry the prints archive forward
+      st = { date: today, sent: {}, resulted: {}, picks: {}, prints: (j.state.prints || []).slice(-120) };
+    }
+  } catch {}
   if (!st) st = { date: today, sent: {}, resulted: {}, picks: {} };
 
   let up = null, store = null;
@@ -116,7 +122,7 @@ export default async function handler(req, res) {
       <p style="color:#999;font-size:12px">score = each signal pays 5/3/1 for its top three · XS1 = (J% + T%) / SP · a design, not a finding · not advice</p></div>`);
     if (okS) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
       st.prints = st.prints || [];
-      st.prints.push({ ts: Date.now(), k, t: rc.t, course: rc.course, mins,
+      st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins,
         picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
         card: rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
           .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: strike(store.jockeys, r.jid), tr: strike(store.trainers, r.tid),
