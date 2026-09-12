@@ -118,6 +118,14 @@
             e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: xs1(r) })) });
     });
   }
+  // placings per race (for forecast/tricast marking)
+  const PLACE = {};
+  if (pd && pd.ok) (pd.races || []).forEach(r2 => { const g = (n) => { const x = (r2.runners || []).find(q => q.pos === String(n)); return x ? String(x.h).toLowerCase() : null; };
+    PLACE[rk(r2.t, r2.course)] = { p1: g(1), p2: g(2), p3: g(3) }; });
+  prints.forEach(p => { if (!p.w) return; const pl = PLACE[rk(p.t, p.course)]; if (!pl || !pl.p1) return;
+    const ps = new Set((p.picks || []).map(x => String(x.h).toLowerCase()));
+    p.fc = !!(pl.p2 && ps.has(pl.p1) && ps.has(pl.p2));
+    p.tc = !!(p.fc && pl.p3 && ps.has(pl.p3)); });
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
   prints.sort((a, b) => t2m(b.t) - t2m(a.t));
   // live match against today's winners — no waiting for the next alert pass to stamp
@@ -135,10 +143,11 @@
     return;
   }
   const sent = prints.length, resulted = prints.filter(p => p.w).length, hits = prints.filter(p => p.hit).length;
-  const chips = `<div style="margin:10px 0 2px"><span class="chip">${sent} prints</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits > 0 ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span></div>`;
+  const fcs = prints.filter(p => p.fc).length, tcs = prints.filter(p => p.tc).length;
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${sent} prints</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits > 0 ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span><span class="chip" style="color:${fcs > 0 ? 'var(--gold)' : 'var(--dim)'}">FC ${fcs}</span><span class="chip" style="color:${tcs > 0 ? 'var(--gold)' : 'var(--dim)'}">TC ${tcs}</span></div>`;
   const fmtT = (ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
   const rows = prints.map(p => {
-    const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
+    const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}${p.tc ? ' <b style="color:var(--gold)">TC \u2705</b>' : p.fc ? ' <b style="color:var(--gold)">FC \u2705</b>' : ''}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
     const pickRows = (p.picks || []).map(x => `<div class="pick">
       <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && String(p.w).toLowerCase() === String(x.h).toLowerCase() ? ' \u2705' : ''}</b> <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
       <span style="white-space:nowrap">@ ${x.d}${x.xs1 != null ? ` <span class="xs${x.xs1 >= 15 ? ' hot' : ''}">XS1 ${x.xs1}</span>` : ''}</span></div>`).join('');
