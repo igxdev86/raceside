@@ -44,9 +44,18 @@
 'use strict';
 (async () => {
   const $ = (id) => document.getElementById(id);
-  let st = null;
+  let st = null, wj = null;
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state; } catch {}
+  try { wj = await (await fetch('/api/todaywinners')).json(); } catch {}
   const prints = (st && st.prints) ? st.prints.slice().reverse() : [];
+  // live match against today's winners — no waiting for the next alert pass to stamp
+  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (wj && wj.ok) {
+    const wm = {};
+    (wj.winners || []).forEach(w => { wm[rk(w.t, w.course)] = w.h; });
+    prints.forEach(p => { const w = wm[rk(p.t, p.course)];
+      if (w && !p.w) { p.w = w; p.hit = (p.picks || []).some(x => String(x.h).toLowerCase() === String(w).toLowerCase()); } });
+  }
   if (!prints.length) {
     $('app').innerHTML = '<div class="tile"><b>no prints yet today</b><div class="sub" style="margin-top:4px">prints appear here the moment each pre-off email goes out (4\u201310 minutes before the off). yesterday\u2019s prints clear when the new racing day starts.</div></div>';
     return;
