@@ -44,15 +44,18 @@
 'use strict';
 (async () => {
   const $ = (id) => document.getElementById(id);
-  let st = null, wj = null;
+  let st = null, wj = null, pd = null;
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state; } catch {}
   try { wj = await (await fetch('/api/todaywinners')).json(); } catch {}
+  try { pd = await (await fetch('/api/priceday?v=5&date=' + ukd)).json(); } catch {}
   const prints = (st && st.prints) ? st.prints.slice().reverse() : [];
   // live match against today's winners — no waiting for the next alert pass to stamp
-  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').toLowerCase().replace(/[^a-z]/g, '');
-  if (wj && wj.ok) {
+  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  {
     const wm = {};
-    (wj.winners || []).forEach(w => { wm[rk(w.t, w.course)] = w.h; });
+    if (pd && pd.ok) (pd.races || []).forEach(r2 => { const win = (r2.runners || []).find(x => x.pos === '1' || x.won === 1); if (win) wm[rk(r2.t, r2.course)] = win.h; });
+    if (wj && wj.ok) (wj.winners || []).forEach(w => { wm[rk(w.t, w.course)] = w.h; });
     prints.forEach(p => { const w = wm[rk(p.t, p.course)];
       if (w && !p.w) { p.w = w; p.hit = (p.picks || []).some(x => String(x.h).toLowerCase() === String(w).toLowerCase()); } });
   }
