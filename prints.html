@@ -73,7 +73,8 @@
       if (w && !p.w) { p.w = w; p.hit = (p.picks || []).some(x => String(x.h).toLowerCase() === String(w).toLowerCase()); } });
   }
   if (!prints.length) {
-    $('app').innerHTML = '<div class="tile"><b>no prints yet today</b><div class="sub" style="margin-top:4px">prints appear here the moment each pre-off email goes out (4\u201310 minutes before the off). yesterday\u2019s prints clear when the new racing day starts.</div></div>';
+    const diag = st ? `state loaded \u00b7 date ${st.date || '?'} \u00b7 ${Object.keys(st.sent || {}).length} sent \u00b7 ${Object.keys(st.picks || {}).length} picks logged \u00b7 ${(st.prints || []).length} prints stored` : 'no alert state found in the store';
+    $('app').innerHTML = '<div class="tile"><b>no prints to show</b><div class="sub" style="margin-top:4px">prints appear the moment each pre-off email goes out (4\u201310 minutes before the off).</div><div class="when" style="margin-top:8px">' + diag + '</div></div>';
     return;
   }
   const sent = prints.length, resulted = prints.filter(p => p.w).length, hits = prints.filter(p => p.hit).length;
@@ -89,7 +90,7 @@
       <td style="color:${r.e != null && r.e < 0 ? 'var(--red)' : 'var(--green)'}">${r.e != null ? (r.e > 0 ? '+' : '') + r.e + '%' : '\u2014'}</td>
       <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
     return `<div class="tile">
-      <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}</b><span>${res}</span></div>
+      <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}${p.day ? ` <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${p.day}</small>` : ''}</b><span>${res}</span></div>
       <div class="when">${p.legacy ? 'reconstructed from today\u2019s email log \u00b7 sent pre-off' : `printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off`}</div>
       ${pickRows}
       ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
