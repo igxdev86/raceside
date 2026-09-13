@@ -52,6 +52,7 @@
   let people = null;
   try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
   const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
   let prints = (st && st.prints) ? st.prints.slice() : [];
   // reconstruct today's earlier prints from the alert log (emails sent before print storage existed)
   if (st && st.picks) {
@@ -110,7 +111,7 @@
       if (!picks.length) return;
       const win = rs.find(r => r.pos === '1');
       prints.push({ ts: null, k: key, t: r2.t, course: r2.course, mins: null, reprint: 1,
-        w: win ? win.h : undefined, hit: win ? picks.some(p => String(p.r.h).toLowerCase() === String(win.h).toLowerCase()) : undefined,
+        w: win ? win.h : undefined, hit: win ? picks.some(p => hn(p.r.h) === hn(win.h)) : undefined,
         picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: xs1(p.r) })),
         card: rs.slice().sort((a, b2) => { const ea = edges[a.h], eb = edges[b2.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
           .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: (() => { const v = strike(people.jockeys, r.jid, 50); return v != null ? Math.round(v * 100) : null; })(),
@@ -120,10 +121,10 @@
   }
   // placings per race (for forecast/tricast marking)
   const PLACE = {};
-  if (pd && pd.ok) (pd.races || []).forEach(r2 => { const g = (n) => { const x = (r2.runners || []).find(q => q.pos === String(n)); return x ? String(x.h).toLowerCase() : null; };
+  if (pd && pd.ok) (pd.races || []).forEach(r2 => { const g = (n) => { const x = (r2.runners || []).find(q => q.pos === String(n)); return x ? hn(x.h) : null; };
     PLACE[rk(r2.t, r2.course)] = { p1: g(1), p2: g(2), p3: g(3) }; });
   prints.forEach(p => { if (!p.w) return; const pl = PLACE[rk(p.t, p.course)]; if (!pl || !pl.p1) return;
-    const ps = new Set((p.picks || []).map(x => String(x.h).toLowerCase()));
+    const ps = new Set((p.picks || []).map(x => hn(x.h)));
     p.fc = !!(pl.p2 && ps.has(pl.p1) && ps.has(pl.p2));
     p.tc = !!(p.fc && pl.p3 && ps.has(pl.p3)); });
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
@@ -135,7 +136,7 @@
     if (pd && pd.ok) (pd.races || []).forEach(r2 => { const win = (r2.runners || []).find(x => x.pos === '1' || x.won === 1); if (win) wm[rk(r2.t, r2.course)] = win.h; });
     if (wj && wj.ok) (wj.winners || []).forEach(w => { wm[rk(w.t, w.course)] = w.h; });
     prints.forEach(p => { const w = wm[rk(p.t, p.course)];
-      if (w && !p.w) { p.w = w; p.hit = (p.picks || []).some(x => String(x.h).toLowerCase() === String(w).toLowerCase()); } });
+      if (w && !p.w) { p.w = w; p.hit = (p.picks || []).some(x => hn(x.h) === hn(w)); } });
   }
   if (!prints.length) {
     const diag = st ? `state loaded \u00b7 date ${st.date || '?'} \u00b7 ${Object.keys(st.sent || {}).length} sent \u00b7 ${Object.keys(st.picks || {}).length} picks logged \u00b7 ${(st.prints || []).length} prints stored` : 'no alert state found in the store';
@@ -149,9 +150,9 @@
   const rows = prints.map(p => {
     const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}${p.tc ? ' <b style="color:var(--gold)">TC \u2705</b>' : p.fc ? ' <b style="color:var(--gold)">FC \u2705</b>' : ''}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
     const pickRows = (p.picks || []).map(x => `<div class="pick">
-      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && String(p.w).toLowerCase() === String(x.h).toLowerCase() ? ' \u2705' : ''}</b> <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && hn(p.w) === hn(x.h) ? ' \u2705' : ''}</b> <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
       <span style="white-space:nowrap">@ ${x.d}${x.xs1 != null ? ` <span class="xs${x.xs1 >= 15 ? ' hot' : ''}">XS1 ${x.xs1}</span>` : ''}</span></div>`).join('');
-    const cardRows = (p.card || []).map(r => `<tr><td>${r.h}${r.pts >= 9 ? ' <b>' + r.pts + '</b>' : ''}${p.w && String(p.w).toLowerCase() === String(r.h).toLowerCase() ? ' \u2705' : ''}</td>
+    const cardRows = (p.card || []).map(r => `<tr><td>${r.h}${r.pts >= 9 ? ' <b>' + r.pts + '</b>' : ''}${p.w && hn(p.w) === hn(r.h) ? ' \u2705' : ''}</td>
       <td>${r.j != null ? r.j : '\u2014'}/${r.tr != null ? r.tr : '\u2014'}</td>
       <td style="color:${r.e != null && r.e < 0 ? 'var(--red)' : 'var(--green)'}">${r.e != null ? (r.e > 0 ? '+' : '') + r.e + '%' : '\u2014'}</td>
       <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
