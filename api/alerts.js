@@ -44,6 +44,7 @@ const ukHM = (now) => {
   return g('hour') * 60 + g('minute');
 };
 const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
+const hnorm = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
 const rkey = (t, course) => String(t).replace(/\s.*/, '') + '|' + String(course).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export default async function handler(req, res) {
@@ -142,9 +143,9 @@ export default async function handler(req, res) {
       if (!st.sent[k]) { out.unmatched.push(k); continue; }
       if (st.resulted[k]) continue;
       const picks = st.picks[k] || [];
-      (st.prints || []).forEach(p => { if (p.k === k && !p.w) { p.w = w.h; p.hit = picks.some(x => String(x.h).toLowerCase() === String(w.h).toLowerCase()); } });
-      const hit = picks.find(p => p.h === w.h);
-      const list = picks.map(p => `${p.h === w.h ? '✅' : '❌'} ${p.h} (${p.pts}) @ ${p.d}`).join('<br>') || 'no scored picks';
+      (st.prints || []).forEach(p => { if (p.k === k && !p.w) { p.w = w.h; p.hit = picks.some(x => hnorm(x.h) === hnorm(w.h)); } });
+      const hit = picks.find(p => hnorm(p.h) === hnorm(w.h));
+      const list = picks.map(p => `${hnorm(p.h) === hnorm(w.h) ? '✅' : '❌'} ${p.h} (${p.pts}) @ ${p.d}`).join('<br>') || 'no scored picks';
       const okS = await send(`${hit ? '✅' : '❌'} ${w.t} ${w.course} — ${w.h} won`,
         `<div style="font-family:monospace"><h3 style="margin:0 0 6px">${w.t} ${String(w.course).toUpperCase()} · result</h3><p><b>Winner: ${w.h}</b></p><p>${list}</p></div>`);
       if (okS) { st.resulted[k] = 1; out.sentResults.push(k); }
