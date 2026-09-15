@@ -68,6 +68,7 @@ export default async function handler(req, res) {
   } catch {}
   if (!st) st = { date: today, sent: {}, resulted: {}, picks: {} };
 
+  let pdCache = null;
   let up = null, store = null;
   try { up = await gj('/api/upcoming?v=4'); store = await gj('/api/peopleall?v=2'); } catch {}
   if (!(up && up.ok && store && store.ok)) return res.status(200).json({ ok: false, error: 'feeds unavailable', base, up: !!(up && up.ok), people: !!(store && store.ok) });
@@ -95,6 +96,12 @@ export default async function handler(req, res) {
     const xcell = (r) => { const v = xs1(r); return v == null ? '\u2014' : `<b style="color:${v >= 15 ? '#B8860B' : '#666'}">${v.toFixed(1)}</b>`; };
     const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);   // same cut as the SCORES modal
     if (!picks.length) { st.sent[k] = 1; continue; }
+    const strong = picks[0].s.pts >= 9;   // email only the strong races; every race still prints to the page
+    if (!strong) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d }));
+      st.prints = st.prints || [];
+      st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins, quiet: 1,
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
+      st.prints = st.prints.slice(-120); continue; }
     const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td><td style="padding:4px 8px">XS1 ${xcell(p.r)}</td></tr>`).join('');
     // full card below: every runner, deepest minus first
     const strike = (b, id) => { const s2 = (b || {})[id]; return s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null; };
@@ -121,7 +128,7 @@ export default async function handler(req, res) {
       <h4 style="margin:12px 0 4px;color:#444">FULL CARD · deepest minus first</h4>
       <table style="font-size:12px"><tr style="color:#999;font-size:10px"><td style="padding:2px 8px">HORSE · SCORE</td><td style="padding:2px 8px">J/T%</td><td style="padding:2px 8px">EDGE</td><td style="padding:2px 8px">SP</td><td style="padding:2px 8px">XS1</td></tr>${cardRows}</table>
       <p style="color:#999;font-size:12px">score = each signal pays 5/3/1 for its top three · XS1 = (J% + T%) / SP · a design, not a finding · not advice</p></div>`);
-    if (okS) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
+    if (okS) { st.sent[k] = 1; st.mailed = st.mailed || {}; st.mailed[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
       st.prints = st.prints || [];
       st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins,
         picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
@@ -144,10 +151,26 @@ export default async function handler(req, res) {
       if (st.resulted[k]) continue;
       const picks = st.picks[k] || [];
       (st.prints || []).forEach(p => { if (p.k === k && !p.w) { p.w = w.h; p.hit = picks.some(x => hnorm(x.h) === hnorm(w.h)); } });
+      if (!(st.mailed || {})[k]) { st.resulted[k] = 1; continue; }   // quiet race: result stamps the print, no email
       const hit = picks.find(p => hnorm(p.h) === hnorm(w.h));
       const list = picks.map(p => `${hnorm(p.h) === hnorm(w.h) ? '✅' : '❌'} ${p.h} (${p.pts}) @ ${p.d}`).join('<br>') || 'no scored picks';
+      // full finishing order
+      let order = '';
+      try {
+        if (!pdCache) pdCache = await gj('/api/priceday?v=5&date=' + today);
+        const pdj = pdCache;
+        const race = pdj && pdj.ok ? (pdj.races || []).find(r2 => rkey(r2.t, r2.course) === k) : null;
+        if (race) {
+          const ranked = (race.runners || []).filter(x => { const p2 = parseInt(x.pos, 10); return Number.isFinite(p2) && p2 > 0; })
+            .sort((a, b) => parseInt(a.pos, 10) - parseInt(b.pos, 10));
+          const others = (race.runners || []).filter(x => !(parseInt(x.pos, 10) > 0));
+          if (ranked.length) order = '<p style="margin:10px 0 4px;color:#444"><b>FINISHING ORDER</b></p><p>' +
+            ranked.map(x => `${x.pos}. ${x.h}${picks.some(p2 => hnorm(p2.h) === hnorm(x.h)) ? ' \u2b50' : ''} @ ${x.d || '\u2014'}`).join('<br>') +
+            (others.length ? '<br><span style="color:#999">' + others.map(x => (x.pos || 'PU') + ' ' + x.h).join(' \u00b7 ') + '</span>' : '') + '</p>';
+        }
+      } catch {}
       const okS = await send(`${hit ? '✅' : '❌'} ${w.t} ${w.course} — ${w.h} won`,
-        `<div style="font-family:monospace"><h3 style="margin:0 0 6px">${w.t} ${String(w.course).toUpperCase()} · result</h3><p><b>Winner: ${w.h}</b></p><p>${list}</p></div>`);
+        `<div style="font-family:monospace"><h3 style="margin:0 0 6px">${w.t} ${String(w.course).toUpperCase()} · result</h3><p><b>Winner: ${w.h}</b></p><p>${list}</p>${order}<p style="color:#999;font-size:11px">\u2b50 = was a pick</p></div>`);
       if (okS) { st.resulted[k] = 1; out.sentResults.push(k); }
     }
   }
