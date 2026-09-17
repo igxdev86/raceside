@@ -128,6 +128,10 @@
     p.fc = !!(pl.p2 && ps.has(pl.p1) && ps.has(pl.p2));
     p.tc = !!(p.fc && pl.p3 && ps.has(pl.p3)); });
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  // today's prints only on the main page; earlier days behind a fold
+  const dayOf = (p) => p.day || (p.ts ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(p.ts)) : ukd);
+  const older = prints.filter(p => dayOf(p) !== ukd).sort((a, b) => dayOf(b).localeCompare(dayOf(a)) || t2m(b.t) - t2m(a.t));
+  prints = prints.filter(p => dayOf(p) === ukd);
   prints.sort((a, b) => t2m(b.t) - t2m(a.t));
   // live match against today's winners — no waiting for the next alert pass to stamp
 
@@ -163,7 +167,8 @@
       ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
     </div>`;
   }).join('');
-  $('app').innerHTML = chips + rows;
+  const oldRows = older.length ? `<details style="margin-top:14px"><summary style="cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--faint)">PREVIOUS DAYS \u00b7 ${older.length} prints \u25be</summary>${older.map(p => `<div class="tile"><div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()} <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${dayOf(p)}</small></b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => `<div class="pick"><span><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}</b></span><span>@ ${x.d}</span></div>`).join('')}</div>`).join('')}</details>` : '';
+  $('app').innerHTML = chips + rows + oldRows;
 })();
 </script>
 </body>
