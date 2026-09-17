@@ -119,10 +119,15 @@
             e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: xs1(r) })) });
     });
   }
-  // placings per race (for forecast/tricast marking)
+  // placings per race (for forecast/tricast marking) + full position map per horse
   const PLACE = {};
+  const POSM = {};
   if (pd && pd.ok) (pd.races || []).forEach(r2 => { const g = (n) => { const x = (r2.runners || []).find(q => q.pos === String(n)); return x ? hn(x.h) : null; };
-    PLACE[rk(r2.t, r2.course)] = { p1: g(1), p2: g(2), p3: g(3) }; });
+    PLACE[rk(r2.t, r2.course)] = { p1: g(1), p2: g(2), p3: g(3) };
+    const pm = {}; (r2.runners || []).forEach(q => { if (q.pos) pm[hn(q.h)] = String(q.pos); });
+    POSM[rk(r2.t, r2.course)] = pm; });
+  const posOf = (p, name) => { const pm = POSM[rk(p.t, p.course)]; if (!pm) return null; return pm[hn(name)] || null; };
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
   prints.forEach(p => { if (!p.w) return; const pl = PLACE[rk(p.t, p.course)]; if (!pl || !pl.p1) return;
     const ps = new Set((p.picks || []).map(x => hn(x.h)));
     p.fc = !!(pl.p2 && ps.has(pl.p1) && ps.has(pl.p2));
@@ -154,9 +159,9 @@
   const rows = prints.map(p => {
     const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}${p.tc ? ' <b style="color:var(--gold)">TC \u2705</b>' : p.fc ? ' <b style="color:var(--gold)">FC \u2705</b>' : ''}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
     const pickRows = (p.picks || []).map(x => `<div class="pick">
-      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && hn(p.w) === hn(x.h) ? ' \u2705' : ''}</b> <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}${p.w && hn(p.w) === hn(x.h) ? ' \u2705' : ''}</b>${(() => { const pv = p.w ? posOf(p, x.h) : null; return pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''; })()} <span class="tags">${(x.tags || []).join('\u00b7')}</span></span>
       <span style="white-space:nowrap">@ ${x.d}${x.xs1 != null ? ` <span class="xs${x.xs1 >= 15 ? ' hot' : ''}">XS1 ${x.xs1}</span>` : ''}</span></div>`).join('');
-    const cardRows = (p.card || []).map(r => `<tr><td>${r.h}${r.pts >= 9 ? ' <b>' + r.pts + '</b>' : ''}${p.w && hn(p.w) === hn(r.h) ? ' \u2705' : ''}</td>
+    const cardRows = (p.card || []).map(r => `<tr>${p.w ? `<td style="color:${posOf(p, r.h) === '1' ? 'var(--green)' : ['2','3'].includes(posOf(p, r.h)) ? 'var(--gold)' : 'var(--faint)'}">${posOf(p, r.h) ? ordTxt(posOf(p, r.h)) : '\u2014'}</td>` : ''}<td>${r.h}${r.pts >= 9 ? ' <b>' + r.pts + '</b>' : ''}${p.w && hn(p.w) === hn(r.h) ? ' \u2705' : ''}</td>
       <td>${r.j != null ? r.j : '\u2014'}/${r.tr != null ? r.tr : '\u2014'}</td>
       <td style="color:${r.e != null && r.e < 0 ? 'var(--red)' : 'var(--green)'}">${r.e != null ? (r.e > 0 ? '+' : '') + r.e + '%' : '\u2014'}</td>
       <td>${r.d || '\u2014'}</td><td style="${r.xs1 != null && r.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : ''}">${r.xs1 != null ? r.xs1 : '\u2014'}</td></tr>`).join('');
@@ -164,7 +169,7 @@
       <div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()}${p.day ? ` <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${p.day}</small>` : ''}</b><span>${res}</span></div>
       <div class="when">${p.reprint ? 'reprinted from the day\u2019s record \u00b7 same engine, at SP' : p.legacy ? 'reconstructed from today\u2019s email log \u00b7 sent pre-off' : `printed ${fmtT(p.ts)} \u00b7 ~${p.mins} min before the off`}</div>
       ${pickRows}
-      ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr><th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
+      ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr>${p.w ? '<th>POS</th>' : ''}<th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
     </div>`;
   }).join('');
   const oldRows = older.length ? `<details style="margin-top:14px"><summary style="cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--faint)">PREVIOUS DAYS \u00b7 ${older.length} prints \u25be</summary>${older.map(p => `<div class="tile"><div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()} <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${dayOf(p)}</small></b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => `<div class="pick"><span><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}</b></span><span>@ ${x.d}</span></div>`).join('')}</div>`).join('')}</details>` : '';
