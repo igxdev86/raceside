@@ -155,12 +155,17 @@
   // daily hit history from previous days' prints
   const byDay = {};
   older.forEach(p => { const d2 = dayOf(p); (byDay[d2] = byDay[d2] || { n: 0, res: 0, hits: 0 }); byDay[d2].n++; if (p.w) byDay[d2].res++; if (p.hit) byDay[d2].hits++; });
+  prints.forEach(p => { (byDay[ukd] = byDay[ukd] || { n: 0, res: 0, hits: 0 }); byDay[ukd].n++; if (p.w) byDay[ukd].res++; if (p.hit) byDay[ukd].hits++; });
   const days = Object.keys(byDay).sort().reverse();
-  const avgHits = days.length ? (days.reduce((a, d2) => a + byDay[d2].hits, 0) / days.length) : null;
-  const dayLines = days.map(d2 => `<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);padding:3px 0;border-bottom:1px solid var(--line)"><span>${d2}</span><span>${byDay[d2].n} prints \u00b7 ${byDay[d2].res} resulted \u00b7 <b style="color:${byDay[d2].hits ? 'var(--green)' : 'var(--faint)'}">${byDay[d2].hits} hit${byDay[d2].hits === 1 ? '' : 's'}</b></span></div>`).join('');
+  const prevDays = days.filter(d2 => d2 !== ukd);
+  const avgHits = prevDays.length ? (prevDays.reduce((a, d2) => a + byDay[d2].hits, 0) / prevDays.length) : null;
+  const totRes = days.reduce((a, d2) => a + byDay[d2].res, 0), totHits = days.reduce((a, d2) => a + byDay[d2].hits, 0);
+  const strike = totRes ? Math.round(totHits / totRes * 100) : null;
+  const pct = (d2) => byDay[d2].res ? Math.round(byDay[d2].hits / byDay[d2].res * 100) + '%' : '\u2014';
+  const dayLines = days.map(d2 => `<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);padding:3px 0;border-bottom:1px solid var(--line)"><span>${d2}${d2 === ukd ? ' \u00b7 today' : ''}</span><span>${byDay[d2].n} prints \u00b7 ${byDay[d2].res} resulted \u00b7 <b style="color:${byDay[d2].hits ? 'var(--green)' : 'var(--faint)'}">${byDay[d2].hits} hit${byDay[d2].hits === 1 ? '' : 's'}</b> \u00b7 <b>${pct(d2)}</b></span></div>`).join('');
   const sent = prints.length, resulted = prints.filter(p => p.w).length, hits = prints.filter(p => p.hit).length;
   const fcs = prints.filter(p => p.fc).length, tcs = prints.filter(p => p.tc).length;
-  const chips = `<div style="margin:10px 0 2px"><span class="chip">${sent} prints</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits > 0 ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span><span class="chip" style="color:${fcs > 0 ? 'var(--gold)' : 'var(--dim)'}">FC ${fcs}</span><span class="chip" style="color:${tcs > 0 ? 'var(--gold)' : 'var(--dim)'}">TC ${tcs}</span>${older.length && avgHits != null ? `<span class="chip">avg ${avgHits.toFixed(1)} hits/day</span>` : ''}</div>`;
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${sent} prints</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits > 0 ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span><span class="chip" style="color:${fcs > 0 ? 'var(--gold)' : 'var(--dim)'}">FC ${fcs}</span><span class="chip" style="color:${tcs > 0 ? 'var(--gold)' : 'var(--dim)'}">TC ${tcs}</span>${older.length && avgHits != null ? `<span class="chip">avg ${avgHits.toFixed(1)} hits/day</span>` : ''}${strike != null ? `<span class="chip" style="color:var(--green)">${strike}% strike (${totHits}/${totRes})</span>` : ''}</div>`;
   const fmtT = (ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
   const rows = prints.map(p => {
     const res = p.w ? `<span class="res" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${p.hit ? '\u2705' : '\u274c'} ${p.w}${p.tc ? ' <b style="color:var(--gold)">TC \u2705</b>' : p.fc ? ' <b style="color:var(--gold)">FC \u2705</b>' : ''}</span>` : '<span class="res" style="color:var(--faint)">awaiting result</span>';
