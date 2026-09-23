@@ -55,6 +55,16 @@
   if (st && st.prints) st.prints.forEach(p => put(p.day || ukd, p));
 
   const days = Object.keys(byDay).sort().reverse();
+  // finishing places: use stored pos; backfill missing days from priceday (newest 14)
+  const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const posDay = {};
+  const need = days.filter(d2 => byDay[d2].some(p => p.w && (p.picks || []).some(x => x.pos == null))).slice(0, 14);
+  await Promise.all(need.map(async (d2) => { try {
+    const pdj = await (await fetch('/api/priceday?v=5&date=' + d2)).json();
+    const m = {}; ((pdj && pdj.races) || []).forEach(r2 => { const pm = {}; (r2.runners || []).forEach(q => { if (q.pos) pm[hn(q.h)] = String(q.pos); }); m[rkz(r2.t, r2.course)] = pm; });
+    posDay[d2] = m; } catch {} }));
+  const posOf = (d2, p, x) => x.pos != null ? String(x.pos) : (((posDay[d2] || {})[p.k] || {})[hn(x.h)] || null);
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
   if (!days.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">nothing archived yet — the first day locks in at tonight\u2019s rollover.</div>'; return; }
 
   // tag win rates + pink sigma, from the whole record (same maths as PRINT LIST)
@@ -78,13 +88,13 @@
 
   const jump = `<div class="jump">${days.map(d2 => `<a href="#d-${d2}">${d2.slice(5)}</a>`).join('')}</div>`;
 
-  const tile = (p) => `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => { const s2 = sumTags(x.tags);
-    return `<div class="pick"><span class="left"><span class="star">\u2605 ${x.pts}</span> <span class="nm">${x.h}</span>${p.w && hn(x.h) === hn(p.w) ? ' \u2705' : ''}${(x.tags || []).length ? `<span class="tags">${x.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}</span><span class="right">@ ${x.d}${x.xs1 != null ? `<br><span style="font-size:10.5px;${x.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${x.xs1}</span>` : ''}</span></div>`; }).join('')}</div>`;
+  const tile = (p, d2) => `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => { const s2 = sumTags(x.tags); const pv = p.w ? posOf(d2, p, x) : null;
+    return `<div class="pick"><span class="left"><span class="star">\u2605 ${x.pts}</span> <span class="nm">${x.h}</span>${p.w && hn(x.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${(x.tags || []).length ? `<span class="tags">${x.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}</span><span class="right">@ ${x.d}${x.xs1 != null ? `<br><span style="font-size:10.5px;${x.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${x.xs1}</span>` : ''}</span></div>`; }).join('')}</div>`;
 
   const body = days.map(d2 => { const arr = byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t));
     const res = arr.filter(p => p.w).length, hits = arr.filter(p => p.hit).length;
     const pc = res ? Math.round(hits / res * 100) + '%' : '\u2014';
-    return `<div class="dayhd" id="d-${d2}"><span>${d2}${d2 === ukd ? ' \u00b7 TODAY' : ''}</span><small>${arr.length} prints \u00b7 ${res} resulted \u00b7 ${hits} hits \u00b7 ${pc}</small></div>${arr.map(tile).join('')}`; }).join('');
+    return `<div class="dayhd" id="d-${d2}"><span>${d2}${d2 === ukd ? ' \u00b7 TODAY' : ''}</span><small>${arr.length} prints \u00b7 ${res} resulted \u00b7 ${hits} hits \u00b7 ${pc}</small></div>${arr.map(p => tile(p, d2)).join('')}`; }).join('');
 
   $('app').innerHTML = chips + jump + body;
   document.querySelector('.jump').addEventListener('click', (ev) => {
