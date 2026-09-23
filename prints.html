@@ -189,8 +189,34 @@
       ${cardRows ? `<details><summary>FULL CARD \u00b7 ${p.card.length} runners \u25be</summary><table><tr>${p.w ? '<th>POS</th>' : ''}<th>HORSE \u00b7 SCORE</th><th>J/T%</th><th>EDGE</th><th>SP</th><th>XS1</th></tr>${cardRows}</table></details>` : ''}
     </div>`;
   }).join('');
+  // SIGNALS \u2014 what wins, computed across every resulted print held (today + previous + archive)
+  const allRes = [...prints, ...older].filter(p => p.w && (p.picks || []).length);
+  let sigRows = '';
+  if (allRes.length >= 5) {
+    const rows2 = [];
+    allRes.forEach(p => (p.picks || []).forEach((x, i) => rows2.push({ x, rank: i + 1, won: hn(x.h) === hn(p.w) })));
+    const seg = (name, arr) => { const n = arr.length, w = arr.filter(r => r.won).length; return { name, n, w, pc: n ? w / n * 100 : 0 }; };
+    const segs = [
+      seg('top pick (1st)', rows2.filter(r => r.rank === 1)),
+      seg('picks 2\u20134', rows2.filter(r => r.rank > 1)),
+      seg('pts \u2265 15', rows2.filter(r => r.x.pts >= 15)),
+      seg('pts 9\u201314', rows2.filter(r => r.x.pts >= 9 && r.x.pts < 15)),
+      seg('pts < 9', rows2.filter(r => r.x.pts < 9)),
+      seg('SP < 3', rows2.filter(r => +r.x.d && +r.x.d < 3)),
+      seg('SP 3\u20136', rows2.filter(r => +r.x.d >= 3 && +r.x.d <= 6)),
+      seg('SP > 6', rows2.filter(r => +r.x.d > 6)),
+      seg('XS1 \u2265 15', rows2.filter(r => +r.x.xs1 >= 15))
+    ];
+    const tagAgg = {};
+    rows2.forEach(r => (r.x.tags || []).forEach(t2 => { const g = (tagAgg[t2] = tagAgg[t2] || { n: 0, w: 0 }); g.n++; if (r.won) g.w++; }));
+    const base = rows2.length ? rows2.filter(r => r.won).length / rows2.length * 100 : 0;
+    const tagSegs = Object.entries(tagAgg).filter(([, g]) => g.n >= 5).map(([t2, g]) => ({ name: 'tag ' + t2, n: g.n, w: g.w, pc: g.w / g.n * 100 })).sort((a2, b2) => b2.pc - a2.pc);
+    const line = (s) => s.n ? `<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)"><span style="color:var(--dim)">${s.name}</span><span><b style="color:${s.pc >= base ? 'var(--green)' : 'var(--dim)'}">${s.pc.toFixed(0)}%</b> <small style="color:var(--faint)">(${s.w}/${s.n})</small></span></div>` : '';
+    const raceHit = allRes.filter(p => p.hit).length;
+    sigRows = `<details style="margin-top:14px"><summary style="cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--gold)">SIGNALS \u00b7 what wins \u00b7 ${allRes.length} resulted races \u25be</summary><div style="margin:6px 0 2px;font-family:var(--mono);font-size:10px;color:var(--faint)">per-pick win rate \u00b7 baseline ${base.toFixed(0)}% (${rows2.filter(r => r.won).length}/${rows2.length} picks) \u00b7 race hit ${Math.round(raceHit / allRes.length * 100)}%</div>${segs.map(line).join('')}${tagSegs.length ? `<div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--faint)">BY TAG (\u22655 picks) \u00b7 green beats baseline</div>${tagSegs.map(line).join('')}` : ''}</details>`;
+  }
   const oldRows = older.length ? `<details style="margin-top:14px"><summary style="cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--faint)">PREVIOUS DAYS \u00b7 ${older.length} prints \u00b7 avg ${avgHits != null ? avgHits.toFixed(1) : '\u2014'} hits/day \u25be</summary><div style="margin:6px 0 10px">${dayLines}</div>${older.map(p => `<div class="tile"><div class="hd"><b>${p.t} ${String(p.course || '').toUpperCase()} <small style="color:var(--faint);font-family:var(--mono);font-size:9px">${dayOf(p)}</small></b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => `<div class="pick"><span><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}</b></span><span>@ ${x.d}</span></div>`).join('')}</div>`).join('')}</details>` : '';
-  $('app').innerHTML = chips + rows + oldRows;
+  $('app').innerHTML = chips + sigRows + rows + oldRows;
 })();
 </script>
 </body>
