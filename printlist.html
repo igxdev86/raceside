@@ -13,12 +13,16 @@
   .sub{color:var(--dim);font-size:12px}
   .race{background:var(--tile);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:10px 0}
   .hd{display:flex;justify-content:space-between;align-items:baseline}
-  .hd b{font-size:14px;font-family:var(--mono)}
+  .hd b{font-size:15px;font-family:var(--mono);color:#FFFFFF;letter-spacing:.03em}
+  .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;margin:0 -12px;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-left:12px;padding-right:12px}
+  .jump a{flex:0 0 auto;font-family:var(--mono);font-size:11.5px;color:#FFFFFF;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--tile)}
+  .jump a.done{color:var(--faint)}
   .pick{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px;align-items:baseline}
   .pick:last-child{border-bottom:none}
   .pick .nm{color:#FFFFFF;font-weight:700;font-size:14.5px}
   .pick .left{min-width:0;flex:1}
-  .pick .right{white-space:nowrap;color:var(--ink);font-family:var(--mono);font-size:12.5px}
+  .pick .right{white-space:nowrap;color:#FFFFFF;font-family:var(--mono);font-size:12.5px;text-align:right}
+  .num{display:inline-block;min-width:18px;text-align:center;background:rgba(255,255,255,.10);border-radius:5px;font-family:var(--mono);font-size:11.5px;color:#FFFFFF;padding:1px 4px;margin-right:2px}
   .tags{display:block;color:var(--faint);font-family:var(--mono);font-size:10px;margin-top:1px}
   .star{color:var(--gold);font-family:var(--mono);font-weight:800;font-size:13px}
   .xs{font-family:var(--mono);font-size:11px;color:var(--dim)}
@@ -84,10 +88,10 @@
   // races: live feed (today) + results record, deduped
   const races = {};
   if (up && up.ok) (up.rides || []).filter(r => r.day === 'today' && Number(r.d) > 1).forEach(r => {
-    const k = rk(r.t, r.course); (races[k] = races[k] || { k, t: r.t, course: r.course, rs: [] }).rs.push({ h: r.h, jockey: r.jockey, jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) }); });
+    const k = rk(r.t, r.course); (races[k] = races[k] || { k, t: r.t, course: r.course, rs: [] }).rs.push({ h: r.h, num: r.num || null, jockey: r.jockey, jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) }); });
   if (pd && pd.ok) (pd.races || []).forEach(r2 => {
     const k = rk(r2.t, r2.course);
-    if (!races[k]) races[k] = { k, t: r2.t, course: r2.course, rs: (r2.runners || []).filter(x => Number(x.d) > 1).map(x => ({ h: x.h, jockey: x.jockey, jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) })) };
+    if (!races[k]) races[k] = { k, t: r2.t, course: r2.course, rs: (r2.runners || []).filter(x => Number(x.d) > 1).map(x => ({ h: x.h, num: x.num || null, jockey: x.jockey, jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) })) };
     const pm = {}; (r2.runners || []).forEach(q => { if (q.pos) pm[hn(q.h)] = String(q.pos); });
     races[k].pos = pm;
     const win = (r2.runners || []).find(q => q.pos === '1');
@@ -106,14 +110,15 @@
     if (!picks.length) return '';
     const hit = rc.w && picks.some(p => hn(p.r.h) === hn(rc.w));
     if (rc.w) { resulted++; if (hit) hits++; }
-    return `<div class="race"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b>
+    return `<div class="race" id="r-${rc.k.replace(/[^a-z0-9]/g, '')}"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b>
       <span style="font-family:var(--mono);font-size:11px;color:${rc.w ? (hit ? 'var(--green)' : 'var(--red)') : 'var(--faint)'}">${rc.w ? (hit ? '\u2705 ' : '\u274c ') + rc.w : 'to run'}</span></div>
       ${picks.map(p => { const pv = rc.w && rc.pos ? rc.pos[hn(p.r.h)] : null;
-        return `<div class="pick"><span class="left"><span class="star">\u2605 ${p.s.pts}</span> <span class="nm">${p.r.h}</span>${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''}<span class="tags">${p.s.tags.slice(0, 5).join(' \u00b7 ')}</span></span>
+        return `<div class="pick"><span class="left"><span class="star">\u2605 ${p.s.pts}</span>${p.r.num ? ` <span class="num">${p.r.num}</span>` : ''} <span class="nm">${p.r.h}</span>${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''}<span class="tags">${p.s.tags.slice(0, 5).join(' \u00b7 ')}</span></span>
         <span class="right">@ ${p.r.d}${(() => { const v = xs1(p.r); return v != null ? `<br><span style="font-size:10.5px;${v >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${v}</span>` : ''; })()}</span></div>`; }).join('')}</div>`;
   }).join('');
+  const jump = `<div class="jump">${list.map(rc => `<a href="#r-${rc.k.replace(/[^a-z0-9]/g, '')}"${rc.w ? ' class="done"' : ''}>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 4).toUpperCase()}</a>`).join('')}</div>`;
   const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} races</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span></div>`;
-  $('app').innerHTML = chips + blocks;
+  $('app').innerHTML = jump + chips + blocks;
 })();
 </script>
 </body>
