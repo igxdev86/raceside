@@ -51,6 +51,8 @@
   try { pd = await (await fetch('/api/priceday?v=5&date=' + ukd)).json(); } catch {}
   let people = null;
   try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  let arch = null;
+  try { const aj = await (await fetch('/api/yearstate?k=printsarchive:v1')).json(); arch = aj && aj.state && aj.state.days ? aj.state.days : null; } catch {}
   const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
   let prints = (st && st.prints) ? st.prints.slice() : [];
@@ -135,7 +137,11 @@
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
   // today's prints only on the main page; earlier days behind a fold
   const dayOf = (p) => p.day || (p.ts ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(p.ts)) : ukd);
-  const older = prints.filter(p => dayOf(p) !== ukd).sort((a, b) => dayOf(b).localeCompare(dayOf(a)) || t2m(b.t) - t2m(a.t));
+  let older = prints.filter(p => dayOf(p) !== ukd);
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => { (arr || []).forEach(q => {
+    if (d2 === ukd) return;
+    if (!older.some(p => dayOf(p) === d2 && p.k === q.k)) older.push({ ...q, day: d2 }); }); });
+  older.sort((a, b) => dayOf(b).localeCompare(dayOf(a)) || t2m(b.t) - t2m(a.t));
   prints = prints.filter(p => dayOf(p) === ukd);
   prints.sort((a, b) => t2m(b.t) - t2m(a.t));
   // live match against today's winners — no waiting for the next alert pass to stamp
