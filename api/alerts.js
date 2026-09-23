@@ -63,7 +63,22 @@ export default async function handler(req, res) {
     if (j && j.state && j.state.date === today) st = j.state;
     else if (j && j.state) {
       // new racing day: reset the send/result ledgers but carry the prints archive forward
-      st = { date: today, sent: {}, resulted: {}, picks: {}, prints: (j.state.prints || []).slice(-120) };
+      // day rollover: archive finished days permanently, keep only today's working set
+      try {
+        const doneDays = (j.state.prints || []).filter(p => p.day && p.day !== today);
+        if (doneDays.length) {
+          const aj = await gj('/api/yearstate?k=printsarchive:v1');
+          const arch = (aj && aj.state && aj.state.days) ? aj.state : { days: {} };
+          doneDays.forEach(p => {
+            const dayArr = (arch.days[p.day] = arch.days[p.day] || []);
+            if (!dayArr.some(q => q.k === p.k)) dayArr.push({ k: p.k, t: p.t, course: p.course, quiet: p.quiet || 0, w: p.w, hit: p.hit,
+              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d })) });   // slim: no cards in the archive
+          });
+          arch.lastDate = today;
+          await fetch(base + '/api/yearstate?k=printsarchive:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arch) });
+        }
+      } catch {}
+      st = { date: today, sent: {}, resulted: {}, picks: {}, prints: (j.state.prints || []).filter(p => p.day === today) };
     }
   } catch {}
   if (!st) st = { date: today, sent: {}, resulted: {}, picks: {} };
