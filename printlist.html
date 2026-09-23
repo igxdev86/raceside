@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRINT LIST — RACESIDE</title>
+<style>
+  :root{--bg:#101418;--tile:#171D23;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{font-size:19px;margin:14px 0 2px}
+  .sub{color:var(--dim);font-size:12px}
+  .race{background:var(--tile);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:10px 0}
+  .hd{display:flex;justify-content:space-between;align-items:baseline}
+  .hd b{font-size:14px;font-family:var(--mono)}
+  .pick{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
+  .pick:last-child{border-bottom:none}
+  .star{color:var(--gold);font-family:var(--mono);font-weight:700;font-size:12.5px}
+  .xs{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PRINT LIST</h1>
+  <div class="sub">the whole day's prints in one list — every race, its top four by score. \u2605 = score \u00b7 winners ticked as they come in.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">building the day\u2019s list\u2026</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record \u00b7 a design, not a finding \u00b7 not advice</div>
+</div>
+<script src="/nav.js?v=5" defer></script>
+<script>
+'use strict';
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const rk = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  let up = null, pd = null, people = null, wj = null;
+  try { up = await (await fetch('/api/upcoming?v=4')).json(); } catch {}
+  try { pd = await (await fetch('/api/priceday?v=5&date=' + ukd)).json(); } catch {}
+  try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  try { wj = await (await fetch('/api/todaywinners')).json(); } catch {}
+  if (!(people && people.ok)) { $('app').innerHTML = '<div class="race">people tables unavailable — cannot score</div>'; return; }
+
+  const PTS = [5, 3, 1];
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+  const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+  const xs1 = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+  const scoreRace = (rs) => {
+    const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+    const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+      vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+    rank('J', (r) => strike(people.jockeys, r.jid, 50));
+    rank('T', (r) => strike(people.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+    const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    if (orMean != null) {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+      const edges = rs.map((r, i) => r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null);
+      const negs = rs.map((r, i) => ({ r, e: edges[i] })).filter(x => x.e != null && isFinite(x.e) && x.e < 0).sort((a, b2) => a.e - b2.e);
+      negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+      rs.forEach((r, i) => { if (edges[i] != null && isFinite(edges[i]) && edges[i] > 0) tag(r.h, '+', 1); });
+    }
+    return sc;
+  };
+
+  // races: live feed (today) + results record, deduped
+  const races = {};
+  if (up && up.ok) (up.rides || []).filter(r => r.day === 'today' && Number(r.d) > 1).forEach(r => {
+    const k = rk(r.t, r.course); (races[k] = races[k] || { k, t: r.t, course: r.course, rs: [] }).rs.push({ h: r.h, jockey: r.jockey, jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) }); });
+  if (pd && pd.ok) (pd.races || []).forEach(r2 => {
+    const k = rk(r2.t, r2.course);
+    if (!races[k]) races[k] = { k, t: r2.t, course: r2.course, rs: (r2.runners || []).filter(x => Number(x.d) > 1).map(x => ({ h: x.h, jockey: x.jockey, jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) })) };
+    const pm = {}; (r2.runners || []).forEach(q => { if (q.pos) pm[hn(q.h)] = String(q.pos); });
+    races[k].pos = pm;
+    const win = (r2.runners || []).find(q => q.pos === '1');
+    if (win) races[k].w = win.h;
+  });
+  if (wj && wj.ok) (wj.winners || []).forEach(w => { const k = rk(w.t, w.course); if (races[k] && !races[k].w) races[k].w = w.h; });
+
+  const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  if (!list.length) { $('app').innerHTML = '<div class="race">no races on today\u2019s record yet</div>'; return; }
+
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
+  let hits = 0, resulted = 0;
+  const blocks = list.map(rc => {
+    const sc = scoreRace(rc.rs);
+    const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b2) => b2.s.pts - a.s.pts).slice(0, 4);
+    if (!picks.length) return '';
+    const hit = rc.w && picks.some(p => hn(p.r.h) === hn(rc.w));
+    if (rc.w) { resulted++; if (hit) hits++; }
+    return `<div class="race"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b>
+      <span style="font-family:var(--mono);font-size:11px;color:${rc.w ? (hit ? 'var(--green)' : 'var(--red)') : 'var(--faint)'}">${rc.w ? (hit ? '\u2705 ' : '\u274c ') + rc.w : 'to run'}</span></div>
+      ${picks.map(p => { const pv = rc.w && rc.pos ? rc.pos[hn(p.r.h)] : null;
+        return `<div class="pick"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="star">\u2605 ${p.s.pts}</span> <b>${p.r.h}${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}</b>${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''} <small style="color:var(--faint);font-family:var(--mono)">${p.s.tags.slice(0, 4).join('\u00b7')}</small></span>
+        <span style="white-space:nowrap">@ ${p.r.d}${(() => { const v = xs1(p.r); return v != null ? ` <span class="xs${v >= 15 ? '' : ''}" style="${v >= 15 ? 'color:var(--gold);font-weight:700' : ''}">XS1 ${v}</span>` : ''; })()}</span></div>`; }).join('')}</div>`;
+  }).join('');
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} races</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span></div>`;
+  $('app').innerHTML = chips + blocks;
+})();
+</script>
+</body>
+</html>
