@@ -138,13 +138,15 @@
       picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b2) => b2.s.pts - a.s.pts).slice(0, 4);
     }
     if (!picks.length) return '';
+    const xvals = picks.map(p => p.frozen ? p.fx : xs1(p.r)).filter(v => v != null).sort((a, b2) => b2 - a);
+    const xrank = (v) => v != null ? xvals.indexOf(v) + 1 : null;
     const hit = frozen ? !!printMap[rc.k].hit : (rc.w && picks.some(p => hn(p.r.h) === hn(rc.w)));
     if (rc.w) { resulted++; if (hit) hits++; }
     return `<div class="race" id="r-${rc.k.replace(/[^a-z0-9]/g, '')}"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}${frozen ? ' <small style="color:var(--faint);font-family:var(--mono);font-size:9px">as printed</small>' : ''}</b>
       <span style="font-family:var(--mono);font-size:11px;color:${rc.w ? (hit ? 'var(--green)' : 'var(--red)') : 'var(--faint)'}">${rc.w ? (hit ? '\u2705 ' : '\u274c ') + rc.w : 'to run'}</span></div>
       ${picks.map(p => { const pv = rc.w && rc.pos ? rc.pos[hn(p.r.h)] : null;
         return `<div class="pick"><span class="left"><span class="star">\u2605 ${p.s.pts}</span>${p.r.num ? ` <span class="num">${p.r.num}</span>` : ''} <span class="nm">${p.r.h}</span>${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''}<span class="tags">${p.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>${(() => { const s2 = sumTags(p.s.tags); return s2 != null ? `<span class=\"sig\">\u03a3 ${s2}%</span>` : ''; })()}</span>
-        <span class="right">@ ${p.r.d}${(() => { const v = p.frozen ? p.fx : xs1(p.r); return v != null ? `<br><span style="font-size:10.5px;${v >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${v}</span>` : ''; })()}</span></div>`; }).join('')}</div>`;
+        <span class="right">@ ${p.r.d}${(() => { const v = p.frozen ? p.fx : xs1(p.r); return v != null ? `<br><span style="font-size:10.5px;${v >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${v} <b>(${xrank(v)})</b></span>` : ''; })()}</span></div>`; }).join('')}</div>`;
   }).join('');
   const jump = `<div class="jump">${list.map(rc => `<a href="#r-${rc.k.replace(/[^a-z0-9]/g, '')}"${rc.w ? ' class="done"' : ''}>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 4).toUpperCase()}</a>`).join('')}</div>`;
   const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} races</span><span class="chip">${resulted} resulted</span><span class="chip" style="color:${hits ? 'var(--green)' : 'var(--dim)'}">${hits} hit${hits === 1 ? '' : 's'}</span></div>`;
