@@ -19,6 +19,7 @@
       ['/yesterday.html', 'YDAY'],
       ['/prints.html', 'PRINTS'],
       ['/printlist.html', 'PRINT LIST'],
+      ['/archive.html', 'ARCHIVE'],
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
