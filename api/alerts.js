@@ -69,10 +69,19 @@ export default async function handler(req, res) {
         if (doneDays.length) {
           const aj = await gj('/api/yearstate?k=printsarchive:v1');
           const arch = (aj && aj.state && aj.state.days) ? aj.state : { days: {} };
+          const hnz = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+          const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+          const posByDay = {};
+          for (const day of [...new Set(doneDays.map(p => p.day))]) {
+            try { const pdj = await gj('/api/priceday?v=5&date=' + day);
+              const m = {}; ((pdj && pdj.races) || []).forEach(r2 => { const pm = {}; (r2.runners || []).forEach(q => { if (q.pos) pm[hnz(q.h)] = String(q.pos); }); m[rkz(r2.t, r2.course)] = pm; });
+              posByDay[day] = m; } catch {}
+          }
           doneDays.forEach(p => {
             const dayArr = (arch.days[p.day] = arch.days[p.day] || []);
+            const pm = (posByDay[p.day] || {})[p.k] || {};
             if (!dayArr.some(q => q.k === p.k)) dayArr.push({ k: p.k, t: p.t, course: p.course, quiet: p.quiet || 0, w: p.w, hit: p.hit,
-              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1 })) });   // slim: no cards in the archive
+              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1, pos: pm[hnz(x.h)] || null })) });   // slim: no cards in the archive
           });
           arch.lastDate = today;
           await fetch(base + '/api/yearstate?k=printsarchive:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arch) });
