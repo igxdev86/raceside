@@ -80,6 +80,7 @@ export default async function handler(req, res) {
     trc: (() => { const v = parseFloat(String(race.tote_tricast || '').replace(/[\u00a3,]/g, '')); return v > 0 ? v : null; })(),
     runners: (race.runners || []).map((x) => ({
       h: x.horse || '?',
+      num: (() => { const v = String(x.number == null ? '' : x.number).trim(); return v && v.toUpperCase() !== 'NR' ? v : null; })(),
       jockey: x.jockey || '',
       jid: x.jockey_id || null,
       tid: x.trainer_id || null,
