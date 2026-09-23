@@ -5,20 +5,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ARCHIVE — RACESIDE</title>
 <style>
-  :root{--bg:#101418;--tile:#171D23;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--blue:#6FA8FF;--pink:#ff8fc7;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  :root{--bg:#101418;--tile:#171D23;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--blue:#6FA8FF;--mono:'SF Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
   .wrap{max-width:680px;margin:0 auto}
   h1{font-size:19px;margin:14px 0 2px}
   .sub{color:var(--dim);font-size:12px}
   .tile{background:var(--tile);border:1px solid var(--line);border-radius:14px;padding:11px 14px;margin:10px 0}
-  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .hd b{font-size:14px;color:#FFFFFF}
-  .pick{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+  .hd b{font-size:15px;color:#FFFFFF}
+  .pick{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);align-items:baseline}
   .pick:last-child{border-bottom:0}
-  .pts{font-family:var(--mono);background:#F6E7B8;color:#101418;border-radius:6px;padding:0 6px;font-weight:700;font-size:12px}
-  .pts.big{background:var(--gold)}
-  .tags{display:block;color:var(--faint);font-size:10px;font-family:var(--mono);margin-top:1px}
+  .pick .nm{color:#FFFFFF;font-weight:700;font-size:14.5px}
+  .pick .left{min-width:0;flex:1}
+  .pick .right{white-space:nowrap;color:#FFFFFF;font-family:var(--mono);font-size:12.5px;text-align:right}
+  .star{color:var(--gold);font-family:var(--mono);font-weight:800;font-size:13px}
+  .tags{display:block;color:var(--faint);font-family:var(--mono);font-size:10px;margin-top:1px}
+  .sig{display:inline-block;background:rgba(255,105,180,.16);color:#ff8fc7;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px}
   .res{font-size:12px;font-family:var(--mono)}
   .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;margin-bottom:6px;color:var(--dim)}
   .dayhd{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#FFFFFF;margin:22px 0 2px;border-bottom:1px solid var(--line);padding-bottom:5px}
@@ -30,7 +33,7 @@
 <body>
 <div class="wrap">
   <h1>PRINT ARCHIVE</h1>
-  <div class="sub">every print ever held — the whole record, day by day, newest first.</div>
+  <div class="sub">every print ever held — day by day, newest first, with each tag&rsquo;s win rate and the pink &Sigma; from the whole record.</div>
   <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading archive…</div></div>
   <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
 </div>
@@ -53,6 +56,20 @@
   const days = Object.keys(byDay).sort().reverse();
   if (!days.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">nothing archived yet — the first day locks in at tonight\u2019s rollover.</div>'; return; }
 
+  // tag win rates + pink sigma, from the whole record (same maths as PRINT LIST)
+  const tagWin = {}; let sigN = 0, sigW = 0;
+  days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
+    p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
+      (x.tags || []).forEach(t2 => { const g = (tagWin[t2] = tagWin[t2] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); }); }));
+  const sigBase = sigN ? sigW / sigN * 100 : null;
+  const fmtTag = (t2) => { const g = tagWin[t2];
+    if (!g || g.n < 5 || sigBase == null) return t2;
+    const pc = g.w / g.n * 100;
+    return `${t2} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+  const sumTags = (tags2) => { let s = 0, any = false;
+    (tags2 || []).forEach(t2 => { const g = tagWin[t2]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
+    return any ? Math.round(s) : null; };
+
   let totN = 0, totRes = 0, totHits = 0;
   days.forEach(d2 => byDay[d2].forEach(p => { totN++; if (p.w) totRes++; if (p.hit) totHits++; }));
   const strike = totRes ? Math.round(totHits / totRes * 100) : null;
@@ -60,7 +77,8 @@
 
   const jump = `<div class="jump">${days.map(d2 => `<a href="#d-${d2}">${d2.slice(5)}</a>`).join('')}</div>`;
 
-  const tile = (p) => `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => `<div class="pick"><span><span class="pts${x.pts >= 15 ? ' big' : ''}">${x.pts}</span> <b>${x.h}</b>${p.w && hn(x.h) === hn(p.w) ? ' \u2705' : ''}${(x.tags || []).length ? `<span class="tags">${x.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}</span><span style="font-family:var(--mono);font-size:12px;color:#FFFFFF">@ ${x.d}${x.xs1 != null ? ` <small style="color:${x.xs1 >= 15 ? 'var(--gold)' : 'var(--faint)'}">xs ${x.xs1}</small>` : ''}</span></div>`).join('')}</div>`;
+  const tile = (p) => `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(p.picks || []).map(x => { const s2 = sumTags(x.tags);
+    return `<div class="pick"><span class="left"><span class="star">\u2605 ${x.pts}</span> <span class="nm">${x.h}</span>${p.w && hn(x.h) === hn(p.w) ? ' \u2705' : ''}${(x.tags || []).length ? `<span class="tags">${x.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}</span><span class="right">@ ${x.d}${x.xs1 != null ? `<br><span style="font-size:10.5px;${x.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${x.xs1}</span>` : ''}</span></div>`; }).join('')}</div>`;
 
   const body = days.map(d2 => { const arr = byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t));
     const res = arr.filter(p => p.w).length, hits = arr.filter(p => p.hit).length;
