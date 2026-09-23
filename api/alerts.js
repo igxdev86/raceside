@@ -72,7 +72,7 @@ export default async function handler(req, res) {
           doneDays.forEach(p => {
             const dayArr = (arch.days[p.day] = arch.days[p.day] || []);
             if (!dayArr.some(q => q.k === p.k)) dayArr.push({ k: p.k, t: p.t, course: p.course, quiet: p.quiet || 0, w: p.w, hit: p.hit,
-              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d })) });   // slim: no cards in the archive
+              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1 })) });   // slim: no cards in the archive
           });
           arch.lastDate = today;
           await fetch(base + '/api/yearstate?k=printsarchive:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arch) });
