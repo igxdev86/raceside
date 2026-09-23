@@ -18,6 +18,7 @@
       ['/results.html', 'RESULTS'],
       ['/yesterday.html', 'YDAY'],
       ['/prints.html', 'PRINTS'],
+      ['/printlist.html', 'PRINT LIST'],
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
