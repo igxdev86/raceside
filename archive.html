@@ -24,7 +24,7 @@
   .sig{display:inline-block;background:rgba(255,105,180,.16);color:#ff8fc7;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px}
   .res{font-size:12px;font-family:var(--mono)}
   .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;margin-bottom:6px;color:var(--dim)}
-  .dayhd{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#FFFFFF;margin:22px 0 2px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .dayhd{scroll-margin-top:52px;display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#FFFFFF;margin:22px 0 2px;border-bottom:1px solid var(--line);padding-bottom:5px}
   .dayhd small{color:var(--faint);letter-spacing:0}
   .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
@@ -86,6 +86,12 @@
     return `<div class="dayhd" id="d-${d2}"><span>${d2}${d2 === ukd ? ' \u00b7 TODAY' : ''}</span><small>${arr.length} prints \u00b7 ${res} resulted \u00b7 ${hits} hits \u00b7 ${pc}</small></div>${arr.map(tile).join('')}`; }).join('');
 
   $('app').innerHTML = chips + jump + body;
+  document.querySelector('.jump').addEventListener('click', (ev) => {
+    const a = ev.target.closest('a'); if (!a) return;
+    ev.preventDefault();
+    const el = document.getElementById(a.getAttribute('href').slice(1));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 })();
 </script>
 </body>
