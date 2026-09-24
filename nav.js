@@ -21,6 +21,7 @@
       ['/printlist.html', 'PRINT LIST'],
       ['/archive.html', 'ARCHIVE'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
+      ['/maxprints.html', 'MAX PRINTS'],
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
