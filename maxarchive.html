@@ -48,7 +48,8 @@
   const $ = (id) => document.getElementById(id);
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
-  const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+  const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   let st = null, arch = null, people = null;
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state ? j.state : null; } catch {}
