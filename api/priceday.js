@@ -74,6 +74,7 @@ export default async function handler(req, res) {
       return fur > 0 ? fur : null;
     })(),
     course: race.course || '?',
+    rclass: String(race.race_class || race.class || '').replace(/^Class\s*/i, ''),
     going: race.going || '',
     name: race.race_name || '',
     csf: (() => { const v = parseFloat(String(race.tote_csf || '').replace(/[\u00a3,]/g, '')); return v > 0 ? v : null; })(),
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
     runners: (race.runners || []).map((x) => ({
       h: x.horse || '?',
       num: (() => { const v = String(x.number == null ? '' : x.number).trim(); return v && v.toUpperCase() !== 'NR' ? v : null; })(),
+      hid: x.horse_id || null,
       jockey: x.jockey || '',
       trainer: x.trainer || '',
       jid: x.jockey_id || null,
