@@ -85,6 +85,28 @@
     });
     wrap.insertBefore(bar, wrap.firstChild);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
-  else mount();
+  // ---- results ticker: last 3 winners, site-wide ----
+  function ticker() {
+    fetch('/api/todaywinners').then(function (r) { return r.json(); }).then(function (j) {
+      if (!(j && j.ok && j.winners && j.winners.length)) return;
+      var t2m = function (t) { var m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; var hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+      var last3 = j.winners.slice().sort(function (a, b) { return t2m(a.t) - t2m(b.t); }).slice(-3).reverse();
+      var txt = last3.map(function (w) {
+        return '<span style="color:#5FBF77">\u2705</span> ' + String(w.t || '').replace('.', ':') + ' ' + String(w.course || '').replace(/\s*\([^)]*\)/g, '').toUpperCase() + ' \u2014 <b style="color:#FFFFFF">' + w.h + '</b>' + (w.sp ? ' <span style="color:#93A1AE">@ ' + w.sp + '</span>' : '');
+      }).join(' <span style="color:#5C6B77">\u00b7</span> ');
+      var bar = document.createElement('div');
+      bar.setAttribute('style', 'overflow:hidden;background:#0B0F13;border-bottom:1px solid rgba(255,255,255,.08);font:11px/2.2 "SF Mono",ui-monospace,Menlo,monospace;color:#93A1AE;white-space:nowrap;position:relative');
+      var inner = document.createElement('div');
+      inner.setAttribute('style', 'display:inline-block;padding-left:100%;animation:rsTick 28s linear infinite');
+      inner.innerHTML = '<span style="color:#E8B54C;letter-spacing:.1em">RESULTS</span> \u00b7 ' + txt + ' \u00b7\u00b7 ' + txt;
+      var css = document.createElement('style');
+      css.textContent = '@keyframes rsTick{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}';
+      document.head.appendChild(css);
+      bar.appendChild(inner);
+      document.body.insertBefore(bar, document.body.firstChild);
+    }).catch(function () {});
+  }
+  function boot() { mount(); ticker(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
