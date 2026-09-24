@@ -45,7 +45,8 @@ const ukHM = (now) => {
 };
 const raceMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:. ](\d{2})/); if (!m) return -1; let hh = Number(m[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m[2]); };
 const hnorm = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
-const rkey = (t, course) => String(t).replace(/\s.*/, '') + '|' + String(course).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+const rkey = (t, course) => tK(t) + '|' + String(course).replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export default async function handler(req, res) {
   const key = process.env.RESEND_API_KEY, to = process.env.EMAIL_TO;
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
           const aj = await gj('/api/yearstate?k=printsarchive:v1');
           const arch = (aj && aj.state && aj.state.days) ? aj.state : { days: {} };
           const hnz = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
-          const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+          const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
           const posByDay = {};
           for (const day of [...new Set(doneDays.map(p => p.day))]) {
             try { const pdj = await gj('/api/priceday?v=5&date=' + day);
