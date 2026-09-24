@@ -24,6 +24,9 @@
   .star{color:var(--gold);font-family:var(--mono);font-weight:800;font-size:13px}
   .pick.np .star{color:var(--faint)}
   .num{display:inline-block;background:rgba(255,255,255,.10);color:#FFFFFF;font-family:var(--mono);font-size:11px;border-radius:6px;padding:0 5px;margin-right:2px}
+  .tsort{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 2px}
+  .tsort button{font-family:var(--mono);font-size:9px;letter-spacing:.05em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--faint)}
+  .tsort button.on{border-color:var(--gold);color:var(--gold)}
   .tags{display:block;color:var(--faint);font-family:var(--mono);font-size:10px;margin-top:1px}
   .lum{display:inline-block;background:rgba(234,255,0,.14);color:#EAFF00;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px;margin-left:4px}
   .sig{display:inline-block;background:rgba(255,105,180,.16);color:#ff8fc7;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px}
@@ -137,6 +140,17 @@
   const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} race${list.length === 1 ? '' : 's'} to run</span><span class="chip">next off ${nextOff.t} ${String(nextOff.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span></div>`;
   const jump = '';
 
+  const tileReg = {};
+  const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1] };
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('.tsort button'); if (!b) return;
+    const wrap = b.closest('.tsort'); const tid = wrap.dataset.tid; const reg = tileReg[tid]; if (!reg) return;
+    wrap.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    const [get, dir2] = tsCmp[b.dataset.ts];
+    const sorted = reg.runners.slice().sort((a, b2) => { const va = get(a), vb = get(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); });
+    document.getElementById('tr-' + tid).innerHTML = sorted.map(reg.makeRow).join('');
+  });
   let tileMp = null; let tilePctMax = null; let tilePctMin = null;
   const tile = (p, d2, mode2) => {
     tileMp = null; tilePctMax = null; tilePctMin = null;
@@ -171,11 +185,15 @@
       else if (mode2 === 'desc') runners.sort(cmp(q => q.mp, -1));
       else if (mode2 === 'pctasc') runners.sort(cmp(q => q.pct, 1));
       else if (mode2 === 'pctdesc') runners.sort(cmp(q => q.pct, -1));
-      rows = runners.map(q => { const isPick = pickSet.has(hn(q.r.h));
+      const makeRow = (q) => { const isPick = pickSet.has(hn(q.r.h));
         const xr2 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null;
         const s2 = q.sig;
         const pv = p.w && q.r.pos ? q.r.pos : null;
-        return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; }).join('');
+        return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
+      const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
+      tileReg[tid] = { runners, makeRow };
+      const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}</div>`;
+      rows = tabs + `<div class="trows" id="tr-${tid}">${runners.map(makeRow).join('')}</div>`;
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
