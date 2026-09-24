@@ -81,7 +81,7 @@ export default async function handler(req, res) {
             const dayArr = (arch.days[p.day] = arch.days[p.day] || []);
             const pm = (posByDay[p.day] || {})[p.k] || {};
             if (!dayArr.some(q => q.k === p.k)) dayArr.push({ k: p.k, t: p.t, course: p.course, quiet: p.quiet || 0, w: p.w, hit: p.hit,
-              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1, pos: pm[hnz(x.h)] || null })) });   // slim: no cards in the archive
+              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1, e: x.e != null ? x.e : null, pos: pm[hnz(x.h)] || null })) });   // slim: no cards in the archive
           });
           arch.lastDate = today;
           await fetch(base + '/api/yearstate?k=printsarchive:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arch) });
@@ -119,27 +119,29 @@ export default async function handler(req, res) {
       return (js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d; };
     const xcell = (r) => { const v = xs1(r); return v == null ? '\u2014' : `<b style="color:${v >= 15 ? '#B8860B' : '#666'}">${v.toFixed(1)}</b>`; };
     const picks = rc.rs.map(r => ({ r, s: sc[r.h] })).filter(p => p.s && p.s.pts >= 2).sort((a, b) => b.s.pts - a.s.pts).slice(0, 4);   // same cut as the SCORES modal
-    if (!picks.length) { st.sent[k] = 1; continue; }
-    const strong = picks[0].s.pts >= 9;   // email only the strong races; every race still prints to the page
-    if (!strong) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d }));
-      st.prints = st.prints || [];
-      st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins, quiet: 1,
-        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
-      st.prints = st.prints.slice(-120); continue; }
-    const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td><td style="padding:4px 8px">XS1 ${xcell(p.r)}</td></tr>`).join('');
-    // full card below: every runner, deepest minus first
-    const strike = (b, id) => { const s2 = (b || {})[id]; return s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null; };
     const edges = (() => { const m = {}; rc.rs.forEach(r => { m[r.h] = null; });
       const orVals = rc.rs.map(r => r.ofr).filter(v => v != null);
       if (orVals.length < 2) return m;
       const orMean = orVals.reduce((a, b) => a + b, 0) / orVals.length;
       const ok2 = rc.rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
       if (ok2.length >= 2) { const top = ok2.reduce((a, b) => b.ofr > a.ofr ? b : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
-      const s3 = rc.rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
+      const s2 = rc.rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : 50;
         return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
-      const ex = s3.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
-      rc.rs.forEach((r, i) => { const e2 = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; m[r.h] = e2 != null && isFinite(e2) ? e2 : null; });
+      const ex = s2.map(v => Math.exp(v)); const Z = ex.reduce((a, b) => a + b, 0);
+      rc.rs.forEach((r, i) => { m[r.h] = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; });
       return m; })();
+    const pe = (h2) => edges[h2] != null && isFinite(edges[h2]) ? Math.round(edges[h2] * 100) : null;
+    if (!picks.length) { st.sent[k] = 1; continue; }
+    const strong = picks[0].s.pts >= 9;   // email only the strong races; every race still prints to the page
+    if (!strong) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d }));
+      st.prints = st.prints || [];
+      st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins, quiet: 1,
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
+      st.prints = st.prints.slice(-120); continue; }
+    const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td><td style="padding:4px 8px">XS1 ${xcell(p.r)}</td></tr>`).join('');
+    // full card below: every runner, deepest minus first
+    const strike = (b, id) => { const s2 = (b || {})[id]; return s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null; };
+    // edges hoisted above (shared with print store)
     const cardRows = rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h];
         return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
       .map(r => { const e2 = edges[r.h]; const s4 = sc[r.h];
@@ -155,7 +157,7 @@ export default async function handler(req, res) {
     if (okS) { st.sent[k] = 1; st.mailed = st.mailed || {}; st.mailed[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
       st.prints = st.prints || [];
       st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins,
-        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
         card: rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
           .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: strike(store.jockeys, r.jid), tr: strike(store.trainers, r.tid),
             e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: (() => { const v = xs1(r); return v != null ? Math.round(v * 10) / 10 : null; })() })) });
