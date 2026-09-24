@@ -142,8 +142,14 @@
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest('.tsort button'); if (!b) return;
     const wrap = b.closest('.tsort'); const tid = wrap.dataset.tid; const reg = tileReg[tid]; if (!reg) return;
-    wrap.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    const [get, dir2] = tsCmp[b.dataset.ts];
+    const ts = b.dataset.ts;
+    const [get, dfl] = tsCmp[ts];
+    // tap the active tab again to flip direction
+    const dir2 = (reg.key === ts) ? -reg.dir : dfl;
+    reg.key = ts; reg.dir = dir2;
+    wrap.querySelectorAll('button').forEach(x => { x.classList.toggle('on', x === b);
+      x.textContent = x.textContent.replace(/ [\u2191\u2193]$/, ''); });
+    b.textContent += dir2 === 1 ? ' \u2191' : ' \u2193';
     const sorted = reg.runners.slice().sort((a, b2) => { const va = get(a), vb = get(b2);
       if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); });
     document.getElementById('tr-' + tid).innerHTML = sorted.map(reg.makeRow).join('');
