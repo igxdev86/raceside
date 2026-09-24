@@ -86,9 +86,9 @@
     const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
     ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
   const sigBase = sigN ? sigW / sigN * 100 : null;
-  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3;
+  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3 === 'OR1' ? `<b style=\"color:var(--ink)\">OR1</b>` : t3;
     const pc = g.w / g.n * 100;
-    return `${t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+    return `${t3 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
   const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
   const sumTags = (tags2, xr2) => { let s = 0, any = false;
     (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
