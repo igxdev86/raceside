@@ -68,10 +68,11 @@
   if (!days.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">nothing archived yet.</div>'; return; }
 
   // ---- history: tag + XS1-rank win rates from stored prints ----
-  const tagWin = {}; const xrWin = {}; let sigN = 0, sigW = 0;
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
   days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
     p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
-      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); });
+      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } });
     const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
     ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
   const sigBase = sigN ? sigW / sigN * 100 : null;
@@ -79,9 +80,10 @@
     const pc = g.w / g.n * 100;
     return `${t3 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
   const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
-  const sumTags = (tags2, xr2) => { let s = 0, any = false;
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
     (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
     const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
     return any ? Math.round(s) : null; };
 
   // ---- the engine (same as PRINT LIST) ----
@@ -158,7 +160,7 @@
       const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) })).sort((a, b2) => b2.s.pts - a.s.pts || (b2.xv || 0) - (a.xv || 0));
       const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
       // blended MP: 0.5 engine softmax + 0.3 sigma history + 0.2 market
-      runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3); });
+      runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); });
       const sumSig = runners.reduce((a, q) => a + (q.sig || 0), 0);
       const invs = runners.map(q => q.r.d > 1 ? 1 / q.r.d : null); const sumInv = invs.reduce((a, v) => a + (v || 0), 0);
       const nR = runners.length;
