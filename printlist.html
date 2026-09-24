@@ -56,13 +56,14 @@
   try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); sigSt = j && j.state ? j.state : null; } catch {}
   try { const j = await (await fetch('/api/yearstate?k=printsarchive:v1')).json(); sigArch = j && j.state && j.state.days ? j.state.days : null; } catch {}
   // historical win rate per tag, from every resulted print held
-  const tagWin = {}; const xrWin = {}; let sigN = 0, sigW = 0;
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
   { const hn2 = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
     const feed = [...(sigSt && sigSt.prints ? sigSt.prints : [])];
     if (sigArch) Object.values(sigArch).forEach(arr => (arr || []).forEach(p => feed.push(p)));
     feed.filter(p => p && p.w && (p.picks || []).length).forEach(p => p.picks.forEach(x => {
       const won = hn2(x.h) === hn2(p.w); sigN++; if (won) sigW++;
-      (x.tags || []).forEach(t2 => { const g = (tagWin[t2] = tagWin[t2] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); }));
+      (x.tags || []).forEach(t2 => { const g = (tagWin[t2] = tagWin[t2] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } }));
     feed.filter(p => p && p.w && (p.picks || []).length).forEach(p => {
       const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
       ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn2(x.h) === hn2(p.w)) g.w++; }); }); }
@@ -72,9 +73,10 @@
     const pc = g.w / g.n * 100;
     return `${t2 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t2} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
   const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
-  const sumTags = (tags2, xr2) => { let s = 0, any = false;
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
     (tags2 || []).forEach(t2 => { const g = tagWin[t2]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
     const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
     return any ? Math.round(s) : null; };
   if (!(people && people.ok)) { $('app').innerHTML = '<div class="race">people tables unavailable — cannot score</div>'; return; }
 
@@ -151,7 +153,7 @@
     return `<div class="race" id="r-${rc.k.replace(/[^a-z0-9]/g, '')}"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}${frozen ? ' <small style="color:var(--faint);font-family:var(--mono);font-size:9px">as printed</small>' : ''}</b>
       <span style="font-family:var(--mono);font-size:11px;color:${rc.w ? (hit ? 'var(--green)' : 'var(--red)') : 'var(--faint)'}">${rc.w ? (hit ? '\u2705 ' : '\u274c ') + rc.w : 'to run'}</span></div>
       ${picks.map(p => { const pv = rc.w && rc.pos ? rc.pos[hn(p.r.h)] : null; const xv2 = p.frozen ? p.fx : xs1(p.r); const xr2 = xrank(xv2);
-        return `<div class="pick"><span class="left"><span class="star">\u2605 ${p.s.pts}</span>${p.r.num ? ` <span class="num">${p.r.num}</span>` : ''} <span class="nm">${p.r.h}</span>${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''}<span class="tags">${p.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>${(() => { const s2 = sumTags(p.s.tags, xr2); return (s2 != null ? `<span class=\"sig\">\u03a3 ${s2}%</span>` : '') + (() => { const o2 = Number(p.r.d); return s2 != null && o2 > 0 ? `<span class=\"lum\">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })(); })()}</span>
+        return `<div class="pick"><span class="left"><span class="star">\u2605 ${p.s.pts}</span>${p.r.num ? ` <span class="num">${p.r.num}</span>` : ''} <span class="nm">${p.r.h}</span>${rc.w && hn(rc.w) === hn(p.r.h) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : ''}<span class="tags">${p.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>${(() => { const s2 = sumTags(p.s.tags, xr2, p.s.pts); return (s2 != null ? `<span class=\"sig\">\u03a3 ${s2}%</span>` : '') + (() => { const o2 = Number(p.r.d); return s2 != null && o2 > 0 ? `<span class=\"lum\">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })(); })()}</span>
         <span class="right">@ ${p.r.d}${p.frozen && p.fe != null ? ` <small style="color:${p.fe < 0 ? 'var(--red)' : 'var(--green)'}">${p.fe > 0 ? '+' : ''}${p.fe}%</small>` : ''}${xv2 != null ? `<br><span style="font-size:10.5px;${xv2 >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${xv2} <b>(${xr2})</b>${(() => { const xp = xrPct(xr2); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; }).join('')}</div>`;
   }).join('');
   const jump = `<div class="jump">${list.map(rc => `<a href="#r-${rc.k.replace(/[^a-z0-9]/g, '')}"${rc.w ? ' class="done"' : ''}>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 4).toUpperCase()}</a>`).join('')}</div>`;
