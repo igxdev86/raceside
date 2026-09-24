@@ -124,11 +124,11 @@
   };
 
   // ---- fields: priceday per day (newest 21) ----
-  const fieldDay = {};
+  const fieldDay = {}; const classDay = {};
   await Promise.all(days.slice(0, 21).map(async (d2) => { try {
     const pdj = await (await fetch('/api/priceday?v=5&date=' + d2)).json();
-    const m = {}; ((pdj && pdj.races) || []).forEach(r2 => { m[rkz(r2.t, r2.course)] = (r2.runners || []).filter(x => x.h).map(x => ({ h: x.h, num: x.num || null, jockey: x.jockey, trainer: x.trainer || '', jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) > 1 ? Number(x.d) : null, pos: x.pos ? String(x.pos) : null })); });
-    fieldDay[d2] = m; } catch {} }));
+    const m = {}; const mc = {}; ((pdj && pdj.races) || []).forEach(r2 => { mc[rkz(r2.t, r2.course)] = String(r2.rclass || ''); m[rkz(r2.t, r2.course)] = (r2.runners || []).filter(x => x.h).map(x => ({ h: x.h, num: x.num || null, hid: x.hid || null, jockey: x.jockey, trainer: x.trainer || '', jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) > 1 ? Number(x.d) : null, pos: x.pos ? String(x.pos) : null })); });
+    fieldDay[d2] = m; classDay[d2] = mc; } catch {} }));
 
   const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
 
@@ -140,7 +140,25 @@
 
   const tileReg = {};
   const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
-  document.addEventListener('click', (ev) => {
+  document.addEventListener('click', async (ev) => {
+    const cb = ev.target.closest('.tsort button[data-cls]');
+    if (cb) {
+      const wrap2 = cb.closest('.tsort'); const tid2 = wrap2.dataset.tid; const reg2 = tileReg[tid2]; if (!reg2 || reg2.clsDone) return;
+      reg2.clsDone = true; cb.textContent = '\u2026';
+      await Promise.all(reg2.runners.map(async (q) => { try {
+        if (!q.r.hid) { q.clsMiss = true; return; }
+        const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
+        const runs = (j && j.runs) || (j && j.history) || [];
+        const lastC = runs.length ? runs[runs.length - 1] : null;
+        const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+        const last = sorted2.find(r2 => typeof r2.cls === 'number');
+        if (last && reg2.rcls != null) q.cls = { last: last.cls, now: reg2.rcls, dir: last.cls < reg2.rcls ? 'down' : last.cls > reg2.rcls ? 'up' : 'same' };
+        else q.clsMiss = true;
+      } catch { q.clsMiss = true; } }));
+      cb.textContent = 'CLASS'; cb.style.opacity = '.4';
+      document.getElementById('tr-' + tid2).innerHTML = reg2.runners.map(reg2.makeRow).join('');
+      return;
+    }
     const b = ev.target.closest('.tsort button'); if (!b) return;
     const wrap = b.closest('.tsort'); const tid = wrap.dataset.tid; const reg = tileReg[tid]; if (!reg) return;
     const ts = b.dataset.ts;
@@ -195,10 +213,10 @@
         return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${(() => { const js = strike(people.jockeys, q.r.jid, 50), ts = strike(people.trainers, q.r.tid, 50);
         const seg = (nm, v) => nm ? `${nm}${v != null ? ` <b style="color:var(--dim)">${Math.round(v * 100)}%</b>` : ''}` : '';
         const line = [seg(q.r.jockey, js), seg(q.r.trainer, ts)].filter(Boolean).join(' \u00b7 ');
-        return line ? `<span class="tags" style="color:var(--dim)">${line}</span>` : ''; })()}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="mx">MX ${Math.round(s2 * o2)}</span><span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
+        return line ? `<span class="tags" style="color:var(--dim)">${line}</span>` : ''; })()}${q.cls ? `<span class="tags"><b style="color:${q.cls.dir === 'down' ? 'var(--green)' : q.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls.dir === 'down' ? '\u25bc DOWN' : q.cls.dir === 'up' ? '\u25b2 UP' : '='} C${q.cls.last}\u2192C${q.cls.now}</b></span>` : q.clsMiss ? `<span class="tags" style="color:var(--faint)">class: no history</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="mx">MX ${Math.round(s2 * o2)}</span><span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
       const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
-      tileReg[tid] = { runners, makeRow };
-      const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}</div>`;
+      tileReg[tid] = { runners, makeRow, rcls: (() => { const c = String(((classDay[d2] || {})[p.k] || (classDay[d2] || {})[rkz(p.t, p.course)]) || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = tabs + `<div class="trows" id="tr-${tid}">${runners.map(makeRow).join('')}</div>`;
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
