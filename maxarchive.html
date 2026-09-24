@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAX ARCHIVE — RACESIDE</title>
+<style>
+  :root{--bg:#101418;--tile:#23282E;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--blue:#6FA8FF;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{font-size:19px;margin:14px 0 2px}
+  .sub{color:var(--dim);font-size:12px}
+  .tile{background:var(--tile) !important;color-scheme:dark;border:1px solid rgba(255,255,255,.13);border-radius:14px;padding:11px 14px;margin:10px 0}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+  .hd b{font-size:15px;color:#FFFFFF}
+  .pick{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);align-items:baseline}
+  .pick:last-child{border-bottom:0}
+  .pick .nm{color:#FFFFFF;font-weight:700;font-size:14.5px}
+  .pick.np .nm{color:var(--dim);font-weight:600}
+  .pick .left{min-width:0;flex:1}
+  .pick .right{white-space:nowrap;color:#FFFFFF;font-family:var(--mono);font-size:12.5px;text-align:right}
+  .star{color:var(--gold);font-family:var(--mono);font-weight:800;font-size:13px}
+  .pick.np .star{color:var(--faint)}
+  .num{display:inline-block;background:rgba(255,255,255,.10);color:#FFFFFF;font-family:var(--mono);font-size:11px;border-radius:6px;padding:0 5px;margin-right:2px}
+  .tags{display:block;color:var(--faint);font-family:var(--mono);font-size:10px;margin-top:1px}
+  .lum{display:inline-block;background:rgba(234,255,0,.14);color:#EAFF00;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px;margin-left:4px}
+  .sig{display:inline-block;background:rgba(255,105,180,.16);color:#ff8fc7;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px}
+  .res{font-size:12px;font-family:var(--mono)}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;margin-bottom:6px;color:var(--dim)}
+  .dayhd{scroll-margin-top:52px;display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#FFFFFF;margin:22px 0 2px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .dayhd small{color:var(--faint);letter-spacing:0}
+  .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MAX ARCHIVE</h1>
+  <div class="sub">every printed race, full field — engine re-run over the day&rsquo;s recorded prices, printed picks starred gold.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading max archive…</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
+</div>
+<script src="/nav.js?v=7" defer></script>
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  let st = null, arch = null, people = null;
+  try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state ? j.state : null; } catch {}
+  try { const j = await (await fetch('/api/yearstate?k=printsarchive:v1')).json(); arch = j && j.state && j.state.days ? j.state.days : null; } catch {}
+  try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable — cannot score</div>'; return; }
+
+  const byDay = {};
+  const put = (day, p) => { const arr = (byDay[day] = byDay[day] || []); if (!arr.some(q => q.k === p.k)) arr.push(p); };
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => (arr || []).forEach(p => put(d2, p)));
+  if (st && st.prints) st.prints.forEach(p => put(p.day || ukd, p));
+  const days = Object.keys(byDay).sort().reverse();
+  if (!days.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">nothing archived yet.</div>'; return; }
+
+  // ---- history: tag + XS1-rank win rates from stored prints ----
+  const tagWin = {}; const xrWin = {}; let sigN = 0, sigW = 0;
+  days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
+    p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
+      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); });
+    const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
+    ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
+  const sigBase = sigN ? sigW / sigN * 100 : null;
+  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3;
+    const pc = g.w / g.n * 100;
+    return `${t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+  const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
+  const sumTags = (tags2, xr2) => { let s = 0, any = false;
+    (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
+    const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    return any ? Math.round(s) : null; };
+
+  // ---- the engine (same as PRINT LIST) ----
+  const PTS = [5, 3, 1];
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+  const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+  const xs1f = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+  const scoreRace = (rs) => {
+    const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+    const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+      vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+    rank('J', (r) => strike(people.jockeys, r.jid, 50));
+    rank('T', (r) => strike(people.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+    const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    if (orMean != null) {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+      const edges = rs.map((r, i) => r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null);
+      const negs = rs.map((r, i) => ({ r, e: edges[i] })).filter(x => x.e != null && isFinite(x.e) && x.e < 0).sort((a, b2) => a.e - b2.e);
+      negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+      rs.forEach((r, i) => { if (edges[i] != null && isFinite(edges[i]) && edges[i] > 0) tag(r.h, '+', 1); });
+    }
+    return sc;
+  };
+
+  // ---- fields: priceday per day (newest 21) ----
+  const fieldDay = {};
+  await Promise.all(days.slice(0, 21).map(async (d2) => { try {
+    const pdj = await (await fetch('/api/priceday?v=5&date=' + d2)).json();
+    const m = {}; ((pdj && pdj.races) || []).forEach(r2 => { m[rkz(r2.t, r2.course)] = (r2.runners || []).filter(x => Number(x.d) > 1).map(x => ({ h: x.h, num: x.num || null, jockey: x.jockey, jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d), pos: x.pos ? String(x.pos) : null })); });
+    fieldDay[d2] = m; } catch {} }));
+
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
+
+  let totN = 0, totRes = 0, totHits = 0;
+  days.forEach(d2 => byDay[d2].forEach(p => { totN++; if (p.w) totRes++; if (p.hit) totHits++; }));
+  const strikePc = totRes ? Math.round(totHits / totRes * 100) : null;
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${days.length} day${days.length === 1 ? '' : 's'}</span><span class="chip">${totN} prints</span><span class="chip">${totRes} resulted</span><span class="chip" style="color:${totHits ? 'var(--green)' : 'var(--dim)'}">${totHits} hits</span>${strikePc != null ? `<span class="chip" style="color:var(--green)">${strikePc}% strike</span>` : ''}</div>`;
+  const jump = `<div class="jump">${days.map(d2 => `<a href="#d-${d2}">${d2.slice(5)}</a>`).join('')}</div>`;
+
+  const tile = (p, d2) => {
+    const rs = ((fieldDay[d2] || {})[p.k] || []);
+    const pickSet = new Set((p.picks || []).map(x => hn(x.h)));
+    let rows;
+    if (rs.length >= 3) {
+      const sc = scoreRace(rs);
+      const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) })).sort((a, b2) => b2.s.pts - a.s.pts || (b2.xv || 0) - (a.xv || 0));
+      const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
+      rows = runners.map(q => { const isPick = pickSet.has(hn(q.r.h));
+        const xr2 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null;
+        const s2 = sumTags(q.s.tags, xr2);
+        const pv = p.w && q.r.pos ? q.r.pos : null;
+        return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right">@ ${q.r.d}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; }).join('');
+    } else {
+      rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">full field not held for this day \u2014 picks only on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
+    }
+    return `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${rows}</div>`;
+  };
+  const xr2f = (runners, q) => { const xvals = runners.map(z => z.xv).filter(v => v != null).sort((a, b2) => b2 - a); return q.xv != null ? xvals.indexOf(q.xv) + 1 : null; };
+
+  const body = days.map(d2 => { const arr = byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    const res = arr.filter(p => p.w).length, hits = arr.filter(p => p.hit).length;
+    const pc = res ? Math.round(hits / res * 100) + '%' : '\u2014';
+    return `<div class="dayhd" id="d-${d2}"><span>${d2}${d2 === ukd ? ' \u00b7 TODAY' : ''}</span><small>${arr.length} prints \u00b7 ${res} resulted \u00b7 ${hits} hits \u00b7 ${pc}</small></div>${arr.map(p => tile(p, d2)).join('')}`; }).join('');
+
+  $('app').innerHTML = chips + jump + body;
+  document.querySelector('.jump').addEventListener('click', (ev) => {
+    const a = ev.target.closest('a'); if (!a) return;
+    ev.preventDefault();
+    const el = document.getElementById(a.getAttribute('href').slice(1));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+})();
+</script>
+</body>
+</html>
