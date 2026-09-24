@@ -70,10 +70,11 @@
   if (!days.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">nothing archived yet — the first day locks in at tonight\u2019s rollover.</div>'; return; }
 
   // tag win rates + pink sigma, from the whole record (same maths as PRINT LIST)
-  const tagWin = {}; const xrWin = {}; let sigN = 0, sigW = 0;
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
   days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
     p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
-      (x.tags || []).forEach(t2 => { const g = (tagWin[t2] = tagWin[t2] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); }); }));
+      (x.tags || []).forEach(t2 => { const g = (tagWin[t2] = tagWin[t2] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } }); }));
   days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
     const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
     ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
@@ -83,9 +84,10 @@
     const pc = g.w / g.n * 100;
     return `${t2 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t2} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
   const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
-  const sumTags = (tags2, xr2) => { let s = 0, any = false;
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
     (tags2 || []).forEach(t2 => { const g = tagWin[t2]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
     const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
     return any ? Math.round(s) : null; };
 
   let totN = 0, totRes = 0, totHits = 0;
@@ -96,7 +98,7 @@
   const jump = `<div class="jump">${days.map(d2 => `<a href="#d-${d2}">${d2.slice(5)}</a>`).join('')}</div>`;
 
   const tile = (p, d2) => `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'unresulted'}</span></div>${(() => { const xv = (p.picks || []).map(x => x.xs1).filter(v => v != null).sort((a3, b3) => b3 - a3);
-    return (p.picks || []).map(x => { const pv = p.w ? posOf(d2, p, x) : null; const xr = x.xs1 != null ? xv.indexOf(x.xs1) + 1 : null; const s2 = sumTags(x.tags, xr);
+    return (p.picks || []).map(x => { const pv = p.w ? posOf(d2, p, x) : null; const xr = x.xs1 != null ? xv.indexOf(x.xs1) + 1 : null; const s2 = sumTags(x.tags, xr, x.pts);
     return `<div class="pick"><span class="left"><span class="star">\u2605 ${x.pts}</span> <span class="nm">${x.h}</span>${p.w && hn(x.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${(x.tags || []).length ? `<span class="tags">${x.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(x.d); return s2 != null && o2 > 0 ? `<span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right">@ ${x.d}${x.e != null ? ` <small style="color:${x.e < 0 ? 'var(--red)' : 'var(--green)'}">${x.e > 0 ? '+' : ''}${x.e}%</small>` : ''}${x.xs1 != null ? `<br><span style="font-size:10.5px;${x.xs1 >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${x.xs1} <b>(${xr})</b>${(() => { const xp = xrPct(xr); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; }).join(''); })()}</div>`;
 
   const body = days.map(d2 => { const arr = byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t));
