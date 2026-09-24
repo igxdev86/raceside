@@ -82,6 +82,7 @@ export default async function handler(req, res) {
       h: x.horse || '?',
       num: (() => { const v = String(x.number == null ? '' : x.number).trim(); return v && v.toUpperCase() !== 'NR' ? v : null; })(),
       jockey: x.jockey || '',
+      trainer: x.trainer || '',
       jid: x.jockey_id || null,
       tid: x.trainer_id || null,
       ofr: (() => { const v = parseInt(x.or != null ? x.or : x.ofr, 10); return v >= 1 && v <= 200 ? v : null; })(),
