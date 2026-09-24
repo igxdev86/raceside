@@ -231,7 +231,7 @@
     return { d2: x.d2, p: x.p, html: html2, mp: tileMp, pctMax: tilePctMax, pctMin: tilePctMin }; });
 
   let mode = 'day';
-  let bestReady = false, bestGlobal = null, lowMxG = null; const bestByDay = {};
+  let bestReady = false, bestGlobal = null, lowMxG = null, lowMxToday = null; const bestByDay = {};
   const sortBar = () => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px">${[['day','DAY ORDER'],['asc','MP LOW\u2192HIGH'],['desc','MP HIGH\u2192LOW'],['pctdesc','MP% HIGH\u2192LOW'],['pctasc','MP% LOW\u2192HIGH']].map(([m2, lbl]) => `<button onclick="__maxSort('${m2}')" style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:4px 10px;border-radius:999px;border:1px solid ${mode === m2 ? 'var(--gold)' : 'var(--line)'};background:none;color:${mode === m2 ? 'var(--gold)' : 'var(--dim)'}">${lbl}</button>`).join('')}</div>`;
   const render = () => {
     let body;
@@ -239,7 +239,7 @@
     // which tile metric's top-ranked runner won most, overall and per day
     if (!bestReady) {
       const METS = { PTS: [(q) => q.s.pts, -1], MINUS: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1], MP: [(q) => q.mp, 1], 'MP%': [(q) => q.pct, -1], '\u03a3': [(q) => q.sig, -1], MX: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], '\u00f7@': [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], XS1: [(q) => q.xv, -1] };
-      const tally = {}; const dayTally = {}; const lowMx = { n: 0, w: 0 };
+      const tally = {}; const dayTally = {}; const lowMx = { n: 0, w: 0 }; const lowMxT = { n: 0, w: 0 };
       Object.values(tileReg).forEach(reg => { if (!reg.w || !reg.runners || reg.runners.length < 3) return;
         Object.entries(METS).forEach(([lbl, [get, dir2]]) => {
           const vals = reg.runners.map(q => ({ q, v: get(q) })).filter(x => x.v != null);
@@ -248,14 +248,16 @@
           const g = (tally[lbl] = tally[lbl] || { n: 0, w: 0 }); g.n++;
           const dg = ((dayTally[reg.d2] = dayTally[reg.d2] || {})[lbl] = (dayTally[reg.d2] || {})[lbl] || { n: 0, w: 0 }); dg.n++;
           if (hn(vals[0].q.r.h) === reg.w) { g.w++; dg.w++; }
-          if (lbl === 'MX') { lowMx.n++; if (hn(vals[vals.length - 1].q.r.h) === reg.w) lowMx.w++; } }); });
+          if (lbl === 'MX') { lowMx.n++; const won2 = hn(vals[vals.length - 1].q.r.h) === reg.w; if (won2) lowMx.w++;
+            if (reg.d2 === ukd) { lowMxT.n++; if (won2) lowMxT.w++; } } }); });
       const pick2 = (t2) => { const es = Object.entries(t2).filter(([, g]) => g.n >= 3).map(([lbl, g]) => ({ lbl, pc: g.w / g.n * 100, g })).sort((a, b2) => b2.pc - a.pc); return es[0] || null; };
-      bestGlobal = pick2(tally); lowMxG = lowMx.n ? lowMx : null;
+      bestGlobal = pick2(tally); lowMxG = lowMx.n ? lowMx : null; lowMxToday = lowMxT.n ? lowMxT : null;
       Object.entries(dayTally).forEach(([d3, t2]) => { bestByDay[d3] = pick2(t2); });
       bestReady = true;
     }
     const bestChip = bestGlobal ? `<span class="chip" style="color:var(--gold);border-color:var(--gold)">top signal ${bestGlobal.lbl} ${bestGlobal.pc.toFixed(0)}% (${bestGlobal.g.w}/${bestGlobal.g.n})</span>` : '';
-    const lowMxChip = lowMxG ? `<span class="chip" style="color:#3EE6B1;border-color:rgba(62,230,177,.5)">low MX won ${lowMxG.w}/${lowMxG.n} (${Math.round(lowMxG.w / lowMxG.n * 100)}%)</span>` : '';
+    const lowChip = (g, lbl2) => g ? `<span class="chip" style="color:#3EE6B1;border-color:rgba(62,230,177,.5)">${lbl2} ${g.w}/${g.n} (${Math.round(g.w / g.n * 100)}%)</span>` : '';
+    const lowMxChip = lowChip(lowMxToday, 'low MX today') + lowChip(lowMxG, 'low MX all time');
     if (mode === 'day') {
       body = days.map(d2 => { const arr = tiles.filter(x => x.d2 === d2);
         const res = arr.filter(x => x.p.w).length, hits = arr.filter(x => x.p.hit).length;
