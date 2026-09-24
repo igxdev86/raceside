@@ -57,7 +57,8 @@
 
   const days = Object.keys(byDay).sort().reverse();
   // finishing places: use stored pos; backfill missing days from priceday (newest 14)
-  const rkz = (t, c) => String(t || '').trim().split(' ')[0] + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+  const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const posDay = {};
   const need = days.filter(d2 => byDay[d2].some(p => p.w && (p.picks || []).some(x => x.pos == null))).slice(0, 14);
   await Promise.all(need.map(async (d2) => { try {
