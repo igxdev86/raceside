@@ -116,16 +116,11 @@
     ['F5 MP%+\u03a3', (q) => q.pct != null && q.sig != null ? q.pct + q.sig : null],
   ];
 
-  const races = (byDay[ukd] || []).filter(p => p.w);
-  const tiles = []; const tally = FORMULAS.map(() => ({ n: 0, top: 0, rksum: 0 }));
-  races.forEach(p => {
-    const rs = fieldToday[p.k] || fieldToday[rkz(p.t, p.course)] || [];
-    if (rs.length < 3) return;
+  const scoreField = (rs) => {
     const sc = scoreRace(rs);
     const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) }));
     const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
     runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); q.pts = q.s.pts; q.edge = q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null; q.d = Number(q.r.d) || null; });
-    // MP blend (same weights as MAX pages)
     const sumSig = runners.reduce((a, q) => a + (q.sig || 0), 0);
     const invs = runners.map(q => q.d > 1 ? 1 / q.d : null); const sumInv = invs.reduce((a, v) => a + (v || 0), 0);
     const nR = runners.length;
@@ -136,6 +131,14 @@
     const bZ = blend.reduce((a, v) => a + v, 0);
     runners.forEach((q, i) => { const p2 = bZ > 0 ? blend[i] / bZ : null; q.mp = p2 > 0 ? Math.min(999, 1 / p2) : null;
       q.pct = q.mp != null && q.d > 1 ? Math.round((q.d - q.mp) / q.mp * 100) : null; });
+    return runners;
+  };
+  const races = (byDay[ukd] || []).filter(p => p.w);
+  const tiles = []; const tally = FORMULAS.map(() => ({ n: 0, top: 0, rksum: 0 }));
+  races.forEach(p => {
+    const rs = fieldToday[p.k] || fieldToday[rkz(p.t, p.course)] || [];
+    if (rs.length < 3) return;
+    const runners = scoreField(rs);
     const winner = runners.find(q => hn(q.r.h) === hn(p.w));
     if (!winner) return;
     const rks = FORMULAS.map(([lbl, fn], fi) => {
@@ -149,6 +152,33 @@
     tiles.push({ p, winner, rks, field: runners.length });
   });
 
+  // suggestions for the next races, from today's live feed
+  let upList = [];
+  try { const up = await (await fetch('/api/upcoming')).json();
+    const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
+    const rmap = {};
+    if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
+      const k = rkz(r.t, r.course);
+      (rmap[k] = rmap[k] || { k, t: tK(r.t), course: r.course, rs: [] }).rs.push({ h: r.h, num: r.num || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null });
+    });
+    upList = Object.values(rmap).filter(rc => rc.rs.length >= 3 && t2m(rc.t) > nowMin).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  } catch {}
+  const bestLbl = (() => { const es = FORMULAS.map(([lbl], fi) => ({ lbl, ...tally[fi], avg: tally[fi].n ? tally[fi].rksum / tally[fi].n : null })).filter(x => x.n >= 3).sort((a, b2) => a.avg - b2.avg); return es.length ? es[0].lbl : null; })();
+  const sugHtml = upList.map(rc => {
+    const runners = scoreField(rc.rs);
+    const picksBy = FORMULAS.map(([lbl, fn]) => { const vals = runners.map(q => ({ q, v: fn(q) })).filter(x => x.v != null).sort((a, b2) => b2.v - a.v);
+      return vals.length >= 2 ? { lbl, q: vals[0].q } : null; });
+    const named = picksBy.filter(Boolean);
+    if (!named.length) return '';
+    const counts = {}; named.forEach(x => { const k2 = hn(x.q.r.h); counts[k2] = (counts[k2] || 0) + 1; });
+    const consEntry = Object.entries(counts).sort((a, b2) => b2[1] - a[1])[0];
+    const consName = consEntry && consEntry[1] >= 3 ? named.find(x => hn(x.q.r.h) === consEntry[0]).q.r.h : null;
+    return `<div class="tile"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b><span class="rk">to run${consName ? ` \u00b7 <b>consensus ${consEntry[1]}/5: ${consName}</b>` : ''}</span></div>${named.map(x => `<div class="frow"><span style="color:${bestLbl === x.lbl ? 'var(--gold)' : 'var(--dim)'}">${x.lbl}${bestLbl === x.lbl ? ' \u2605' : ''}</span><span><b style="color:var(--ink)">${x.q.r.num ? x.q.r.num + ' ' : ''}${x.q.r.h}</b> <small style="color:var(--faint)">@ ${x.q.d != null ? x.q.d : '\u2014'}</small></span></div>`).join('')}</div>`;
+  }).join('');
+  const sugBlock = upList.length ? `<div class="hd" style="margin-top:16px"><b>NEXT RACES \u00b7 each formula\u2019s pick</b><span class="rk">${bestLbl ? `\u2605 = today\u2019s board leader ${bestLbl}` : 'no board yet \u2014 unranked'}</span></div>` + sugHtml : '';
+
+  if (!tiles.length) { $('app').innerHTML = (upList.length ? '<div style="padding:10px 0;color:var(--dim);font-size:12px">no resulted races yet today \u2014 board builds as results land.</div>' + sugBlock : null) || $('app').innerHTML; if (upList.length) return; }
   if (!tiles.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no resulted races with full fields yet today \u2014 come back after the first results land.</div>'; return; }
 
   const board = FORMULAS.map(([lbl], fi) => ({ lbl, ...tally[fi], avg: tally[fi].n ? tally[fi].rksum / tally[fi].n : null }))
@@ -156,7 +186,7 @@
   const chips = `<div style="margin:10px 0 2px"><span class="chip">${tiles.length} resulted races today</span><span class="chip" style="color:var(--gold);border-color:var(--gold)">best: ${board[0].lbl} \u00b7 avg winner rank ${board[0].avg.toFixed(1)}</span></div>`;
   const boardHtml = `<div class="tile"><div class="hd"><b>FORMULA BOARD \u00b7 today</b><span class="rk">avg winner rank \u00b7 top-1 hits</span></div>${board.map(x => `<div class="frow"><span>${x.lbl}</span><span><b style="color:var(--ink)">${x.avg.toFixed(1)}</b> <small style="color:var(--faint)">avg rank</small> \u00b7 <b style="color:${x.top ? 'var(--green)' : 'var(--faint)'}">${x.top}/${x.n}</b> <small style="color:var(--faint)">top-1</small></span></div>`).join('')}</div>`;
   const raceHtml = tiles.map(x => `<div class="tile"><div class="hd"><b>${x.p.t} ${String(x.p.course || '').toUpperCase()}</b><span class="rk">\u2705 ${x.p.w} \u00b7 field ${x.field}</span></div><div class="rk">${FORMULAS.map(([lbl], fi) => x.rks[fi] ? `${lbl.split(' ')[0]} ${x.rks[fi] === 1 ? '<b>1st</b>' : x.rks[fi] + 'th'}` : lbl.split(' ')[0] + ' \u2014').join(' \u00b7 ')}</div></div>`).join('');
-  $('app').innerHTML = chips + boardHtml + `<div class="hd" style="margin-top:16px"><b>WINNER RANK PER RACE</b></div>` + raceHtml;
+  $('app').innerHTML = chips + boardHtml + sugBlock + `<div class="hd" style="margin-top:16px"><b>WINNER RANK PER RACE</b></div>` + raceHtml;
 })();
 </script>
 </body>
