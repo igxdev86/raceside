@@ -51,7 +51,7 @@
     if (!document.querySelector('link[href^="/rs.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/rs.css?v=2';
+      l.href = '/rs.css?v=3';
       document.head.appendChild(l);
     }
     var old = document.getElementById('rsnav');
