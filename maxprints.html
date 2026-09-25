@@ -72,9 +72,13 @@
     const k = rkz(r.t, r.course);
     (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
-  const list = Object.values(races).filter(rc => rc.rs.length >= 3 && t2m(rc.t) > nowMin).sort((a, b2) => t2m(a.t) - t2m(b2.t));
-  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
-  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, picks: [], _rs: rc.rs })) };
+  const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races on today\u2019s card yet.</div>'; return; }
+  const todayPrint = {};
+  if (st && st.prints) st.prints.forEach(p => { if ((p.day || ukd) === ukd) todayPrint[p.k] = p; });
+  const byDay = { [ukd]: list.map(rc => { const tp = todayPrint[rc.k];
+    return { k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, gone: rc.gone, w: tp && tp.w ? tp.w : null, hit: tp ? !!tp.hit : false, picks: (tp && tp.picks) || [], _rs: rc.rs }; }) };
   const days = [ukd];
 
   // ---- history: tag + XS1-rank win rates from stored prints ----
@@ -140,8 +144,8 @@
 
   const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
 
-  const nextOff = list[0];
-  const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} race${list.length === 1 ? '' : 's'} to run</span><span class="chip">next off ${nextOff.t} ${String(nextOff.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span></div>`;
+  const toRun = list.filter(rc => !rc.gone);
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${toRun.length} to run</span><span class="chip">${list.length - toRun.length} run \u00b7 frozen</span>${toRun.length ? `<span class="chip">next off ${toRun[0].t} ${String(toRun[0].course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span>` : ''}</div>`;
   const jump = '';
 
   const tileReg = {};
@@ -251,7 +255,7 @@
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
-    return `<div class="tile"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : 'to run'}</span></div>${rows}</div>`;
+    return `<div class="tile"${p.gone && !p.w ? ' style="opacity:.8"' : ''}><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : p.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${rows}</div>`;
   };
   const xr2f = (runners, q) => { const xvals = runners.map(z => z.xv).filter(v => v != null).sort((a, b2) => b2 - a); return q.xv != null ? xvals.indexOf(q.xv) + 1 : null; };
 
