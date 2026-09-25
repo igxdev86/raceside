@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CALCS 1 — RACESIDE</title>
+<style>
+  :root{--bg:#FFFFFF;--tile:#F8F8F6;--line:rgba(0,0,0,.14);--ink:#141414;--dim:#555555;--faint:#8E8E8E;--gold:#C1121F;--red:#C1121F;--green:#1B7A3D;--blue:#C1121F;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{font-size:19px;margin:14px 0 2px}
+  .sub{color:var(--dim);font-size:12px}
+  .tile{background:var(--tile);border:1px solid rgba(0,0,0,.16);border-radius:12px;padding:11px 14px;margin:10px 0}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;margin-bottom:6px;color:var(--dim)}
+  .frow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;padding:5px 0;border-bottom:1px solid var(--line)}
+  .frow:last-child{border-bottom:0}
+  .rk{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+  .rk b{color:var(--green)}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+  .hd b{font-size:14px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CALCS 1</h1>
+  <div class="sub">score ideas tested against today&rsquo;s winners — same figures as MAX ARCHIVE, recombined. Lower winner-rank = better formula.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">crunching today&rsquo;s results…</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> experiment · a design, not a finding · not advice</div>
+</div>
+<script src="/nav.js?v=14" defer></script>
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+  const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  let st = null, arch = null, people = null;
+  try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state ? j.state : null; } catch {}
+  try { const j = await (await fetch('/api/yearstate?k=printsarchive:v1')).json(); arch = j && j.state && j.state.days ? j.state.days : null; } catch {}
+  try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable</div>'; return; }
+
+  const byDay = {};
+  const put = (day, p) => { const arr = (byDay[day] = byDay[day] || []); if (!arr.some(q => q.k === p.k)) arr.push(p); };
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => (arr || []).forEach(p => put(d2, p)));
+  if (st && st.prints) st.prints.forEach(p => put(p.day || ukd, p));
+  const days = Object.keys(byDay).sort().reverse();
+
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
+  days.forEach(d2 => byDay[d2].forEach(p => { if (!p.w || !(p.picks || []).length) return;
+    p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
+      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } });
+    const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
+    ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
+  const sigBase = sigN ? sigW / sigN * 100 : null;
+  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3 === 'OR1' ? `<b style=\"color:var(--ink)\">OR1</b>` : t3;
+    const pc = g.w / g.n * 100;
+    return `${t3 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+  const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
+    (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
+    const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
+    return any ? Math.round(s) : null; };
+
+  const PTS = [5, 3, 1];
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+  const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+  const xs1f = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+  const scoreRace = (rs) => {
+    const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+    const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+      vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+    rank('J', (r) => strike(people.jockeys, r.jid, 50));
+    rank('T', (r) => strike(people.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+    const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (orMean != null && r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+      const edges = rs.map((r, i) => r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null);
+      const negs = rs.map((r, i) => ({ r, e: edges[i] })).filter(x => x.e != null && isFinite(x.e) && x.e < 0).sort((a, b2) => a.e - b2.e);
+      negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+      rs.forEach((r, i) => { const pr2 = ex[i] / Z;
+        if (pr2 > 0) (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).pe = pr2;
+        if (edges[i] != null && isFinite(edges[i])) { (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).edge = edges[i]; if (edges[i] > 0) tag(r.h, '+', 1); } });
+    }
+    return sc;
+  };
+
+  // today's fields
+  const fieldToday = {};
+  try { const pdj = await (await fetch('/api/priceday?v=5&date=' + ukd)).json();
+    ((pdj && pdj.races) || []).forEach(r2 => { fieldToday[rkz(r2.t, r2.course)] = (r2.runners || []).filter(x => x.h).map(x => ({ h: x.h, num: x.num || null, jockey: x.jockey, trainer: x.trainer || '', jid: x.jid, tid: x.tid, ofr: x.ofr, lbs: x.lbs, d: Number(x.d) > 1 ? Number(x.d) : null, pos: x.pos ? String(x.pos) : null })); }); } catch {}
+
+  // formulas under test
+  const FORMULAS = [
+    ['F1 \u03a3\u00d7(1+eng)', (q) => q.sig != null && q.edge != null ? q.sig * (1 + q.edge) : null],
+    ['F2 \u03a3\u00f7MP', (q) => q.sig != null && q.mp > 0 ? q.sig / q.mp : null],
+    ['F3 XS1\u00d7\u03a3', (q) => q.xv != null && q.sig != null ? q.xv * q.sig : null],
+    ['F4 PTS\u00d7\u00f7@', (q) => q.d > 0 && q.sig != null ? q.pts * (q.sig / q.d) : null],
+    ['F5 MP%+\u03a3', (q) => q.pct != null && q.sig != null ? q.pct + q.sig : null],
+  ];
+
+  const races = (byDay[ukd] || []).filter(p => p.w);
+  const tiles = []; const tally = FORMULAS.map(() => ({ n: 0, top: 0, rksum: 0 }));
+  races.forEach(p => {
+    const rs = fieldToday[p.k] || fieldToday[rkz(p.t, p.course)] || [];
+    if (rs.length < 3) return;
+    const sc = scoreRace(rs);
+    const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) }));
+    const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
+    runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); q.pts = q.s.pts; q.edge = q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null; q.d = Number(q.r.d) || null; });
+    // MP blend (same weights as MAX pages)
+    const sumSig = runners.reduce((a, q) => a + (q.sig || 0), 0);
+    const invs = runners.map(q => q.d > 1 ? 1 / q.d : null); const sumInv = invs.reduce((a, v) => a + (v || 0), 0);
+    const nR = runners.length;
+    const blend = runners.map((q, i) => { const pe = q.s.pe != null ? q.s.pe : 1 / nR;
+      const ps = sumSig > 0 ? (q.sig || 0) / sumSig : 1 / nR;
+      const pm = sumInv > 0 ? (invs[i] != null ? invs[i] / sumInv : 1 / nR) : 1 / nR;
+      return 0.5 * pe + 0.3 * ps + 0.2 * pm; });
+    const bZ = blend.reduce((a, v) => a + v, 0);
+    runners.forEach((q, i) => { const p2 = bZ > 0 ? blend[i] / bZ : null; q.mp = p2 > 0 ? Math.min(999, 1 / p2) : null;
+      q.pct = q.mp != null && q.d > 1 ? Math.round((q.d - q.mp) / q.mp * 100) : null; });
+    const winner = runners.find(q => hn(q.r.h) === hn(p.w));
+    if (!winner) return;
+    const rks = FORMULAS.map(([lbl, fn], fi) => {
+      const vals = runners.map(q => ({ q, v: fn(q) })).filter(x => x.v != null).sort((a, b2) => b2.v - a.v);
+      if (vals.length < 2) return null;
+      const rk2 = vals.findIndex(x => x.q === winner) + 1;
+      if (!rk2) return null;
+      tally[fi].n++; tally[fi].rksum += rk2; if (rk2 === 1) tally[fi].top++;
+      return rk2;
+    });
+    tiles.push({ p, winner, rks, field: runners.length });
+  });
+
+  if (!tiles.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no resulted races with full fields yet today \u2014 come back after the first results land.</div>'; return; }
+
+  const board = FORMULAS.map(([lbl], fi) => ({ lbl, ...tally[fi], avg: tally[fi].n ? tally[fi].rksum / tally[fi].n : null }))
+    .filter(x => x.n).sort((a, b2) => a.avg - b2.avg);
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${tiles.length} resulted races today</span><span class="chip" style="color:var(--gold);border-color:var(--gold)">best: ${board[0].lbl} \u00b7 avg winner rank ${board[0].avg.toFixed(1)}</span></div>`;
+  const boardHtml = `<div class="tile"><div class="hd"><b>FORMULA BOARD \u00b7 today</b><span class="rk">avg winner rank \u00b7 top-1 hits</span></div>${board.map(x => `<div class="frow"><span>${x.lbl}</span><span><b style="color:var(--ink)">${x.avg.toFixed(1)}</b> <small style="color:var(--faint)">avg rank</small> \u00b7 <b style="color:${x.top ? 'var(--green)' : 'var(--faint)'}">${x.top}/${x.n}</b> <small style="color:var(--faint)">top-1</small></span></div>`).join('')}</div>`;
+  const raceHtml = tiles.map(x => `<div class="tile"><div class="hd"><b>${x.p.t} ${String(x.p.course || '').toUpperCase()}</b><span class="rk">\u2705 ${x.p.w} \u00b7 field ${x.field}</span></div><div class="rk">${FORMULAS.map(([lbl], fi) => x.rks[fi] ? `${lbl.split(' ')[0]} ${x.rks[fi] === 1 ? '<b>1st</b>' : x.rks[fi] + 'th'}` : lbl.split(' ')[0] + ' \u2014').join(' \u00b7 ')}</div></div>`).join('');
+  $('app').innerHTML = chips + boardHtml + `<div class="hd" style="margin-top:16px"><b>WINNER RANK PER RACE</b></div>` + raceHtml;
+})();
+</script>
+</body>
+</html>
