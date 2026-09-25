@@ -140,6 +140,24 @@
 
   const tileReg = {};
   const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
+  const fetchCls = async (q, rcls) => { try {
+    if (!q.r.hid || rcls == null) { q.clsMiss = true; return; }
+    const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
+    const runs = (j && j.runs) || [];
+    const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+    const last = sorted2.find(r2 => typeof r2.cls === 'number');
+    if (last) q.cls = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+    else q.clsMiss = true;
+  } catch { q.clsMiss = true; } };
+  const autoClass = async () => {
+    const jobs = [];
+    Object.entries(tileReg).forEach(([tid, reg]) => { if (!reg.runners && reg.d2 === ukd) return;
+      reg.runners.forEach(q => { if (q.pk && q.r.hid && !q.cls && !q.clsMiss) jobs.push({ tid, reg, q }); }); });
+    let i2 = 0;
+    const worker = async () => { while (i2 < jobs.length) { const j2 = jobs[i2++]; await fetchCls(j2.q, j2.reg.rcls);
+      const el = document.getElementById('tr-' + j2.tid); if (el) el.innerHTML = j2.reg.runners.map(j2.reg.makeRow).join(''); } };
+    await Promise.all([1,2,3,4].map(worker));
+  };
   document.addEventListener('click', async (ev) => {
     const cb = ev.target.closest('.tsort button[data-cls]');
     if (cb) {
@@ -183,6 +201,7 @@
     if (rs.length >= 3) {
       const sc = scoreRace(rs);
       const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) })).sort((a, b2) => b2.s.pts - a.s.pts || (b2.xv || 0) - (a.xv || 0));
+      runners.forEach(q => { q.pk = pickSet.has(hn(q.r.h)); });
       const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
       // blended MP: 0.5 engine softmax + 0.3 sigma history + 0.2 market
       runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); });
@@ -283,6 +302,7 @@
   };
   window.__maxSort = (m2) => { mode = m2; render(); };
   render();
+  autoClass();
 })();
 </script>
 </body>
