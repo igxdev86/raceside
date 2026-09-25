@@ -226,7 +226,7 @@
       rows = '';
       const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
       if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx);
-        listRows.push({ t: p.t, course: p.course, q: valued[0].q, mx: valued[0].mx }); }
+        listRows.push({ t: p.t, course: p.course, q: valued[0].q, mx: valued[0].mx, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() }); }
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
@@ -241,8 +241,18 @@
 
   buildTiles('day');   // populates listRows via the shared pipeline
   listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  // class move per selection: last-run class vs today's
+  await Promise.all(listRows.map(async (x) => { try {
+    if (!x.q.r.hid || x.rcls == null) { x.clsMiss = true; return; }
+    const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(x.q.r.hid))).json();
+    const runs = (j && j.runs) || [];
+    const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+    const last = sorted2.find(r2 => typeof r2.cls === 'number');
+    if (last) x.cls = { last: last.cls, now: x.rcls, dir: last.cls < x.rcls ? 'down' : last.cls > x.rcls ? 'up' : 'same' };
+    else x.clsMiss = true;
+  } catch { x.clsMiss = true; } }));
   const rowsHtml = listRows.map(x => { const q = x.q;
-    return `<div class="tile" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span><span style="font-family:var(--mono);color:#FFFFFF;font-size:13px"><b>${x.t}</b> ${String(x.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span><br>${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span><br><span class="tags" style="color:var(--dim)">${[q.r.jockey, q.r.trainer].filter(Boolean).join(' \u00b7 ')}</span><span class="mx">MX ${Math.round(x.mx)}</span><span class="sig">\u03a3 ${q.sig}%</span></span><span class="right" style="font-family:var(--mono);text-align:right;color:#FFFFFF;font-size:12.5px"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;color:var(--dim)">XS1 ${q.xv}</span>` : ''}</span></div></div>`; }).join('');
+    return `<div class="tile" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span><span style="font-family:var(--mono);color:#FFFFFF;font-size:13px"><b>${x.t}</b> ${String(x.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span><br>${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span><br><span class="tags" style="color:var(--dim)">${[q.r.jockey, q.r.trainer].filter(Boolean).join(' \u00b7 ')}</span><span class="mx">MX ${Math.round(x.mx)}</span><span class="sig">\u03a3 ${q.sig}%</span>${x.cls ? `<span class="tags"><b style="color:${x.cls.dir === 'down' ? 'var(--green)' : x.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${x.cls.dir === 'down' ? '\u25bc DOWN' : x.cls.dir === 'up' ? '\u25b2 UP' : '='} C${x.cls.last}\u2192C${x.cls.now}</b></span>` : x.clsMiss ? `<span class="tags" style="color:var(--faint)">class: n/a</span>` : ''}</span><span class="right" style="font-family:var(--mono);text-align:right;color:#FFFFFF;font-size:12.5px"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;color:var(--dim)">XS1 ${q.xv}</span>` : ''}</span></div></div>`; }).join('');
   const listHd = `<div class="dayhd"><span>LOW MX \u00b7 each race\u2019s lowest</span><small>${listRows.length} selections</small></div>`;
   $('app').innerHTML = chips + listHd + rowsHtml;
 })();
