@@ -82,7 +82,7 @@ export default async function handler(req, res) {
             const dayArr = (arch.days[p.day] = arch.days[p.day] || []);
             const pm = (posByDay[p.day] || {})[p.k] || {};
             if (!dayArr.some(q => q.k === p.k)) dayArr.push({ k: p.k, t: p.t, course: p.course, quiet: p.quiet || 0, w: p.w, hit: p.hit,
-              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1, e: x.e != null ? x.e : null, pos: pm[hnz(x.h)] || null })) });   // slim: no cards in the archive
+              picks: (p.picks || []).map(x => ({ h: x.h, pts: x.pts, d: x.d, tags: x.tags, xs1: x.xs1, e: x.e != null ? x.e : null, c: x.c || null, pos: pm[hnz(x.h)] || null })) });   // slim: no cards in the archive
           });
           arch.lastDate = today;
           await fetch(base + '/api/yearstate?k=printsarchive:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arch) });
@@ -132,12 +132,23 @@ export default async function handler(req, res) {
       rc.rs.forEach((r, i) => { m[r.h] = r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null; });
       return m; })();
     const pe = (h2) => edges[h2] != null && isFinite(edges[h2]) ? Math.round(edges[h2] * 100) : null;
+    const rclsM = String((rc.rs[0] || {}).rclass || '').match(/\d/);
+    const rcls = rclsM ? Number(rclsM[0]) : null;
+    const clsMap = {};
+    if (rcls != null) await Promise.all(picks.map(async (p) => { try {
+      if (!p.r.hid) return;
+      const hj = await gj('/api/horsehist?hid=' + encodeURIComponent(p.r.hid));
+      const runs = (hj && hj.runs) || [];
+      const sorted2 = runs.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+      const last = sorted2.find(r2 => typeof r2.cls === 'number');
+      if (last) clsMap[p.r.h] = last.cls < rcls ? 'd' : last.cls > rcls ? 'u' : 's';
+    } catch {} }));
     if (!picks.length) { st.sent[k] = 1; continue; }
     const strong = picks[0].s.pts >= 9;   // email only the strong races; every race still prints to the page
     if (!strong) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d }));
       st.prints = st.prints || [];
       st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins, quiet: 1,
-        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), c: clsMap[p.r.h] || null, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
       st.prints = st.prints.slice(-120); continue; }
     const rows = picks.map(p => `<tr><td style="padding:4px 8px;font-weight:700">${p.s.pts}</td><td style="padding:4px 8px">${p.r.h}</td><td style="padding:4px 8px;color:#666">${p.s.tags.join(' · ')}</td><td style="padding:4px 8px">@ ${p.r.d}</td><td style="padding:4px 8px">XS1 ${xcell(p.r)}</td></tr>`).join('');
     // full card below: every runner, deepest minus first
@@ -158,7 +169,7 @@ export default async function handler(req, res) {
     if (okS) { st.sent[k] = 1; st.mailed = st.mailed || {}; st.mailed[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d })); out.sentPicks.push(k);
       st.prints = st.prints || [];
       st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins,
-        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
+        picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), c: clsMap[p.r.h] || null, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })),
         card: rc.rs.slice().sort((a, b) => { const ea = edges[a.h], eb = edges[b.h]; return (ea == null) - (eb == null) || (ea || 0) - (eb || 0); })
           .map(r => ({ h: r.h, pts: (sc[r.h] || {}).pts || 0, j: strike(store.jockeys, r.jid), tr: strike(store.trainers, r.tid),
             e: edges[r.h] != null ? Math.round(edges[r.h] * 100) : null, d: r.d, xs1: (() => { const v = xs1(r); return v != null ? Math.round(v * 10) / 10 : null; })() })) });
