@@ -22,6 +22,7 @@
       ['/archive.html', 'ARCHIVE'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
       ['/maxprints.html', 'MAX PRINTS'],
+      ['/maxlists.html', 'MAX LISTS'],
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
