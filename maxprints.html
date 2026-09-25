@@ -146,7 +146,6 @@
 
   const toRun = list.filter(rc => !rc.gone);
   const chips = `<div style="margin:10px 0 2px"><span class="chip">${toRun.length} to run</span><span class="chip">${list.length - toRun.length} run \u00b7 frozen</span>${toRun.length ? `<span class="chip">next off ${toRun[0].t} ${String(toRun[0].course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span>` : ''}</div>`;
-  const jump = '';
 
   const tileReg = {};
   const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
@@ -203,6 +202,7 @@
   });
   let tileMp = null; let tilePctMax = null; let tilePctMin = null;
   const tile = (p, d2, mode2) => {
+    const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
     tileMp = null; tilePctMax = null; tilePctMin = null;
     const dayM = fieldDay[d2];
     const rs = dayM ? (dayM[p.k] || dayM[rkz(p.t, p.course)] || []) : [];
@@ -248,14 +248,13 @@
         const combo = pr2 && pr2.r >= 10 ? ` \u00b7 <b style="color:var(--gold)">combo ${Math.round(pr2.w / pr2.r * 100)}%</b> <small style="color:var(--faint)">(${pr2.w}/${pr2.r})</small>` : '';
         const line = [seg(q.r.jockey, js), seg(q.r.trainer, ts)].filter(Boolean).join(' \u00b7 ') + combo;
         return line ? `<span class="tags" style="color:var(--dim)">${line}</span>` : ''; })()}${q.cls ? `<span class="tags"><b style="color:${q.cls.dir === 'down' ? 'var(--green)' : q.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls.dir === 'down' ? '\u25bc DOWN' : q.cls.dir === 'up' ? '\u25b2 UP' : '='} C${q.cls.last}\u2192C${q.cls.now}</b></span>` : q.clsMiss ? `<span class="tags" style="color:var(--faint)">class: no history</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${q.isML ? `<span class="ml">MAX LIST</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="mx">MX ${Math.round(s2 * o2)}</span><span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
-      const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
       tileReg[tid] = { runners, makeRow, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
       const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = tabs + `<div class="trows" id="tr-${tid}">${runners.map(makeRow).join('')}</div>`;
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
-    return `<div class="tile"${p.gone && !p.w ? ' style="opacity:.8"' : ''}><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : p.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${rows}</div>`;
+    return `<div class="tile" id="t-${tid}" style="scroll-margin-top:46px${p.gone && !p.w ? ';opacity:.8' : ''}"><div class="hd"><b>${p.t || ''} ${String(p.course || '').toUpperCase()}${p.quiet ? ' <small style="color:var(--faint);font-size:9px;font-family:var(--mono)">quiet</small>' : ''}</b><span class="res" style="color:${p.hit ? 'var(--green)' : p.w ? 'var(--red)' : 'var(--faint)'}">${p.w ? (p.hit ? '\u2705 ' : '\u274c ') + p.w : p.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${rows}</div>`;
   };
   const xr2f = (runners, q) => { const xvals = runners.map(z => z.xv).filter(v => v != null).sort((a, b2) => b2 - a); return q.xv != null ? xvals.indexOf(q.xv) + 1 : null; };
 
@@ -272,7 +271,6 @@
     if (mode === 'day') {
       body = days.map(d2 => { const arr = tiles.filter(x => x.d2 === d2);
         return `<div class="dayhd" id="d-${d2}"><span>${d2} \u00b7 TODAY</span><small>${arr.length} still to run</small></div>${arr.map(x => x.html).join('')}`; }).join('');
-      body = jump + body;
     } else {
       const key = (x) => mode === 'pctdesc' ? x.pctMax : mode === 'pctasc' ? x.pctMin : x.mp;
       const dir = (mode === 'asc' || mode === 'pctasc') ? 1 : -1;
@@ -281,7 +279,9 @@
         return mode === 'asc' || mode === 'desc' ? ` \u00b7 MP ${v}` : ` \u00b7 MP% ${v > 0 ? '+' : ''}${v}%`; };
       body = sorted.map(x => `<div style="font-family:var(--mono);font-size:9.5px;color:var(--faint);margin:10px 0 -8px">${x.d2}${keyLbl(x)}</div>${x.html}`).join('');
     }
-    $('app').innerHTML = chips + sortBar() + body;
+    const jump = `<div class="jump">${list.map(rc => { const tid3 = (ukd + '_' + rc.k).replace(/[^a-z0-9]/gi, '');
+      return `<a href="#t-${tid3}"${rc.gone ? ' style="opacity:.55"' : ''}><b>${rc.t}</b> ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()}</a>`; }).join('')}</div>`;
+    $('app').innerHTML = chips + jump + sortBar() + body;
     const jm = document.querySelector('.jump');
     if (jm) jm.addEventListener('click', (ev) => {
       const a = ev.target.closest('a'); if (!a) return;
