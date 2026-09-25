@@ -11,6 +11,11 @@
       ['/jockeys.html', 'J&T'],
       ['/market.html', 'MARKET'],
     ]],
+    ['MAX', [
+      ['/maxprints.html', 'MAX PRINTS'],
+      ['/maxlists.html', 'MAX LISTS'],
+      ['/maxarchive.html', 'MAX ARCHIVE'],
+    ]],
     ['RECORD', [
       ['/daychart.html', 'DAY'],
       ['/freqyear.html', 'YEAR'],
@@ -20,9 +25,6 @@
       ['/prints.html', 'PRINTS'],
       ['/printlist.html', 'PRINT LIST'],
       ['/archive.html', 'ARCHIVE'],
-      ['/maxarchive.html', 'MAX ARCHIVE'],
-      ['/maxprints.html', 'MAX PRINTS'],
-      ['/maxlists.html', 'MAX LISTS'],
       ['/ourodds.html', 'PRICE'],
     ]],
     ['ANGLES', [
