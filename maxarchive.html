@@ -250,7 +250,7 @@
     return { d2: x.d2, p: x.p, html: html2, mp: tileMp, pctMax: tilePctMax, pctMin: tilePctMin }; });
 
   let mode = 'day';
-  let bestReady = false, bestGlobal = null, lowMxG = null, lowMxToday = null; const bestByDay = {};
+  let bestReady = false, bestGlobal = null, lowMxG = null, lowMxToday = null, clsTally = null; const bestByDay = {};
   const sortBar = () => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px">${[['day','DAY ORDER'],['asc','MP LOW\u2192HIGH'],['desc','MP HIGH\u2192LOW'],['pctdesc','MP% HIGH\u2192LOW'],['pctasc','MP% LOW\u2192HIGH']].map(([m2, lbl]) => `<button onclick="__maxSort('${m2}')" style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:4px 10px;border-radius:999px;border:1px solid ${mode === m2 ? 'var(--gold)' : 'var(--line)'};background:none;color:${mode === m2 ? 'var(--gold)' : 'var(--dim)'}">${lbl}</button>`).join('')}</div>`;
   const render = () => {
     let body;
@@ -271,12 +271,18 @@
             if (reg.d2 === ukd) { lowMxT.n++; if (won2) lowMxT.w++; } } }); });
       const pick2 = (t2) => { const es = Object.entries(t2).filter(([, g]) => g.n >= 3).map(([lbl, g]) => ({ lbl, pc: g.w / g.n * 100, g })).sort((a, b2) => b2.pc - a.pc); return es[0] || null; };
       bestGlobal = pick2(tally); lowMxG = lowMx.n ? lowMx : null; lowMxToday = lowMxT.n ? lowMxT : null;
+      clsTally = { d: { n: 0, w: 0 }, u: { n: 0, w: 0 } };
+      const feed2 = [];
+      if (arch) Object.values(arch).forEach(arr => (arr || []).forEach(p => feed2.push(p)));
+      if (st && st.prints) st.prints.forEach(p => feed2.push(p));
+      feed2.forEach(p => { if (!p.w) return; (p.picks || []).forEach(x => { if (x.c === 'd' || x.c === 'u') { const g = clsTally[x.c]; g.n++; if (hn(x.h) === hn(p.w)) g.w++; } }); });
       Object.entries(dayTally).forEach(([d3, t2]) => { bestByDay[d3] = pick2(t2); });
       bestReady = true;
     }
     const bestChip = bestGlobal ? `<span class="chip" style="color:var(--gold);border-color:var(--gold)">top signal ${bestGlobal.lbl} ${bestGlobal.pc.toFixed(0)}% (${bestGlobal.g.w}/${bestGlobal.g.n})</span>` : '';
     const lowChip = (g, lbl2) => g ? `<span class="chip" style="color:#3EE6B1;border-color:rgba(62,230,177,.5)">${lbl2} ${g.w}/${g.n} (${Math.round(g.w / g.n * 100)}%)</span>` : '';
     const lowMxChip = lowChip(lowMxToday, 'low MX today') + lowChip(lowMxG, 'low MX all time');
+    const clsChip = clsTally && (clsTally.d.n + clsTally.u.n) ? `<span class="chip"><b style="color:var(--green)">\u25bc class droppers ${clsTally.d.w}/${clsTally.d.n}${clsTally.d.n ? ` (${Math.round(clsTally.d.w / clsTally.d.n * 100)}%)` : ''}</b> \u00b7 <b style="color:var(--red)">\u25b2 up ${clsTally.u.w}/${clsTally.u.n}</b></span>` : '';
     if (mode === 'day') {
       body = days.map(d2 => { const arr = tiles.filter(x => x.d2 === d2);
         const res = arr.filter(x => x.p.w).length, hits = arr.filter(x => x.p.hit).length;
@@ -291,7 +297,7 @@
         return mode === 'asc' || mode === 'desc' ? ` \u00b7 MP ${v}` : ` \u00b7 MP% ${v > 0 ? '+' : ''}${v}%`; };
       body = sorted.map(x => `<div style="font-family:var(--mono);font-size:9.5px;color:var(--faint);margin:10px 0 -8px">${x.d2}${keyLbl(x)}</div>${x.html}`).join('');
     }
-    $('app').innerHTML = chips.replace('</div>', bestChip + lowMxChip + '</div>') + sortBar() + body;
+    $('app').innerHTML = chips.replace('</div>', bestChip + lowMxChip + clsChip + '</div>') + sortBar() + body;
     const jm = document.querySelector('.jump');
     if (jm) jm.addEventListener('click', (ev) => {
       const a = ev.target.closest('a'); if (!a) return;
