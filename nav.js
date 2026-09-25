@@ -16,6 +16,9 @@
       ['/maxlists.html', 'MAX LISTS'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
+    ['CALCS', [
+      ['/calcs1.html', 'CALCS 1'],
+    ]],
     ['RECORD', [
       ['/daychart.html', 'DAY'],
       ['/freqyear.html', 'YEAR'],
