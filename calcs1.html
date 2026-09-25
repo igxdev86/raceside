@@ -162,7 +162,10 @@
       const k = rkz(r.t, r.course);
       (rmap[k] = rmap[k] || { k, t: tK(r.t), course: r.course, rs: [] }).rs.push({ h: r.h, num: r.num || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null });
     });
-    upList = Object.values(rmap).filter(rc => rc.rs.length >= 3 && t2m(rc.t) > nowMin).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    upList = Object.values(rmap).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    const resultedK = new Set(tiles.map(x => x.p.k));
+    upList.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+    upList = upList.filter(rc => !resultedK.has(rc.k));
   } catch {}
   const bestLbl = (() => { const es = FORMULAS.map(([lbl], fi) => ({ lbl, ...tally[fi], avg: tally[fi].n ? tally[fi].rksum / tally[fi].n : null })).filter(x => x.n >= 3).sort((a, b2) => a.avg - b2.avg); return es.length ? es[0].lbl : null; })();
   const sugHtml = upList.map(rc => {
@@ -174,9 +177,9 @@
     const counts = {}; named.forEach(x => { const k2 = hn(x.q.r.h); counts[k2] = (counts[k2] || 0) + 1; });
     const consEntry = Object.entries(counts).sort((a, b2) => b2[1] - a[1])[0];
     const consName = consEntry && consEntry[1] >= 3 ? named.find(x => hn(x.q.r.h) === consEntry[0]).q.r.h : null;
-    return `<div class="tile"><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b><span class="rk">to run${consName ? ` \u00b7 <b>consensus ${consEntry[1]}/5: ${consName}</b>` : ''}</span></div>${named.map(x => `<div class="frow"><span style="color:${bestLbl === x.lbl ? 'var(--gold)' : 'var(--dim)'}">${x.lbl}${bestLbl === x.lbl ? ' \u2605' : ''}</span><span><b style="color:var(--ink)">${x.q.r.num ? x.q.r.num + ' ' : ''}${x.q.r.h}</b> <small style="color:var(--faint)">@ ${x.q.d != null ? x.q.d : '\u2014'}</small></span></div>`).join('')}</div>`;
+    return `<div class="tile"${rc.gone ? ' style="opacity:.8"' : ''}><div class="hd"><b>${rc.t} ${String(rc.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</b><span class="rk">${rc.gone ? '<span style="color:var(--red)">OFF \u00b7 frozen</span>' : 'to run'}${consName ? ` \u00b7 <b>consensus ${consEntry[1]}/5: ${consName}</b>` : ''}</span></div>${named.map(x => `<div class="frow"><span style="color:${bestLbl === x.lbl ? 'var(--gold)' : 'var(--dim)'}">${x.lbl}${bestLbl === x.lbl ? ' \u2605' : ''}</span><span><b style="color:var(--ink)">${x.q.r.num ? x.q.r.num + ' ' : ''}${x.q.r.h}</b> <small style="color:var(--faint)">@ ${x.q.d != null ? x.q.d : '\u2014'}</small></span></div>`).join('')}</div>`;
   }).join('');
-  const sugBlock = upList.length ? `<div class="hd" style="margin-top:16px"><b>NEXT RACES \u00b7 each formula\u2019s pick</b><span class="rk">${bestLbl ? `\u2605 = today\u2019s board leader ${bestLbl}` : 'no board yet \u2014 unranked'}</span></div>` + sugHtml : '';
+  const sugBlock = upList.length ? `<div class="hd" style="margin-top:16px"><b>TODAY\u2019S RACES \u00b7 each formula\u2019s pick</b><span class="rk">${bestLbl ? `\u2605 = today\u2019s board leader ${bestLbl}` : 'no board yet \u2014 unranked'}</span></div>` + sugHtml : '';
 
   if (!tiles.length) { $('app').innerHTML = (upList.length ? '<div style="padding:10px 0;color:var(--dim);font-size:12px">no resulted races yet today \u2014 board builds as results land.</div>' + sugBlock : null) || $('app').innerHTML; if (upList.length) return; }
   if (!tiles.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no resulted races with full fields yet today \u2014 come back after the first results land.</div>'; return; }
