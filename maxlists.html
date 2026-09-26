@@ -47,6 +47,8 @@
   .sl .nm3{flex:none;font-weight:700;font-size:10.5px;color:var(--ink);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sl .ds{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sl.lmatch{background:#FFF9E3;box-shadow:inset 2px 0 0 #E4C65A;border-radius:4px}
+  .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
+  .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
 </style>
 </head>
 <body>
@@ -237,7 +239,7 @@
       const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = '';
       const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
-      const row = { t: p.t, course: p.course, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const row = { t: p.t, course: p.course, k: p.k, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
       if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
       { const ors = runners.filter(q => Number(q.r.ofr) > 0);
         if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
@@ -278,6 +280,10 @@
   await Promise.all([1, 2, 3, 4].map(worker));
   listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
   const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').toUpperCase();
+  const winOf = {};
+  if (st && st.prints) st.prints.forEach(p => { if ((p.day || ukd) === ukd && p.w) winOf[p.k] = hn(p.w); });
+  listRows.forEach(x => { x.w = winOf[x.k] || null;
+    if (x.w) x.hit = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).some(q => hn(q.r.h) === x.w); });
   let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
   const nextVals = {};
   const arw = (cur, prev) => { if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || cur === prev) return '';
@@ -299,8 +305,8 @@
     return `MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
-    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
-  const rowsHtml = listRows.map((x, i3) => `<div class="rrow" id="ml-${i3}"${x.gone ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.gone ? 'var(--red)' : 'var(--faint)'}">${x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>`
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+  const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
