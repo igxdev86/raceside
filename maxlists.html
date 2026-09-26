@@ -80,9 +80,10 @@
     const k = rkz(r.t, r.course);
     (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
-  const list = Object.values(races).filter(rc => rc.rs.length >= 3 && t2m(rc.t) > nowMin).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
   if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
-  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, picks: [], _rs: rc.rs })) };
+  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, gone: rc.gone, picks: [], _rs: rc.rs })) };
   const days = [ukd];
 
   // ---- history: tag + XS1-rank win rates from stored prints ----
@@ -235,7 +236,7 @@
       const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = '';
       const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
-      const row = { t: p.t, course: p.course, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const row = { t: p.t, course: p.course, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
       if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
       { const ors = runners.filter(q => Number(q.r.ofr) > 0);
         if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
@@ -293,7 +294,7 @@
     const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
     const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
     return `<br><span class="st">MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''}</span><br>@ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
-  const miniT = (x, id2, inner, m2) => `<div class="mini${m2 ? ' match' : ''}"${id2 ? ` id="${id2}"` : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}</span>${inner}</div>`;
+  const miniT = (x, id2, inner, m2) => `<div class="mini${m2 ? ' match' : ''}"${id2 ? ` id="${id2}"` : ''}${x.gone ? ' style="opacity:.72"' : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}${x.gone ? ' <b style="color:var(--red)">OFF</b>' : ''}</span>${inner}</div>`;
   const col = (hd, cells) => `<div><div class="colhd">${hd}</div>${cells.join('') || '<div class="mini" style="color:var(--faint)">\u2014</div>'}</div>`;
   const colMX = col('LOW MX', listRows.map((x, i3) => { if (!x.q) return ''; const q = x.q;
     const pv = snap(x, 'mx', q, null);
@@ -311,12 +312,12 @@
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
   try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
-  const listHd = `<div class="dayhd"><span>4 LISTS \u00b7 LOW MX / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.length} races \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
+  const listHd = `<div class="dayhd"><span>4 LISTS \u00b7 LOW MX / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.filter(x => !x.gone).length} to run \u00b7 ${listRows.filter(x => x.gone).length} frozen \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
   const nextSeen = {};
   const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { if (!x.q) return ''; const kk = (x.t + '|' + String(x.course)).toLowerCase();
     const fp = hn(x.q.r.h); nextSeen[kk] = fp;
     const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
-    return `<a href="#ml-${i3}"><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
+    return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
   try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
   $('app').innerHTML = chips + quick + listHd + rowsHtml;
