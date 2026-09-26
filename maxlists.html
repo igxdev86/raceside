@@ -39,13 +39,14 @@
   .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
   .jump a{position:relative}
   .jump a .ndot{position:absolute;top:-2px;right:-1px;width:7px;height:7px;border-radius:99px;background:#22C55E;border:1.5px solid var(--bg)}
-  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:start}
-  .colhd{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--faint);margin:2px 0 5px;text-transform:uppercase}
-  .mini{background:var(--tile);border:1px solid var(--line);border-radius:8px;padding:5px 6px;margin:0 0 6px;font-family:var(--mono);font-size:9px;line-height:1.45;color:var(--dim);scroll-margin-top:52px}
-  .mini .tt{color:var(--faint);font-size:8.5px}
-  .mini .nm2{display:block;font-weight:700;font-size:9.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .mini .st{color:var(--ink)}
-  .mini.match{background:#FFF9E3;border-color:#E4C65A;box-shadow:0 0 9px rgba(228,198,90,.55)}
+  .rrow{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin:0 0 9px;scroll-margin-top:52px}
+  .rrow .rhd{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink);margin-bottom:4px}
+  .sl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:10px;color:var(--dim);padding:3.5px 2px;border-bottom:1px solid var(--line)}
+  .sl:last-child{border-bottom:0}
+  .sl .lb{flex:none;width:52px;font-size:8.5px;letter-spacing:.06em;color:var(--faint)}
+  .sl .nm3{flex:none;font-weight:700;font-size:10.5px;color:var(--ink);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sl .ds{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sl.lmatch{background:#FFF9E3;box-shadow:inset 2px 0 0 #E4C65A;border-radius:4px}
 </style>
 </head>
 <body>
@@ -243,9 +244,11 @@
       { const cbs = runners.map(q => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
           return pr2 && pr2.r >= 10 ? { q, pc: pr2.w / pr2.r * 100, pr: pr2 } : null; }).filter(Boolean);
         if (cbs.length) { cbs.sort((a, b2) => b2.pc - a.pc || b2.pr.r - a.pr.r); row.cb = cbs[0]; } }
+      { const pts2 = runners.filter(q => q.s.pts > 0);
+        if (pts2.length >= 2) { pts2.sort((a, b2) => b2.s.pts - a.s.pts); row.tp = pts2[0]; } }
       { const mps = runners.filter(q => q.pct != null);
         if (mps.length >= 2) { mps.sort((a, b2) => a.pct - b2.pct); row.mpp = mps[0]; } }
-      if (row.q || row.or || row.cb || row.mpp) listRows.push(row);
+      if (row.q || row.or || row.cb || row.mpp || row.tp) listRows.push(row);
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
@@ -262,7 +265,7 @@
   listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
   // class move for every selected runner, all four lists, deduped by hid
   const selUniq = new Map();
-  listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).forEach(q => {
+  listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).forEach(q => {
     if (q.r.hid && x.rcls != null && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls }); }));
   const jobs = [...selUniq.values()]; let ji = 0;
   const worker = async () => { while (ji < jobs.length) { const { q, rcls } = jobs[ji++]; try {
@@ -274,10 +277,7 @@
   } catch {} } };
   await Promise.all([1, 2, 3, 4].map(worker));
   listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
-  const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
-  listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).map(q => hn(q.r.h));
-    const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
-    x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').toUpperCase();
   let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
   const nextVals = {};
   const arw = (cur, prev) => { if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || cur === prev) return '';
@@ -290,29 +290,27 @@
     const prev = valsMap[kk2];
     return prev && prev.h === cur.h ? prev : null; };
   const clsBadge = (q) => q.cls2 ? ` <b style="color:${q.cls2.dir === 'down' ? 'var(--green)' : q.cls2.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls2.dir === 'down' ? '\u25bc' : q.cls2.dir === 'up' ? '\u25b2' : '='}C${q.cls2.last}\u2192${q.cls2.now}</b>` : '';
-  const statTail = (q, pv) => { const d3 = Number(q.r.d);
+  listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).map(q => hn(q.r.h));
+    const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
+    x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  const statBits = (q, pv) => { const d3 = Number(q.r.d);
     const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
     const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
-    return `<br><span class="st">MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''}</span><br>@ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
-  const miniT = (x, id2, inner, m2) => `<div class="mini${m2 ? ' match' : ''}"${id2 ? ` id="${id2}"` : ''}${x.gone ? ' style="opacity:.72"' : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}${x.gone ? ' <b style="color:var(--red)">OFF</b>' : ''}</span>${inner}</div>`;
-  const col = (hd, cells) => `<div><div class="colhd">${hd}</div>${cells.join('') || '<div class="mini" style="color:var(--faint)">\u2014</div>'}</div>`;
-  const colMX = col('LOW MX', listRows.map((x, i3) => { if (!x.q) return ''; const q = x.q;
-    const pv = snap(x, 'mx', q, null);
-    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
-  const colOR = col('TOP OR', listRows.map(x => { if (!x.or) return ''; const q = x.or;
-    const pv = snap(x, 'or', q, Number(q.r.ofr) || null);
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}${pv ? arw(Number(q.r.ofr) || null, pv.x1) : ''}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
-  const colCB = col('TOP COMBO', listRows.map(x => { if (!x.cb) return ''; const q = x.cb.q;
-    const pv = snap(x, 'cb', q, Math.round(x.cb.pc));
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
-  const colMP = col('LOW MP%', listRows.map(x => { if (!x.mpp) return ''; const q = x.mpp;
-    const pv = snap(x, 'mpp', q, q.pct);
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>${pv ? arw(q.pct, pv.x1) : ''} MP ${Math.round(q.mp * 10) / 10}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
-  const rowsHtml = `<div class="board">${colMX}${colOR}${colCB}${colMP}</div>`;
+    return `MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
+  const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
+    const pv = snap(x, colK, q, extra != null ? extra : null);
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+  const rowsHtml = listRows.map((x, i3) => `<div class="rrow" id="ml-${i3}"${x.gone ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.gone ? 'var(--red)' : 'var(--faint)'}">${x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>`
+    + selLine(x, 'LOW MX', 'mx', x.q, null)
+    + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
+    + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
+    + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
+    + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
+    + `</div>`).join('');
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
   try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
-  const listHd = `<div class="dayhd"><span>4 LISTS \u00b7 LOW MX / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.filter(x => !x.gone).length} to run \u00b7 ${listRows.filter(x => x.gone).length} frozen \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
+  const listHd = `<div class="dayhd"><span>5 LISTS \u00b7 LOW MX / TOP PTS / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.filter(x => !x.gone).length} to run \u00b7 ${listRows.filter(x => x.gone).length} frozen \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
   const nextSeen = {};
   const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { if (!x.q) return ''; const kk = (x.t + '|' + String(x.course)).toLowerCase();
     const fp = hn(x.q.r.h); nextSeen[kk] = fp;
