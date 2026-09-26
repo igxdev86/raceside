@@ -67,7 +67,7 @@
   // today's still-to-run races from the live feed; the cut-off is the off time
   let up = null;
   try { up = await (await fetch('/api/upcoming')).json(); } catch {}
-  const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
   const races = {};
   if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
@@ -292,7 +292,7 @@
       const fp = fpOf(rc, tid3); nextSeen[tid3] = fp;
       const changed = Object.prototype.hasOwnProperty.call(seenMap, tid3) && seenMap[tid3] !== fp;
       return `<a href="#t-${tid3}"${rc.gone ? ' style="opacity:.55"' : ''}><b>${rc.t}</b> ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>`;
-    const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     try { localStorage.setItem('rsSeen:maxprints', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
     $('app').innerHTML = chips + jump + sortBar() + body;
     { const uc = document.getElementById('upd-chip'); if (uc) uc.textContent = 'prices @ ' + lonHM + (lastVisit ? ' \u00b7 last visit ' + lastVisit : ''); }
