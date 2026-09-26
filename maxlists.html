@@ -39,6 +39,12 @@
   .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
   .jump a{position:relative}
   .jump a .ndot{position:absolute;top:-2px;right:-1px;width:7px;height:7px;border-radius:99px;background:#22C55E;border:1.5px solid var(--bg)}
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:start}
+  .colhd{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--faint);margin:2px 0 5px;text-transform:uppercase}
+  .mini{background:var(--tile);border:1px solid var(--line);border-radius:8px;padding:5px 6px;margin:0 0 6px;font-family:var(--mono);font-size:9px;line-height:1.45;color:var(--dim);scroll-margin-top:52px}
+  .mini .tt{color:var(--faint);font-size:8.5px}
+  .mini .nm2{display:block;font-weight:700;font-size:9.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .st{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -228,8 +234,16 @@
       const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = '';
       const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
-      if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx);
-        listRows.push({ t: p.t, course: p.course, q: valued[0].q, mx: valued[0].mx, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() }); }
+      const row = { t: p.t, course: p.course, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
+      { const ors = runners.filter(q => Number(q.r.ofr) > 0);
+        if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
+      { const cbs = runners.map(q => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
+          return pr2 && pr2.r >= 10 ? { q, pc: pr2.w / pr2.r * 100, pr: pr2 } : null; }).filter(Boolean);
+        if (cbs.length) { cbs.sort((a, b2) => b2.pc - a.pc || b2.pr.r - a.pr.r); row.cb = cbs[0]; } }
+      { const mps = runners.filter(q => q.pct != null);
+        if (mps.length >= 2) { mps.sort((a, b2) => a.pct - b2.pct); row.mpp = mps[0]; } }
+      if (row.q || row.or || row.cb || row.mpp) listRows.push(row);
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
     }
@@ -246,7 +260,7 @@
   listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
   // class move per selection: last-run class vs today's
   await Promise.all(listRows.map(async (x) => { try {
-    if (!x.q.r.hid || x.rcls == null) { x.clsMiss = true; return; }
+    if (!x.q || !x.q.r.hid || x.rcls == null) { x.clsMiss = true; return; }
     const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(x.q.r.hid))).json();
     const runs = (j && j.runs) || [];
     const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
@@ -254,14 +268,25 @@
     if (last) x.cls = { last: last.cls, now: x.rcls, dir: last.cls < x.rcls ? 'down' : last.cls > x.rcls ? 'up' : 'same' };
     else x.clsMiss = true;
   } catch { x.clsMiss = true; } }));
-  const rowsHtml = listRows.map((x, i3) => { const q = x.q;
-    return `<div class="tile" id="ml-${i3}" style="padding:9px 14px;scroll-margin-top:52px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span><span style="font-family:var(--mono);color:#FFFFFF;font-size:13px"><b>${x.t}</b> ${String(x.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span><br>${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span><br><span class="tags" style="color:var(--dim)">${[q.r.jockey, q.r.trainer].filter(Boolean).join(' \u00b7 ')}${(() => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid]; return pr2 && pr2.r >= 10 ? ` \u00b7 <b style="color:var(--gold)">combo ${Math.round(pr2.w / pr2.r * 100)}%</b> <small style="color:var(--faint)">(${pr2.w}/${pr2.r})</small>` : ''; })()}</span><span class="mx">MX ${Math.round(x.mx)}</span><span class="sig">\u03a3 ${q.sig}%</span>${x.cls ? `<span class="tags"><b style="color:${x.cls.dir === 'down' ? 'var(--green)' : x.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${x.cls.dir === 'down' ? '\u25bc DOWN' : x.cls.dir === 'up' ? '\u25b2 UP' : '='} C${x.cls.last}\u2192C${x.cls.now}</b></span>` : x.clsMiss ? `<span class="tags" style="color:var(--faint)">class: n/a</span>` : ''}</span><span class="right" style="font-family:var(--mono);text-align:right;color:#FFFFFF;font-size:12.5px"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;color:var(--dim)">XS1 ${q.xv}</span>` : ''}</span></div></div>`; }).join('');
+  const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
+  const miniT = (x, id2, inner) => `<div class="mini"${id2 ? ` id="${id2}"` : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}</span>${inner}</div>`;
+  const col = (hd, cells) => `<div><div class="colhd">${hd}</div>${cells.join('') || '<div class="mini" style="color:var(--faint)">\u2014</div>'}</div>`;
+  const colMX = col('LOW MX', listRows.map((x, i3) => { if (!x.q) return ''; const q = x.q;
+    const cls2 = x.cls ? ` <b style="color:${x.cls.dir === 'down' ? 'var(--green)' : x.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${x.cls.dir === 'down' ? '\u25bc' : x.cls.dir === 'up' ? '\u25b2' : '='}C${x.cls.last}\u2192${x.cls.now}</b>` : '';
+    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">MX ${Math.round(x.mx)} \u00b7 \u03a3 ${q.sig}%</span><br>@ ${q.r.d != null ? q.r.d : '\u2014'}${q.mp != null ? ` \u00b7 MP ${Math.round(q.mp * 10) / 10}` : ''}${cls2}`); }).filter(Boolean));
+  const colOR = col('TOP OR', listRows.map(x => { if (!x.or) return ''; const q = x.or;
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}</span> \u00b7 @ ${q.r.d != null ? q.r.d : '\u2014'}`); }).filter(Boolean));
+  const colCB = col('TOP COMBO', listRows.map(x => { if (!x.cb) return ''; const q = x.cb.q;
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small><br>@ ${q.r.d != null ? q.r.d : '\u2014'}`); }).filter(Boolean));
+  const colMP = col('LOW MP%', listRows.map(x => { if (!x.mpp) return ''; const q = x.mpp;
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b> MP ${Math.round(q.mp * 10) / 10}</span> \u00b7 @ ${q.r.d != null ? q.r.d : '\u2014'}`); }).filter(Boolean));
+  const rowsHtml = `<div class="board">${colMX}${colOR}${colCB}${colMP}</div>`;
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
   try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
-  const listHd = `<div class="dayhd"><span>LOW MX \u00b7 each race\u2019s lowest</span><small>${listRows.length} selections \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
+  const listHd = `<div class="dayhd"><span>4 LISTS \u00b7 LOW MX / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.length} races \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
   const nextSeen = {};
-  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { const kk = (x.t + '|' + String(x.course)).toLowerCase();
+  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { if (!x.q) return ''; const kk = (x.t + '|' + String(x.course)).toLowerCase();
     const fp = hn(x.q.r.h); nextSeen[kk] = fp;
     const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
     return `<a href="#ml-${i3}"><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
