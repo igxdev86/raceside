@@ -84,9 +84,10 @@
   // ---- history: tag + XS1-rank win rates from stored prints ----
   const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
   const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
-  const histPrints = [];
-  if (arch) Object.values(arch).forEach(arr => (arr || []).forEach(p => histPrints.push(p)));
-  if (st && st.prints) st.prints.forEach(p => histPrints.push(p));
+  const histPrints = []; const seenH = new Set();
+  const addH = (day2, p) => { const kk = (day2 || '') + '|' + p.k; if (seenH.has(kk)) return; seenH.add(kk); histPrints.push(p); };
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => (arr || []).forEach(p => addH(d2, p)));
+  if (st && st.prints) st.prints.forEach(p => addH(p.day || ukd, p));
   [histPrints].forEach(hp => hp.forEach(p => { if (!p.w || !(p.picks || []).length) return;
     p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
       (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } });
