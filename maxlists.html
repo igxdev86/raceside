@@ -37,6 +37,8 @@
   .dayhd small{color:var(--faint);letter-spacing:0}
   .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
+  .jump a{position:relative}
+  .jump a .ndot{position:absolute;top:-2px;right:-1px;width:7px;height:7px;border-radius:99px;background:#22C55E;border:1.5px solid var(--bg)}
 </style>
 </head>
 <body>
@@ -255,7 +257,13 @@
   const rowsHtml = listRows.map((x, i3) => { const q = x.q;
     return `<div class="tile" id="ml-${i3}" style="padding:9px 14px;scroll-margin-top:52px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span><span style="font-family:var(--mono);color:#FFFFFF;font-size:13px"><b>${x.t}</b> ${String(x.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span><br>${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span><br><span class="tags" style="color:var(--dim)">${[q.r.jockey, q.r.trainer].filter(Boolean).join(' \u00b7 ')}${(() => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid]; return pr2 && pr2.r >= 10 ? ` \u00b7 <b style="color:var(--gold)">combo ${Math.round(pr2.w / pr2.r * 100)}%</b> <small style="color:var(--faint)">(${pr2.w}/${pr2.r})</small>` : ''; })()}</span><span class="mx">MX ${Math.round(x.mx)}</span><span class="sig">\u03a3 ${q.sig}%</span>${x.cls ? `<span class="tags"><b style="color:${x.cls.dir === 'down' ? 'var(--green)' : x.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${x.cls.dir === 'down' ? '\u25bc DOWN' : x.cls.dir === 'up' ? '\u25b2 UP' : '='} C${x.cls.last}\u2192C${x.cls.now}</b></span>` : x.clsMiss ? `<span class="tags" style="color:var(--faint)">class: n/a</span>` : ''}</span><span class="right" style="font-family:var(--mono);text-align:right;color:#FFFFFF;font-size:12.5px"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;color:var(--dim)">XS1 ${q.xv}</span>` : ''}</span></div></div>`; }).join('');
   const listHd = `<div class="dayhd"><span>LOW MX \u00b7 each race\u2019s lowest</span><small>${listRows.length} selections</small></div>`;
-  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => `<a href="#ml-${i3}"><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}</a>`).join('')}</div>` : '';
+  let seenMap = {}; try { seenMap = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); } catch {}
+  const nextSeen = {};
+  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { const kk = (x.t + '|' + String(x.course)).toLowerCase();
+    const fp = hn(x.q.r.h); nextSeen[kk] = fp;
+    const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
+    return `<a href="#ml-${i3}"><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
+  try { localStorage.setItem('rsSeen:maxlists', JSON.stringify(nextSeen)); } catch {}
   $('app').innerHTML = chips + quick + listHd + rowsHtml;
   const jm2 = document.querySelector('.jump');
   if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
