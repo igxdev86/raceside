@@ -259,31 +259,37 @@
 
   buildTiles('day');   // populates listRows via the shared pipeline
   listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
-  // class move per selection: last-run class vs today's
-  await Promise.all(listRows.map(async (x) => { try {
-    if (!x.q || !x.q.r.hid || x.rcls == null) { x.clsMiss = true; return; }
-    const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(x.q.r.hid))).json();
+  // class move for every selected runner, all four lists, deduped by hid
+  const selUniq = new Map();
+  listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).forEach(q => {
+    if (q.r.hid && x.rcls != null && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls }); }));
+  const jobs = [...selUniq.values()]; let ji = 0;
+  const worker = async () => { while (ji < jobs.length) { const { q, rcls } = jobs[ji++]; try {
+    const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
     const runs = (j && j.runs) || [];
     const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
     const last = sorted2.find(r2 => typeof r2.cls === 'number');
-    if (last) x.cls = { last: last.cls, now: x.rcls, dir: last.cls < x.rcls ? 'down' : last.cls > x.rcls ? 'up' : 'same' };
-    else x.clsMiss = true;
-  } catch { x.clsMiss = true; } }));
+    if (last) q.cls2 = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+  } catch {} } };
+  await Promise.all([1, 2, 3, 4].map(worker));
+  listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
   const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
   listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).map(q => hn(q.r.h));
     const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
     x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  const clsBadge = (q) => q.cls2 ? ` <b style="color:${q.cls2.dir === 'down' ? 'var(--green)' : q.cls2.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls2.dir === 'down' ? '\u25bc' : q.cls2.dir === 'up' ? '\u25b2' : '='}C${q.cls2.last}\u2192${q.cls2.now}</b>` : '';
+  const statTail = (q) => { const d3 = Number(q.r.d);
+    return `<br><span class="st">MX ${q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : '\u2014'} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}</span><br>@ ${d3 > 0 ? d3 : '\u2014'}${q.mp != null ? ` \u00b7 MP ${Math.round(q.mp * 10) / 10}` : ''}${clsBadge(q)}`; };
   const miniT = (x, id2, inner, m2) => `<div class="mini${m2 ? ' match' : ''}"${id2 ? ` id="${id2}"` : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}</span>${inner}</div>`;
   const col = (hd, cells) => `<div><div class="colhd">${hd}</div>${cells.join('') || '<div class="mini" style="color:var(--faint)">\u2014</div>'}</div>`;
   const colMX = col('LOW MX', listRows.map((x, i3) => { if (!x.q) return ''; const q = x.q;
-    const cls2 = x.cls ? ` <b style="color:${x.cls.dir === 'down' ? 'var(--green)' : x.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${x.cls.dir === 'down' ? '\u25bc' : x.cls.dir === 'up' ? '\u25b2' : '='}C${x.cls.last}\u2192${x.cls.now}</b>` : '';
-    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">MX ${Math.round(x.mx)} \u00b7 \u03a3 ${q.sig}%</span><br>@ ${q.r.d != null ? q.r.d : '\u2014'}${q.mp != null ? ` \u00b7 MP ${Math.round(q.mp * 10) / 10}` : ''}${cls2}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colOR = col('TOP OR', listRows.map(x => { if (!x.or) return ''; const q = x.or;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}</span> \u00b7 @ ${q.r.d != null ? q.r.d : '\u2014'}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colCB = col('TOP COMBO', listRows.map(x => { if (!x.cb) return ''; const q = x.cb.q;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small><br>@ ${q.r.d != null ? q.r.d : '\u2014'}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colMP = col('LOW MP%', listRows.map(x => { if (!x.mpp) return ''; const q = x.mpp;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b> MP ${Math.round(q.mp * 10) / 10}</span> \u00b7 @ ${q.r.d != null ? q.r.d : '\u2014'}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b> MP ${Math.round(q.mp * 10) / 10}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const rowsHtml = `<div class="board">${colMX}${colOR}${colCB}${colMP}</div>`;
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
