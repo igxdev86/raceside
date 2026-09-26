@@ -148,7 +148,7 @@
   const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
 
   const toRun = list.filter(rc => !rc.gone);
-  const chips = `<div style="margin:10px 0 2px"><span class="chip">${toRun.length} to run</span><span class="chip">${list.length - toRun.length} run \u00b7 frozen</span>${toRun.length ? `<span class="chip">next off ${toRun[0].t} ${String(toRun[0].course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span>` : ''}</div>`;
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${toRun.length} to run</span><span class="chip">${list.length - toRun.length} run \u00b7 frozen</span>${toRun.length ? `<span class="chip">next off ${toRun[0].t} ${String(toRun[0].course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span>` : ''}<span class="chip" id="upd-chip"></span></div>`;
 
   const tileReg = {};
   const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
@@ -282,7 +282,8 @@
         return mode === 'asc' || mode === 'desc' ? ` \u00b7 MP ${v}` : ` \u00b7 MP% ${v > 0 ? '+' : ''}${v}%`; };
       body = sorted.map(x => `<div style="font-family:var(--mono);font-size:9.5px;color:var(--faint);margin:10px 0 -8px">${x.d2}${keyLbl(x)}</div>${x.html}`).join('');
     }
-    let seenMap = {}; try { seenMap = JSON.parse(localStorage.getItem('rsSeen:maxprints') || '{}'); } catch {}
+    let seenMap = {}, lastVisit = null;
+    try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxprints') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
     const fpOf = (rc, tid3) => { const reg = tileReg[tid3]; const ml = reg && reg.runners ? reg.runners.find(q => q.isML) : null;
       const tp = todayPrint[rc.k];
       return `${tp && tp.w ? tp.w : ''}|${ml ? hn(ml.r.h) : ''}`; };
@@ -291,8 +292,10 @@
       const fp = fpOf(rc, tid3); nextSeen[tid3] = fp;
       const changed = Object.prototype.hasOwnProperty.call(seenMap, tid3) && seenMap[tid3] !== fp;
       return `<a href="#t-${tid3}"${rc.gone ? ' style="opacity:.55"' : ''}><b>${rc.t}</b> ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>`;
-    try { localStorage.setItem('rsSeen:maxprints', JSON.stringify(nextSeen)); } catch {}
+    const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    try { localStorage.setItem('rsSeen:maxprints', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
     $('app').innerHTML = chips + jump + sortBar() + body;
+    { const uc = document.getElementById('upd-chip'); if (uc) uc.textContent = 'prices @ ' + lonHM + (lastVisit ? ' \u00b7 last visit ' + lastVisit : ''); }
     const jm = document.querySelector('.jump');
     if (jm) jm.addEventListener('click', (ev) => {
       const a = ev.target.closest('a'); if (!a) return;
