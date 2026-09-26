@@ -299,7 +299,7 @@
         return mode === 'asc' || mode === 'desc' ? ` \u00b7 MP ${v}` : ` \u00b7 MP% ${v > 0 ? '+' : ''}${v}%`; };
       body = sorted.map(x => `<div style="font-family:var(--mono);font-size:9.5px;color:var(--faint);margin:10px 0 -8px">${x.d2}${keyLbl(x)}</div>${x.html}`).join('');
     }
-    $('app').innerHTML = chips.replace('</div>', bestChip + lowMxChip + clsChip + '</div>') + sortBar() + body;
+    $('app').innerHTML = chips.replace('</div>', bestChip + lowMxChip + clsChip + `<span class="chip">built ${new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())}</span></div>`) + sortBar() + body;
     const jm = document.querySelector('.jump');
     if (jm) jm.addEventListener('click', (ev) => {
       const a = ev.target.closest('a'); if (!a) return;
