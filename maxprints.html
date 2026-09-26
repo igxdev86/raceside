@@ -38,6 +38,8 @@
   .dayhd small{color:var(--faint);letter-spacing:0}
   .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
+  .jump a{position:relative}
+  .jump a .ndot{position:absolute;top:-2px;right:-1px;width:7px;height:7px;border-radius:99px;background:#22C55E;border:1.5px solid var(--bg)}
 </style>
 </head>
 <body>
@@ -280,8 +282,16 @@
         return mode === 'asc' || mode === 'desc' ? ` \u00b7 MP ${v}` : ` \u00b7 MP% ${v > 0 ? '+' : ''}${v}%`; };
       body = sorted.map(x => `<div style="font-family:var(--mono);font-size:9.5px;color:var(--faint);margin:10px 0 -8px">${x.d2}${keyLbl(x)}</div>${x.html}`).join('');
     }
+    let seenMap = {}; try { seenMap = JSON.parse(localStorage.getItem('rsSeen:maxprints') || '{}'); } catch {}
+    const fpOf = (rc, tid3) => { const reg = tileReg[tid3]; const ml = reg && reg.runners ? reg.runners.find(q => q.isML) : null;
+      const tp = todayPrint[rc.k];
+      return `${tp && tp.w ? tp.w : ''}|${ml ? hn(ml.r.h) : ''}`; };
+    const nextSeen = {};
     const jump = `<div class="jump">${list.map(rc => { const tid3 = (ukd + '_' + rc.k).replace(/[^a-z0-9]/gi, '');
-      return `<a href="#t-${tid3}"${rc.gone ? ' style="opacity:.55"' : ''}><b>${rc.t}</b> ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()}</a>`; }).join('')}</div>`;
+      const fp = fpOf(rc, tid3); nextSeen[tid3] = fp;
+      const changed = Object.prototype.hasOwnProperty.call(seenMap, tid3) && seenMap[tid3] !== fp;
+      return `<a href="#t-${tid3}"${rc.gone ? ' style="opacity:.55"' : ''}><b>${rc.t}</b> ${String(rc.course).replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>`;
+    try { localStorage.setItem('rsSeen:maxprints', JSON.stringify(nextSeen)); } catch {}
     $('app').innerHTML = chips + jump + sortBar() + body;
     const jm = document.querySelector('.jump');
     if (jm) jm.addEventListener('click', (ev) => {
