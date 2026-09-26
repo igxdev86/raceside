@@ -277,19 +277,36 @@
   listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).map(q => hn(q.r.h));
     const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
     x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
+  const nextVals = {};
+  const arw = (cur, prev) => { if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || cur === prev) return '';
+    return cur > prev ? '<b style="color:var(--green)">\u25b2</b>' : '<b style="color:var(--red)">\u25bc</b>'; };
+  const snap = (x, colK, q, extra) => { const d3 = Number(q.r.d);
+    const cur = { h: hn(q.r.h), mx: q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null, sig: q.sig != null ? q.sig : null,
+      d: d3 > 0 ? d3 : null, mp: q.mp != null ? Math.round(q.mp * 10) / 10 : null, x1: extra != null ? extra : null };
+    const kk2 = (x.t + '|' + String(x.course) + '|' + colK).toLowerCase();
+    nextVals[kk2] = cur;
+    const prev = valsMap[kk2];
+    return prev && prev.h === cur.h ? prev : null; };
   const clsBadge = (q) => q.cls2 ? ` <b style="color:${q.cls2.dir === 'down' ? 'var(--green)' : q.cls2.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls2.dir === 'down' ? '\u25bc' : q.cls2.dir === 'up' ? '\u25b2' : '='}C${q.cls2.last}\u2192${q.cls2.now}</b>` : '';
-  const statTail = (q) => { const d3 = Number(q.r.d);
-    return `<br><span class="st">MX ${q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : '\u2014'} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}</span><br>@ ${d3 > 0 ? d3 : '\u2014'}${q.mp != null ? ` \u00b7 MP ${Math.round(q.mp * 10) / 10}` : ''}${clsBadge(q)}`; };
+  const statTail = (q, pv) => { const d3 = Number(q.r.d);
+    const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
+    const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
+    return `<br><span class="st">MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''}</span><br>@ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
   const miniT = (x, id2, inner, m2) => `<div class="mini${m2 ? ' match' : ''}"${id2 ? ` id="${id2}"` : ''}><span class="tt"><b>${x.t}</b> ${crs(x.course)}</span>${inner}</div>`;
   const col = (hd, cells) => `<div><div class="colhd">${hd}</div>${cells.join('') || '<div class="mini" style="color:var(--faint)">\u2014</div>'}</div>`;
   const colMX = col('LOW MX', listRows.map((x, i3) => { if (!x.q) return ''; const q = x.q;
-    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    const pv = snap(x, 'mx', q, null);
+    return miniT(x, 'ml-' + i3, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colOR = col('TOP OR', listRows.map(x => { if (!x.or) return ''; const q = x.or;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    const pv = snap(x, 'or', q, Number(q.r.ofr) || null);
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st">OR ${q.r.ofr}${pv ? arw(Number(q.r.ofr) || null, pv.x1) : ''}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colCB = col('TOP COMBO', listRows.map(x => { if (!x.cb) return ''; const q = x.cb.q;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    const pv = snap(x, 'cb', q, Math.round(x.cb.pc));
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st" style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</span> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const colMP = col('LOW MP%', listRows.map(x => { if (!x.mpp) return ''; const q = x.mpp;
-    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b> MP ${Math.round(q.mp * 10) / 10}</span>${statTail(q)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
+    const pv = snap(x, 'mpp', q, q.pct);
+    return miniT(x, null, `<span class="nm2">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="st"><b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>${pv ? arw(q.pct, pv.x1) : ''} MP ${Math.round(q.mp * 10) / 10}</span>${statTail(q, pv)}`, x.matchSet.has(hn(q.r.h))); }).filter(Boolean));
   const rowsHtml = `<div class="board">${colMX}${colOR}${colCB}${colMP}</div>`;
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
@@ -301,6 +318,7 @@
     const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
     return `<a href="#ml-${i3}"><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
+  try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
   $('app').innerHTML = chips + quick + listHd + rowsHtml;
   const jm2 = document.querySelector('.jump');
   if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
