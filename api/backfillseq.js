@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
   let st = null;
   try { const j = await gj('/api/yearstate?k=courseseq:v1'); st = j && j.state ? j.state : null; } catch {}
-  if (!st) st = { trans: {}, heads: {}, cursor: null, oldest: null, races: 0, done: false };
+  if (!st || !st.prof) st = { trans: {}, heads: {}, prof: {}, cursor: null, oldest: null, races: 0, done: false };
   if (st.done) return res.status(200).json({ ok: true, done: true, races: st.races, oldest: st.oldest });
 
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -29,6 +29,11 @@ export default async function handler(req, res) {
   const limit = new Date(today.getTime()); limit.setMonth(limit.getMonth() - MONTHS_BACK);
 
   const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const furl = (v) => { const s = String(v || '');
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm = s.match(/(\d+)m/); if (mm) f += Number(mm[1]) * 8;
+    const ff = s.match(/(\d+)f/); if (ff) f += Number(ff[1]);
+    return f || null; };
   const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0;
     let hh = +m[1]; const mm = +m[2]; if (hh < 10) hh += 12; return hh * 60 + mm; };
 
@@ -71,7 +76,13 @@ export default async function handler(req, res) {
       const num = w && Number(w.number || w.num);
       if (!num || !isFinite(num)) return;
       racesSeen++;
-      (byC[cKey(race.course)] = byC[cKey(race.course)] || []).push({ d: String(race.date || '').slice(0, 10), tm: t2m(race.off || race.off_time), n: num });
+      const c2 = cKey(race.course);
+      (byC[c2] = byC[c2] || []).push({ d: String(race.date || '').slice(0, 10), tm: t2m(race.off || race.off_time), n: num });
+      const f2 = furl(race.dist_f || race.dist || race.distance_f || race.distance);
+      if (f2) { const pk = c2 + '|' + f2;
+        const pr = (st.prof[pk] = st.prof[pk] || { n: 0, num: {}, draw: {} });
+        pr.n++; pr.num[num] = (pr.num[num] || 0) + 1;
+        const dr = Number(w.draw); if (dr && isFinite(dr)) pr.draw[dr] = (pr.draw[dr] || 0) + 1; }
     });
     Object.entries(byC).forEach(([c, arr]) => {
       arr.sort((a, b) => a.d.localeCompare(b.d) || a.tm - b.tm);
