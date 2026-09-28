@@ -397,6 +397,11 @@
     const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
     const bk = (lbl2, arr) => arr.length ? `<div class="bask"><span class="blb">${lbl2} (${arr.length})</span>${arr.map(q => bChip(x, q)).join('')}</div>` : '';
     return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
+  const bTally = { s: 0, u: 0 };
+  listRows.forEach(x => { if (!x.w || !x.runners) return;
+    const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+    if (wq.sig != null) bTally.s++; else bTally.u++; });
+  const bChips = (bTally.s + bTally.u) ? `<span class="chip" style="color:var(--green);border-color:var(--green)">signalled won ${bTally.s}/${bTally.s + bTally.u}</span><span class="chip">unsignalled won ${bTally.u}/${bTally.s + bTally.u}</span>` : '';
   const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
@@ -416,7 +421,7 @@
     return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
   try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
-  $('app').innerHTML = chips + quick + seqBoard + listHd + rowsHtml;
+  $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + seqBoard + listHd + rowsHtml;
   const jm2 = document.querySelector('.jump');
   if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
     ev.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1));
