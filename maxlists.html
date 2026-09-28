@@ -405,7 +405,7 @@
     return `MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
-    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${q.cd ? `<b class="cdmk">${q.cd}</b>` : ''}<span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
   // price-vs-peers paint: against rivals with a near Sigma (within 12pts), how does the price compare?
   const paintBasket = (arr) => { arr.forEach(q => { q.paint = '';
       const d3 = Number(q.r.d); if (!(d3 > 0) || q.sig == null) return;
