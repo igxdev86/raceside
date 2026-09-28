@@ -57,6 +57,7 @@
   .blb{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--faint);margin-right:7px}
   .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
   .bk b{color:var(--ink)}
+  .bk .cdmk{color:#8a6d00;background:rgba(228,198,90,.35);border-radius:4px;padding:0 3px;font-size:8px;letter-spacing:.04em}
   .bk.bkg{background:#DFF3E6;border-color:#1B7A3D}
   .bk.bky{background:#FBF3D0;border-color:#C7A008}
   .bk.bko{background:#FDE8D2;border-color:#D07A18}
@@ -282,16 +283,27 @@
   buildTiles('day');   // populates listRows via the shared pipeline
   listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
   // class move for every selected runner, all four lists, deduped by hid
+  const cKeyPre = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const furlOfPre = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
   const selUniq = new Map();
   listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).forEach(q => {
-    if (q.r.hid && x.rcls != null && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls }); }));
-  const jobs = [...selUniq.values()]; let ji = 0;
-  const worker = async () => { while (ji < jobs.length) { const { q, rcls } = jobs[ji++]; try {
-    const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
-    const runs = (j && j.runs) || [];
+    if (q.r.hid && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls, rowC: cKeyPre(x.course), rowF: furlOfPre(x.dist) }); }));
+  const applyRuns = (q, rcls, rowC, rowF, runs) => {
     const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
     const last = sorted2.find(r2 => typeof r2.cls === 'number');
-    if (last) q.cls2 = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+    if (last && rcls != null) q.cls2 = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+    const cW = rowC && runs.some(r2 => r2.pos === 1 && String(r2.course || '').trim().toLowerCase() === rowC);
+    const dW = rowF && runs.some(r2 => r2.pos === 1 && r2.df === rowF);
+    q.cd = cW && dW ? 'CD' : cW ? 'C' : dW ? 'D' : '';
+    q.cdDone = true; };
+  const jobs = [...selUniq.values()]; let ji = 0;
+  const worker = async () => { while (ji < jobs.length) { const { q, rcls, rowC, rowF } = jobs[ji++]; try {
+    const j = await (await fetch('/api/horsehist?v=2&hid=' + encodeURIComponent(q.r.hid))).json();
+    applyRuns(q, rcls, rowC, rowF, (j && j.runs) || []);
   } catch {} } };
   await Promise.all([1, 2, 3, 4].map(worker));
   listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
@@ -405,7 +417,7 @@
         if (Math.abs(Math.log(r2)) > Math.abs(Math.log(best))) best = r2; });
       q.paint = best <= 0.55 ? 'bkg' : best <= 0.75 ? 'bky' : best >= 2 ? 'bkr' : best >= 1.4 ? 'bko' : ''; }); };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
-    return `<span class="bk${won ? ' bkwin' : q.paint ? ' ' + q.paint : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
+    return `<span class="bk${won ? ' bkwin' : q.paint ? ' ' + q.paint : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
     const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
     paintBasket(sig2);
@@ -417,13 +429,14 @@
     const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
     if (wq.sig != null) bTally.s++; else bTally.u++; });
   const bChips = (bTally.s + bTally.u) ? `<span class="chip" style="color:var(--green);border-color:var(--green)">signalled won ${bTally.s}/${bTally.s + bTally.u}</span><span class="chip">unsignalled won ${bTally.u}/${bTally.s + bTally.u}</span>` : '';
+  const bks = (x, i3) => `<div id="bks-${i3}">${baskets(x)}</div>`;
   const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
     + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
     + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
-    + baskets(x)
+    + bks(x, i3)
     + `</div>`).join('');
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
@@ -437,6 +450,17 @@
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
   try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
   $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + seqBoard + listHd + rowsHtml;
+  (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
+    const rest = []; const seen2 = new Set([...selUniq.keys()]);
+    listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.sig != null && q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3 }); } }));
+    let ri = 0;
+    const w2 = async () => { while (ri < rest.length) { const jb = rest[ri++]; try {
+      const j = await (await fetch('/api/horsehist?v=2&hid=' + encodeURIComponent(jb.q.r.hid))).json();
+      applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), (j && j.runs) || []);
+      const el = document.getElementById('bks-' + jb.i3); if (el) el.innerHTML = baskets(jb.x);
+    } catch {} } };
+    await Promise.all([1, 2, 3].map(w2));
+  })();
   const jm2 = document.querySelector('.jump');
   if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
     ev.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1));
