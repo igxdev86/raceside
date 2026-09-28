@@ -87,12 +87,12 @@
   const races = {};
   if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
     const k = rkz(r.t, r.course);
-    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
+    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
   list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
   if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
-  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, gone: rc.gone, picks: [], _rs: rc.rs })) };
+  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
   const days = [ukd];
 
   // ---- history: tag + XS1-rank win rates from stored prints ----
@@ -245,7 +245,7 @@
       const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
       rows = '';
       const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
-      const row = { t: p.t, course: p.course, k: p.k, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const row = { t: p.t, course: p.course, k: p.k, dist: p.dist, going: p.going, rtype: p.rtype, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
       if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
       { const ors = runners.filter(q => Number(q.r.ofr) > 0);
         if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
@@ -333,6 +333,21 @@
       return `<div class="seqtile"><b>${disp}</b>${lines}</div>`; });
     return `<div class="dayhd" style="margin-top:8px"><span>COURSE NUMBER SEQUENCES</span><small>after No.A wins, most frequent next winner \u00b7 ${seqStore ? `18 months \u00b7 ${seqStore.races} races` : '14 days'}</small></div>${tiles2.join('')}`;
   })();
+  const furlOf = (v) => { const s = String(v || '');
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d+)f/); if (ff) f += Number(ff[1]);
+    return f || null; };
+  const topOf = (obj, lbl2) => { const es = Object.entries(obj || {}).sort((a, b2) => b2[1] - a[1]);
+    return es.length ? `${lbl2}<b>${es[0][0]}</b> won <b>${es[0][1]}</b>\u00d7${es[1] ? `, ${lbl2}${es[1][0]} ${es[1][1]}\u00d7` : ''}` : null; };
+  const profNote = (x) => { const meta = [x.rtype, x.dist, x.going].filter(Boolean).join(' \u00b7 ');
+    let stats = '';
+    if (seqStore && seqStore.prof) { const f2 = furlOf(x.dist);
+      const pr = f2 ? seqStore.prof[cKey(x.course) + '|' + f2] : null;
+      if (pr && pr.n >= 3) { const nn = topOf(pr.num, 'No.'); const dd = topOf(pr.draw, 'draw ');
+        stats = ` \u2014 ${[nn, dd].filter(Boolean).join(' \u00b7 ')} <small>(${pr.n} runnings, 18mo)</small>`; }
+      else if (f2) stats = ' \u2014 <small>no 18-month profile for this course/distance yet</small>'; }
+    return meta || stats ? `<div class="seq" style="border-left-color:#1B7A3D">${meta.toUpperCase()}${stats}</div>` : ''; };
   const seqNote = (x) => { const c = cKey(x.course); const arr = seqByCourse[c]; if (!arr || arr.length < 2) return '';
     const prior = arr.filter(e => e.di < 99 || e.tm < t2m(x.t));
     if (!prior.length) return '';
@@ -366,7 +381,7 @@
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
     return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
-  const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${seqNote(x)}`
+  const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
