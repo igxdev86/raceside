@@ -29,6 +29,12 @@ export default async function handler(req, res) {
   const today = new Date();
   const limit = new Date(today.getTime()); limit.setMonth(limit.getMonth() - MONTHS_BACK);
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fetch429 = async (u) => { for (let a = 0; a < 4; a++) {
+    const r = await fetch(u, { headers: { Authorization: auth, Accept: 'application/json' } });
+    if (r.status !== 429) return r;
+    await sleep(1500 * (a + 1)); }
+    return { ok: false, status: 429 }; };
   const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
   const furl = (v) => { const s = String(v || '');
     let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
@@ -61,7 +67,8 @@ export default async function handler(req, res) {
     let skip = 0; const all = [];
     for (let page = 0; page < 20; page++) {
       const u = `https://api.theracingapi.com/v1/results?start_date=${iso(start)}&end_date=${iso(end)}&limit=50&skip=${skip}`;
-      const r = await fetch(u, { headers: { Authorization: auth, Accept: 'application/json' } });
+      const r = await fetch429(u);
+      await sleep(550);
       if (!r.ok) { if (r.status === 404) break; return { ok: false, error: 'upstream-' + r.status }; }
       const d = await r.json();
       const rs = d.results || [];
