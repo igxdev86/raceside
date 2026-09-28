@@ -47,6 +47,8 @@
   .sl .nm3{flex:none;font-weight:700;font-size:10.5px;color:var(--ink);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sl .ds{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sl.lmatch{background:#FFF9E3;box-shadow:inset 2px 0 0 #E4C65A;border-radius:4px}
+  .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
+  .seq b{color:var(--ink)}
   .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
   .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
 </style>
@@ -280,8 +282,46 @@
   await Promise.all([1, 2, 3, 4].map(worker));
   listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
   const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').toUpperCase();
+  // saddle-number sequences per course: last 14 days of priceday + today's results
+  const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const seqByCourse = {};
+  const dayList = [];
+  { const base = new Date(ukd + 'T12:00:00Z');
+    for (let i2 = 14; i2 >= 1; i2--) { const d4 = new Date(base.getTime() - i2 * 86400000);
+      dayList.push(d4.toISOString().slice(0, 10)); } }
+  await Promise.all(dayList.map(async (d4, di) => { try {
+    const pdj = await (await fetch('/api/priceday?v=5&date=' + d4)).json();
+    const rs2 = (pdj && pdj.races) || [];
+    const withW = rs2.map(r2 => { const w2 = (r2.runners || []).find(x => String(x.pos) === '1');
+      return w2 && w2.num ? { c: cKey(r2.course), t: tK(r2.t), n: Number(w2.num) } : null; }).filter(Boolean);
+    withW.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    withW.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di, tm: t2m(x.t), n: x.n }); });
+  } catch {} }));
+  Object.values(seqByCourse).forEach(arr => arr.sort((a, b2) => a.di - b2.di || a.tm - b2.tm));
   const winOf = {};
   if (st && st.prints) st.prints.forEach(p => { if ((p.day || ukd) === ukd && p.w) winOf[p.k] = hn(p.w); });
+  // today's resulted winner numbers extend the sequences (matched by name to the field)
+  const todayWins = [];
+  listRows.forEach(x => { const w2 = winOf[x.k]; if (!w2) return;
+    const all = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean);
+    let num2 = null; const fld = (byDay[ukd] || []).find(p => p.k === x.k);
+    if (fld && fld._rs) { const hit2 = fld._rs.find(r2 => hn(r2.h) === w2); if (hit2 && hit2.num) num2 = Number(hit2.num); }
+    if (num2 != null) todayWins.push({ c: cKey(x.course), tm: t2m(x.t), n: num2 }); });
+  todayWins.sort((a, b2) => a.tm - b2.tm);
+  todayWins.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di: 99, tm: x.tm, n: x.n }); });
+  const transOf = {};
+  Object.entries(seqByCourse).forEach(([c, arr]) => { const t3 = (transOf[c] = {});
+    for (let i2 = 1; i2 < arr.length; i2++) { const a = arr[i2 - 1].n, b2 = arr[i2].n;
+      (t3[a] = t3[a] || {})[b2] = (t3[a][b2] || 0) + 1; } });
+  const seqNote = (x) => { const c = cKey(x.course); const arr = seqByCourse[c]; if (!arr || arr.length < 2) return '';
+    const prior = arr.filter(e => e.di < 99 || e.tm < t2m(x.t));
+    if (!prior.length) return '';
+    const L = prior[prior.length - 1].n;
+    const t3 = (transOf[c] || {})[L]; if (!t3) return '';
+    const es = Object.entries(t3).sort((a, b2) => b2[1] - a[1]);
+    const tot = es.reduce((a, e) => a + e[1], 0);
+    if (!es.length || tot < 2) return '';
+    return `<div class="seq">Whenever a <b>${L}</b> wins last at ${crs(x.course)}, the next winner is most often <b>No.${es[0][0]}</b> \u2014 ${es[0][1]}/${tot} times (14-day course record)</div>`; };
   listRows.forEach(x => { x.w = winOf[x.k] || null;
     if (x.w) x.hit = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).some(q => hn(q.r.h) === x.w); });
   let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
@@ -306,7 +346,7 @@
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
     return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
-  const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>`
+  const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${seqNote(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
