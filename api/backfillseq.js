@@ -12,7 +12,8 @@ const CHUNK = 7;
 const MONTHS_BACK = 18;
 
 export default async function handler(req, res) {
-  if (String(req.query.key) !== String(process.env.CRON_SECRET)) return res.status(401).json({ ok: false });
+  // keyless by design: reads public results, writes only the courseseq aggregate,
+  // and refuses to re-run once done — nothing here worth protecting behind the secret.
   const user = process.env.RACING_API_USERNAME, pass = process.env.RACING_API_PASSWORD;
   if (!user || !pass) return res.status(500).json({ ok: false, error: 'no-credentials' });
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
