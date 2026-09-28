@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   let st = null;
   try { const j = await gj('/api/yearstate?k=courseseq:v1'); st = j && j.state ? j.state : null; } catch {}
-  if (!st || !st.prof) st = { trans: {}, heads: {}, prof: {}, cursor: null, oldest: null, races: 0, done: false };
+  if (!st || !st.prof || st.pv !== 2) st = { pv: 2, trans: {}, heads: {}, prof: {}, cursor: null, oldest: null, races: 0, done: false };
   if (st.done) return res.status(200).json({ ok: true, done: true, races: st.races, oldest: st.oldest });
 
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -36,11 +36,11 @@ export default async function handler(req, res) {
     await sleep(1500 * (a + 1)); }
     return { ok: false, status: 429 }; };
   const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-  const furl = (v) => { const s = String(v || '');
+  const furl = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
     let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
     let f = 0; const mm = s.match(/(\d+)m/); if (mm) f += Number(mm[1]) * 8;
-    const ff = s.match(/(\d+)f/); if (ff) f += Number(ff[1]);
-    return f || null; };
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
   const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0;
     let hh = +m[1]; const mm = +m[2]; if (hh < 10) hh += 12; return hh * 60 + mm; };
 
