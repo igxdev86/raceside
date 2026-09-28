@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const user = process.env.RACING_API_USERNAME, pass = process.env.RACING_API_PASSWORD;
   if (!user || !pass) return res.status(500).json({ ok: false, error: 'no-credentials' });
   const auth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
-  const base = (process.env.ALERT_BASE || '').replace(/\/$/, '');
+  const base = ((process.env.ALERT_BASE || '').replace(/\/$/, '')) || ('https://' + (req.headers && req.headers.host ? req.headers.host : 'raceside.vercel.app'));
   const gj = async (p, opt) => { const r = await fetch(base + p, opt); return r.json(); };
 
   let st = null;
