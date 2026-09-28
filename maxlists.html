@@ -58,10 +58,6 @@
   .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
   .bk b{color:var(--ink)}
   .bk .cdmk{color:#8a6d00;background:rgba(228,198,90,.35);border-radius:4px;padding:0 3px;font-size:8px;letter-spacing:.04em}
-  .bk.bkg{background:#DFF3E6;border-color:#1B7A3D}
-  .bk.bky{background:#FBF3D0;border-color:#C7A008}
-  .bk.bko{background:#FDE8D2;border-color:#D07A18}
-  .bk.bkr{background:#FADFDF;border-color:#C1121F}
   .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink);box-shadow:0 0 0 1px #1B7A3D}
   .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
   .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
@@ -415,9 +411,20 @@
         if (Math.abs(o.sig - q.sig) > 12) return;
         const r2 = d3 / od;
         if (Math.abs(Math.log(r2)) > Math.abs(Math.log(best))) best = r2; });
-      q.paint = best <= 0.55 ? 'bkg' : best <= 0.75 ? 'bky' : best >= 2 ? 'bkr' : best >= 1.4 ? 'bko' : ''; }); };
+      if (best === 1) { q.paint = ''; return; }
+      const v2 = Math.max(-1, Math.min(1, -Math.log(best) / Math.log(2)));   // +1 = half price of a near-\u03a3 rival, -1 = double
+      const hue = Math.round(65 + v2 * 65);                                   // 130 green .. 65 yellow .. 0 red, unique per ratio
+      q.paint = `background:hsl(${hue},60%,91%);border-color:hsl(${hue},55%,42%)`; }); };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
-    return `<span class="bk${won ? ' bkwin' : q.paint ? ' ' + q.paint : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
+    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => {
+      const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
+      const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
+      const jp = pt(js2), tp2 = pt(ts2);
+      const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
+      const tot = pr2 && pr2.r >= 10 ? Math.round(pr2.w / pr2.r * 100)
+        : (js2 && ts2 && js2.runs + ts2.runs >= 50 ? Math.round((js2.wins + ts2.wins) / (js2.runs + ts2.runs) * 100) : null);
+      const bits = [jp != null ? `J${jp}` : null, tp2 != null ? `T${tp2}` : null, tot != null ? `JT${tot}` : null].filter(Boolean);
+      return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
     const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
     paintBasket(sig2);
