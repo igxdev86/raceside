@@ -57,7 +57,11 @@
   .blb{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--faint);margin-right:7px}
   .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
   .bk b{color:var(--ink)}
-  .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink)}
+  .bk.bkg{background:#DFF3E6;border-color:#1B7A3D}
+  .bk.bky{background:#FBF3D0;border-color:#C7A008}
+  .bk.bko{background:#FDE8D2;border-color:#D07A18}
+  .bk.bkr{background:#FADFDF;border-color:#C1121F}
+  .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink);box-shadow:0 0 0 1px #1B7A3D}
   .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
   .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
 </style>
@@ -390,10 +394,21 @@
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
     return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+  // price-vs-peers paint: against rivals with a near Sigma (within 12pts), how does the price compare?
+  const paintBasket = (arr) => { arr.forEach(q => { q.paint = '';
+      const d3 = Number(q.r.d); if (!(d3 > 0) || q.sig == null) return;
+      let best = 1;   // strongest ratio either way, as my price / rival price
+      arr.forEach(o => { if (o === q || o.sig == null) return;
+        const od = Number(o.r.d); if (!(od > 0)) return;
+        if (Math.abs(o.sig - q.sig) > 12) return;
+        const r2 = d3 / od;
+        if (Math.abs(Math.log(r2)) > Math.abs(Math.log(best))) best = r2; });
+      q.paint = best <= 0.55 ? 'bkg' : best <= 0.75 ? 'bky' : best >= 2 ? 'bkr' : best >= 1.4 ? 'bko' : ''; }); };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
-    return `<span class="bk${won ? ' bkwin' : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
+    return `<span class="bk${won ? ' bkwin' : q.paint ? ' ' + q.paint : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
     const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+    paintBasket(sig2);
     const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
     const bk = (lbl2, arr) => arr.length ? `<div class="bask"><span class="blb">${lbl2} (${arr.length})</span>${arr.map(q => bChip(x, q)).join('')}</div>` : '';
     return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
