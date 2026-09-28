@@ -53,6 +53,11 @@
   .seqline b{color:var(--ink)}
   .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
   .seq b{color:var(--ink)}
+  .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .blb{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--faint);margin-right:7px}
+  .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
+  .bk b{color:var(--ink)}
+  .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink)}
   .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
   .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
 </style>
@@ -256,6 +261,7 @@
         if (pts2.length >= 2) { pts2.sort((a, b2) => b2.s.pts - a.s.pts); row.tp = pts2[0]; } }
       { const mps = runners.filter(q => q.pct != null);
         if (mps.length >= 2) { mps.sort((a, b2) => a.pct - b2.pct); row.mpp = mps[0]; } }
+      row.runners = runners;
       if (row.q || row.or || row.cb || row.mpp || row.tp) listRows.push(row);
     } else {
       rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
@@ -384,12 +390,20 @@
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
     return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span><span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+  const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
+    return `<span class="bk${won ? ' bkwin' : ''}">${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}</span>`; };
+  const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
+    const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+    const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
+    const bk = (lbl2, arr) => arr.length ? `<div class="bask"><span class="blb">${lbl2} (${arr.length})</span>${arr.map(q => bChip(x, q)).join('')}</div>` : '';
+    return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
   const rowsHtml = listRows.map((x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
     + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
     + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
+    + baskets(x)
     + `</div>`).join('');
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
