@@ -289,11 +289,13 @@
   // saddle-number sequences per course: last 14 days of priceday + today's results
   const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
   const seqByCourse = {};
+  let seqStore = null;
+  try { const j = await (await fetch('/api/yearstate?k=courseseq:v1')).json(); seqStore = j && j.state && j.state.trans ? j.state : null; } catch {}
   const dayList = [];
   { const base = new Date(ukd + 'T12:00:00Z');
     for (let i2 = 14; i2 >= 1; i2--) { const d4 = new Date(base.getTime() - i2 * 86400000);
       dayList.push(d4.toISOString().slice(0, 10)); } }
-  await Promise.all(dayList.map(async (d4, di) => { try {
+  if (!seqStore) await Promise.all(dayList.map(async (d4, di) => { try {
     const pdj = await (await fetch('/api/priceday?v=5&date=' + d4)).json();
     const rs2 = (pdj && pdj.races) || [];
     const withW = rs2.map(r2 => { const w2 = (r2.runners || []).find(x => String(x.pos) === '1');
@@ -314,7 +316,8 @@
   todayWins.sort((a, b2) => a.tm - b2.tm);
   todayWins.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di: 99, tm: x.tm, n: x.n }); });
   const transOf = {};
-  Object.entries(seqByCourse).forEach(([c, arr]) => { const t3 = (transOf[c] = {});
+  if (seqStore) Object.entries(seqStore.trans).forEach(([c, t3]) => { transOf[c] = JSON.parse(JSON.stringify(t3)); });
+  Object.entries(seqByCourse).forEach(([c, arr]) => { const t3 = (transOf[c] = transOf[c] || {});
     for (let i2 = 1; i2 < arr.length; i2++) { const a = arr[i2 - 1].n, b2 = arr[i2].n;
       (t3[a] = t3[a] || {})[b2] = (t3[a][b2] || 0) + 1; } });
   const seqBoard = (() => {
@@ -322,13 +325,13 @@
     if (!courses.length) return '';
     const tiles2 = courses.map(c => { const disp = crs((listRows.find(x => cKey(x.course) === c) || {}).course || c);
       const t3 = transOf[c];
-      if (!t3 || !Object.keys(t3).length) return `<div class="seqtile"><b>${disp}</b><span class="seqline" style="color:var(--faint)">no 14-day sequence data returned \u2014 if this persists it\u2019s the results feed, not cache</span></div>`;
+      if (!t3 || !Object.keys(t3).length) return `<div class="seqtile"><b>${disp}</b><span class="seqline" style="color:var(--faint)">no sequence data for this course yet</span></div>`;
       const lines = Object.keys(t3).map(Number).sort((a, b2) => a - b2).map(a => {
         const es = Object.entries(t3[a]).sort((x2, y2) => y2[1] - x2[1]);
         const tot = es.reduce((s2, e) => s2 + e[1], 0);
         return `<span class="seqline"><b>${a}</b>&gt;<b>${es[0][0]}</b> <small>(${es[0][1]}/${tot})</small></span>`; }).join('');
       return `<div class="seqtile"><b>${disp}</b>${lines}</div>`; });
-    return `<div class="dayhd" style="margin-top:8px"><span>COURSE NUMBER SEQUENCES</span><small>after No.A wins, most frequent next winner \u00b7 14 days</small></div>${tiles2.join('')}`;
+    return `<div class="dayhd" style="margin-top:8px"><span>COURSE NUMBER SEQUENCES</span><small>after No.A wins, most frequent next winner \u00b7 ${seqStore ? `18 months \u00b7 ${seqStore.races} races` : '14 days'}</small></div>${tiles2.join('')}`;
   })();
   const seqNote = (x) => { const c = cKey(x.course); const arr = seqByCourse[c]; if (!arr || arr.length < 2) return '';
     const prior = arr.filter(e => e.di < 99 || e.tm < t2m(x.t));
@@ -338,7 +341,7 @@
     const es = Object.entries(t3).sort((a, b2) => b2[1] - a[1]);
     const tot = es.reduce((a, e) => a + e[1], 0);
     if (!es.length || tot < 2) return '';
-    return `<div class="seq">Whenever a <b>${L}</b> wins last at ${crs(x.course)}, the next winner is most often <b>No.${es[0][0]}</b> \u2014 ${es[0][1]}/${tot} times (14-day course record)</div>`; };
+    return `<div class="seq">Whenever a <b>${L}</b> wins last at ${crs(x.course)}, the next winner is most often <b>No.${es[0][0]}</b> \u2014 ${es[0][1]}/${tot} times (${seqStore ? '18-month' : '14-day'} course record)</div>`; };
   listRows.forEach(x => { x.w = winOf[x.k] || null;
     if (x.w) x.hit = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).some(q => hn(q.r.h) === x.w); });
   let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
