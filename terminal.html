@@ -74,7 +74,7 @@
     }).join('');
     return `<div class="race" id="r-${rc.k.replace(/[^a-z0-9]/gi, '')}">
       <div class="rhead"><span class="t">${rc.t}</span> ${String(rc.course).toUpperCase()}</div>
-      <div class="rmeta">${meta}${rc.gone ? ` \u00b7 OFF${rc.w ? ` \u00b7 <span class="won">WON: ${rc.w.toUpperCase()}</span>` : ''}` : ''} \u00b7 sc ${rc.sc}</div>
+      <div class="rmeta">${meta}${rc.gone ? ` \u00b7 OFF${rc.w ? ` \u00b7 <span class="won">WON: ${rc.w.toUpperCase()}</span>` : ''}` : ''}</div>
       ${horses}
     </div>`;
   };
