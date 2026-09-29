@@ -424,7 +424,7 @@
   const greenBoard = () => {
     const pool = []; listRows.forEach(x => (x.runners || []).forEach(q => { const hu = hueOf2(q);
       if (hu != null && hu > 65) pool.push({ x, q, hu }); }));
-    const ent = (e, extra) => `<span class="bk" style="${e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const ent = (e, extra) => `<span class="bk" style="${e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 ${e.q.sig}%</small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
     const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
       let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
     const byTime = (arr, jt2) => { const g2 = {};
@@ -433,6 +433,9 @@
         .map(t => `<span class="gt">${t}</span>${g2[t].map(e => jt2 && e.tot != null ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('')}`).join(''); };
     const cdL = pool.filter(e => e.q.cd).sort((a, b2) => (b2.q.cd === 'CD') - (a.q.cd === 'CD') || b2.hu - a.hu);
     const jtL = pool.map(e => ({ ...e, tot: jtOf(e.q).tot })).filter(e => e.tot != null).sort((a, b2) => b2.tot - a.tot);
+    pool.forEach(e => { e.q._both = false; });
+    const inJt = new Set(jtL.map(e => e.q));
+    cdL.forEach(e => { if (inJt.has(e.q)) e.q._both = true; });
     const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? byTime(arr, lbl2.includes('JT')) : '<small style="color:var(--faint)">none yet</small>'}</div>`;
     return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
