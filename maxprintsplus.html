@@ -56,6 +56,7 @@
   .btile .bk{display:block;margin:0 0 6px;padding:5px 9px}
   .btile .blb{display:block;margin:0 0 7px}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .clm{color:#8a6d00;font-weight:800;font-size:9.5px}
   .fanal{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin:2px 0 6px}
   .fanal b{color:var(--ink)}
   .ddb{font-weight:800}
@@ -546,10 +547,12 @@
         q.sig != null ? `<b style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
         Number(q.r.d) > 0 ? `@ ${q.r.d}` : '',
         q.r.ofr ? `<small>OR</small> ${q.r.ofr}` : '',
+        Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
         q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
         q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
       const jt2 = [
-        q.r.jockey ? `J <b>${q.r.jockey}</b>${g2.jp != null ? ` ${g2.jp}%` : ''}` : '',
+        q.r.jockey ? (() => { const cm = String(q.r.jockey).match(/\((\d+)\)/);
+          return `J <b>${q.r.jockey}</b>${cm ? ` <span class="clm">claims ${cm[1]}lb</span>` : ''}${g2.jp != null ? ` ${g2.jp}%` : ''}`; })() : '',
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
