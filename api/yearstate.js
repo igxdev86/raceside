@@ -21,13 +21,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'POST') {
       const state = req.body && typeof req.body === 'object' ? req.body : null;
-      if (!state || !state.lastDate) return res.status(400).json({ ok: false, error: 'no-state' });
+      if (!state || (!state.lastDate && !state.ts)) return res.status(400).json({ ok: false, error: 'no-state' });
       // last-write-wins, but never overwrite a newer state with an older one
       const cur = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
       if (cur.ok) {
         const rows = await cur.json();
         const prev = rows && rows[0] && rows[0].v;
-        if (prev && prev.lastDate && String(prev.lastDate) > String(state.lastDate)) {
+        const nf = (v) => v && (v.lastDate != null ? String(v.lastDate) : v.ts != null ? String(v.ts).padStart(20, '0') : null);
+        if (nf(prev) && nf(state) && nf(prev) > nf(state)) {
           return res.status(200).json({ ok: true, kept: 'newer-exists' });
         }
       }
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
     const r = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
     if (!r.ok) return res.status(200).json({ ok: true, state: null });
     const rows = await r.json();
-    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=3600');
+    res.setHeader('Cache-Control', K === 'termdata:v1' ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
     return res.status(200).json({ ok: true, state: (rows && rows[0] && rows[0].v) || null });
   } catch {
     return res.status(200).json({ ok: true, state: null });
