@@ -627,9 +627,13 @@
   const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
   const dashHtml = () => {
-    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0] };
+    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0] };
     listRows.forEach(x => { if (!x.w || !x.runners) return;
       const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+      calcTM(x);
+      const tms = x.runners.filter(q => q.tm != null);
+      if (tms.length >= 2) { const mxTm = Math.max(...tms.map(q => q.tm));
+        cnt.tm1[1]++; if (wq.tm != null && wq.tm >= mxTm) cnt.tm1[0]++; }
       const sig2 = x.runners.filter(q => q.sig != null);
       if (sig2.length >= 2) { paintBasket(sig2);
         const byS = sig2.slice().sort((a, b2) => b2.sig - a.sig);
@@ -642,7 +646,7 @@
           cnt.grnAny[1]++; if (hOf2(wq) > 65) cnt.grnAny[0]++; } } });
     if (!cnt.top1[1]) return '';
     const cell = (lbl2, c2) => `<div class="dcell"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
-    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}</div>`; };
+    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}${cell('TM 1 WON', cnt.tm1)}</div>`; };
   const drawPage = () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
