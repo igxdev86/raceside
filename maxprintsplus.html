@@ -525,7 +525,10 @@
       const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
       return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
     return `<div class="pcard"><span class="blb">PRINT</span>${rows2}</div>`; };
-  let fcSort = 'num', fcDir = 1;
+  let _sv = null;
+  try { _sv = JSON.parse(sessionStorage.getItem('rsAuto:' + location.pathname) || 'null'); } catch {}
+  if (_sv && Date.now() - _sv.ts > 300000) _sv = null;
+  let fcSort = (_sv && _sv.sort) || 'num', fcDir = (_sv && _sv.dir) || 1;
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1] };
@@ -603,13 +606,14 @@
     return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)}</a>`).join('')}</div></div>`; };
   // MAX PRINTS + : one race per page, strip pager on top
   let curIx = listRows.findIndex(x => !x.gone); if (curIx < 0) curIx = listRows.length - 1;
+  if (_sv && _sv.ix != null && listRows[_sv.ix]) curIx = _sv.ix;
   const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
   const drawPage = () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
-    const updBar = `<div class="upd">page updated <b>${upd}</b></div>` + logLine;
+    const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh 60s</div>` + logLine;
     $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
@@ -618,6 +622,11 @@
   };
   window.__draw = drawPage;
   drawPage();
+  if (_sv && _sv.y) window.scrollTo(0, _sv.y);
+  // auto-refresh: full data reload every 60s, keeping race, sort and scroll
+  setInterval(() => { if (document.visibilityState !== 'visible') return;
+    try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, y: window.scrollY || 0, ts: Date.now() })); } catch {}
+    location.reload(); }, 60000);
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
     listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3, pr: i3 === curIx ? 0 : 1 }); } }));
