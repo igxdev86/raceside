@@ -415,13 +415,22 @@
       const v2 = Math.max(-1, Math.min(1, -Math.log(best) / Math.log(2)));   // +1 = half price of a near-\u03a3 rival, -1 = double
       const hue = Math.round(65 + v2 * 65);                                   // 130 green .. 65 yellow .. 0 red, unique per ratio
       q.paint = `background:hsl(${hue},60%,91%);border-color:hsl(${hue},55%,42%)`; }); };
+  const jtOf = (q) => { const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
+    const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
+    const jp = pt(js2), tp = pt(ts2);
+    return { jp, tp, tot: jp != null && tp != null ? jp + tp : null }; };
+  const hueOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : null; };
+  const greenBoard = () => {
+    const pool = []; listRows.forEach(x => (x.runners || []).forEach(q => { const hu = hueOf2(q);
+      if (hu != null && hu > 65) pool.push({ x, q, hu }); }));
+    const ent = (e, extra) => `<span class="bk" style="${e.q.paint}"><small>${e.x.t} ${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const cdL = pool.filter(e => e.q.cd).sort((a, b2) => (b2.q.cd === 'CD') - (a.q.cd === 'CD') || b2.hu - a.hu);
+    const jtL = pool.map(e => ({ ...e, tot: jtOf(e.q).tot })).filter(e => e.tot != null).sort((a, b2) => b2.tot - a.tot);
+    const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? arr.map(e => e.tot != null && lbl2.includes('JT') ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('') : '<small style="color:var(--faint)">none yet</small>'}</div>`;
+    return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
-    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => {
-      const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
-      const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
-      const jp = pt(js2), tp2 = pt(ts2);
-      const tot = jp != null && tp2 != null ? jp + tp2 : null;
-      const bits = [jp != null ? `J${jp}` : null, tp2 != null ? `T${tp2}` : null, tot != null ? `JT${tot}` : null].filter(Boolean);
+    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
+      const bits = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean);
       return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
     const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
@@ -454,7 +463,7 @@
     return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
   try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
-  $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + seqBoard + listHd + rowsHtml;
+  $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + `<div id="gboard">` + greenBoard() + `</div>` + seqBoard + listHd + rowsHtml;
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
     listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.sig != null && q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3 }); } }));
@@ -463,6 +472,7 @@
       const j = await (await fetch('/api/horsehist?v=2&hid=' + encodeURIComponent(jb.q.r.hid))).json();
       applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), (j && j.runs) || []);
       const el = document.getElementById('bks-' + jb.i3); if (el) el.innerHTML = baskets(jb.x);
+      const gb = document.getElementById('gboard'); if (gb) gb.innerHTML = greenBoard();
     } catch {} } };
     await Promise.all([1, 2, 3].map(w2));
   })();
