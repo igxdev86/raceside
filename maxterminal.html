@@ -56,6 +56,9 @@
   .btile .bk{display:block;margin:0 0 6px;padding:5px 9px}
   .btile .blb{display:block;margin:0 0 7px}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .fsort{display:flex;gap:5px;margin:6px 0 8px;flex-wrap:wrap}
+  .fsb{font-family:Arial;font-weight:700;font-size:11px;background:#0B0B0B;border:1.5px solid #333;border-radius:7px;color:#BBB;padding:4px 9px}
+  .fsb.on{border-color:#9FE870;color:#9FE870}
   .fcard{margin-top:8px;padding-top:6px;border-top:2px solid var(--ink)}
   .frow{padding:7px 0;border-bottom:1px solid var(--line)}
   .frow.fwin{background:#E9F7EE;margin:0 -6px;padding:7px 6px;border-radius:6px}
@@ -540,8 +543,16 @@
       const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
       return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
     return `<div class="pcard"><span class="blb">PRINT</span>${rows2}</div>`; };
-  const fullCard = (x) => { const rs2 = (x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99));
+  let fcSort = 'num';
+  const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
+    jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
+    mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1] };
+  const fullCard = (x) => { const [, kf, dir] = fcKeys[fcSort] || fcKeys.num;
+    const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+      return (va - vb) * dir; });
     if (!rs2.length) return '';
+    const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}</button>`).join('')}</div>`;
     const hr2 = heatRange(x);
     const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
       const g2 = jtOf(q);
@@ -554,7 +565,7 @@
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
-    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})</span>${rows2}</div>`; };
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})</span>${sortBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
@@ -609,6 +620,7 @@
     const updBar = `<div class="upd">page updated ${upd}</div>`;
     $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
+    document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { fcSort = b.dataset.k; drawPage(); });
   };
   window.__draw = drawPage;
   drawPage();
