@@ -83,6 +83,11 @@
   .ptags{font-family:var(--mono);font-size:9px;color:var(--dim);margin-left:7px}
   .pjt{font-family:var(--mono);font-size:9px;color:var(--faint)}
   .upd{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--faint);margin:0 0 6px}
+  .dash{display:flex;gap:6px;margin:0 0 10px}
+  .dcell{flex:1;background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:6px 4px;text-align:center}
+  .dcell small{display:block;font-family:var(--mono);font-size:7.5px;letter-spacing:.09em;color:var(--faint);font-weight:800}
+  .dcell b{display:block;font-family:var(--mono);font-size:17px;color:var(--green);margin:1px 0}
+  .dcell span{font-family:var(--mono);font-size:9px;color:var(--dim);font-weight:800}
   .pstrip{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
   .pchip{flex:0 0 auto;font-family:var(--mono);font-size:11px;font-weight:800;background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:6px 9px;color:var(--ink)}
   .pchip small{display:block;font-size:8px;color:var(--faint);letter-spacing:.06em}
@@ -609,12 +614,29 @@
   if (_sv && _sv.ix != null && listRows[_sv.ix]) curIx = _sv.ix;
   const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
+  const dashHtml = () => {
+    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0] };
+    listRows.forEach(x => { if (!x.w || !x.runners) return;
+      const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+      const sig2 = x.runners.filter(q => q.sig != null);
+      if (sig2.length >= 2) { paintBasket(sig2);
+        const byS = sig2.slice().sort((a, b2) => b2.sig - a.sig);
+        cnt.top1[1]++; if (wq.sig != null && wq.sig >= byS[0].sig) cnt.top1[0]++;
+        cnt.top3[1]++; if (wq.sig != null && byS.slice(0, 3).some(q => q === wq)) cnt.top3[0]++;
+        const hOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+        const grns = sig2.filter(q => hOf2(q) > 65);
+        if (grns.length) { const mx2 = Math.max(...grns.map(hOf2));
+          cnt.grn[1]++; if (hOf2(wq) === mx2) cnt.grn[0]++;
+          cnt.grnAny[1]++; if (hOf2(wq) > 65) cnt.grnAny[0]++; } } });
+    if (!cnt.top1[1]) return '';
+    const cell = (lbl2, c2) => `<div class="dcell"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
+    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}</div>`; };
   const drawPage = () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
     const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh 60s</div>` + logLine;
-    $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
+    $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
       if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
