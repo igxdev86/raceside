@@ -401,13 +401,21 @@
   listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).map(q => hn(q.r.h));
     const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
     x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
-  const statBits = (q, pv) => { const d3 = Number(q.r.d);
+  const heatRange = (x) => { if (x._heat) return x._heat;
+    const sigs = (x.runners || []).map(q => q.sig).filter(v => v != null);
+    const mxs = (x.runners || []).map(q => { const d3 = Number(q.r.d); return q.sig != null && d3 > 0 ? q.sig * d3 : null; }).filter(v => v != null);
+    return (x._heat = { sLo: Math.min(...sigs), sHi: Math.max(...sigs), mLo: Math.min(...mxs), mHi: Math.max(...mxs) }); };
+  const heatC = (v, lo, hi, inv) => { if (v == null || !isFinite(lo) || !isFinite(hi) || hi <= lo) return '';
+    let p = Math.max(0, Math.min(1, (v - lo) / (hi - lo))); if (inv) p = 1 - p;
+    return `color:hsl(${Math.round(p * 130)},72%,33%);font-weight:800`; };
+  const statBits = (q, pv, x) => { const d3 = Number(q.r.d);
     const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
     const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
-    return `MX ${mxV != null ? mxV : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? q.sig + '%' : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
+    const hr = x ? heatRange(x) : null;
+    return `MX ${mxV != null ? `<b style="${hr ? heatC(mxV, hr.mLo, hr.mHi, true) : ''}">${mxV}</b>` : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? `<b style="${hr ? heatC(q.sig, hr.sLo, hr.sHi, false) : ''}">${q.sig}%</b>` : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
   const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
     const pv = snap(x, colK, q, extra != null ? extra : null);
-    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${q.cd ? `<b class="cdmk">${q.cd}</b>` : ''}<span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv)}</span></div>`; };
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${q.cd ? `<b class="cdmk">${q.cd}</b>` : ''}<span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv, x)}</span></div>`; };
   // price-vs-peers paint: against rivals with a near Sigma (within 12pts), how does the price compare?
   const paintBasket = (arr) => { arr.forEach(q => { q.paint = '';
       const d3 = Number(q.r.d); if (!(d3 > 0) || q.sig == null) return;
@@ -430,7 +438,7 @@
     const pool = []; listRows.forEach(x => { const sel = new Set([x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean));
       (x.runners || []).forEach(q => { const hu = hueOf2(q);
         if (hu != null && hu > 65) { q._sel = sel.has(q); pool.push({ x, q, hu }); } }); });
-    const ent = (e, extra) => `<span class="bk" style="${e.q._sel && e.q._both ? 'background:hsl(330,70%,92%);border-color:hsl(330,60%,45%)' : e.q._sel ? 'background:hsl(275,55%,92%);border-color:hsl(275,45%,45%)' : e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 ${e.q.sig}%</small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const ent = (e, extra) => `<span class="bk" style="${e.q._sel && e.q._both ? 'background:hsl(330,70%,92%);border-color:hsl(330,60%,45%)' : e.q._sel ? 'background:hsl(275,55%,92%);border-color:hsl(275,45%,45%)' : e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 <b style="${heatC(e.q.sig, heatRange(e.x).sLo, heatRange(e.x).sHi, false)}">${e.q.sig}%</b></small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
     const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
       let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
     const byTime = (arr, jt2) => { const g2 = {};
@@ -445,7 +453,7 @@
     const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? byTime(arr, lbl2.includes('JT')) : '<small style="color:var(--faint)">none yet</small>'}</div>`;
     return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
-    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
+    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 <b style="${heatC(q.sig, heatRange(x).sLo, heatRange(x).sHi, false)}">${q.sig}%</b></small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
       const bits = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean);
       return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
