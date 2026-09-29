@@ -45,10 +45,7 @@
   let st = null;
   try { st = JSON.parse(localStorage.getItem('rsTerm') || 'null'); } catch {}
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
-  if (!st || !st.races || !st.races.length || st.day !== ukd) {
-    $('app').innerHTML = '<div class="none">no terminal data for today yet.<br>open MAX LISTS first &mdash; it picks the best 3 races and sends them here.</div>';
-    return;
-  }
+
   const hn = (s) => String(s || '').trim().toLowerCase();
   const card = (rc) => {
     const dd = /^\d+(\.\d+)?$/.test(String(rc.dist)) ? rc.dist + 'f' : rc.dist;
@@ -78,12 +75,45 @@
       ${horses}
     </div>`;
   };
-  $('app').innerHTML = st.races.map(card).join('');
-  const ix = Number(new URLSearchParams(location.search).get('i'));
-  if (isFinite(ix) && st.races[ix]) {
-    const el = document.getElementById('r-' + st.races[ix].k.replace(/[^a-z0-9]/gi, ''));
-    if (el && ix > 0 && el.scrollIntoView) el.scrollIntoView();
-  }
+  const render = (races, note) => {
+    $('app').innerHTML = races.map(card).join('') + (note || '');
+    const ix = Number(new URLSearchParams(location.search).get('i'));
+    if (isFinite(ix) && races[ix]) {
+      const el = document.getElementById('r-' + races[ix].k.replace(/[^a-z0-9]/gi, ''));
+      if (el && ix > 0 && el.scrollIntoView) el.scrollIntoView();
+    } };
+  const fallback = async () => {
+    $('app').innerHTML = '<div class="none">building&hellip;</div>';
+    try {
+      const [uj, pj] = await Promise.all([
+        fetch('/api/upcoming').then(r => r.json()),
+        fetch('/api/peopleall').then(r => r.json()).catch(() => null) ]);
+      const rides = ((uj && uj.rides) || []).filter(r => r.day === 'today');
+      if (!rides.length) { $('app').innerHTML = '<div class="none">no races today.</div>'; return; }
+      const tm3 = (tt) => { const m2 = String(tt).match(/(\d+):(\d+)/); if (!m2) return 9999;
+        let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+      const lon = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+      const nowM = Number(lon.slice(0, 2)) * 60 + Number(lon.slice(3, 5));
+      const byR = {};
+      rides.forEach(r => { const k = r.t + '|' + String(r.course).toLowerCase();
+        (byR[k] = byR[k] || { k, t: r.t, course: r.course, rtype: r.rtype || '', dist: r.dist || '', going: r.going || '',
+          rclass: r.rclass || '', gone: tm3(r.t) < nowM, w: null, runners: [] }).runners.push(r); });
+      const all2 = Object.values(byR);
+      let pick = all2.filter(rc => !rc.gone).sort((a, b2) => tm3(a.t) - tm3(b2.t)).slice(0, 3);
+      if (!pick.length) pick = all2.sort((a, b2) => tm3(a.t) - tm3(b2.t)).slice(-3);
+      const pt = (b, id) => { const s2 = b && b[id]; return s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null; };
+      const races = pick.map(rc => ({ t: rc.t, course: rc.course, k: rc.k, gone: rc.gone, w: null,
+        rtype: rc.rtype, dist: rc.dist, going: rc.going, rclass: rc.rclass,
+        runners: rc.runners.slice().sort((a, b2) => (Number(a.num) || 99) - (Number(b2.num) || 99)).map(r => { 
+          const jp = pt(pj && pj.jockeys, r.jid), tp = pt(pj && pj.trainers, r.tid);
+          return { num: r.num || '', h: r.h, cd: '', sig: null, d: Number(r.d) > 1 ? Number(r.d) : null, ofr: r.ofr || null,
+            jockey: r.jockey || '', trainer: r.trainer || '', jp, tp, tot: jp != null && tp != null ? jp + tp : null,
+            tier: '', labels: [] }; }) }));
+      render(races, '<div class="none" style="padding:14px 10px 0;font-size:13px">basic cards &mdash; open MAX LISTS once today for \u03a3 scores, tiers, C/D and list tags here.</div>');
+    } catch (e) { $('app').innerHTML = '<div class="none">could not build cards \u2014 feed unreachable.</div>'; }
+  };
+  if (!st || !st.races || !st.races.length || st.day !== ukd) { fallback(); return; }
+  render(st.races);
 })();
 </script>
 </body>
