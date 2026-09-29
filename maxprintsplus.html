@@ -54,6 +54,11 @@
   .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
   .seq b{color:var(--ink)}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .pcard{margin:6px 0 4px;padding:6px 0 4px;border-top:1px dashed var(--line)}
+  .prow{font-size:12.5px;line-height:1.9;color:var(--ink)}
+  .pstar{font-family:var(--mono);font-size:10px;color:var(--red);font-weight:800}
+  .ptags{font-family:var(--mono);font-size:9px;color:var(--dim);margin-left:7px}
+  .pjt{font-family:var(--mono);font-size:9px;color:var(--faint)}
   .pstrip{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
   .pchip{flex:0 0 auto;font-family:var(--mono);font-size:11px;font-weight:800;background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:6px 9px;color:var(--ink)}
   .pchip small{display:block;font-size:8px;color:var(--faint);letter-spacing:.06em}
@@ -473,7 +478,20 @@
     if (wq.sig != null) bTally.s++; else bTally.u++; });
   const bChips = (bTally.s + bTally.u) ? `<span class="chip" style="color:var(--green);border-color:var(--green)">signalled won ${bTally.s}/${bTally.s + bTally.u}</span><span class="chip">unsignalled won ${bTally.u}/${bTally.s + bTally.u}</span>` : '';
   const bks = (x, i3) => `<div id="bks-${i3}">${baskets(x)}</div>`;
-  const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}`
+  const todayP = {};
+  (st && st.prints || []).forEach(p => { if (p.day === ukd) todayP[p.k] = p; });
+  const printCard = (x) => { const p = todayP[x.k];
+    if (!p || !p.picks || !p.picks.length) return '';
+    const numOf = (nm2) => { const q = (x.runners || []).find(q2 => hn(q2.r.h) === hn(nm2)); return q && q.r.num ? q.r.num : ''; };
+    const rows2 = p.picks.slice().sort((a, b2) => (b2.pts || 0) - (a.pts || 0)).map(s2 => {
+      const isW = x.w && hn(s2.h) === x.w;
+      const pv2 = s2.pos != null && String(s2.pos) !== '' ? `<b style="color:${String(s2.pos) === '1' ? 'var(--green)' : ['2','3'].includes(String(s2.pos)) ? 'var(--gold)' : 'var(--faint)'}">${ordTxt(s2.pos)}</b>` : (x.w && !isW ? '<b style="color:var(--faint)">\u2014</b>' : '');
+      const q2 = (x.runners || []).find(q3 => hn(q3.r.h) === hn(s2.h));
+      const g2 = q2 ? jtOf(q2) : { jp: null, tp: null, tot: null };
+      const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
+      return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
+    return `<div class="pcard"><span class="blb">PRINT</span>${rows2}</div>`; };
+  const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
