@@ -481,10 +481,11 @@
     if (x.q === q) L.push('LOW MX'); if (x.tp === q) L.push('TOP PTS'); if (x.or === q) L.push('TOP OR');
     if (x.cb && x.cb.q === q) L.push('TOP CB'); if (x.mpp === q) L.push('LOW MP%'); return L; };
   const termBuild = () => { const W = { pink: 4, purple: 3, blue: 2, green: 1 };
-    const scored = listRows.map((x, i3) => ({ x, i3, sc: (x.runners || []).reduce((s2, q) => s2 + (W[tierOf(q)] || 0), 0) }))
-      .filter(e => e.sc > 0)
-      .sort((a, b2) => (a.x.gone ? 1 : 0) - (b2.x.gone ? 1 : 0) || b2.sc - a.sc || a.i3 - b2.i3)
-      .slice(0, 3);
+    const tm3 = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const all2 = listRows.map((x, i3) => ({ x, i3, sc: (x.runners || []).reduce((s2, q) => s2 + (W[tierOf(q)] || 0), 0) }));
+    let scored = all2.filter(e => !e.x.gone).sort((a, b2) => tm3(a.x.t) - tm3(b2.x.t)).slice(0, 3);
+    if (!scored.length) scored = all2.sort((a, b2) => tm3(b2.x.t) - tm3(a.x.t)).slice(0, 3).reverse();
     const races = scored.map(e => ({ t: e.x.t, course: e.x.course, k: e.x.k, sc: e.sc, gone: !!e.x.gone, w: e.x.w || null,
       rtype: e.x.rtype || '', dist: e.x.dist || '', going: e.x.going || '', rclass: e.x.rcls != null ? 'Class ' + e.x.rcls : '',
       runners: (e.x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99)).map(q => { const g2 = jtOf(q);
@@ -495,7 +496,7 @@
     return races; };
   const termRow = () => { const races = termBuild();
     if (!races.length) return '';
-    return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)} <small style="color:#888">sc ${rc.sc}</small></a>`).join('')}</div></div>`; };
+    return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)}</a>`).join('')}</div></div>`; };
   $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + `<div id="gboard">` + greenBoard() + `</div><div id="trow">` + termRow() + `</div>` + seqBoard + listHd + rowsHtml;
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
