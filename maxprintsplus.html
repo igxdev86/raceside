@@ -57,6 +57,7 @@
   .fcard{margin-top:8px;padding-top:6px;border-top:2px solid var(--ink)}
   .frow{padding:7px 0;border-bottom:1px solid var(--line)}
   .frow.fwin{background:#E9F7EE;margin:0 -6px;padding:7px 6px;border-radius:6px}
+  .frm{font-family:var(--mono);font-size:9.5px;color:var(--faint);font-weight:400;margin-right:2px}
   .fl1{font-size:14.5px;font-weight:800;color:var(--ink)}
   .fnum{display:inline-block;min-width:20px;color:var(--red)}
   .fl2{font-family:var(--mono);font-size:11px;color:var(--ink);margin-top:2px}
@@ -118,7 +119,7 @@
   const races = {};
   if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
     const k = rkz(r.t, r.course);
-    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
+    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
   list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
@@ -513,7 +514,7 @@
         q.r.jockey ? `J <b>${q.r.jockey}</b>${g2.jp != null ? ` ${g2.jp}%` : ''}` : '',
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
-      return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+      return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
     return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})</span>${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
