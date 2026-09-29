@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAX TERMINAL — RACESIDE</title>
+<style>
+  :root{--bg:#101418;--tile:#23282E;--line:rgba(255,255,255,.09);--ink:#EDF1F5;--dim:#93A1AE;--faint:#5C6B77;--gold:#E8B54C;--red:#E36565;--green:#5FBF77;--blue:#6FA8FF;--mono:'SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif;padding:14px 12px 80px}
+  .wrap{max-width:680px;margin:0 auto}
+  h1{font-size:19px;margin:14px 0 2px}
+  .sub{color:var(--dim);font-size:12px}
+  .tile{background:var(--tile) !important;color-scheme:dark;border:1px solid rgba(255,255,255,.13);border-radius:14px;padding:11px 14px;margin:10px 0}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+  .hd b{font-size:15px;color:#FFFFFF}
+  .pick{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);align-items:baseline}
+  .pick:last-child{border-bottom:0}
+  .pick .nm{color:#FFFFFF;font-weight:700;font-size:14.5px}
+  .pick.np .nm{color:var(--dim);font-weight:600}
+  .pick .left{min-width:0;flex:1}
+  .pick .right{white-space:nowrap;color:#FFFFFF;font-family:var(--mono);font-size:12.5px;text-align:right}
+  .star{color:var(--gold);font-family:var(--mono);font-weight:800;font-size:13px}
+  .pick.np .star{color:var(--faint)}
+  .num{display:inline-block;background:rgba(255,255,255,.10);color:#FFFFFF;font-family:var(--mono);font-size:11px;border-radius:6px;padding:0 5px;margin-right:2px}
+  .tsort{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 2px}
+  .tsort button{font-family:var(--mono);font-size:9px;letter-spacing:.05em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--faint)}
+  .tsort button.on{border-color:var(--gold);color:var(--gold)}
+  .tags{display:block;color:var(--faint);font-family:var(--mono);font-size:10px;margin-top:1px}
+  .mx{display:inline-block;background:rgba(62,230,177,.16);color:#FFFFFF;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px;margin-left:4px;border:1px solid rgba(62,230,177,.35)}
+  .lum{display:inline-block;background:rgba(234,255,0,.14);color:#EAFF00;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px;margin-left:4px}
+  .sig{display:inline-block;background:rgba(255,105,180,.16);color:#ff8fc7;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:3px}
+  .res{font-size:12px;font-family:var(--mono)}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-right:6px;margin-bottom:6px;color:var(--dim)}
+  .dayhd{scroll-margin-top:52px;display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#FFFFFF;margin:22px 0 2px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .dayhd small{color:var(--faint);letter-spacing:0}
+  .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .jump a{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px;text-decoration:none}
+  .jump a{position:relative}
+  .jump a .ndot{position:absolute;top:-2px;right:-1px;width:7px;height:7px;border-radius:99px;background:#22C55E;border:1.5px solid var(--bg)}
+  .rrow{background:var(--tile);border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin:0 0 9px;scroll-margin-top:52px}
+  .rrow .rhd{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink);margin-bottom:4px}
+  .sl{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:10px;color:var(--dim);padding:3.5px 2px;border-bottom:1px solid var(--line)}
+  .sl:last-child{border-bottom:0}
+  .sl .lb{flex:none;width:52px;font-size:8.5px;letter-spacing:.06em;color:var(--faint)}
+  .sl .nm3{flex:none;font-weight:700;font-size:10.5px;color:var(--ink);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sl .ds{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sl.lmatch{background:#FFF9E3;box-shadow:inset 2px 0 0 #E4C65A;border-radius:4px}
+  .seqtile{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:7px 11px;margin:0 0 7px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .seqtile > b{display:block;font-size:10.5px;color:var(--ink);margin-bottom:3px;letter-spacing:.04em}
+  .seqline{display:inline-block;margin-right:11px;line-height:1.9}
+  .seqline b{color:var(--ink)}
+  .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
+  .seq b{color:var(--ink)}
+  .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .fcard{margin-top:8px;padding-top:6px;border-top:2px solid var(--ink)}
+  .frow{padding:7px 0;border-bottom:1px solid var(--line)}
+  .frow.fwin{background:#E9F7EE;margin:0 -6px;padding:7px 6px;border-radius:6px}
+  .fl1{font-size:14.5px;font-weight:800;color:var(--ink)}
+  .fnum{display:inline-block;min-width:20px;color:var(--red)}
+  .fl2{font-family:var(--mono);font-size:11px;color:var(--ink);margin-top:2px}
+  .fl3{font-size:10.5px;color:var(--dim);margin-top:2px}
+  .fl3 b{color:var(--ink)}
+  .pcard{margin:6px 0 4px;padding:6px 0 4px;border-top:1px dashed var(--line)}
+  .prow{font-size:12.5px;line-height:1.9;color:var(--ink)}
+  .pstar{font-family:var(--mono);font-size:10px;color:var(--red);font-weight:800}
+  .ptags{font-family:var(--mono);font-size:9px;color:var(--dim);margin-left:7px}
+  .pjt{font-family:var(--mono);font-size:9px;color:var(--faint)}
+  .pstrip{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
+  .pchip{flex:0 0 auto;font-family:var(--mono);font-size:11px;font-weight:800;background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:6px 9px;color:var(--ink)}
+  .pchip small{display:block;font-size:8px;color:var(--faint);letter-spacing:.06em}
+  .pchip.on{border-color:var(--red);color:var(--red)}
+  .pchip.gn{opacity:.55}
+  .gt{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:800;color:#1B7A3D;margin:0 5px 4px 2px}
+  .blb{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--faint);margin-right:7px}
+  .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
+  .bk b{color:var(--ink)}
+  .bk .cdmk{color:#8a6d00;background:rgba(228,198,90,.35);border-radius:4px;padding:0 3px;font-size:8px;letter-spacing:.04em}
+  .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink);box-shadow:0 0 0 1px #1B7A3D}
+  .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
+  .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
+
+  /* MAX TERMINAL dark theme */
+  html,body{background:#000 !important;color:#EDEDED;font-family:Arial,Helvetica,sans-serif}
+  h1{color:#9FE870}
+  .rrow{background:#0B0B0B;border-color:#232323}
+  .rhd,.fl1,.nm3{color:#fff}
+  .sl{border-color:#1c1c1c}
+  .sl.lmatch{background:#14140A}
+  .sl.lwin{background:#0E1F14}
+  .rrow.rwin{border-color:#1B7A3D}
+  .bk{background:#101010;border-color:#333;color:#CFCFCF}
+  .bk b{color:#fff}
+  .bk.bkwin{background:#0E2416;border-color:#2FBF63;color:#fff;box-shadow:0 0 0 1px #2FBF63}
+  .blb{color:#8A8A8A}
+  .gt{color:#9FE870}
+  .profl{color:#B9B9B9;border-left-color:#2FBF63}
+  .profl b{color:#fff}
+  .seq{color:#B9B9B9}
+  .seq b{color:#fff}
+  .chip{background:#0B0B0B;border-color:#333;color:#CFCFCF}
+  .pstrip .pchip{background:#0B0B0B;border-color:#333;color:#DDD}
+  .pchip.on{border-color:#9FE870;color:#9FE870}
+  .pchip small{color:#8A8A8A}
+  .fcard{border-top-color:#2b2b2b}
+  .frow{border-bottom-color:#1c1c1c}
+  .frow.fwin{background:#0E1F14}
+  .fnum{color:#FF6B6B}
+  .fl2{color:#EDEDED}
+  .fl3{color:#9A9A9A}
+  .fl3 b{color:#fff}
+  .pcard{border-top-color:#1c1c1c}
+  .prow{color:#EDEDED}
+  .pstar{color:#FF6B6B}
+  .ptags,.pjt{color:#8A8A8A}
+  .cdmk{color:#E4C65A !important;background:rgba(228,198,90,.14) !important}
+  .bask{border-top-color:#1c1c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="color:#9FE870;letter-spacing:.12em">MAX TERMINAL</h1><a href="/maxprintsplus.html" style="color:#888;font-size:12px;text-decoration:none;font-family:Arial">&larr; MAX PRINTS +</a>
+  <div class="sub">one line per race from today&rsquo;s still-to-run cards, same engine and data as MAX PRINTS. LOW MX = each race&rsquo;s lowest &Sigma;&times;odds runner.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading max lists…</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
+</div>
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+  const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  let st = null, arch = null, people = null, up = null, seqPre = null;
+  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  {   // one parallel round-trip for every store this page needs
+    const [j1, j2, j3, j4, j5] = await Promise.all([
+      gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
+      gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1') ]);
+    st = j1 && j1.state ? j1.state : null;
+    arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
+    people = j3;
+    up = j4;
+    seqPre = j5;
+  }
+  if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable — cannot score</div>'; return; }
+  // today's still-to-run races from the live feed; the cut-off is the off time
+  const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
+  const races = {};
+  if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
+    const k = rkz(r.t, r.course);
+    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
+  });
+  const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
+  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
+  const days = [ukd];
+
+  // ---- history: tag + XS1-rank win rates from stored prints ----
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
+  const histPrints = []; const seenH = new Set();
+  const addH = (day2, p) => { const kk = (day2 || '') + '|' + p.k; if (seenH.has(kk)) return; seenH.add(kk); histPrints.push(p); };
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => (arr || []).forEach(p => addH(d2, p)));
+  if (st && st.prints) st.prints.forEach(p => addH(p.day || ukd, p));
+  [histPrints].forEach(hp => hp.forEach(p => { if (!p.w || !(p.picks || []).length) return;
+    p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
+      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } });
+    const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
+    ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
+  const sigBase = sigN ? sigW / sigN * 100 : null;
+  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3 === 'OR1' ? `<b style=\"color:var(--ink)\">OR1</b>` : t3;
+    const pc = g.w / g.n * 100;
+    return `${t3 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+  const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
+    (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
+    const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
+    return any ? Math.round(s) : null; };
+
+  // ---- the engine (same as PRINT LIST) ----
+  const PTS = [5, 3, 1];
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+  const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+  const xs1f = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+  const scoreRace = (rs) => {
+    const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+    const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+      vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+    rank('J', (r) => strike(people.jockeys, r.jid, 50));
+    rank('T', (r) => strike(people.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+    const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (orMean != null && r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+      const edges = rs.map((r, i) => r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null);
+      const negs = rs.map((r, i) => ({ r, e: edges[i] })).filter(x => x.e != null && isFinite(x.e) && x.e < 0).sort((a, b2) => a.e - b2.e);
+      negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+      rs.forEach((r, i) => { const pr2 = ex[i] / Z;
+        if (pr2 > 0) (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).pe = pr2;
+        if (edges[i] != null && isFinite(edges[i])) { (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).edge = edges[i]; if (edges[i] > 0) tag(r.h, '+', 1); } });
+    }
+    return sc;
+  };
+
+  const fieldDay = { [ukd]: {} };
+  byDay[ukd].forEach(p => { fieldDay[ukd][p.k] = p._rs; });
+
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
+
+  const nextOff = list[0];
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} race${list.length === 1 ? '' : 's'} to run</span><span class="chip">next off ${nextOff.t} ${String(nextOff.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span></div>`;
+  const jump = '';
+
+  const tileReg = {}; const listRows = [];
+  const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
+  document.addEventListener('click', async (ev) => {
+    const cb = ev.target.closest('.tsort button[data-cls]');
+    if (cb) {
+      const wrap2 = cb.closest('.tsort'); const tid2 = wrap2.dataset.tid; const reg2 = tileReg[tid2]; if (!reg2 || reg2.clsDone) return;
+      reg2.clsDone = true; cb.textContent = '\u2026';
+      await Promise.all(reg2.runners.map(async (q) => { try {
+        if (!q.r.hid) { q.clsMiss = true; return; }
+        const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
+        const runs = (j && j.runs) || (j && j.history) || [];
+        const lastC = runs.length ? runs[runs.length - 1] : null;
+        const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+        const last = sorted2.find(r2 => typeof r2.cls === 'number');
+        if (last && reg2.rcls != null) q.cls = { last: last.cls, now: reg2.rcls, dir: last.cls < reg2.rcls ? 'down' : last.cls > reg2.rcls ? 'up' : 'same' };
+        else q.clsMiss = true;
+      } catch { q.clsMiss = true; } }));
+      cb.textContent = 'CLASS'; cb.style.opacity = '.4';
+      document.getElementById('tr-' + tid2).innerHTML = reg2.runners.map(reg2.makeRow).join('');
+      return;
+    }
+    const b = ev.target.closest('.tsort button'); if (!b) return;
+    const wrap = b.closest('.tsort'); const tid = wrap.dataset.tid; const reg = tileReg[tid]; if (!reg) return;
+    const ts = b.dataset.ts;
+    const [get, dfl] = tsCmp[ts];
+    // tap the active tab again to flip direction
+    const dir2 = (reg.key === ts) ? -reg.dir : dfl;
+    reg.key = ts; reg.dir = dir2;
+    wrap.querySelectorAll('button').forEach(x => { x.classList.toggle('on', x === b);
+      x.textContent = x.textContent.replace(/ [\u2191\u2193]$/, ''); });
+    b.textContent += dir2 === 1 ? ' \u2191' : ' \u2193';
+    const sorted = reg.runners.slice().sort((a, b2) => { const va = get(a), vb = get(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); });
+    document.getElementById('tr-' + tid).innerHTML = sorted.map(reg.makeRow).join('');
+  });
+  let tileMp = null; let tilePctMax = null; let tilePctMin = null;
+  const tile = (p, d2, mode2) => {
+    tileMp = null; tilePctMax = null; tilePctMin = null;
+    const dayM = fieldDay[d2];
+    const rs = dayM ? (dayM[p.k] || dayM[rkz(p.t, p.course)] || []) : [];
+    const pickSet = new Set((p.picks || []).length ? p.picks.map(x => hn(x.h)) : []);
+    let rows;
+    if (rs.length >= 3) {
+      const sc = scoreRace(rs);
+      const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) })).sort((a, b2) => b2.s.pts - a.s.pts || (b2.xv || 0) - (a.xv || 0));
+      if (!pickSet.size) runners.slice(0, 4).forEach(q => { if (q.s.pts >= 2) pickSet.add(hn(q.r.h)); });
+      const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
+      // blended MP: 0.5 engine softmax + 0.3 sigma history + 0.2 market
+      runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); });
+      const sumSig = runners.reduce((a, q) => a + (q.sig || 0), 0);
+      const invs = runners.map(q => q.r.d > 1 ? 1 / q.r.d : null); const sumInv = invs.reduce((a, v) => a + (v || 0), 0);
+      const nR = runners.length;
+      const blend = runners.map((q, i) => {
+        const pe = q.s.pe != null ? q.s.pe : 1 / nR;
+        const ps = sumSig > 0 ? (q.sig || 0) / sumSig : 1 / nR;
+        const pm = sumInv > 0 ? (invs[i] != null ? invs[i] / sumInv : 1 / nR) : 1 / nR;
+        return 0.5 * pe + 0.3 * ps + 0.2 * pm; });
+      const bZ = blend.reduce((a, v) => a + v, 0);
+      runners.forEach((q, i) => { const p2 = bZ > 0 ? blend[i] / bZ : null; q.mp = p2 > 0 ? Math.round(Math.min(999, 1 / p2) * 10) / 10 : null; });
+      tileMp = runners.reduce((a, q) => q.mp != null && (a == null || q.mp < a) ? q.mp : a, null);
+      runners.forEach(q => { q.pct = q.mp != null && Number(q.r.d) > 1 ? Math.round((Number(q.r.d) - q.mp) / q.mp * 100) : null; });
+      tilePctMax = runners.reduce((a, q) => q.pct != null && (a == null || q.pct > a) ? q.pct : a, null);
+      tilePctMin = runners.reduce((a, q) => q.pct != null && (a == null || q.pct < a) ? q.pct : a, null);
+      const cmp = (get, dir2) => (a, b2) => { const va = get(a), vb = get(b2);
+        if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); };
+      if (mode2 === 'asc') runners.sort(cmp(q => q.mp, 1));
+      else if (mode2 === 'desc') runners.sort(cmp(q => q.mp, -1));
+      else if (mode2 === 'pctasc') runners.sort(cmp(q => q.pct, 1));
+      else if (mode2 === 'pctdesc') runners.sort(cmp(q => q.pct, -1));
+      const makeRow = (q) => { const isPick = pickSet.has(hn(q.r.h));
+        const xr2 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null;
+        const s2 = q.sig;
+        const pv = p.w && q.r.pos ? q.r.pos : null;
+        return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${(() => { const js = strike(people.jockeys, q.r.jid, 50), ts = strike(people.trainers, q.r.tid, 50);
+        const seg = (nm, v) => nm ? `${nm}${v != null ? ` <b style="color:var(--dim)">${Math.round(v * 100)}%</b>` : ''}` : '';
+        const line = [seg(q.r.jockey, js), seg(q.r.trainer, ts)].filter(Boolean).join(' \u00b7 ');
+        return line ? `<span class="tags" style="color:var(--dim)">${line}</span>` : ''; })()}${q.cls ? `<span class="tags"><b style="color:${q.cls.dir === 'down' ? 'var(--green)' : q.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls.dir === 'down' ? '\u25bc DOWN' : q.cls.dir === 'up' ? '\u25b2 UP' : '='} C${q.cls.last}\u2192C${q.cls.now}</b></span>` : q.clsMiss ? `<span class="tags" style="color:var(--faint)">class: no history</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="mx">MX ${Math.round(s2 * o2)}</span><span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
+      const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
+      tileReg[tid] = { runners, makeRow, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
+      rows = '';
+      const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
+      const row = { t: p.t, course: p.course, k: p.k, dist: p.dist, going: p.going, rtype: p.rtype, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
+      { const ors = runners.filter(q => Number(q.r.ofr) > 0);
+        if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
+      { const cbs = runners.map(q => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
+          return pr2 && pr2.r >= 10 ? { q, pc: pr2.w / pr2.r * 100, pr: pr2 } : null; }).filter(Boolean);
+        if (cbs.length) { cbs.sort((a, b2) => b2.pc - a.pc || b2.pr.r - a.pr.r); row.cb = cbs[0]; } }
+      { const pts2 = runners.filter(q => q.s.pts > 0);
+        if (pts2.length >= 2) { pts2.sort((a, b2) => b2.s.pts - a.s.pts); row.tp = pts2[0]; } }
+      { const mps = runners.filter(q => q.pct != null);
+        if (mps.length >= 2) { mps.sort((a, b2) => a.pct - b2.pct); row.mpp = mps[0]; } }
+      row.runners = runners;
+      if (row.q || row.or || row.cb || row.mpp || row.tp) listRows.push(row);
+    } else {
+      rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
+    }
+    return '';
+  };
+  const xr2f = (runners, q) => { const xvals = runners.map(z => z.xv).filter(v => v != null).sort((a, b2) => b2 - a); return q.xv != null ? xvals.indexOf(q.xv) + 1 : null; };
+
+  const raceList = [];
+  days.forEach(d2 => byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(p => raceList.push({ d2, p })));
+  const buildTiles = (mode2) => raceList.map(x => { const html2 = tile(x.p, x.d2, mode2);
+    return { d2: x.d2, p: x.p, html: html2, mp: tileMp, pctMax: tilePctMax, pctMin: tilePctMin }; });
+
+  buildTiles('day');   // populates listRows via the shared pipeline
+  listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  // class move for every selected runner, all four lists, deduped by hid
+  const cKeyPre = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const furlOfPre = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
+  const selUniq = new Map();
+  listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).forEach(q => {
+    if (q.r.hid && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls, rowC: cKeyPre(x.course), rowF: furlOfPre(x.dist) }); }));
+  const applyRuns = (q, rcls, rowC, rowF, runs) => {
+    const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+    const last = sorted2.find(r2 => typeof r2.cls === 'number');
+    if (last && rcls != null) q.cls2 = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+    const cW = rowC && runs.some(r2 => r2.pos === 1 && String(r2.course || '').trim().toLowerCase() === rowC);
+    const dW = rowF && runs.some(r2 => r2.pos === 1 && r2.df === rowF);
+    q.cd = cW && dW ? 'CD' : cW ? 'C' : dW ? 'D' : '';
+    q.cdDone = true; };
+  const jobs = [...selUniq.values()]; let ji = 0;
+  const worker = async () => { while (ji < jobs.length) { const { q, rcls, rowC, rowF } = jobs[ji++]; try {
+    const j = await (await fetch('/api/horsehist?v=2&hid=' + encodeURIComponent(q.r.hid))).json();
+    applyRuns(q, rcls, rowC, rowF, (j && j.runs) || []);
+  } catch {} } };
+  await Promise.all([1, 2, 3, 4].map(worker));
+  listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
+  const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').toUpperCase();
+  // saddle-number sequences per course: last 14 days of priceday + today's results
+  const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const seqByCourse = {};
+  let seqStore = null;
+  { const j = seqPre; seqStore = j && j.state && j.state.trans ? j.state : null; }
+  const dayList = [];
+  { const base = new Date(ukd + 'T12:00:00Z');
+    for (let i2 = 14; i2 >= 1; i2--) { const d4 = new Date(base.getTime() - i2 * 86400000);
+      dayList.push(d4.toISOString().slice(0, 10)); } }
+  if (!seqStore) await Promise.all(dayList.map(async (d4, di) => { try {
+    const pdj = await (await fetch('/api/priceday?v=5&date=' + d4)).json();
+    const rs2 = (pdj && pdj.races) || [];
+    const withW = rs2.map(r2 => { const w2 = (r2.runners || []).find(x => String(x.pos) === '1');
+      return w2 && w2.num ? { c: cKey(r2.course), t: tK(r2.t), n: Number(w2.num) } : null; }).filter(Boolean);
+    withW.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    withW.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di, tm: t2m(x.t), n: x.n }); });
+  } catch {} }));
+  Object.values(seqByCourse).forEach(arr => arr.sort((a, b2) => a.di - b2.di || a.tm - b2.tm));
+  const winOf = {};
+  if (st && st.prints) st.prints.forEach(p => { if ((p.day || ukd) === ukd && p.w) winOf[p.k] = hn(p.w); });
+  // today's resulted winner numbers extend the sequences (matched by name to the field)
+  const todayWins = [];
+  listRows.forEach(x => { const w2 = winOf[x.k]; if (!w2) return;
+    const all = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean);
+    let num2 = null; const fld = (byDay[ukd] || []).find(p => p.k === x.k);
+    if (fld && fld._rs) { const hit2 = fld._rs.find(r2 => hn(r2.h) === w2); if (hit2 && hit2.num) num2 = Number(hit2.num); }
+    if (num2 != null) todayWins.push({ c: cKey(x.course), tm: t2m(x.t), n: num2 }); });
+  todayWins.sort((a, b2) => a.tm - b2.tm);
+  todayWins.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di: 99, tm: x.tm, n: x.n }); });
+  const transOf = {};
+  if (seqStore) Object.entries(seqStore.trans).forEach(([c, t3]) => { transOf[c] = JSON.parse(JSON.stringify(t3)); });
+  Object.entries(seqByCourse).forEach(([c, arr]) => { const t3 = (transOf[c] = transOf[c] || {});
+    for (let i2 = 1; i2 < arr.length; i2++) { const a = arr[i2 - 1].n, b2 = arr[i2].n;
+      (t3[a] = t3[a] || {})[b2] = (t3[a][b2] || 0) + 1; } });
+  const seqBoard = (() => {
+    const courses = [...new Set(listRows.map(x => cKey(x.course)))];
+    if (!courses.length) return '';
+    const tiles2 = courses.map(c => { const disp = crs((listRows.find(x => cKey(x.course) === c) || {}).course || c);
+      const t3 = transOf[c];
+      if (!t3 || !Object.keys(t3).length) return `<div class="seqtile"><b>${disp}</b><span class="seqline" style="color:var(--faint)">no sequence data for this course yet</span></div>`;
+      const lines = Object.keys(t3).map(Number).map(a => {
+        const es = Object.entries(t3[a]).sort((x2, y2) => y2[1] - x2[1]);
+        const tot = es.reduce((s2, e) => s2 + e[1], 0);
+        return { a, b3: es[0][0], w2: es[0][1], tot, pc: es[0][1] / tot }; })
+        .sort((x2, y2) => y2.pc - x2.pc || y2.tot - x2.tot || x2.a - y2.a)
+        .map(L => `<span class="seqline"><b>${L.a}</b>&gt;<b>${L.b3}</b> <small>(${L.w2}/${L.tot} \u00b7 ${Math.round(L.pc * 100)}%)</small></span>`).join('');
+      return `<div class="seqtile"><b>${disp}</b>${lines}</div>`; });
+    return `<div class="dayhd" style="margin-top:8px"><span>COURSE NUMBER SEQUENCES</span><small>after No.A wins, most frequent next winner \u00b7 ${seqStore ? `18 months \u00b7 ${seqStore.races} races` : '14 days'}</small></div>${tiles2.join('')}`;
+  })();
+  const furlOf = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
+  const topOf = (obj, lbl2) => { const es = Object.entries(obj || {}).sort((a, b2) => b2[1] - a[1]);
+    return es.length ? `${lbl2}<b>${es[0][0]}</b> won <b>${es[0][1]}</b>\u00d7${es[1] ? `, ${lbl2}${es[1][0]} ${es[1][1]}\u00d7` : ''}` : null; };
+  const profNote = (x) => { const dd2 = /^\d+(\.\d+)?$/.test(String(x.dist)) ? x.dist + 'f' : x.dist;
+    const meta = [x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ');
+    let stats = '';
+    if (seqStore && seqStore.prof) { const f2 = furlOf(x.dist);
+      const pr = f2 ? seqStore.prof[cKey(x.course) + '|' + f2] : null;
+      if (pr && pr.n >= 3) { const nn = topOf(pr.num, 'No.'); const dd = topOf(pr.draw, 'draw ');
+        stats = ` \u2014 ${[nn, dd].filter(Boolean).join(' \u00b7 ')} <small>(${pr.n} runnings, 18mo)</small>`; }
+      else if (f2) stats = ' \u2014 <small>no 18-month profile for this course/distance yet</small>'; }
+    return meta || stats ? `<div class="seq" style="border-left-color:#1B7A3D">${meta.toUpperCase()}${stats}</div>` : ''; };
+  const seqNote = (x) => { const c = cKey(x.course); const arr = seqByCourse[c]; if (!arr || arr.length < 2) return '';
+    const prior = arr.filter(e => e.di < 99 || e.tm < t2m(x.t));
+    if (!prior.length) return '';
+    const L = prior[prior.length - 1].n;
+    const t3 = (transOf[c] || {})[L]; if (!t3) return '';
+    const es = Object.entries(t3).sort((a, b2) => b2[1] - a[1]);
+    const tot = es.reduce((a, e) => a + e[1], 0);
+    if (!es.length || tot < 2) return '';
+    return `<div class="seq">Whenever a <b>${L}</b> wins last at ${crs(x.course)}, the next winner is most often <b>No.${es[0][0]}</b> \u2014 ${es[0][1]}/${tot} times (${seqStore ? '18-month' : '14-day'} course record)</div>`; };
+  listRows.forEach(x => { x.w = winOf[x.k] || null;
+    if (x.w) x.hit = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).some(q => hn(q.r.h) === x.w); });
+  let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
+  const nextVals = {};
+  const arw = (cur, prev) => { if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || cur === prev) return '';
+    return cur > prev ? '<b style="color:var(--green)">\u25b2</b>' : '<b style="color:var(--red)">\u25bc</b>'; };
+  const snap = (x, colK, q, extra) => { const d3 = Number(q.r.d);
+    const cur = { h: hn(q.r.h), mx: q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null, sig: q.sig != null ? q.sig : null,
+      d: d3 > 0 ? d3 : null, mp: q.mp != null ? Math.round(q.mp * 10) / 10 : null, x1: extra != null ? extra : null };
+    const kk2 = (x.t + '|' + String(x.course) + '|' + colK).toLowerCase();
+    nextVals[kk2] = cur;
+    const prev = valsMap[kk2];
+    return prev && prev.h === cur.h ? prev : null; };
+  const clsBadge = (q) => q.cls2 ? ` <b style="color:${q.cls2.dir === 'down' ? 'var(--green)' : q.cls2.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls2.dir === 'down' ? '\u25bc' : q.cls2.dir === 'up' ? '\u25b2' : '='}C${q.cls2.last}\u2192${q.cls2.now}</b>` : '';
+  listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).map(q => hn(q.r.h));
+    const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
+    x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  const heatRange = (x) => { if (x._heat) return x._heat;
+    const sigs = (x.runners || []).map(q => q.sig).filter(v => v != null);
+    const mxs = (x.runners || []).map(q => { const d3 = Number(q.r.d); return q.sig != null && d3 > 0 ? q.sig * d3 : null; }).filter(v => v != null);
+    return (x._heat = { sLo: Math.min(...sigs), sHi: Math.max(...sigs), mLo: Math.min(...mxs), mHi: Math.max(...mxs) }); };
+  const heatC = (v, lo, hi, inv) => { if (v == null || !isFinite(lo) || !isFinite(hi) || hi <= lo) return '';
+    let p = Math.max(0, Math.min(1, (v - lo) / (hi - lo))); if (inv) p = 1 - p;
+    return `color:hsl(${Math.round(p * 130)},85%,60%);font-weight:800`; };
+  const statBits = (q, pv, x) => { const d3 = Number(q.r.d);
+    const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
+    const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
+    const hr = x ? heatRange(x) : null;
+    return `MX ${mxV != null ? `<b style="${hr ? heatC(mxV, hr.mLo, hr.mHi, true) : ''}">${mxV}</b>` : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? `<b style="${hr ? heatC(q.sig, hr.sLo, hr.sHi, false) : ''}">${q.sig}%</b>` : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
+  const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
+    const pv = snap(x, colK, q, extra != null ? extra : null);
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${q.cd ? `<b class="cdmk">${q.cd}</b>` : ''}<span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv, x)}</span></div>`; };
+  // price-vs-peers paint: against rivals with a near Sigma (within 12pts), how does the price compare?
+  const paintBasket = (arr) => { arr.forEach(q => { q.paint = '';
+      const d3 = Number(q.r.d); if (!(d3 > 0) || q.sig == null) return;
+      let best = 1;   // strongest ratio either way, as my price / rival price
+      arr.forEach(o => { if (o === q || o.sig == null) return;
+        const od = Number(o.r.d); if (!(od > 0)) return;
+        if (Math.abs(o.sig - q.sig) > 12) return;
+        const r2 = d3 / od;
+        if (Math.abs(Math.log(r2)) > Math.abs(Math.log(best))) best = r2; });
+      if (best === 1) { q.paint = ''; return; }
+      const v2 = Math.max(-1, Math.min(1, -Math.log(best) / Math.log(2)));   // +1 = half price of a near-\u03a3 rival, -1 = double
+      const hue = Math.round(65 + v2 * 65);                                   // 130 green .. 65 yellow .. 0 red, unique per ratio
+      q.paint = `background:hsl(${hue},50%,15%);border-color:hsl(${hue},70%,52%)`; }); };
+  const jtOf = (q) => { const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
+    const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
+    const jp = pt(js2), tp = pt(ts2);
+    return { jp, tp, tot: jp != null && tp != null ? jp + tp : null }; };
+  const hueOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : null; };
+  const greenBoard = () => {
+    const pool = []; listRows.forEach(x => { const sel = new Set([x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean));
+      (x.runners || []).forEach(q => { const hu = hueOf2(q);
+        if (hu != null && hu > 65) { q._sel = sel.has(q); pool.push({ x, q, hu }); } }); });
+    const ent = (e, extra) => `<span class="bk" style="${e.q._sel && e.q._both ? 'background:hsl(330,70%,92%);border-color:hsl(330,60%,45%)' : e.q._sel ? 'background:hsl(275,55%,92%);border-color:hsl(275,45%,45%)' : e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 <b style="${heatC(e.q.sig, heatRange(e.x).sLo, heatRange(e.x).sHi, false)}">${e.q.sig}%</b></small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const byTime = (arr, jt2) => { const g2 = {};
+      arr.forEach(e => (g2[e.x.t] = g2[e.x.t] || []).push(e));
+      return Object.keys(g2).sort((a, b2) => tMin(a) - tMin(b2))
+        .map(t => `<span class="gt">${t}</span>${g2[t].map(e => jt2 && e.tot != null ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('')}`).join(''); };
+    const cdL = pool.filter(e => e.q.cd).sort((a, b2) => (b2.q.cd === 'CD') - (a.q.cd === 'CD') || b2.hu - a.hu);
+    const jtL = pool.map(e => ({ ...e, tot: jtOf(e.q).tot })).filter(e => e.tot != null).sort((a, b2) => b2.tot - a.tot);
+    pool.forEach(e => { e.q._both = false; });
+    const inJt = new Set(jtL.map(e => e.q));
+    cdL.forEach(e => { if (inJt.has(e.q)) e.q._both = true; });
+    const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? byTime(arr, lbl2.includes('JT')) : '<small style="color:var(--faint)">none yet</small>'}</div>`;
+    return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
+  const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
+    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 <b style="${heatC(q.sig, heatRange(x).sLo, heatRange(x).sHi, false)}">${q.sig}%</b></small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
+      const bits = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean);
+      return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
+  const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
+    const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+    paintBasket(sig2);
+    const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
+    const bk = (lbl2, arr) => arr.length ? `<div class="bask"><span class="blb">${lbl2} (${arr.length})</span>${arr.map(q => bChip(x, q)).join('')}</div>` : '';
+    return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
+  const bTally = { s: 0, u: 0 };
+  listRows.forEach(x => { if (!x.w || !x.runners) return;
+    const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+    if (wq.sig != null) bTally.s++; else bTally.u++; });
+  const bChips = (bTally.s + bTally.u) ? `<span class="chip" style="color:var(--green);border-color:var(--green)">signalled won ${bTally.s}/${bTally.s + bTally.u}</span><span class="chip">unsignalled won ${bTally.u}/${bTally.s + bTally.u}</span>` : '';
+  const bks = (x, i3) => `<div id="bks-${i3}">${baskets(x)}</div>`;
+  const todayP = {};
+  (st && st.prints || []).forEach(p => { if (p.day === ukd) todayP[p.k] = p; });
+  const printCard = (x) => { const p = todayP[x.k];
+    if (!p || !p.picks || !p.picks.length) return '';
+    const numOf = (nm2) => { const q = (x.runners || []).find(q2 => hn(q2.r.h) === hn(nm2)); return q && q.r.num ? q.r.num : ''; };
+    const rows2 = p.picks.slice().sort((a, b2) => (b2.pts || 0) - (a.pts || 0)).map(s2 => {
+      const isW = x.w && hn(s2.h) === x.w;
+      const pv2 = s2.pos != null && String(s2.pos) !== '' ? `<b style="color:${String(s2.pos) === '1' ? 'var(--green)' : ['2','3'].includes(String(s2.pos)) ? 'var(--gold)' : 'var(--faint)'}">${ordTxt(s2.pos)}</b>` : (x.w && !isW ? '<b style="color:var(--faint)">\u2014</b>' : '');
+      const q2 = (x.runners || []).find(q3 => hn(q3.r.h) === hn(s2.h));
+      const g2 = q2 ? jtOf(q2) : { jp: null, tp: null, tot: null };
+      const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
+      return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
+    return `<div class="pcard"><span class="blb">PRINT</span>${rows2}</div>`; };
+  const fullCard = (x) => { const rs2 = (x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99));
+    if (!rs2.length) return '';
+    const hr2 = heatRange(x);
+    const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
+      const g2 = jtOf(q);
+      const line2 = [
+        q.sig != null ? `<b style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
+        Number(q.r.d) > 0 ? `@ ${q.r.d}` : '',
+        q.r.ofr ? `<small>OR</small> ${q.r.ofr}` : '' ].filter(Boolean).join(' \u00a0 ');
+      const jt2 = [
+        q.r.jockey ? `J <b>${q.r.jockey}</b>${g2.jp != null ? ` ${g2.jp}%` : ''}` : '',
+        q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
+        g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
+      return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})</span>${rows2}</div>`; };
+  const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
+    + selLine(x, 'LOW MX', 'mx', x.q, null)
+    + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
+    + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
+    + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
+    + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
+    + bks(x, i3)
+    + fullCard(x)
+    + `</div>`;
+  const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  let seenMap = {}, lastVisit = null;
+  try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
+  const listHd = `<div class="dayhd"><span>5 LISTS \u00b7 LOW MX / TOP PTS / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.filter(x => !x.gone).length} to run \u00b7 ${listRows.filter(x => x.gone).length} frozen \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
+  const nextSeen = {};
+  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { if (!x.q) return ''; const kk = (x.t + '|' + String(x.course)).toLowerCase();
+    const fp = hn(x.q.r.h); nextSeen[kk] = fp;
+    const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
+    return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
+  try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
+  try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
+  const tierOf = (q) => { const hu = hueOf2(q);
+    if (hu == null || hu <= 65) return '';
+    return q._sel && q._both ? 'pink' : q._sel ? 'purple' : q._both ? 'blue' : 'green'; };
+  const labelsOf = (x, q) => { const L = [];
+    if (x.q === q) L.push('LOW MX'); if (x.tp === q) L.push('TOP PTS'); if (x.or === q) L.push('TOP OR');
+    if (x.cb && x.cb.q === q) L.push('TOP CB'); if (x.mpp === q) L.push('LOW MP%'); return L; };
+  const termBuild = () => { const W = { pink: 4, purple: 3, blue: 2, green: 1 };
+    const tm3 = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const all2 = listRows.map((x, i3) => ({ x, i3, sc: (x.runners || []).reduce((s2, q) => s2 + (W[tierOf(q)] || 0), 0) }));
+    let scored = all2.filter(e => !e.x.gone).sort((a, b2) => tm3(a.x.t) - tm3(b2.x.t)).slice(0, 3);
+    if (!scored.length) scored = all2.sort((a, b2) => tm3(b2.x.t) - tm3(a.x.t)).slice(0, 3).reverse();
+    const races = scored.map(e => ({ t: e.x.t, course: e.x.course, k: e.x.k, sc: e.sc, gone: !!e.x.gone, w: e.x.w || null,
+      rtype: e.x.rtype || '', dist: e.x.dist || '', going: e.x.going || '', rclass: e.x.rcls != null ? 'Class ' + e.x.rcls : '',
+      runners: (e.x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99)).map(q => { const g2 = jtOf(q);
+        return { num: q.r.num || '', h: q.r.h, cd: q.cd || '', sig: q.sig, d: q.r.d || null, ofr: q.r.ofr || null,
+          jockey: q.r.jockey || '', trainer: q.r.trainer || '', jp: g2.jp, tp: g2.tp, tot: g2.tot,
+          tier: tierOf(q), labels: labelsOf(e.x, q) }; }) }));
+    const payload = JSON.stringify({ ts: Date.now(), day: ukd, races });
+    try { localStorage.setItem('rsTerm', payload); } catch {}
+    try { if (payload.slice(0, 4000) !== (termBuild._last || '').slice(0, 4000)) { termBuild._last = payload;
+      fetch('/api/yearstate?k=termdata:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(() => {}); } } catch {}
+    return races; };
+  const termRow = () => { const races = termBuild();
+    if (!races.length) return '';
+    return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)}</a>`).join('')}</div></div>`; };
+  // MAX PRINTS + : one race per page, strip pager on top
+  let curIx = listRows.findIndex(x => !x.gone); if (curIx < 0) curIx = listRows.length - 1;
+  const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
+    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
+  const drawPage = () => {
+    const x = listRows[curIx];
+    $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) : '');
+    document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
+  };
+  window.__draw = drawPage;
+  drawPage();
+  (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
+    const rest = []; const seen2 = new Set([...selUniq.keys()]);
+    listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.sig != null && q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3 }); } }));
+    let ri = 0;
+    const w2 = async () => { while (ri < rest.length) { const jb = rest[ri++]; try {
+      const j = await (await fetch('/api/horsehist?v=2&hid=' + encodeURIComponent(jb.q.r.hid))).json();
+      applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), (j && j.runs) || []);
+      if (window.__draw) window.__draw();
+    } catch {} } };
+    await Promise.all([1, 2, 3].map(w2));
+  })();
+  const jm2 = document.querySelector('.jump');
+  if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
+    ev.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+})();
+</script>
+</body>
+</html>
