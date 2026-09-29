@@ -14,6 +14,7 @@
     ['MAX', [
       ['/maxprints.html', 'MAX PRINTS'],
       ['/maxlists.html', 'MAX LISTS'],
+      ['/maxprintsplus.html', 'MAX PRINTS +'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [
