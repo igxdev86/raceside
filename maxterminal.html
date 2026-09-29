@@ -543,16 +543,16 @@
       const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
       return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
     return `<div class="pcard"><span class="blb">PRINT</span>${rows2}</div>`; };
-  let fcSort = 'num';
+  let fcSort = 'num', fcDir = 1;
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1] };
-  const fullCard = (x) => { const [, kf, dir] = fcKeys[fcSort] || fcKeys.num;
+  const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
     const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
       if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
       return (va - vb) * dir; });
     if (!rs2.length) return '';
-    const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}</button>`).join('')}</div>`;
+    const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}${k2 === fcSort ? (fcDir === (fcKeys[k2][2]) ? ' \u25bc' : ' \u25b2') : ''}</button>`).join('')}</div>`;
     const hr2 = heatRange(x);
     const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
       const g2 = jtOf(q);
@@ -620,7 +620,9 @@
     const updBar = `<div class="upd">page updated ${upd}</div>`;
     $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
-    document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { fcSort = b.dataset.k; drawPage(); });
+    document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
+      if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
+      drawPage(); });
   };
   window.__draw = drawPage;
   drawPage();
