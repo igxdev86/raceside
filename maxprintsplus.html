@@ -480,7 +480,7 @@
     const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
     paintBasket(sig2);
     const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
-    const bk = (lbl2, arr) => arr.length ? `<div class="bask"><span class="blb">${lbl2} (${arr.length})</span>${arr.map(q => bChip(x, q)).join('')}</div>` : '';
+    const bk = (lbl2, arr) => `<div class="rrow btile"><div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? arr.map(q => bChip(x, q)).join('') : '<small style="color:var(--faint)">none</small>'}</div></div>`;
     return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
   const bTally = { s: 0, u: 0 };
   listRows.forEach(x => { if (!x.w || !x.runners) return;
@@ -522,8 +522,6 @@
     + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
     + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
     + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
-    + bks(x, i3)
-    + fullCard(x)
     + `</div>`;
   const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   let seenMap = {}, lastVisit = null;
@@ -570,7 +568,7 @@
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const updBar = `<div class="upd">page updated ${upd}</div>`;
-    $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) : '');
+    $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
   };
   window.__draw = drawPage;
