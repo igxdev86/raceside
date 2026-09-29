@@ -422,9 +422,10 @@
     return { jp, tp, tot: jp != null && tp != null ? jp + tp : null }; };
   const hueOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : null; };
   const greenBoard = () => {
-    const pool = []; listRows.forEach(x => (x.runners || []).forEach(q => { const hu = hueOf2(q);
-      if (hu != null && hu > 65) pool.push({ x, q, hu }); }));
-    const ent = (e, extra) => `<span class="bk" style="${e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 ${e.q.sig}%</small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const pool = []; listRows.forEach(x => { const sel = new Set([x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean));
+      (x.runners || []).forEach(q => { const hu = hueOf2(q);
+        if (hu != null && hu > 65) { q._sel = sel.has(q); pool.push({ x, q, hu }); } }); });
+    const ent = (e, extra) => `<span class="bk" style="${e.q._sel ? 'background:hsl(275,55%,92%);border-color:hsl(275,45%,45%)' : e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 ${e.q.sig}%</small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
     const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
       let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
     const byTime = (arr, jt2) => { const g2 = {};
