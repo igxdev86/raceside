@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERMINAL — RACESIDE</title>
+<style>
+  :root{ --grn:#9FE870; --gold:#E4C65A; --red:#FF4B4B; --dim:#9A9A9A; --faint:#666; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;font-weight:700;padding:14px 12px 60px}
+  a{color:inherit;text-decoration:none}
+  .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
+  h1{font-size:30px;letter-spacing:.14em;color:var(--grn)}
+  .back{font-size:13px;color:var(--dim);letter-spacing:.06em}
+  .race{border:2px solid #222;border-radius:12px;padding:14px 12px;margin-bottom:26px}
+  .rhead{font-size:26px;line-height:1.15;margin-bottom:2px}
+  .rhead .t{color:var(--grn)}
+  .rmeta{font-size:15px;color:var(--dim);letter-spacing:.06em;margin-bottom:14px}
+  .rmeta .won{color:var(--grn)}
+  .horse{border-top:1px solid #1c1c1c;padding:12px 0}
+  .hline{font-size:26px;line-height:1.2}
+  .hline .num{display:inline-block;min-width:38px;color:var(--grn)}
+  .hline .cd{color:var(--gold);font-size:17px;vertical-align:middle;border:2px solid var(--gold);border-radius:6px;padding:0 5px;margin-left:6px}
+  .hline .win{color:var(--grn)}
+  .tier{display:inline-block;width:14px;height:14px;border-radius:50%;margin-left:8px;vertical-align:middle}
+  .tier.pink{background:#FF7BC1}.tier.purple{background:#B47BFF}.tier.blue{background:#5EA8FF}.tier.green{background:var(--grn)}
+  .lbls{font-size:13px;color:#000;margin:5px 0 0}
+  .lbls b{background:var(--gold);border-radius:5px;padding:1px 7px;margin-right:6px;display:inline-block}
+  .stats{font-size:19px;margin-top:6px;line-height:1.55}
+  .stats .sig{color:var(--grn)}
+  .stats .pr{color:#fff}
+  .stats small{color:var(--faint);font-size:14px;font-weight:700}
+  .jt{font-size:17px;color:var(--dim);margin-top:4px;line-height:1.5}
+  .jt b{color:#fff}
+  .jt .pc{color:var(--grn)}
+  .none{color:var(--dim);font-size:18px;padding:40px 10px;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="top"><h1>TERMINAL</h1><a class="back" href="/maxlists.html">&larr; MAX LISTS</a></div>
+<div id="app"><div class="none">loading&hellip;</div></div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem('rsTerm') || 'null'); } catch {}
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  if (!st || !st.races || !st.races.length || st.day !== ukd) {
+    $('app').innerHTML = '<div class="none">no terminal data for today yet.<br>open MAX LISTS first &mdash; it picks the best 3 races and sends them here.</div>';
+    return;
+  }
+  const hn = (s) => String(s || '').trim().toLowerCase();
+  const card = (rc) => {
+    const dd = /^\d+(\.\d+)?$/.test(String(rc.dist)) ? rc.dist + 'f' : rc.dist;
+    const meta = [rc.rtype, dd, rc.going, rc.rclass].filter(Boolean).join(' \u00b7 ').toUpperCase();
+    const horses = (rc.runners || []).map(q => {
+      const won = rc.w && hn(q.h) === hn(rc.w);
+      const stats = [
+        q.sig != null ? `<span class="sig">\u03a3 ${q.sig}%</span>` : '',
+        Number(q.d) > 0 ? `<span class="pr">@ ${q.d}</span>` : '',
+        q.ofr ? `<span><small>OR</small> ${q.ofr}</span>` : ''
+      ].filter(Boolean).join(' &nbsp; ');
+      const jt = [
+        q.jockey ? `J <b>${q.jockey}</b>${q.jp != null ? ` <span class="pc">${q.jp}%</span>` : ''}` : '',
+        q.trainer ? `T <b>${q.trainer}</b>${q.tp != null ? ` <span class="pc">${q.tp}%</span>` : ''}` : '',
+        q.tot != null ? `JT <span class="pc">${q.tot}</span>` : ''
+      ].filter(Boolean).join(' &nbsp;\u00b7&nbsp; ');
+      return `<div class="horse">
+        <div class="hline"><span class="num">${q.num || ''}</span>${q.h}${won ? ' <span class="win">\u2705</span>' : ''}${q.cd ? `<span class="cd">${q.cd}</span>` : ''}${q.tier ? `<span class="tier ${q.tier}"></span>` : ''}</div>
+        ${q.labels && q.labels.length ? `<div class="lbls">${q.labels.map(l => `<b>${l}</b>`).join('')}</div>` : ''}
+        ${stats ? `<div class="stats">${stats}</div>` : ''}
+        ${jt ? `<div class="jt">${jt}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="race" id="r-${rc.k.replace(/[^a-z0-9]/gi, '')}">
+      <div class="rhead"><span class="t">${rc.t}</span> ${String(rc.course).toUpperCase()}</div>
+      <div class="rmeta">${meta}${rc.gone ? ` \u00b7 OFF${rc.w ? ` \u00b7 <span class="won">WON: ${rc.w.toUpperCase()}</span>` : ''}` : ''} \u00b7 sc ${rc.sc}</div>
+      ${horses}
+    </div>`;
+  };
+  $('app').innerHTML = st.races.map(card).join('');
+  const ix = Number(new URLSearchParams(location.search).get('i'));
+  if (isFinite(ix) && st.races[ix]) {
+    const el = document.getElementById('r-' + st.races[ix].k.replace(/[^a-z0-9]/gi, ''));
+    if (el && ix > 0 && el.scrollIntoView) el.scrollIntoView();
+  }
+})();
+</script>
+</body>
+</html>
