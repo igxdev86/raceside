@@ -54,6 +54,7 @@
   .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
   .seq b{color:var(--ink)}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
+  .gt{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:800;color:#1B7A3D;margin:0 5px 4px 2px}
   .blb{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--faint);margin-right:7px}
   .bk{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:1px 7px;margin:0 5px 4px 0}
   .bk b{color:var(--ink)}
@@ -423,10 +424,16 @@
   const greenBoard = () => {
     const pool = []; listRows.forEach(x => (x.runners || []).forEach(q => { const hu = hueOf2(q);
       if (hu != null && hu > 65) pool.push({ x, q, hu }); }));
-    const ent = (e, extra) => `<span class="bk" style="${e.q.paint}"><small>${e.x.t} ${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const ent = (e, extra) => `<span class="bk" style="${e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const byTime = (arr, jt2) => { const g2 = {};
+      arr.forEach(e => (g2[e.x.t] = g2[e.x.t] || []).push(e));
+      return Object.keys(g2).sort((a, b2) => tMin(a) - tMin(b2))
+        .map(t => `<span class="gt">${t}</span>${g2[t].map(e => jt2 && e.tot != null ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('')}`).join(''); };
     const cdL = pool.filter(e => e.q.cd).sort((a, b2) => (b2.q.cd === 'CD') - (a.q.cd === 'CD') || b2.hu - a.hu);
     const jtL = pool.map(e => ({ ...e, tot: jtOf(e.q).tot })).filter(e => e.tot != null).sort((a, b2) => b2.tot - a.tot);
-    const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? arr.map(e => e.tot != null && lbl2.includes('JT') ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('') : '<small style="color:var(--faint)">none yet</small>'}</div>`;
+    const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? byTime(arr, lbl2.includes('JT')) : '<small style="color:var(--faint)">none yet</small>'}</div>`;
     return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
   const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
     return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 ${q.sig}%</small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
