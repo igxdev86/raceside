@@ -12,6 +12,9 @@
   .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
   h1{font-size:30px;letter-spacing:.14em;color:var(--grn)}
   .back{font-size:13px;color:var(--dim);letter-spacing:.06em}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{flex:1;background:#000;border:2px solid #333;border-radius:10px;color:#888;font-family:Arial;font-weight:700;font-size:17px;padding:10px 4px}
+  .tab.on{border-color:var(--grn);color:var(--grn)}
   .race{border:2px solid #222;border-radius:12px;padding:14px 12px;margin-bottom:26px}
   .rhead{font-size:26px;line-height:1.15;margin-bottom:2px}
   .rhead .t{color:var(--grn)}
@@ -47,13 +50,18 @@
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
 
   const hn = (s) => String(s || '').trim().toLowerCase();
+  const heatC = (v, lo, hi) => { if (v == null || !isFinite(lo) || !isFinite(hi) || hi <= lo) return '';
+    const p = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    return `color:hsl(${Math.round(p * 130)},80%,55%)`; };
   const card = (rc) => {
+    const sigs = (rc.runners || []).map(q => q.sig).filter(v => v != null);
+    rc._sLo = Math.min(...sigs); rc._sHi = Math.max(...sigs);
     const dd = /^\d+(\.\d+)?$/.test(String(rc.dist)) ? rc.dist + 'f' : rc.dist;
     const meta = [rc.rtype, dd, rc.going, rc.rclass].filter(Boolean).join(' \u00b7 ').toUpperCase();
     const horses = (rc.runners || []).map(q => {
       const won = rc.w && hn(q.h) === hn(rc.w);
       const stats = [
-        q.sig != null ? `<span class="sig">\u03a3 ${q.sig}%</span>` : '',
+        q.sig != null ? `<span class="sig" style="${heatC(q.sig, rc._sLo, rc._sHi)}">\u03a3 ${q.sig}%</span>` : '',
         Number(q.d) > 0 ? `<span class="pr">@ ${q.d}</span>` : '',
         q.ofr ? `<span><small>OR</small> ${q.ofr}</span>` : ''
       ].filter(Boolean).join(' &nbsp; ');
@@ -75,13 +83,19 @@
       ${horses}
     </div>`;
   };
+  let curIx = 0, curRaces = null, curNote = '';
   const render = (races, note) => {
-    $('app').innerHTML = races.map(card).join('') + (note || '');
-    const ix = Number(new URLSearchParams(location.search).get('i'));
-    if (isFinite(ix) && races[ix]) {
-      const el = document.getElementById('r-' + races[ix].k.replace(/[^a-z0-9]/gi, ''));
-      if (el && ix > 0 && el.scrollIntoView) el.scrollIntoView();
-    } };
+    curRaces = races; curNote = note || '';
+    const qi = Number(new URLSearchParams(location.search).get('i'));
+    if (isFinite(qi) && races[qi] != null) curIx = qi;
+    if (!races[curIx]) curIx = 0;
+    draw(); };
+  const draw = () => {
+    const tabs = `<div class="tabs">${curRaces.map((rc, ix) => `<button class="tab${ix === curIx ? ' on' : ''}" data-ix="${ix}">${rc.t} ${String(rc.course).slice(0, 3).toUpperCase()}</button>`).join('')}</div>`;
+    $('app').innerHTML = tabs + card(curRaces[curIx]) + curNote;
+    document.querySelectorAll('.tab').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
+      try { history.replaceState(null, '', '?i=' + curIx); } catch {}
+      draw(); }); };
   const fallback = async () => {
     $('app').innerHTML = '<div class="none">building&hellip;</div>';
     try {
