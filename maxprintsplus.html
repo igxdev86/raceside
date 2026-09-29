@@ -65,6 +65,11 @@
   .ddb.same{color:var(--faint)}
   .ggb.y{color:#1B7A3D;font-weight:800}
   .ggb.n{color:#C1121F;font-weight:800}
+  .fdim{display:flex;gap:5px;align-items:center;margin:0 0 8px}
+  .fdim small{font-family:var(--mono);font-size:8px;letter-spacing:.09em;color:var(--faint);font-weight:800}
+  .fdb{font-family:var(--mono);font-weight:800;font-size:9.5px;background:#fff;border:1.5px solid var(--line);border-radius:7px;color:var(--dim);padding:4px 9px}
+  .fdb.on{border-color:#8a6d00;color:#8a6d00}
+  .frow.fdm{opacity:.3}
   .fsort{display:flex;gap:5px;margin:6px 0 8px;flex-wrap:wrap}
   .fsb{font-family:var(--mono);font-weight:800;font-size:9.5px;background:#fff;border:1.5px solid var(--line);border-radius:7px;color:var(--dim);padding:4px 8px}
   .fsb.on{border-color:var(--red);color:var(--red)}
@@ -534,6 +539,7 @@
   try { _sv = JSON.parse(sessionStorage.getItem('rsAuto:' + location.pathname) || 'null'); } catch {}
   if (_sv && Date.now() - _sv.ts > 300000) _sv = null;
   let fcSort = (_sv && _sv.sort) || 'num', fcDir = (_sv && _sv.dir) || 1;
+  let fdTrip = !!(_sv && _sv.trip);
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
@@ -558,6 +564,9 @@
     const nUp = rs2.filter(q => q.dd && q.dd.dir === 'up').length, nDn = rs2.filter(q => q.dd && q.dd.dir === 'down').length,
       nSm = rs2.filter(q => q.dd && q.dd.dir === 'same').length, nG = rs2.filter(q => q.gRan === 1).length, nGx = rs2.filter(q => q.gRan === 0).length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never</div>` : '';
+    const tripOK = (q) => q.dd && q.dd.dir === 'same' && q.gRan === 1;
+    const dimQ = (q) => fdTrip && q.cdDone && !tripOK(q);
+    const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button></div>`;
     const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}${k2 === fcSort ? (fcDir === (fcKeys[k2][2]) ? ' \u25bc' : ' \u25b2') : ''}</button>`).join('')}</div>`;
     const hr2 = heatRange(x);
     const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
@@ -575,8 +584,8 @@
           return `J <b>${q.r.jockey}</b>${cm ? ` <span class="clm">claims ${cm[1]}lb</span>` : ''}${g2.jp != null ? ` ${g2.jp}%` : ''}`; })() : '',
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
-      return `<div class="frow${won ? ' fwin' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
-    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${anal}${sortBar}${rows2}</div>`; };
+      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${anal}${sortBar}${dimBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
@@ -656,6 +665,7 @@
     const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh 60s</div>` + logLine;
     $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
+    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip; drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
       if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
       drawPage(); });
@@ -665,7 +675,7 @@
   if (_sv && _sv.y) window.scrollTo(0, _sv.y);
   // auto-refresh: full data reload every 60s, keeping race, sort and scroll
   setInterval(() => { if (document.visibilityState !== 'visible') return;
-    try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, y: window.scrollY || 0, ts: Date.now() })); } catch {}
+    try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, trip: fdTrip, y: window.scrollY || 0, ts: Date.now() })); } catch {}
     location.reload(); }, 60000);
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
