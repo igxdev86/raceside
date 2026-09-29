@@ -149,7 +149,10 @@
   const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   let st = null, arch = null, people = null, up = null, seqPre = null;
-  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  const lon2 = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  const fetchLog = {};
+  const gj = (u) => { const name = (u.match(/k=(\w+):/) || [])[1] || (u.match(/\/api\/(\w+)/) || [])[1] || u;
+    return fetch(u).then(r => { fetchLog[name] = lon2(); return r.json(); }).catch(() => null); };
   {   // one parallel round-trip for every store this page needs
     const [j1, j2, j3, j4, j5] = await Promise.all([
       gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
@@ -374,7 +377,7 @@
       if (withD.length) { const lastDf = withD[0].df;
         q.dd = { dir: rowF > lastDf ? 'up' : rowF < lastDf ? 'down' : 'same', diff: rowF - lastDf }; } }
     if (rowG) q.gRan = runs.some(r2 => gNorm(r2.going) === gNorm(rowG)) ? 1 : 0;
-    q.cdDone = true; };
+    q.cdDone = true; fetchLog.careers = lon2(); };
   const jobs = [...selUniq.values()]; let ji = 0;
   const worker = async () => { while (ji < jobs.length) { const { q, rcls, rowC, rowF, rowG } = jobs[ji++]; try {
     const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(q.r.hid))).json();
@@ -637,7 +640,8 @@
   const drawPage = () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
-    const updBar = `<div class="upd">page updated ${upd}</div>`;
+    const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
+    const updBar = `<div class="upd">page updated <b>${upd}</b></div>` + logLine;
     $('app').innerHTML = updBar + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
