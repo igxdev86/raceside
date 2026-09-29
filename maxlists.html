@@ -420,9 +420,7 @@
       const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
       const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
       const jp = pt(js2), tp2 = pt(ts2);
-      const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
-      const tot = pr2 && pr2.r >= 10 ? Math.round(pr2.w / pr2.r * 100)
-        : (js2 && ts2 && js2.runs + ts2.runs >= 50 ? Math.round((js2.wins + ts2.wins) / (js2.runs + ts2.runs) * 100) : null);
+      const tot = jp != null && tp2 != null ? jp + tp2 : null;
       const bits = [jp != null ? `J${jp}` : null, tp2 != null ? `T${tp2}` : null, tot != null ? `JT${tot}` : null].filter(Boolean);
       return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
