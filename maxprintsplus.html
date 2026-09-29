@@ -53,6 +53,8 @@
   .seqline b{color:var(--ink)}
   .seq{font-family:var(--mono);font-size:9px;color:var(--dim);border-left:2px solid #C1121F;padding:2px 0 2px 7px;margin:1px 0 4px;line-height:1.5}
   .seq b{color:var(--ink)}
+  .btile .bk{display:block;margin:0 0 6px;padding:5px 9px}
+  .btile .blb{display:block;margin:0 0 7px}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
   .fcard{margin-top:8px;padding-top:6px;border-top:2px solid var(--ink)}
   .frow{padding:7px 0;border-bottom:1px solid var(--line)}
@@ -477,8 +479,10 @@
       const bits = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean);
       return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
   const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
-    const sig2 = rs2.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+    const sig2 = rs2.filter(q => q.sig != null);
     paintBasket(sig2);
+    const hOf = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+    sig2.sort((a, b2) => hOf(b2) - hOf(a) || b2.sig - a.sig);
     const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
     const bk = (lbl2, arr) => `<div class="rrow btile"><div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? arr.map(q => bChip(x, q)).join('') : '<small style="color:var(--faint)">none</small>'}</div></div>`;
     return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
