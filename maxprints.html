@@ -60,15 +60,20 @@
   const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
   const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
-  let st = null, arch = null, people = null;
-  try { const j = await (await fetch('/api/yearstate?k=alertstate:v1')).json(); st = j && j.state ? j.state : null; } catch {}
-  try { const j = await (await fetch('/api/yearstate?k=printsarchive:v1')).json(); arch = j && j.state && j.state.days ? j.state.days : null; } catch {}
-  try { people = await (await fetch('/api/peopleall?v=2')).json(); } catch {}
+  let st = null, arch = null, people = null, up = null, seqStore = null;
+  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  {   // one parallel round-trip for every store this page needs
+    const [j1, j2, j3, j4, j5] = await Promise.all([
+      gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
+      gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1') ]);
+    st = j1 && j1.state ? j1.state : null;
+    arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
+    people = j3;
+    up = j4;
+    seqStore = j5 && j5.state && j5.state.prof ? j5.state : null;
+  }
   if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable — cannot score</div>'; return; }
-
   // today's still-to-run races from the live feed; the cut-off is the off time
-  let up = null;
-  try { up = await (await fetch('/api/upcoming')).json(); } catch {}
   const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
   const races = {};
@@ -206,8 +211,6 @@
     document.getElementById('tr-' + tid).innerHTML = sorted.map(reg.makeRow).join('');
   });
   let tileMp = null; let tilePctMax = null; let tilePctMin = null;
-  let seqStore = null;
-  try { const j = await (await fetch('/api/yearstate?k=courseseq:v1')).json(); seqStore = j && j.state && j.state.prof ? j.state : null; } catch {}
   const cKey2 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
   const furlOf = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
     let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
