@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       cls,
       rname: String(r.race_name || '').slice(0, 40) || null,
       course: String(r.course || '').replace(/\s*\([^)]*\)/g, ''),
+      going: String(r.going || '').trim(),
       df: (() => { const s = String(r.dist_f || r.dist || r.distance_f || '').replace(/\u00bd/g, '.5').toLowerCase();
         let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
         let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
