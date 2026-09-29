@@ -126,7 +126,15 @@
       render(races, '<div class="none" style="padding:14px 10px 0;font-size:13px">basic cards &mdash; open MAX LISTS once today for \u03a3 scores, tiers, C/D and list tags here.</div>');
     } catch (e) { $('app').innerHTML = '<div class="none">could not build cards \u2014 feed unreachable.</div>'; }
   };
-  if (!st || !st.races || !st.races.length || st.day !== ukd) { fallback(); return; }
+  const stale = !st || !st.races || !st.races.length || st.day !== ukd;
+  if (stale) {   // no local handover (other device?) -> try the shared server copy before basic mode
+    fetch('/api/yearstate?k=termdata:v1').then(r => r.json()).then(j => {
+      const sv = j && j.state;
+      if (sv && sv.races && sv.races.length && sv.day === ukd) render(sv.races);
+      else fallback();
+    }).catch(fallback);
+    return;
+  }
   render(st.races);
 })();
 </script>
