@@ -474,7 +474,29 @@
     return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
   try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
   try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
-  $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + `<div id="gboard">` + greenBoard() + `</div>` + seqBoard + listHd + rowsHtml;
+  const tierOf = (q) => { const hu = hueOf2(q);
+    if (hu == null || hu <= 65) return '';
+    return q._sel && q._both ? 'pink' : q._sel ? 'purple' : q._both ? 'blue' : 'green'; };
+  const labelsOf = (x, q) => { const L = [];
+    if (x.q === q) L.push('LOW MX'); if (x.tp === q) L.push('TOP PTS'); if (x.or === q) L.push('TOP OR');
+    if (x.cb && x.cb.q === q) L.push('TOP CB'); if (x.mpp === q) L.push('LOW MP%'); return L; };
+  const termBuild = () => { const W = { pink: 4, purple: 3, blue: 2, green: 1 };
+    const scored = listRows.map((x, i3) => ({ x, i3, sc: (x.runners || []).reduce((s2, q) => s2 + (W[tierOf(q)] || 0), 0) }))
+      .filter(e => e.sc > 0)
+      .sort((a, b2) => (a.x.gone ? 1 : 0) - (b2.x.gone ? 1 : 0) || b2.sc - a.sc || a.i3 - b2.i3)
+      .slice(0, 3);
+    const races = scored.map(e => ({ t: e.x.t, course: e.x.course, k: e.x.k, sc: e.sc, gone: !!e.x.gone, w: e.x.w || null,
+      rtype: e.x.rtype || '', dist: e.x.dist || '', going: e.x.going || '', rclass: e.x.rcls != null ? 'Class ' + e.x.rcls : '',
+      runners: (e.x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99)).map(q => { const g2 = jtOf(q);
+        return { num: q.r.num || '', h: q.r.h, cd: q.cd || '', sig: q.sig, d: q.r.d || null, ofr: q.r.ofr || null,
+          jockey: q.r.jockey || '', trainer: q.r.trainer || '', jp: g2.jp, tp: g2.tp, tot: g2.tot,
+          tier: tierOf(q), labels: labelsOf(e.x, q) }; }) }));
+    try { localStorage.setItem('rsTerm', JSON.stringify({ ts: Date.now(), day: ukd, races })); } catch {}
+    return races; };
+  const termRow = () => { const races = termBuild();
+    if (!races.length) return '';
+    return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)} <small style="color:#888">sc ${rc.sc}</small></a>`).join('')}</div></div>`; };
+  $('app').innerHTML = chips.replace('</div>', bChips + '</div>') + quick + `<div id="gboard">` + greenBoard() + `</div><div id="trow">` + termRow() + `</div>` + seqBoard + listHd + rowsHtml;
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
     listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.sig != null && q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3 }); } }));
@@ -484,6 +506,7 @@
       applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), (j && j.runs) || []);
       const el = document.getElementById('bks-' + jb.i3); if (el) el.innerHTML = baskets(jb.x);
       const gb = document.getElementById('gboard'); if (gb) gb.innerHTML = greenBoard();
+      const tr2 = document.getElementById('trow'); if (tr2) tr2.innerHTML = termRow();
     } catch {} } };
     await Promise.all([1, 2, 3].map(w2));
   })();
