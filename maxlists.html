@@ -505,7 +505,10 @@
         return { num: q.r.num || '', h: q.r.h, cd: q.cd || '', sig: q.sig, d: q.r.d || null, ofr: q.r.ofr || null,
           jockey: q.r.jockey || '', trainer: q.r.trainer || '', jp: g2.jp, tp: g2.tp, tot: g2.tot,
           tier: tierOf(q), labels: labelsOf(e.x, q) }; }) }));
-    try { localStorage.setItem('rsTerm', JSON.stringify({ ts: Date.now(), day: ukd, races })); } catch {}
+    const payload = JSON.stringify({ ts: Date.now(), day: ukd, races });
+    try { localStorage.setItem('rsTerm', payload); } catch {}
+    try { if (payload.slice(0, 4000) !== (termBuild._last || '').slice(0, 4000)) { termBuild._last = payload;
+      fetch('/api/yearstate?k=termdata:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(() => {}); } } catch {}
     return races; };
   const termRow = () => { const races = termBuild();
     if (!races.length) return '';
