@@ -641,8 +641,10 @@ const __boot = async () => {
   // MAX PRINTS + : one race per page, strip pager on top
   let curIx = listRows.findIndex(x => !x.gone); if (curIx < 0) curIx = listRows.length - 1;
   if (_sv && _sv.ix != null && listRows[_sv.ix]) curIx = _sv.ix;
-  const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
-    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
+  const strip = () => { const ord = listRows.map((x, i3) => i3)
+      .sort((a, b2) => (listRows[a].gone ? 1 : 0) - (listRows[b2].gone ? 1 : 0) || a - b2);
+    return `<div class="pstrip">${ord.map(i3 => { const x = listRows[i3]; const won = x.gone && x.w;
+    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
   try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
     if (pdj && pdj.ok && Array.isArray(pdj.races)) {
       const wmap = {};
