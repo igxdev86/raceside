@@ -673,16 +673,22 @@ const __boot = async () => {
     const cell = (lbl2, c2) => `<div class="dcell"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
     return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}</div><div class="dash">${cell('TM 1 WON', cnt.tm1)}${cell('TM TOP 3 WON', cnt.tm3)}${cell('TM TOP 5 WON', cnt.tm5)}${cell('TOP TM + CD WON', cnt.tmcd)}${cell('TOP \u03a3 + TOP TM WON', cnt.stm)}${cell('\u03a3 + MINUS + TM WON', cnt.smt)}</div>`; };
   const drawPage = () => {
+    const us = window.__uiSel;   // latest user intent wins over any boot generation's restore
+    if (us) { if (us.ix != null && listRows[us.ix]) curIx = us.ix;
+      if (us.sort) { fcSort = us.sort; fcDir = us.dir || fcDir; }
+      if (us.trip != null) fdTrip = us.trip; }
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
     const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh <b id="arCd">${Math.max(0, Math.ceil((__next - Date.now()) / 1000))}</b>s</div>` + logLine;
     $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
-    document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
-    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip; drawPage(); });
+    document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
+      window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
+    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip;
+      window.__uiSel = { ...(window.__uiSel || {}), trip: fdTrip }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
       if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
-      drawPage(); });
+      window.__uiSel = { ...(window.__uiSel || {}), sort: fcSort, dir: fcDir }; if (window.__saveState) window.__saveState(); drawPage(); });
   };
   window.__draw = drawPage;
   drawPage();
