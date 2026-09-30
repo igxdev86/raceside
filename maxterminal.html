@@ -385,6 +385,10 @@ const __boot = async () => {
     const cW = rowC && runs.some(r2 => r2.pos === 1 && String(r2.course || '').trim().toLowerCase() === rowC);
     const dW = rowF && runs.some(r2 => r2.pos === 1 && r2.df === rowF);
     q.cd = cW && dW ? 'CD' : cW ? 'C' : dW ? 'D' : '';
+    const rc2 = parseInt(rcls, 10);
+    if (rc2 >= 1) { const withC = runs.filter(r2 => parseInt(r2.cls, 10) >= 1).sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+      if (withC.length) { const lastC = parseInt(withC[0].cls, 10);
+        q.cc = { dir: rc2 < lastC ? 'up' : rc2 > lastC ? 'down' : 'same', diff: lastC - rc2 }; } }
     if (rowF) { const withD = runs.filter(r2 => r2.df).sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
       if (withD.length) { const lastDf = withD[0].df;
         q.dd = { dir: rowF > lastDf ? 'up' : rowF < lastDf ? 'down' : 'same', diff: rowF - lastDf }; } }
@@ -599,7 +603,9 @@ const __boot = async () => {
     const cardMeta = [x.rcls != null ? 'Class ' + x.rcls : null, x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ').toUpperCase();
     const nUp = rs2.filter(q => q.dd && q.dd.dir === 'up').length, nDn = rs2.filter(q => q.dd && q.dd.dir === 'down').length,
       nSm = rs2.filter(q => q.dd && q.dd.dir === 'same').length, nG = rs2.filter(q => q.gRan === 1).length, nGx = rs2.filter(q => q.gRan === 0).length;
-    const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never</div>` : '';
+    const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
+      cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
+    const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same' && q.gRan === 1;
     const dimQ = (q) => fdTrip && q.cdDone && !tripOK(q);
     const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button></div>`;
@@ -614,6 +620,7 @@ const __boot = async () => {
         Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
         q.tm != null ? `<small>TM</small> <b>${q.tm}</b>` : '',
         q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
+        q.cc ? `<span class="ddb ${q.cc.dir}">CLS${q.cc.dir === 'up' ? '\u25b2' : q.cc.dir === 'down' ? '\u25bc' : '='}${q.cc.diff ? (q.cc.diff > 0 ? '+' : '') + q.cc.diff : ''}</span>` : '',
         q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
       const jt2 = [
         q.r.jockey ? (() => { const cm = String(q.r.jockey).match(/\((\d+)\)/);
