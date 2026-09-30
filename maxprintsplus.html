@@ -548,7 +548,8 @@ const __boot = async () => {
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
-    tm: ['TM', (q) => q.tm != null ? q.tm : null, -1] };
+    tm: ['TM', (q) => q.tm != null ? q.tm : null, -1],
+    pts: ['PTS', (q) => q.pts2 != null ? q.pts2 : null, -1] };
   const claimOf = (q) => { const m2 = String(q.r.jockey || '').match(/\((\d+)\)/); return m2 ? Number(m2[1]) : 0; };
   const calcTM = (x) => { const rs0 = x.runners || [];
     const anchor = rs0.filter(q => Number(q.r.ofr) > 0 && Number(q.r.lbs) > 0)
@@ -560,6 +561,9 @@ const __boot = async () => {
       q.tm = orv + (Number(anchor.r.lbs) - lb) + claimOf(q); }); };
   const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
     calcTM(x);
+    { const p2 = todayP[x.k], pm = {};
+      if (p2) (p2.picks || []).forEach(pk => { if (pk.pts != null) pm[hn(pk.h)] = pk.pts; });
+      (x.runners || []).forEach(q => { q.pts2 = pm[hn(q.r.h)] != null ? pm[hn(q.r.h)] : null; }); }
     const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
       if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
       return (va - vb) * dir; });
@@ -584,6 +588,7 @@ const __boot = async () => {
         q.r.ofr ? `<small>OR</small> ${q.r.ofr}` : '',
         Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
         q.tm != null ? `<small>TM</small> <b>${q.tm}</b>` : '',
+        q.pts2 != null ? `<small>PTS</small> <b>\u2605${q.pts2}</b>` : '',
         q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
         q.cc ? `<span class="ddb ${q.cc.dir}">CLS${q.cc.dir === 'up' ? '\u25b2' : q.cc.dir === 'down' ? '\u25bc' : '='}${q.cc.diff ? (q.cc.diff > 0 ? '+' : '') + q.cc.diff : ''}</span>` : '',
         q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
