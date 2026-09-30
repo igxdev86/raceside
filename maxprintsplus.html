@@ -117,7 +117,7 @@
 </div>
 <script src="/nav.js?v=15" defer></script>
 <script>
-let __first = true, __busy = false;
+let __first = true, __busy = false, __next = Date.now() + 60000;
 const __boot = async () => {
   const $ = (id) => document.getElementById(id);
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
@@ -663,7 +663,7 @@ const __boot = async () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
-    const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh 60s</div>` + logLine;
+    const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh <b id="arCd">${Math.max(0, Math.ceil((__next - Date.now()) / 1000))}</b>s</div>` + logLine;
     $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix); drawPage(); });
     document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip; drawPage(); });
@@ -695,9 +695,12 @@ const __boot = async () => {
 const __run = async () => { if (__busy) return; __busy = true;
   try { await __boot(); } catch (e) {} __first = false; __busy = false; };
 __run();
-setInterval(() => { if (document.visibilityState !== 'visible') return;
+setInterval(() => { __next = Date.now() + 60000;
+  if (document.visibilityState !== 'visible') return;
   try { if (window.__saveState) window.__saveState(); } catch {}
   __run(); }, 60000);
+setInterval(() => { const el = document.getElementById('arCd');
+  if (el) el.textContent = Math.max(0, Math.ceil((__next - Date.now()) / 1000)); }, 1000);
 </script>
 </body>
 </html>
