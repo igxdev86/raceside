@@ -117,7 +117,8 @@
 </div>
 <script src="/nav.js?v=15" defer></script>
 <script>
-(async () => {
+let __first = true, __busy = false;
+const __boot = async () => {
   const $ = (id) => document.getElementById(id);
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
@@ -672,11 +673,8 @@
   };
   window.__draw = drawPage;
   drawPage();
-  if (_sv && _sv.y) window.scrollTo(0, _sv.y);
-  // auto-refresh: full data reload every 60s, keeping race, sort and scroll
-  setInterval(() => { if (document.visibilityState !== 'visible') return;
-    try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, trip: fdTrip, y: window.scrollY || 0, ts: Date.now() })); } catch {}
-    location.reload(); }, 60000);
+  if (__first && _sv && _sv.y) window.scrollTo(0, _sv.y);
+  window.__saveState = () => { try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, trip: fdTrip, y: window.scrollY || 0, ts: Date.now() })); } catch {} };
   (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
     const rest = []; const seen2 = new Set([...selUniq.keys()]);
     listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3, pr: i3 === curIx ? 0 : 1 }); } }));
@@ -693,7 +691,13 @@
   if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
     ev.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1));
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-})();
+};
+const __run = async () => { if (__busy) return; __busy = true;
+  try { await __boot(); } catch (e) {} __first = false; __busy = false; };
+__run();
+setInterval(() => { if (document.visibilityState !== 'visible') return;
+  try { if (window.__saveState) window.__saveState(); } catch {}
+  __run(); }, 60000);
 </script>
 </body>
 </html>
