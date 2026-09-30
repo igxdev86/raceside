@@ -671,8 +671,16 @@ const __boot = async () => {
   if (_sv && _sv.ix != null && listRows[_sv.ix]) curIx = _sv.ix;
   const strip = () => `<div class="pstrip">${listRows.map((x, i3) => { const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`;
+  try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
+    if (pdj && pdj.ok && Array.isArray(pdj.races)) {
+      const wmap = {};
+      pdj.races.forEach(rc2 => { const w2 = (rc2.runners || []).find(r2 => r2.won);
+        if (w2 && w2.h) wmap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = hn(w2.h); });
+      listRows.forEach(x => { if (!x.w) { const w3 = wmap[tK(x.t) + '|' + cKeyPre(x.course)];
+        if (w3) { x.w = w3; x.gone = true; } } });
+    } } catch {}
   const dashHtml = () => {
-    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0] };
+    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0] };
     listRows.forEach(x => { if (!x.w || !x.runners) return;
       const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
       calcTM(x);
@@ -681,7 +689,9 @@ const __boot = async () => {
         cnt.tm1[1]++; if (wq.tm != null && wq.tm >= byTm[0].tm) cnt.tm1[0]++;
         cnt.tm3[1]++; if (byTm.slice(0, 3).some(q => q === wq)) cnt.tm3[0]++;
         cnt.tm5[1]++; if (byTm.slice(0, 5).some(q => q === wq)) cnt.tm5[0]++;
-        if (byTm[0].cd === 'CD') { cnt.tmcd[1]++; if (wq === byTm[0]) cnt.tmcd[0]++; } }
+        if (byTm[0].cd === 'CD') { cnt.tmcd[1]++; if (wq === byTm[0]) cnt.tmcd[0]++; }
+        const sigT = x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig)[0];
+        if (sigT && sigT === byTm[0]) { cnt.stm[1]++; if (wq === sigT) cnt.stm[0]++; } }
       const sig2 = x.runners.filter(q => q.sig != null);
       if (sig2.length >= 2) { paintBasket(sig2);
         const byS = sig2.slice().sort((a, b2) => b2.sig - a.sig);
@@ -694,7 +704,7 @@ const __boot = async () => {
           cnt.grnAny[1]++; if (hOf2(wq) > 65) cnt.grnAny[0]++; } } });
     if (!cnt.top1[1]) return '';
     const cell = (lbl2, c2) => `<div class="dcell"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
-    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}</div><div class="dash">${cell('TM 1 WON', cnt.tm1)}${cell('TM TOP 3 WON', cnt.tm3)}${cell('TM TOP 5 WON', cnt.tm5)}${cell('TOP TM + CD WON', cnt.tmcd)}</div>`; };
+    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1)}${cell('TOP 3 \u03a3 WON', cnt.top3)}${cell('GREENEST WON', cnt.grn)}${cell('ANY GREEN WON', cnt.grnAny)}</div><div class="dash">${cell('TM 1 WON', cnt.tm1)}${cell('TM TOP 3 WON', cnt.tm3)}${cell('TM TOP 5 WON', cnt.tm5)}${cell('TOP TM + CD WON', cnt.tmcd)}${cell('TOP \u03a3 + TOP TM WON', cnt.stm)}</div>`; };
   const drawPage = () => {
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
