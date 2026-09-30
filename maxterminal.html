@@ -57,6 +57,8 @@
   .btile .blb{display:block;margin:0 0 7px}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
   .clm{color:#E4C65A;font-weight:800;font-size:12px}
+  .frz{font-family:Arial;font-size:11px;color:#8A8A8A;margin:2px 0 4px}
+  .frz b{color:#E4C65A}
   .fanal{font-family:Arial;font-size:12px;color:#B9B9B9;margin:2px 0 6px}
   .fanal b{color:#fff}
   .ddb{font-weight:800}
@@ -152,7 +154,7 @@
   <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
 </div>
 <script>
-let __first = true, __busy = false, __next = Date.now() + 60000;
+let __first = true, __busy = false, __next = Date.now() + 60000, __prevLive = null;
 const __boot = async () => {
   const $ = (id) => document.getElementById(id);
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
@@ -633,7 +635,7 @@ const __boot = async () => {
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
-    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${anal}${sortBar}${dimBar}${rows2}</div>`; };
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? `<div class="frz">prices frozen ${froze[x.k] ? '<b>' + froze[x.k] + '</b>' : 'before this page was open'}</div>` : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
@@ -693,6 +695,12 @@ const __boot = async () => {
       listRows.forEach(x => { if (!x.w) { const w3 = wmap[tK(x.t) + '|' + cKeyPre(x.course)];
         if (w3) { x.w = w3; x.gone = true; } } });
     } } catch {}
+  let froze = {};
+  try { froze = JSON.parse(localStorage.getItem('rsFroze:' + ukd) || '{}'); } catch {}
+  listRows.forEach(x => { if (x.gone && froze[x.k] == null)
+    froze[x.k] = (__prevLive && __prevLive.has(x.k)) ? lon2() : ''; });
+  try { localStorage.setItem('rsFroze:' + ukd, JSON.stringify(froze)); } catch {}
+  __prevLive = new Set(listRows.filter(x => !x.gone).map(x => x.k));
   const dashHtml = () => {
     const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0] };
     listRows.forEach(x => { if (!x.w || !x.runners) return;
