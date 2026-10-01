@@ -66,6 +66,6 @@ export default async function handler(req, res) {
       });
     });
   }
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
   return res.status(200).json({ ok: true, at: new Date().toISOString(), rides });
 }
