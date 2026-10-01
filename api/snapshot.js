@@ -53,7 +53,7 @@ export default async function handler(req, res) {
   }
 
   const auth = req.headers.authorization || '';
-  const isCron = env.CRON_SECRET && auth === `Bearer ${env.CRON_SECRET}`;
+  const isCron = !env.CRON_SECRET || auth === `Bearer ${env.CRON_SECRET}`;   // no secret configured -> cron allowed (matches Vercel's own cron semantics)
   const isManual = env.TWEET_KEY && req.query.key === env.TWEET_KEY;
   if (!isCron && !isManual) return res.status(401).json({ ok: false, error: 'unauthorised' });
   if (!s) return res.status(200).json({ ok: false, error: 'no-store' });
