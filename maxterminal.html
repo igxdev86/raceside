@@ -174,15 +174,18 @@ const __boot = async () => {
   const gj = (u) => { const name = (u.match(/k=(\w+):/) || [])[1] || (u.match(/\/api\/(\w+)/) || [])[1] || u;
     return fetch(u).then(r => { fetchLog[name] = lon2(); return r.json(); }).catch(() => null); };
   {   // one parallel round-trip for every store this page needs
-    const [j1, j2, j3, j4, j5] = await Promise.all([
+    const [j1, j2, j3, j4, j5, j6] = await Promise.all([
       gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
-      gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1') ]);
+      gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1'),
+      gj('/api/snapshot?date=' + ukd) ]);
+    sj = j6;
     st = j1 && j1.state ? j1.state : null;
     arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
     people = j3;
     up = j4;
     seqPre = j5;
   }
+  let sj2 = typeof sj !== 'undefined' ? sj : null;
   if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable — cannot score</div>'; return; }
   // today's still-to-run races from the live feed; the cut-off is the off time
   const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
@@ -194,6 +197,16 @@ const __boot = async () => {
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
   list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+  // pre-off record: resulted races are scored on the server's frozen prices, not the drifting feed
+  const snapMap = {};
+  const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  try { fetchLog.snapshot = (fetchLog.snapshot || lon2()) + ' (' + (sj2 && sj2.races ? Object.keys(sj2.races).length : 0) + ' races)';
+    if (sj2 && sj2.ok && sj2.races) Object.values(sj2.races).forEach(rc2 => {
+      const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
+      snapMap[tK(rc2.t) + '|' + ck0(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
+  list.forEach(rc => { if (!rc.gone) return;
+    const sn = snapMap[tK(rc.t) + '|' + ck0(rc.course)]; if (!sn) return;
+    (rc.rs || []).forEach(r2 => { const sp = sn.prices[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
   if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
   const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
   const days = [ukd];
@@ -700,12 +713,7 @@ const __boot = async () => {
       .sort((a, b2) => (listRows[a].gone ? 1 : 0) - (listRows[b2].gone ? 1 : 0) || a - b2);
     return `<div class="pstrip">${ord.map(i3 => { const x = listRows[i3]; const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${/handicap/i.test(x.rtype || '') ? '<span class="hcp">H</span>' : ''}${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
-  const snapMap = {};
-  try { const sj = await gj('/api/snapshot?date=' + ukd);
-    fetchLog.snapshot = lon2() + ' (' + (sj && sj.races ? Object.keys(sj.races).length : 0) + ' races)';
-    if (sj && sj.ok && sj.races) Object.values(sj.races).forEach(rc2 => {
-      const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
-      snapMap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
+
   try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
     if (pdj && pdj.ok && Array.isArray(pdj.races)) {
       const wmap = {};
