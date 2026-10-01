@@ -110,10 +110,15 @@ export default async function handler(req, res) {
   };
   const out = { ok: true, sentPicks: [], sentResults: [] };
 
-  // 1) selections: races off in (4, 10] minutes, not yet sent
+  // 1) selections: races off in (4, 10] minutes, not yet sent.
+  // Plus: every future race gets ONE early provisional print (max 6 per run to stay inside limits);
+  // the real 4-10min print replaces it.
+  st.early = st.early || {};
+  let earlyDone = 0;
   for (const [k, rc] of Object.entries(by)) {
     const mins = raceMin(rc.t) - nm;
-    if (st.sent[k] || mins <= 4 || mins > 10 || rc.rs.length < 3) continue;
+    const early = !st.sent[k] && !st.early[k] && mins > 10 && rc.rs.length >= 3 && earlyDone < 6;
+    if (!early && (st.sent[k] || mins <= 4 || mins > 10 || rc.rs.length < 3)) continue;
     const sc = scoreRace(rc.rs, store, pj, pt);
     const xs1 = (r) => { const js = (store.jockeys || {})[r.jid], ts = (store.trainers || {})[r.tid];
       if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
@@ -143,6 +148,13 @@ export default async function handler(req, res) {
       const last = sorted2.find(r2 => typeof r2.cls === 'number');
       if (last) clsMap[p.r.h] = last.cls < rcls ? 'd' : last.cls > rcls ? 'u' : 's';
     } catch {} }));
+    if (early) { st.early[k] = 1; earlyDone++;
+      if (picks.length) { st.prints = st.prints || [];
+        st.prints.push({ ts: Date.now(), day: today, k, t: rc.t, course: rc.course, mins, quiet: 1, early: 1,
+          picks: picks.map(p => ({ h: p.r.h, pts: p.s.pts, tags: p.s.tags, d: p.r.d, e: pe(p.r.h), c: clsMap[p.r.h] || null, xs1: (() => { const v = xs1(p.r); return v != null ? Math.round(v * 10) / 10 : null; })() })), card: [] });
+        st.prints = st.prints.slice(-120); }
+      continue; }
+    st.prints = (st.prints || []).filter(p => !(p.k === k && p.early));   // real print replaces the provisional
     if (!picks.length) { st.sent[k] = 1; continue; }
     const strong = picks[0].s.pts >= 9;   // email only the strong races; every race still prints to the page
     if (!strong) { st.sent[k] = 1; st.picks[k] = picks.map(p => ({ h: p.r.h, pts: p.s.pts, d: p.r.d }));
