@@ -119,7 +119,8 @@
 </div>
 <script src="/nav.js?v=15" defer></script>
 <script>
-let __first = true, __busy = false, __next = Date.now() + 60000, __prevLive = null;
+let __first = true, __busy = false, __next = Date.now() + 15000, __prevLive = null;
+const __runsCache = new Map();
 const __boot = async () => {
   const $ = (id) => document.getElementById(id);
   const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
@@ -363,8 +364,10 @@ const __boot = async () => {
     q.cdDone = true; fetchLog.careers = lon2(); };
   const jobs = [...selUniq.values()]; let ji = 0;
   const worker = async () => { while (ji < jobs.length) { const { q, rcls, rowC, rowF, rowG } = jobs[ji++]; try {
-    const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(q.r.hid))).json();
-    applyRuns(q, rcls, rowC, rowF, (j && j.runs) || [], rowG);
+    let rr = __runsCache.get(q.r.hid);
+    if (!rr) { const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(q.r.hid))).json();
+      rr = (j && j.runs) || []; __runsCache.set(q.r.hid, rr); }
+    applyRuns(q, rcls, rowC, rowF, rr, rowG);
   } catch {} } };
   await Promise.all([1, 2, 3, 4].map(worker));
   listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
@@ -731,8 +734,10 @@ const __boot = async () => {
     rest.sort((a, b2) => a.pr - b2.pr);
     let ri = 0;
     const w2 = async () => { while (ri < rest.length) { const jb = rest[ri++]; try {
-      const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(jb.q.r.hid))).json();
-      applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), (j && j.runs) || [], jb.x.going);
+      let rr2 = __runsCache.get(jb.q.r.hid);
+      if (!rr2) { const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(jb.q.r.hid))).json();
+        rr2 = (j && j.runs) || []; __runsCache.set(jb.q.r.hid, rr2); }
+      applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), rr2, jb.x.going);
       if (window.__draw) window.__draw();
     } catch {} } };
     await Promise.all([1, 2, 3].map(w2));
@@ -745,10 +750,10 @@ const __boot = async () => {
 const __run = async () => { if (__busy) return; __busy = true;
   try { await __boot(); } catch (e) {} __first = false; __busy = false; };
 __run();
-setInterval(() => { __next = Date.now() + 60000;
+setInterval(() => { __next = Date.now() + 15000;
   if (document.visibilityState !== 'visible') return;
   try { if (window.__saveState) window.__saveState(); } catch {}
-  __run(); }, 60000);
+  __run(); }, 15000);
 setInterval(() => { const el = document.getElementById('arCd');
   if (el) el.textContent = Math.max(0, Math.ceil((__next - Date.now()) / 1000)); }, 1000);
 </script>
