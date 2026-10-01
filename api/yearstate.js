@@ -10,7 +10,7 @@ function supa() {
   return { url: url.replace(/\/$/, ''), key };
 }
 
-const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1'];
+const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1', 'termfreeze:v1'];
 
 export default async function handler(req, res) {
   const K = KEYS.includes(String(req.query.k)) ? String(req.query.k) : KEYS[0];
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     const r = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
     if (!r.ok) return res.status(200).json({ ok: true, state: null });
     const rows = await r.json();
-    const FAST = K === 'termdata:v1' || K === 'alertstate:v1';
+    const FAST = K === 'termdata:v1' || K === 'alertstate:v1' || K === 'termfreeze:v1';
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
     return res.status(200).json({ ok: true, state: (rows && rows[0] && rows[0].v) || null });
   } catch {
