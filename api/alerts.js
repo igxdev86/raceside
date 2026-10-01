@@ -52,6 +52,11 @@ export default async function handler(req, res) {
   const key = process.env.RESEND_API_KEY, to = process.env.EMAIL_TO;
   const gate = req.headers['authorization'] === `Bearer ${process.env.CRON_SECRET}` || (req.query.key && (req.query.key === process.env.TWEET_KEY || req.query.key === process.env.CRON_SECRET));
   if (!gate) return res.status(401).json({ ok: false, error: 'unauthorized' });
+  // piggyback: the snapshot capture rides this cron (its own Vercel cron never fires).
+  // Authed with our secret; failures never block alerts.
+  try { await fetch(`https://${req.headers.host}/api/snapshot`, {
+    headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    signal: AbortSignal.timeout(6000) }); } catch {}
   if (!key || !to) return res.status(200).json({ ok: false, error: 'set RESEND_API_KEY and EMAIL_TO' });
   const base = process.env.ALERT_BASE || 'https://raceside.vercel.app';
   const gj = async (p) => { const r = await fetch(base + p); return r.json(); };
