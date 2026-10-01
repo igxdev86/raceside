@@ -57,6 +57,7 @@
   .btile .blb{display:block;margin:0 0 7px}
   .bask{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:2}
   .clm{color:#E4C65A;font-weight:800;font-size:12px}
+  .hcp{color:#E4C65A;font-weight:900;font-size:11px;margin-left:3px}
   .frz{font-family:Arial;font-size:11px;color:#8A8A8A;margin:2px 0 4px}
   .frz b{color:#E4C65A}
   .fanal{font-family:Arial;font-size:12px;color:#B9B9B9;margin:2px 0 6px}
@@ -694,7 +695,7 @@ const __boot = async () => {
   const strip = () => { const ord = listRows.map((x, i3) => i3)
       .sort((a, b2) => (listRows[a].gone ? 1 : 0) - (listRows[b2].gone ? 1 : 0) || a - b2);
     return `<div class="pstrip">${ord.map(i3 => { const x = listRows[i3]; const won = x.gone && x.w;
-    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
+    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${/handicap/i.test(x.rtype || '') ? '<span class="hcp">H</span>' : ''}${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
   const snapMap = {};
   try { const sj = await gj('/api/snapshot?date=' + ukd);
     fetchLog.snapshot = lon2() + ' (' + (sj && sj.races ? Object.keys(sj.races).length : 0) + ' races)';
