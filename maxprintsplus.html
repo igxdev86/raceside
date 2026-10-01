@@ -143,11 +143,11 @@ const __boot = async () => {
   const gj = (u) => { const name = (u.match(/k=(\w+):/) || [])[1] || (u.match(/\/api\/(\w+)/) || [])[1] || u;
     return fetch(u).then(r => { fetchLog[name] = lon2(); return r.json(); }).catch(() => null); };
   {   // one parallel round-trip for every store this page needs
-    const [j1, j2, j3, j4, j5, j6] = await Promise.all([
+    const [j1, j2, j3, j4, j5, j6, j7] = await Promise.all([
       gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
       gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1'),
-      gj('/api/snapshot?date=' + ukd) ]);
-    sj = j6;
+      gj('/api/snapshot?date=' + ukd), gj('/api/yearstate?k=termfreeze:v1&r=' + Math.floor(Date.now() / 10000)) ]);
+    sj = j6; window.__tfj = j7;
     st = j1 && j1.state ? j1.state : null;
     arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
     people = j3;
@@ -173,9 +173,27 @@ const __boot = async () => {
     if (sj2 && sj2.ok && sj2.races) Object.values(sj2.races).forEach(rc2 => {
       const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
       snapMap[tK(rc2.t) + '|' + ck0(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
+  // page freeze: the terminal banks its own last live cycle at the moment a race flips gone
+  window.__live = window.__live || {};
+  let tfreeze = {};
+  try { tfreeze = JSON.parse(localStorage.getItem('rsTF:' + ukd) || '{}'); } catch {}
+  const srv = window.__tfj && window.__tfj.state && window.__tfj.state.days && window.__tfj.state.days[ukd] || {};
+  Object.entries(srv).forEach(([k2, v2]) => { if (!tfreeze[k2]) tfreeze[k2] = v2; });
+  let tfNew = false;
+  list.forEach(rc => { const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    if (!rc.gone) { const pm2 = {}; (rc.rs || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
+      window.__live[k2] = pm2; return; }
+    if (!tfreeze[k2] && window.__live[k2]) { tfreeze[k2] = { at: lon2(), prices: window.__live[k2] }; tfNew = true; } });
+  try { localStorage.setItem('rsTF:' + ukd, JSON.stringify(tfreeze)); } catch {}
+  if (tfNew) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
+    cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
+    fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: cur2 }) }); } catch {} }
+  // resulted price source: page freeze (exact off, this screen) > server snapshot > feed
   list.forEach(rc => { if (!rc.gone) return;
-    const sn = snapMap[tK(rc.t) + '|' + ck0(rc.course)]; if (!sn) return;
-    (rc.rs || []).forEach(r2 => { const sp = sn.prices[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
+    const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    const src = (tfreeze[k2] && tfreeze[k2].prices) || (snapMap[k2] && snapMap[k2].prices);
+    if (!src) return;
+    (rc.rs || []).forEach(r2 => { const sp = src[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
   if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
   const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
   const days = [ukd];
@@ -628,7 +646,9 @@ const __boot = async () => {
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
-    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const tf2 = (window.__tf || {})[tK(x.t) + '|' + cKeyPre(x.course)];
+      if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
+      const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
       const at = sn && sn.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(sn.at)) : null;
       return `<div class="frz">${at ? `prices frozen <b>${at}</b> (server record)` : froze[x.k] ? `no server freeze record \u00b7 page saw it gone <b>${froze[x.k]}</b>` : 'no server freeze record \u00b7 went off before this page was open'}</div>`; })() : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
@@ -698,6 +718,7 @@ const __boot = async () => {
   try { localStorage.setItem('rsFroze:' + ukd, JSON.stringify(froze)); } catch {}
   __prevLive = new Set(listRows.filter(x => !x.gone).map(x => x.k));
   let dashSel = (window.__uiSel && window.__uiSel.dash) || null;
+  window.__tf = tfreeze;
   const dashHtml = () => {
     const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0] };
     const calcPower = (x) => { calcTM(x);
