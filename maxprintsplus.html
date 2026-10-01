@@ -586,7 +586,9 @@ const __boot = async () => {
       const g2 = jtOf(q);
       const line2 = [
         q.sig != null ? `<b style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
-        Number(q.r.d) > 0 ? `@ ${q.r.d}` : '',
+        (() => { const sn = x.gone && snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
+          const sp = sn && sn.prices[hn(q.r.h)];
+          return sp > 0 ? `@ ${sp}` : Number(q.r.d) > 0 ? `@ ${q.r.d}` : ''; })(),
         q.r.ofr ? `<small>OR</small> ${q.r.ofr}` : '',
         Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
         q.tm != null ? `<small>TM</small> <b>${q.tm}</b>` : '',
@@ -600,7 +602,9 @@ const __boot = async () => {
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
-    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? `<div class="frz">prices frozen ${froze[x.k] ? '<b>' + froze[x.k] + '</b>' : 'before this page was open'}</div>` : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
+      const at = sn && sn.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(sn.at)) : null;
+      return `<div class="frz">prices frozen ${at ? '<b>' + at + '</b> (server record)' : froze[x.k] ? '<b>' + froze[x.k] + '</b> (page observed)' : 'before this page was open'}</div>`; })() : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
@@ -652,6 +656,11 @@ const __boot = async () => {
       .sort((a, b2) => (listRows[a].gone ? 1 : 0) - (listRows[b2].gone ? 1 : 0) || a - b2);
     return `<div class="pstrip">${ord.map(i3 => { const x = listRows[i3]; const won = x.gone && x.w;
     return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
+  const snapMap = {};
+  try { const sj = await gj('/api/snapshot?date=' + ukd);
+    if (sj && sj.ok && sj.races) Object.values(sj.races).forEach(rc2 => {
+      const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
+      snapMap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
   try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
     if (pdj && pdj.ok && Array.isArray(pdj.races)) {
       const wmap = {};
