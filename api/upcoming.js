@@ -6,12 +6,16 @@
 export const config = { maxDuration: 30 };
 
 function bestOdds(r) {
-  let best = null;
+  // Ladbrokes price when they've priced the horse; best-of-market fallback otherwise.
+  let best = null, lad = null;
   for (const o of r.odds || []) {
     const d = Number(o.decimal);
-    if (!isNaN(d) && d > 1 && (!best || d > best)) best = d;
+    if (isNaN(d) || d <= 1) continue;
+    if (!best || d > best) best = d;
+    const bk = String(o.bookmaker || o.book || o.name || '').toLowerCase();
+    if (bk.includes('ladbrokes') && (!lad || d > lad)) lad = d;
   }
-  return best;
+  return lad || best;
 }
 
 export default async function handler(req, res) {
