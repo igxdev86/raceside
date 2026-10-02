@@ -59,6 +59,9 @@
   .clm{color:#8a6d00;font-weight:800;font-size:9.5px}
   .dcell.sel{border-color:#8a6d00}
   .dlist{font-family:var(--mono);font-size:9.5px;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;margin:0 0 10px;line-height:1.7}
+  .rmv{float:right;display:flex;gap:5px;font-family:var(--mono);font-size:9px}
+  .rup{color:#1B7A3D}
+  .rdn{color:#C1121F}
   .wlk{background:#ffe88a;color:#000;padding:0 3px;border-radius:3px;font-weight:800}
   .pwr{color:var(--green);font-size:9px}
   .pbar{display:inline-block;width:30px;height:6px;background:#eee;border:1px solid var(--line);border-radius:3px;vertical-align:middle;overflow:hidden}
@@ -173,6 +176,14 @@ const __boot = async () => {
     if (sj2 && sj2.ok && sj2.races) Object.values(sj2.races).forEach(rc2 => {
       const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
       snapMap[tK(rc2.t) + '|' + ck0(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
+  // market-rank movement counters: each cycle, +1 up / +1 down per rank change (live races only)
+  window.__rkPrev = window.__rkPrev || {}; window.__rkMv = window.__rkMv || {};
+  list.forEach(rc => { if (rc.gone) return; const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    const ranked = (rc.rs || []).filter(r2 => Number(r2.d) > 0).sort((a, b2) => a.d - b2.d);
+    ranked.forEach((r2, i5) => { const hk = k2 + '|' + hn(r2.h); const cur = i5 + 1; const prev = window.__rkPrev[hk];
+      if (prev != null && cur !== prev) { const m2 = window.__rkMv[hk] = window.__rkMv[hk] || { up: 0, dn: 0 };
+        if (cur < prev) m2.up++; else m2.dn++; }
+      window.__rkPrev[hk] = cur; }); });
   // page freeze: the terminal banks its own last live cycle at the moment a race flips gone
   window.__live = window.__live || {};
   let tfreeze = {};
@@ -645,7 +656,9 @@ const __boot = async () => {
           return `J <b>${q.r.jockey}</b>${cm ? ` <span class="clm">claims ${cm[1]}lb</span>` : ''}${g2.jp != null ? ` ${g2.jp}%` : ''}`; })() : '',
         q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
-      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1"><b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+      const mv = window.__rkMv && window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)];
+      const mvHtml = mv && (mv.up || mv.dn) ? `<span class="rmv">${mv.up ? `<b class="rup">\u25b2${mv.up}</b>` : ''}${mv.dn ? `<b class="rdn">\u25bc${mv.dn}</b>` : ''}</span>` : '';
+      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}<b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
     return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const tf2 = (window.__tf || {})[tK(x.t) + '|' + cKeyPre(x.course)];
       if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
       const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
