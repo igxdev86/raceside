@@ -613,7 +613,8 @@ const __boot = async () => {
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
     tm: ['TM', (q) => q.tm != null ? q.tm : null, -1],
-    pts: ['PTS', (q) => q.pts2 != null ? q.pts2 : null, -1] };
+    pts: ['PTS', (q) => q.pts2 != null ? q.pts2 : null, -1],
+    pwr: ['PWR', (q) => q.pw3 != null ? q.pw3 : null, -1] };
   const claimOf = (q) => { const m2 = String(q.r.jockey || '').match(/\((\d+)\)/); return m2 ? Number(m2[1]) : 0; };
   const calcTM = (x) => { const rs0 = x.runners || [];
     const anchor = rs0.filter(q => Number(q.r.ofr) > 0 && Number(q.r.lbs) > 0)
@@ -625,6 +626,8 @@ const __boot = async () => {
       q.tm = orv + (Number(anchor.r.lbs) - lb) + claimOf(q); }); };
   const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
     calcTM(x);
+    if (window.__calcPower) { const pz3 = window.__calcPower(x);
+      (x.runners || []).forEach(q => { q.pw3 = pz3.sc.get(q); q.pw3r = pz3.rk.get(q); }); }
     { const p2 = todayP[x.k], pm = {};
       const hs = (s) => hn(s).replace(/[^a-z0-9]/g, '');
       if (p2) (p2.picks || []).forEach(pk => { if (pk.pts != null) pm[hs(pk.h)] = pk.pts; });
@@ -656,6 +659,7 @@ const __boot = async () => {
         Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
         q.tm != null ? `<small>TM</small> <b>${q.tm}</b>` : '',
         q.pts2 != null ? `<small>PTS</small> <b>\u2605${q.pts2}</b>` : '',
+        q.pw3 != null ? `<small>PWR</small> <b class="pwr">${q.pw3}${q.pw3r ? ' #' + q.pw3r : ''}</b>` : '',
         q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
         q.cc ? `<span class="ddb ${q.cc.dir}">CLS${q.cc.dir === 'up' ? '\u25b2' : q.cc.dir === 'down' ? '\u25bc' : '='}${q.cc.diff ? (q.cc.diff > 0 ? '+' : '') + q.cc.diff : ''}</span>` : '',
         q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
@@ -742,7 +746,7 @@ const __boot = async () => {
   window.__tf = tfreeze;
   const dashHtml = () => {
     const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0], smn: [0, 0], mn1: [0, 0], mne: [0, 0] };
-    const calcPower = (x) => { calcTM(x);
+    const calcPower = window.__calcPower = (x) => { calcTM(x);
       const rs0 = x.runners || [];
       const byS = rs0.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
       if (byS.length >= 2) paintBasket(byS);
