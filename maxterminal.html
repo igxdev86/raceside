@@ -65,6 +65,7 @@
   .rup{color:#2FBF63}
   .rdn{color:#FF6B6B}
   .wlk{background:#E4C65A;color:#000;padding:0 4px;border-radius:4px;font-weight:700}
+  .mxv{font-size:16px}
   .pwr{color:#9FE870;font-size:12px}
   .pbar{display:inline-block;width:36px;height:7px;background:#1C1C1C;border:1px solid #333;border-radius:4px;vertical-align:middle;overflow:hidden}
   .pbar i{display:block;height:100%;background:linear-gradient(90deg,#4a7a3a,#9FE870)}
@@ -663,6 +664,9 @@ const __boot = async () => {
     calcTM(x);
     if (window.__calcPower) { const pz3 = window.__calcPower(x);
       (x.runners || []).forEach(q => { q.pw3 = pz3.sc.get(q); q.pw3r = pz3.rk.get(q); }); }
+    const mxF = (fn2) => { const vs = (x.runners || []).map(fn2).filter(v2 => v2 != null && v2 > 0); return vs.length ? Math.max(...vs) : null; };
+    const fMax = { or: mxF(q => Number(q.r.ofr)), tm: mxF(q => q.tm), pts: mxF(q => q.pts2), pwr: mxF(q => q.pw3), sig: mxF(q => q.sig) };
+    const big = (v2, mk2) => fMax[mk2] != null && v2 === fMax[mk2];
     { const p2 = todayP[x.k], pm = {};
       const hs = (s) => hn(s).replace(/[^a-z0-9]/g, '');
       if (p2) (p2.picks || []).forEach(pk => { if (pk.pts != null) pm[hs(pk.h)] = pk.pts; });
@@ -686,15 +690,15 @@ const __boot = async () => {
     const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
       const g2 = jtOf(q);
       const line2 = [
-        q.sig != null ? `<b style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
+        q.sig != null ? `<b class="${big(q.sig, 'sig') ? 'mxv' : ''}" style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
         (() => { const sn = x.gone && snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
           const sp = sn && sn.prices[hn(q.r.h)];
           return sp > 0 ? `@ ${sp}` : Number(q.r.d) > 0 ? `@ ${q.r.d}` : ''; })(),
-        q.r.ofr ? `<small>OR</small> ${q.r.ofr}` : '',
+        q.r.ofr ? `<small>OR</small> ${big(Number(q.r.ofr), 'or') ? `<b class="mxv">${q.r.ofr}</b>` : q.r.ofr}` : '',
         Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
-        q.tm != null ? `<small>TM</small> <b>${q.tm}</b>` : '',
-        q.pts2 != null ? `<small>PTS</small> <b>\u2605${q.pts2}</b>` : '',
-        q.pw3 != null ? `<small>PWR</small> <b class="pwr">${q.pw3}${q.pw3r ? ' #' + q.pw3r : ''}</b>` : '',
+        q.tm != null ? `<small>TM</small> <b${big(q.tm, 'tm') ? ' class="mxv"' : ''}>${q.tm}</b>` : '',
+        q.pts2 != null ? `<small>PTS</small> <b${big(q.pts2, 'pts') ? ' class="mxv"' : ''}>\u2605${q.pts2}</b>` : '',
+        q.pw3 != null ? `<small>PWR</small> <b class="pwr${big(q.pw3, 'pwr') ? ' mxv' : ''}">${q.pw3}${q.pw3r ? ' #' + q.pw3r : ''}</b>` : '',
         q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
         q.cc ? `<span class="ddb ${q.cc.dir}">CLS${q.cc.dir === 'up' ? '\u25b2' : q.cc.dir === 'down' ? '\u25bc' : '='}${q.cc.diff ? (q.cc.diff > 0 ? '+' : '') + q.cc.diff : ''}</span>` : '',
         q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
