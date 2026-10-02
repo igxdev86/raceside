@@ -177,13 +177,17 @@ const __boot = async () => {
       const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
       snapMap[tK(rc2.t) + '|' + ck0(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
   // market-rank movement counters: each cycle, +1 up / +1 down per rank change (live races only)
-  window.__rkPrev = window.__rkPrev || {}; window.__rkMv = window.__rkMv || {};
+  if (!window.__rkPrev) { try { window.__rkPrev = JSON.parse(sessionStorage.getItem('rsRkP:' + ukd) || '{}'); } catch { window.__rkPrev = {}; }
+    try { window.__rkMv = JSON.parse(sessionStorage.getItem('rsRkM:' + ukd) || '{}'); } catch { window.__rkMv = {}; } }
+  window.__rkMv = window.__rkMv || {};
   list.forEach(rc => { if (rc.gone) return; const k2 = tK(rc.t) + '|' + ck0(rc.course);
     const ranked = (rc.rs || []).filter(r2 => Number(r2.d) > 0).sort((a, b2) => a.d - b2.d);
     ranked.forEach((r2, i5) => { const hk = k2 + '|' + hn(r2.h); const cur = i5 + 1; const prev = window.__rkPrev[hk];
       if (prev != null && cur !== prev) { const m2 = window.__rkMv[hk] = window.__rkMv[hk] || { up: 0, dn: 0 };
         if (cur < prev) m2.up++; else m2.dn++; }
       window.__rkPrev[hk] = cur; }); });
+  try { sessionStorage.setItem('rsRkP:' + ukd, JSON.stringify(window.__rkPrev));
+    sessionStorage.setItem('rsRkM:' + ukd, JSON.stringify(window.__rkMv)); } catch {}
   // page freeze: the terminal banks its own last live cycle at the moment a race flips gone
   window.__live = window.__live || {};
   let tfreeze = {};
