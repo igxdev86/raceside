@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERMINAL X — RACESIDE</title>
+<style>
+:root{--bg:#070B12;--panel:#0D1420;--panel2:#111B2B;--line:#1C2940;--line2:#27395C;
+--ink:#E8EEF7;--dim:#8A9BB5;--faint:#54657F;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--red:#FF3B5C;
+--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--cond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+html,body{background:var(--bg)}
+body{font-family:var(--cond);color:var(--ink);padding:12px 10px 60px}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;color:#fff;text-transform:uppercase;
+background:linear-gradient(90deg,var(--cy),var(--grn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.sub{font-size:12px;color:var(--dim);margin:4px 0 10px;line-height:1.5}
+.upd{font-family:var(--mono);font-size:10.5px;color:var(--cy);margin:2px 0;letter-spacing:.03em}
+.upd b{color:#fff;font-weight:700}
+.dash{display:flex;gap:7px;margin:10px 0 0;flex-wrap:nowrap;overflow:hidden}
+.dash+.dash{margin-top:7px;margin-bottom:12px}
+.dcell{flex:1;min-width:0;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+border-top:3px solid var(--cy);border-radius:6px;padding:8px 4px 7px;text-align:center}
+.dash+.dash .dcell{border-top-color:var(--am)}
+.dcell.sel{border-color:var(--am);box-shadow:0 0 0 1px var(--am)}
+.dcell small{display:block;font-size:8px;letter-spacing:.12em;color:var(--dim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--mono);font-size:20px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell span{font-family:var(--mono);font-size:10px;color:var(--grn);font-weight:700}
+.dlist{font-family:var(--mono);font-size:11.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line2);
+border-left:3px solid var(--am);border-radius:6px;padding:9px 11px;margin:0 0 12px;line-height:1.85}
+.dlist small{color:var(--faint)}
+.dup{color:var(--cy);font-weight:800;font-size:10px;letter-spacing:.14em;margin-top:6px}
+.wlk{background:var(--am);color:#000;padding:0 5px;border-radius:3px;font-weight:800}
+.pstrip{display:flex;flex-wrap:wrap;gap:5px;padding:4px 0 10px}
+.pchip{font-family:var(--mono);font-size:10.5px;font-weight:700;background:var(--panel);border:1px solid var(--line2);
+border-radius:4px;padding:5px 8px;color:var(--ink);border-left:3px solid var(--line2)}
+.pchip small{color:var(--faint);margin-left:3px;font-size:9px}
+.pchip.on{border-color:var(--cy);border-left-color:var(--cy);background:#07222E;color:#fff}
+.pchip.gn{opacity:.45}
+.hcp{color:var(--am);font-weight:900;font-size:10px;margin-left:3px}
+.tile,.seqtile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.rrow{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cy);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.rrow.rwin{border-left-color:var(--grn)}
+.rrow .rhd{font-weight:900;font-size:15px;letter-spacing:.04em;color:#fff;text-transform:uppercase}
+.profl{font-family:var(--mono);font-size:10.5px;color:var(--dim);border-top:1px solid var(--line);margin-top:7px;padding-top:7px}
+.profl b{color:var(--cy)}
+.seq{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.seq b{color:var(--am)}
+.seqline{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.seqline b{color:var(--am)}
+.sl{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sl:last-child{border-bottom:0}
+.sl .lb{color:var(--faint);font-size:10px;letter-spacing:.08em}
+.sl .nm3{font-weight:700;color:var(--ink)}
+.sl .ds{font-family:var(--mono);color:var(--dim)}
+.sl.lmatch .nm3{color:var(--cy)}
+.sl.lwin .nm3{color:var(--grn)}
+.pcard{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--am);border-radius:6px;padding:8px 10px;margin:8px 0}
+.prow{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13.5px}
+.pstar{color:var(--am);font-weight:900}
+.ptags,.pjt{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.btile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 10px}
+.blb{font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--cy);text-transform:uppercase}
+.bask{margin-top:8px}
+.bk{display:block;font-size:13px;border-radius:5px;padding:6px 9px;margin:4px 0;border:1px solid var(--line)}
+.bk b{font-weight:700}
+.bk .cdmk{color:var(--am)}
+.bk.bkwin{outline:2px solid var(--grn)}
+.gt{color:var(--faint);font-family:var(--mono);font-size:10px}
+.chip{font-family:var(--mono);font-size:10px}
+.frz{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:3px 0 5px}
+.frz b{color:var(--am)}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.fanal{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin:3px 0 7px}
+.fanal b{color:#fff}
+.fsort{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 6px}
+.fsb{font-family:var(--mono);font-weight:700;font-size:10.5px;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--dim);padding:5px 9px}
+.fsb.on{border-color:var(--cy);color:var(--cy);background:#07222E}
+.fdim{display:flex;gap:5px;align-items:center;margin:0 0 8px}
+.fdim small{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--faint);font-weight:800}
+.fdb{font-family:var(--mono);font-weight:700;font-size:10.5px;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;color:var(--dim);padding:5px 10px}
+.fdb.on{border-color:var(--am);color:var(--am)}
+.frow{padding:7px 0;border-bottom:1px solid var(--line)}
+.frow:last-child{border-bottom:0}
+.frow.fwin{background:linear-gradient(90deg,rgba(0,230,118,.10),transparent);border-left:3px solid var(--grn);padding-left:8px;margin-left:-8px}
+.frow.fdm{opacity:.25}
+.fl1{font-size:14.5px;font-weight:600;color:#fff}
+.fnum{color:var(--red);font-weight:900;font-family:var(--mono)}
+.frm{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.cdmk{color:var(--am);font-weight:900;font-size:11px}
+.fl2{font-family:var(--mono);font-size:11.5px;color:var(--ink);margin-top:3px}
+.fl3{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:2px}
+.fl3 b{color:var(--ink);font-weight:600}
+.clm{color:var(--am);font-weight:800;font-size:11px}
+.ddb{font-weight:800}
+.ddb.up{color:var(--am)}
+.ddb.down{color:var(--cy)}
+.ddb.same{color:var(--faint)}
+.ggb.y{color:var(--grn);font-weight:800}
+.ggb.n{color:var(--red);font-weight:800}
+.pwr{color:var(--grn)}
+.mxv{font-size:16px}
+.rmv{float:right;display:flex;gap:7px;font-family:var(--mono);font-size:11px}
+.rup{color:var(--grn)}
+.rdn{color:var(--red)}
+.pmp{color:var(--cy);letter-spacing:.08em;font-weight:900}
+.dmp{color:#FF2BD6;letter-spacing:.08em;font-weight:900}
+.pbar{display:none}
+.pbar i{display:none}
+.hd{font-weight:900}
+.hd b{color:var(--cy)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TERMINAL X</h1><a href="/maxterminal.html" style="color:#54657F;font-size:12px;text-decoration:none">&larr; MAX TERMINAL</a>
+  <div class="sub">one line per race from today&rsquo;s still-to-run cards, same engine and data as MAX PRINTS. LOW MX = each race&rsquo;s lowest &Sigma;&times;odds runner.</div>
+  <div id="app"><div style="padding:30px;text-align:center;color:var(--dim)">loading max lists…</div></div>
+  <div class="sub" style="text-align:center;margin-top:26px">a <a href="/" style="color:var(--dim)">RACESIDE</a> record · a design, not a finding · not advice</div>
+</div>
+<script>
+let __first = true, __busy = false, __next = Date.now() + 15000, __prevLive = null;
+const __runsCache = new Map();
+const __boot = async () => {
+  const $ = (id) => document.getElementById(id);
+  const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+  const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
+  const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+  const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  let st = null, arch = null, people = null, up = null, seqPre = null;
+  const lon2 = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  const fetchLog = {};
+  const gj = (u) => { const name = (u.match(/k=(\w+):/) || [])[1] || (u.match(/\/api\/(\w+)/) || [])[1] || u;
+    return fetch(u).then(r => { fetchLog[name] = lon2(); return r.json(); }).catch(() => null); };
+  {   // one parallel round-trip for every store this page needs
+    const [j1, j2, j3, j4, j5, j6, j7] = await Promise.all([
+      gj('/api/yearstate?k=alertstate:v1'), gj('/api/yearstate?k=printsarchive:v1'),
+      gj('/api/peopleall?v=2'), gj('/api/upcoming'), gj('/api/yearstate?k=courseseq:v1'),
+      gj('/api/snapshot?date=' + ukd), gj('/api/yearstate?k=termfreeze:v1&r=' + Math.floor(Date.now() / 10000)) ]);
+    sj = j6; window.__tfj = j7;
+    st = j1 && j1.state ? j1.state : null;
+    arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
+    people = j3;
+    up = j4;
+    seqPre = j5;
+  }
+  let sj2 = typeof sj !== 'undefined' ? sj : null;
+  if (!(people && people.ok)) { $('app').innerHTML = '<div class="tile">people tables unavailable — cannot score</div>'; return; }
+  // today's still-to-run races from the live feed; the cut-off is the off time
+  const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
+  const races = {};
+  if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
+    const k = rkz(r.t, r.course);
+    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
+  });
+  const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+  // pre-off record: resulted races are scored on the server's frozen prices, not the drifting feed
+  const snapMap = {};
+  const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  try { fetchLog.snapshot = (fetchLog.snapshot || lon2()) + ' (' + (sj2 && sj2.races ? Object.keys(sj2.races).length : 0) + ' races)';
+    if (sj2 && sj2.ok && sj2.races) Object.values(sj2.races).forEach(rc2 => {
+      const pm2 = {}; (rc2.rides || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
+      snapMap[tK(rc2.t) + '|' + ck0(rc2.course)] = { at: rc2.capturedAt, prices: pm2 }; }); } catch {}
+  // market-rank movement counters: each cycle, +1 up / +1 down per rank change (live races only)
+  if (!window.__rkPrev) { try { window.__rkPrev = JSON.parse(sessionStorage.getItem('rsRkP:' + ukd) || '{}'); } catch { window.__rkPrev = {}; }
+    try { window.__rkMv = JSON.parse(sessionStorage.getItem('rsRkM:' + ukd) || '{}'); } catch { window.__rkMv = {}; } }
+  window.__rkMv = window.__rkMv || {};
+  list.forEach(rc => { if (rc.gone) return; const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    const ranked = (rc.rs || []).filter(r2 => Number(r2.d) > 0).sort((a, b2) => a.d - b2.d);
+    ranked.forEach((r2, i5) => { const hk = k2 + '|' + hn(r2.h); const cur = i5 + 1; const prev = window.__rkPrev[hk];
+      if (prev != null && cur !== prev) { const m2 = window.__rkMv[hk] = window.__rkMv[hk] || { up: 0, dn: 0 };
+        if (cur < prev) m2.up++; else m2.dn++;
+        if (prev - cur >= 3) m2.pump = 1;
+        if (cur - prev >= 3) m2.dump = 1; }
+      window.__rkPrev[hk] = cur; }); });
+  try { sessionStorage.setItem('rsRkP:' + ukd, JSON.stringify(window.__rkPrev));
+    sessionStorage.setItem('rsRkM:' + ukd, JSON.stringify(window.__rkMv)); } catch {}
+  // page freeze: the terminal banks its own last live cycle at the moment a race flips gone
+  window.__live = window.__live || {};
+  let tfreeze = {};
+  try { tfreeze = JSON.parse(localStorage.getItem('rsTF:' + ukd) || '{}'); } catch {}
+  const srv = window.__tfj && window.__tfj.state && window.__tfj.state.days && window.__tfj.state.days[ukd] || {};
+  Object.entries(srv).forEach(([k2, v2]) => { if (!tfreeze[k2]) tfreeze[k2] = v2; });
+  let tfNew = false;
+  list.forEach(rc => { const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    if (!rc.gone) { const pm2 = {}; (rc.rs || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
+      window.__live[k2] = pm2; return; }
+    if (!tfreeze[k2] && window.__live[k2]) { tfreeze[k2] = { at: lon2(), prices: window.__live[k2] }; tfNew = true; } });
+  try { localStorage.setItem('rsTF:' + ukd, JSON.stringify(tfreeze)); } catch {}
+  if (tfNew) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
+    cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
+    fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: cur2 }) }); } catch {} }
+  // resulted price source: page freeze (exact off, this screen) > server snapshot > feed
+  list.forEach(rc => { if (!rc.gone) return;
+    const k2 = tK(rc.t) + '|' + ck0(rc.course);
+    const src = (tfreeze[k2] && tfreeze[k2].prices) || (snapMap[k2] && snapMap[k2].prices);
+    if (!src) return;
+    (rc.rs || []).forEach(r2 => { const sp = src[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
+  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
+  const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
+  const days = [ukd];
+
+  // ---- history: tag + XS1-rank win rates from stored prints ----
+  const ptsBand = (v) => v >= 15 ? '15+' : v >= 9 ? '9-14' : v >= 5 ? '5-8' : '0-4';
+  const tagWin = {}; const xrWin = {}; const ptsWin = {}; let sigN = 0, sigW = 0;
+  const histPrints = []; const seenH = new Set();
+  const addH = (day2, p) => { const kk = (day2 || '') + '|' + p.k; if (seenH.has(kk)) return; seenH.add(kk); histPrints.push(p); };
+  if (arch) Object.entries(arch).forEach(([d2, arr]) => (arr || []).forEach(p => addH(d2, p)));
+  if (st && st.prints) st.prints.forEach(p => addH(p.day || ukd, p));
+  [histPrints].forEach(hp => hp.forEach(p => { if (!p.w || !(p.picks || []).length) return;
+    p.picks.forEach(x => { const won = hn(x.h) === hn(p.w); sigN++; if (won) sigW++;
+      (x.tags || []).forEach(t3 => { const g = (tagWin[t3] = tagWin[t3] || { n: 0, w: 0 }); g.n++; if (won) g.w++; }); { const b2 = ptsBand(x.pts); const g2 = (ptsWin[b2] = ptsWin[b2] || { n: 0, w: 0 }); g2.n++; if (won) g2.w++; } });
+    const ranked = p.picks.filter(x => x.xs1 != null).sort((a2, b2) => b2.xs1 - a2.xs1);
+    ranked.forEach((x, i) => { const g = (xrWin[i + 1] = xrWin[i + 1] || { n: 0, w: 0 }); g.n++; if (hn(x.h) === hn(p.w)) g.w++; }); }));
+  const sigBase = sigN ? sigW / sigN * 100 : null;
+  const fmtTag = (t3) => { const g = tagWin[t3]; if (!g || g.n < 5 || sigBase == null) return t3 === 'OR1' ? `<b style=\"color:var(--ink)\">OR1</b>` : t3;
+    const pc = g.w / g.n * 100;
+    return `${t3 === 'OR1' ? '<b style="color:var(--ink)">OR1</b>' : t3} <b style="color:${pc >= sigBase ? 'var(--green)' : 'var(--faint)'}">${pc.toFixed(0)}%</b>`; };
+  const xrPct = (r) => { const g = xrWin[r]; return g && g.n >= 5 ? g.w / g.n * 100 : null; };
+  const sumTags = (tags2, xr2, pts2) => { let s = 0, any = false;
+    (tags2 || []).forEach(t3 => { const g = tagWin[t3]; if (g && g.n >= 5) { s += g.w / g.n * 100; any = true; } });
+    const xp = xr2 != null ? xrPct(xr2) : null; if (xp != null) { s += xp; any = true; }
+    if (pts2 != null) { const g2 = ptsWin[ptsBand(pts2)]; if (g2 && g2.n >= 5) { s += g2.w / g2.n * 100; any = true; } }
+    return any ? Math.round(s) : null; };
+
+  // ---- the engine (same as PRINT LIST) ----
+  const PTS = [5, 3, 1];
+  const clm = (nm) => { const m = String(nm || '').match(/\((\d)\)/); return m ? Number(m[1]) : 0; };
+  const pctB = (b) => { const list = Object.entries(b || {}).filter(([, s]) => s.runs >= 100 && s.exp > 0).map(([id, s]) => ({ id, ae: s.wins / s.exp })).sort((a, b2) => b2.ae - a.ae); const map = {}; const n = list.length; list.forEach((x, i) => { map[x.id] = n > 1 ? (1 - i / (n - 1)) * 100 : 50; }); return map; };
+  const pj = pctB(people.jockeys), pt = pctB(people.trainers);
+  const strike = (b, id, min) => { const s = (b || {})[id]; return s && s.runs >= min ? s.wins / s.runs : null; };
+  const xs1f = (r) => { const js = (people.jockeys || {})[r.jid], ts = (people.trainers || {})[r.tid];
+    if (!(js && js.runs >= 50 && ts && ts.runs >= 50 && r.d > 1)) return null;
+    return Math.round((js.wins / js.runs * 100 + ts.wins / ts.runs * 100) / r.d * 10) / 10; };
+  const scoreRace = (rs) => {
+    const sc = {}; const tag = (h2, t3, p2) => { const s = (sc[h2] = sc[h2] || { pts: 0, tags: [] }); s.pts += p2; s.tags.push(t3); };
+    const rank = (label, fn) => { const vals = rs.map((r, i) => ({ i, v: fn(r) })).filter(e => e.v != null).sort((a, b2) => b2.v - a.v);
+      vals.slice(0, 3).forEach((e, k2) => tag(rs[e.i].h, label + (k2 + 1), PTS[k2])); };
+    rank('J', (r) => strike(people.jockeys, r.jid, 50));
+    rank('T', (r) => strike(people.trainers, r.tid, 50));
+    rank('PAIR', (r) => { const p = (people.pairs || {})[r.jid + '|' + r.tid]; return p && p.r >= 10 && p.e > 0 ? p.w / p.e : null; });
+    const orVals = rs.map(r => r.ofr).filter(v => v != null);
+    const orMean = orVals.length >= 2 ? orVals.reduce((a, b2) => a + b2, 0) / orVals.length : null;
+    const ok2 = rs.filter(r => r.ofr != null && r.lbs != null); const adv = {};
+    if (ok2.length >= 2) { const top = ok2.reduce((a, b2) => b2.ofr > a.ofr ? b2 : a, ok2[0]); const car = (r) => r.lbs - clm(r.jockey); const tc = car(top); ok2.forEach(r => { adv[r.h] = (r.ofr + (tc - car(r))) - top.ofr; }); }
+    rank('WR', (r) => adv[r.h] != null && adv[r.h] > 0 ? adv[r.h] : null);
+    rank('OR', (r) => r.ofr != null ? r.ofr : null);
+    {
+      const s = rs.map(r => { const parts = []; if (r.jid && pj[r.jid] != null) parts.push(pj[r.jid]); if (r.tid && pt[r.tid] != null) parts.push(pt[r.tid]); const v = parts.length ? parts.reduce((a, b2) => a + b2, 0) / parts.length : 50;
+        return 0.8 * (v - 50) / 50 + 0.6 * (orMean != null && r.ofr != null ? r.ofr - orMean : 0) / 20 + 0.5 * (adv[r.h] || 0) / 10; });
+      const ex = s.map(v => Math.exp(v)); const Z = ex.reduce((a, b2) => a + b2, 0);
+      const edges = rs.map((r, i) => r.d > 1 ? ((ex[i] / Z) - 1 / r.d) / (1 / r.d) : null);
+      const negs = rs.map((r, i) => ({ r, e: edges[i] })).filter(x => x.e != null && isFinite(x.e) && x.e < 0).sort((a, b2) => a.e - b2.e);
+      negs.slice(0, 3).forEach((x, k2) => tag(x.r.h, 'M' + (k2 + 1), PTS[k2]));
+      rs.forEach((r, i) => { const pr2 = ex[i] / Z;
+        if (pr2 > 0) (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).pe = pr2;
+        if (edges[i] != null && isFinite(edges[i])) { (sc[r.h] = sc[r.h] || { pts: 0, tags: [] }).edge = edges[i]; if (edges[i] > 0) tag(r.h, '+', 1); } });
+    }
+    return sc;
+  };
+
+  const fieldDay = { [ukd]: {} };
+  byDay[ukd].forEach(p => { fieldDay[ukd][p.k] = p._rs; });
+
+  const ordTxt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n + (({1:'st',2:'nd',3:'rd'})[n] || 'th') : String(v); };
+
+  const nextOff = list[0];
+  const chips = `<div style="margin:10px 0 2px"><span class="chip">${list.length} race${list.length === 1 ? '' : 's'} to run</span><span class="chip">next off ${nextOff.t} ${String(nextOff.course).replace(/\s*\([^)]*\)/g, '').toUpperCase()}</span></div>`;
+  const jump = '';
+
+  const tileReg = {}; const listRows = [];
+  const tsCmp = { pts: [(q) => q.s.pts, -1], mp: [(q) => q.mp, 1], pct: [(q) => q.pct, -1], sig: [(q) => q.sig, -1], lum: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig / Number(q.r.d) : null, -1], xs: [(q) => q.xv, -1], mx: [(q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, -1], min: [(q) => q.s.edge != null && isFinite(q.s.edge) ? q.s.edge : null, 1] };
+  document.addEventListener('click', async (ev) => {
+    const cb = ev.target.closest('.tsort button[data-cls]');
+    if (cb) {
+      const wrap2 = cb.closest('.tsort'); const tid2 = wrap2.dataset.tid; const reg2 = tileReg[tid2]; if (!reg2 || reg2.clsDone) return;
+      reg2.clsDone = true; cb.textContent = '\u2026';
+      await Promise.all(reg2.runners.map(async (q) => { try {
+        if (!q.r.hid) { q.clsMiss = true; return; }
+        const j = await (await fetch('/api/horsehist?hid=' + encodeURIComponent(q.r.hid))).json();
+        const runs = (j && j.runs) || (j && j.history) || [];
+        const lastC = runs.length ? runs[runs.length - 1] : null;
+        const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+        const last = sorted2.find(r2 => typeof r2.cls === 'number');
+        if (last && reg2.rcls != null) q.cls = { last: last.cls, now: reg2.rcls, dir: last.cls < reg2.rcls ? 'down' : last.cls > reg2.rcls ? 'up' : 'same' };
+        else q.clsMiss = true;
+      } catch { q.clsMiss = true; } }));
+      cb.textContent = 'CLASS'; cb.style.opacity = '.4';
+      document.getElementById('tr-' + tid2).innerHTML = reg2.runners.map(reg2.makeRow).join('');
+      return;
+    }
+    const b = ev.target.closest('.tsort button'); if (!b) return;
+    const wrap = b.closest('.tsort'); const tid = wrap.dataset.tid; const reg = tileReg[tid]; if (!reg) return;
+    const ts = b.dataset.ts;
+    const [get, dfl] = tsCmp[ts];
+    // tap the active tab again to flip direction
+    const dir2 = (reg.key === ts) ? -reg.dir : dfl;
+    reg.key = ts; reg.dir = dir2;
+    wrap.querySelectorAll('button').forEach(x => { x.classList.toggle('on', x === b);
+      x.textContent = x.textContent.replace(/ [\u2191\u2193]$/, ''); });
+    b.textContent += dir2 === 1 ? ' \u2191' : ' \u2193';
+    const sorted = reg.runners.slice().sort((a, b2) => { const va = get(a), vb = get(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); });
+    document.getElementById('tr-' + tid).innerHTML = sorted.map(reg.makeRow).join('');
+  });
+  let tileMp = null; let tilePctMax = null; let tilePctMin = null;
+  const tile = (p, d2, mode2) => {
+    tileMp = null; tilePctMax = null; tilePctMin = null;
+    const dayM = fieldDay[d2];
+    const rs = dayM ? (dayM[p.k] || dayM[rkz(p.t, p.course)] || []) : [];
+    const pickSet = new Set((p.picks || []).length ? p.picks.map(x => hn(x.h)) : []);
+    let rows;
+    if (rs.length >= 3) {
+      const sc = scoreRace(rs);
+      const runners = rs.map(r => ({ r, s: sc[r.h] || { pts: 0, tags: [] }, xv: xs1f(r) })).sort((a, b2) => b2.s.pts - a.s.pts || (b2.xv || 0) - (a.xv || 0));
+      if (!pickSet.size) runners.slice(0, 4).forEach(q => { if (q.s.pts >= 2) pickSet.add(hn(q.r.h)); });
+      const xvals = runners.map(q => q.xv).filter(v => v != null).sort((a, b2) => b2 - a);
+      // blended MP: 0.5 engine softmax + 0.3 sigma history + 0.2 market
+      runners.forEach(q => { const xr3 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null; q.sig = sumTags(q.s.tags, xr3, q.s.pts); });
+      const sumSig = runners.reduce((a, q) => a + (q.sig || 0), 0);
+      const invs = runners.map(q => q.r.d > 1 ? 1 / q.r.d : null); const sumInv = invs.reduce((a, v) => a + (v || 0), 0);
+      const nR = runners.length;
+      const blend = runners.map((q, i) => {
+        const pe = q.s.pe != null ? q.s.pe : 1 / nR;
+        const ps = sumSig > 0 ? (q.sig || 0) / sumSig : 1 / nR;
+        const pm = sumInv > 0 ? (invs[i] != null ? invs[i] / sumInv : 1 / nR) : 1 / nR;
+        return 0.5 * pe + 0.3 * ps + 0.2 * pm; });
+      const bZ = blend.reduce((a, v) => a + v, 0);
+      runners.forEach((q, i) => { const p2 = bZ > 0 ? blend[i] / bZ : null; q.mp = p2 > 0 ? Math.round(Math.min(999, 1 / p2) * 10) / 10 : null; });
+      tileMp = runners.reduce((a, q) => q.mp != null && (a == null || q.mp < a) ? q.mp : a, null);
+      runners.forEach(q => { q.pct = q.mp != null && Number(q.r.d) > 1 ? Math.round((Number(q.r.d) - q.mp) / q.mp * 100) : null; });
+      tilePctMax = runners.reduce((a, q) => q.pct != null && (a == null || q.pct > a) ? q.pct : a, null);
+      tilePctMin = runners.reduce((a, q) => q.pct != null && (a == null || q.pct < a) ? q.pct : a, null);
+      const cmp = (get, dir2) => (a, b2) => { const va = get(a), vb = get(b2);
+        if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return dir2 * (va - vb); };
+      if (mode2 === 'asc') runners.sort(cmp(q => q.mp, 1));
+      else if (mode2 === 'desc') runners.sort(cmp(q => q.mp, -1));
+      else if (mode2 === 'pctasc') runners.sort(cmp(q => q.pct, 1));
+      else if (mode2 === 'pctdesc') runners.sort(cmp(q => q.pct, -1));
+      const makeRow = (q) => { const isPick = pickSet.has(hn(q.r.h));
+        const xr2 = q.xv != null ? xvals.indexOf(q.xv) + 1 : null;
+        const s2 = q.sig;
+        const pv = p.w && q.r.pos ? q.r.pos : null;
+        return `<div class="pick${isPick ? '' : ' np'}"><span class="left"><span class="star">\u2605 ${q.s.pts}</span> ${q.r.num ? `<span class="num">${q.r.num}</span>` : ''}<span class="nm">${q.r.h}</span>${p.w && hn(q.r.h) === hn(p.w) ? ' \u2705' : ''}${pv ? ` <b style="color:${pv === '1' ? 'var(--green)' : ['2','3'].includes(pv) ? 'var(--gold)' : 'var(--faint)'};font-family:var(--mono);font-size:11px">${ordTxt(pv)}</b>` : p.w ? ' <b style="color:var(--faint);font-family:var(--mono);font-size:11px">\u2014</b>' : ''}${q.s.tags.length ? `<span class="tags">${q.s.tags.slice(0, 5).map(fmtTag).join(' \u00b7 ')}</span>` : ''}${(() => { const js = strike(people.jockeys, q.r.jid, 50), ts = strike(people.trainers, q.r.tid, 50);
+        const seg = (nm, v) => nm ? `${nm}${v != null ? ` <b style="color:var(--dim)">${Math.round(v * 100)}%</b>` : ''}` : '';
+        const line = [seg(q.r.jockey, js), seg(q.r.trainer, ts)].filter(Boolean).join(' \u00b7 ');
+        return line ? `<span class="tags" style="color:var(--dim)">${line}</span>` : ''; })()}${q.cls ? `<span class="tags"><b style="color:${q.cls.dir === 'down' ? 'var(--green)' : q.cls.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls.dir === 'down' ? '\u25bc DOWN' : q.cls.dir === 'up' ? '\u25b2 UP' : '='} C${q.cls.last}\u2192C${q.cls.now}</b></span>` : q.clsMiss ? `<span class="tags" style="color:var(--faint)">class: no history</span>` : ''}${s2 != null ? `<span class="sig">\u03a3 ${s2}%</span>` : ''}${(() => { const o2 = Number(q.r.d); return s2 != null && o2 > 0 ? `<span class="mx">MX ${Math.round(s2 * o2)}</span><span class="lum">\u00f7@ ${(s2 / o2).toFixed(1)}</span>` : ''; })()}</span><span class="right"><b>@ ${q.r.d != null ? q.r.d : '\u2014'}</b>${q.mp != null ? `<br><span style="font-size:10.5px;color:#8EC9FF;font-weight:800">MP ${q.mp}${q.pct != null ? ` <b style="color:${q.pct > 0 ? 'var(--green)' : q.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${q.pct > 0 ? '+' : ''}${q.pct}%</b>` : ''}</span>` : ''}${q.s.edge != null ? ` <small style="color:${q.s.edge < 0 ? 'var(--red)' : 'var(--green)'}">eng ${q.s.edge > 0 ? '+' : ''}${Math.round(q.s.edge * 100)}%</small>` : ''}${q.xv != null ? `<br><span style="font-size:10.5px;${q.xv >= 15 ? 'color:var(--gold);font-weight:700' : 'color:var(--dim)'}">XS1 ${q.xv} <b>(${xr2f(runners, q)})</b>${(() => { const xp = xrPct(xr2f(runners, q)); return xp != null ? ` <b style="color:${sigBase != null && xp >= sigBase ? 'var(--green)' : 'var(--faint)'}">${xp.toFixed(0)}%</b>` : ''; })()}</span>` : ''}</span></div>`; };
+      const tid = (d2 + '_' + p.k).replace(/[^a-z0-9]/gi, '');
+      tileReg[tid] = { runners, makeRow, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      const tabs = `<div class="tsort" data-tid="${tid}">${[['pts','PTS'],['min','MINUS'],['mp','MP'],['pct','MP%'],['sig','\u03a3'],['mx','MX'],['lum','\u00f7@'],['xs','XS1']].map(([k2, lbl], i) => `<button data-ts="${k2}"${i === 0 ? ' class="on"' : ''}>${lbl}</button>`).join('')}<button data-cls="1" style="border-color:rgba(111,168,255,.5);color:var(--blue)">CLASS</button></div>`;
+      rows = '';
+      const valued = runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => ({ q, mx: q.sig * Number(q.r.d) }));
+      const row = { t: p.t, course: p.course, k: p.k, dist: p.dist, going: p.going, rtype: p.rtype, gone: !!p.gone, rcls: (() => { const c = String(p.rclass || '').match(/\d/); return c ? Number(c[0]) : null; })() };
+      if (valued.length >= 2) { valued.sort((a, b2) => a.mx - b2.mx); row.q = valued[0].q; row.mx = valued[0].mx; }
+      { const ors = runners.filter(q => Number(q.r.ofr) > 0);
+        if (ors.length >= 2) { ors.sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr)); row.or = ors[0]; } }
+      { const cbs = runners.map(q => { const pr2 = (people.pairs || {})[q.r.jid + '|' + q.r.tid];
+          return pr2 && pr2.r >= 10 ? { q, pc: pr2.w / pr2.r * 100, pr: pr2 } : null; }).filter(Boolean);
+        if (cbs.length) { cbs.sort((a, b2) => b2.pc - a.pc || b2.pr.r - a.pr.r); row.cb = cbs[0]; } }
+      { const pts2 = runners.filter(q => q.s.pts > 0);
+        if (pts2.length >= 2) { pts2.sort((a, b2) => b2.s.pts - a.s.pts); row.tp = pts2[0]; } }
+      { const mps = runners.filter(q => q.pct != null);
+        if (mps.length >= 2) { mps.sort((a, b2) => a.pct - b2.pct); row.mpp = mps[0]; } }
+      row.runners = runners;
+      if (row.q || row.or || row.cb || row.mpp || row.tp) listRows.push(row);
+    } else {
+      rows = `<div style="color:var(--faint);font-size:12px;font-family:var(--mono);padding:6px 0">${!dayM ? 'no price record fetched for this day' : `race not matched in day record (looked for ${rkz(p.t, p.course)})`} \u2014 picks on <a href="/archive.html" style="color:var(--dim)">ARCHIVE</a></div>`;
+    }
+    return '';
+  };
+  const xr2f = (runners, q) => { const xvals = runners.map(z => z.xv).filter(v => v != null).sort((a, b2) => b2 - a); return q.xv != null ? xvals.indexOf(q.xv) + 1 : null; };
+
+  const raceList = [];
+  days.forEach(d2 => byDay[d2].slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(p => raceList.push({ d2, p })));
+  const buildTiles = (mode2) => raceList.map(x => { const html2 = tile(x.p, x.d2, mode2);
+    return { d2: x.d2, p: x.p, html: html2, mp: tileMp, pctMax: tilePctMax, pctMin: tilePctMin }; });
+
+  buildTiles('day');   // populates listRows via the shared pipeline
+  listRows.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+  // class move for every selected runner, all four lists, deduped by hid
+  const cKeyPre = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const furlOfPre = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
+  const selUniq = new Map();
+  listRows.forEach(x => [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).forEach(q => {
+    if (q.r.hid && !selUniq.has(q.r.hid)) selUniq.set(q.r.hid, { q, rcls: x.rcls, rowC: cKeyPre(x.course), rowF: furlOfPre(x.dist), rowG: x.going }); }));
+  const gNorm = (g) => String(g || '').trim().toLowerCase();
+  const applyRuns = (q, rcls, rowC, rowF, runs, rowG) => {
+    const sorted2 = runs.slice().sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+    const last = sorted2.find(r2 => typeof r2.cls === 'number');
+    if (last && rcls != null) q.cls2 = { last: last.cls, now: rcls, dir: last.cls < rcls ? 'down' : last.cls > rcls ? 'up' : 'same' };
+    const cW = rowC && runs.some(r2 => r2.pos === 1 && String(r2.course || '').trim().toLowerCase() === rowC);
+    const dW = rowF && runs.some(r2 => r2.pos === 1 && r2.df === rowF);
+    q.cd = cW && dW ? 'CD' : cW ? 'C' : dW ? 'D' : '';
+    const rc2 = parseInt(rcls, 10);
+    if (rc2 >= 1) { const withC = runs.filter(r2 => parseInt(r2.cls, 10) >= 1).sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+      if (withC.length) { const lastC = parseInt(withC[0].cls, 10);
+        q.cc = { dir: rc2 < lastC ? 'up' : rc2 > lastC ? 'down' : 'same', diff: lastC - rc2 }; } }
+    if (rowF) { const withD = runs.filter(r2 => r2.df).sort((a, b2) => String(b2.date).localeCompare(String(a.date)));
+      if (withD.length) { const lastDf = withD[0].df;
+        q.dd = { dir: rowF > lastDf ? 'up' : rowF < lastDf ? 'down' : 'same', diff: rowF - lastDf }; } }
+    if (rowG) q.gRan = runs.some(r2 => gNorm(r2.going) === gNorm(rowG)) ? 1 : 0;
+    q.cdDone = true; fetchLog.careers = lon2(); };
+  const jobs = [...selUniq.values()]; let ji = 0;
+  const worker = async () => { while (ji < jobs.length) { const { q, rcls, rowC, rowF, rowG } = jobs[ji++]; try {
+    let rr = __runsCache.get(q.r.hid);
+    if (!rr) { const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(q.r.hid))).json();
+      rr = (j && j.runs) || []; __runsCache.set(q.r.hid, rr); }
+    applyRuns(q, rcls, rowC, rowF, rr, rowG);
+  } catch {} } };
+  await Promise.all([1, 2, 3, 4].map(worker));
+  listRows.forEach(x => { if (x.q && x.q.cls2) x.cls = x.q.cls2; });
+  const crs = (c) => String(c).replace(/\s*\([^)]*\)/g, '').toUpperCase();
+  // saddle-number sequences per course: last 14 days of priceday + today's results
+  const cKey = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+  const seqByCourse = {};
+  let seqStore = null;
+  { const j = seqPre; seqStore = j && j.state && j.state.trans ? j.state : null; }
+  const dayList = [];
+  { const base = new Date(ukd + 'T12:00:00Z');
+    for (let i2 = 14; i2 >= 1; i2--) { const d4 = new Date(base.getTime() - i2 * 86400000);
+      dayList.push(d4.toISOString().slice(0, 10)); } }
+  if (!seqStore) await Promise.all(dayList.map(async (d4, di) => { try {
+    const pdj = await (await fetch('/api/priceday?v=5&date=' + d4)).json();
+    const rs2 = (pdj && pdj.races) || [];
+    const withW = rs2.map(r2 => { const w2 = (r2.runners || []).find(x => String(x.pos) === '1');
+      return w2 && w2.num ? { c: cKey(r2.course), t: tK(r2.t), n: Number(w2.num) } : null; }).filter(Boolean);
+    withW.sort((a, b2) => t2m(a.t) - t2m(b2.t));
+    withW.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di, tm: t2m(x.t), n: x.n }); });
+  } catch {} }));
+  Object.values(seqByCourse).forEach(arr => arr.sort((a, b2) => a.di - b2.di || a.tm - b2.tm));
+  const winOf = {};
+  if (st && st.prints) st.prints.forEach(p => { if ((p.day || ukd) === ukd && p.w) winOf[p.k] = hn(p.w); });
+  // today's resulted winner numbers extend the sequences (matched by name to the field)
+  const todayWins = [];
+  listRows.forEach(x => { const w2 = winOf[x.k]; if (!w2) return;
+    const all = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean);
+    let num2 = null; const fld = (byDay[ukd] || []).find(p => p.k === x.k);
+    if (fld && fld._rs) { const hit2 = fld._rs.find(r2 => hn(r2.h) === w2); if (hit2 && hit2.num) num2 = Number(hit2.num); }
+    if (num2 != null) todayWins.push({ c: cKey(x.course), tm: t2m(x.t), n: num2 }); });
+  todayWins.sort((a, b2) => a.tm - b2.tm);
+  todayWins.forEach(x => { (seqByCourse[x.c] = seqByCourse[x.c] || []).push({ di: 99, tm: x.tm, n: x.n }); });
+  const transOf = {};
+  if (seqStore) Object.entries(seqStore.trans).forEach(([c, t3]) => { transOf[c] = JSON.parse(JSON.stringify(t3)); });
+  Object.entries(seqByCourse).forEach(([c, arr]) => { const t3 = (transOf[c] = transOf[c] || {});
+    for (let i2 = 1; i2 < arr.length; i2++) { const a = arr[i2 - 1].n, b2 = arr[i2].n;
+      (t3[a] = t3[a] || {})[b2] = (t3[a][b2] || 0) + 1; } });
+  const seqBoard = (() => {
+    const courses = [...new Set(listRows.map(x => cKey(x.course)))];
+    if (!courses.length) return '';
+    const tiles2 = courses.map(c => { const disp = crs((listRows.find(x => cKey(x.course) === c) || {}).course || c);
+      const t3 = transOf[c];
+      if (!t3 || !Object.keys(t3).length) return `<div class="seqtile"><b>${disp}</b><span class="seqline" style="color:var(--faint)">no sequence data for this course yet</span></div>`;
+      const lines = Object.keys(t3).map(Number).map(a => {
+        const es = Object.entries(t3[a]).sort((x2, y2) => y2[1] - x2[1]);
+        const tot = es.reduce((s2, e) => s2 + e[1], 0);
+        return { a, b3: es[0][0], w2: es[0][1], tot, pc: es[0][1] / tot }; })
+        .sort((x2, y2) => y2.pc - x2.pc || y2.tot - x2.tot || x2.a - y2.a)
+        .map(L => `<span class="seqline"><b>${L.a}</b>&gt;<b>${L.b3}</b> <small>(${L.w2}/${L.tot} \u00b7 ${Math.round(L.pc * 100)}%)</small></span>`).join('');
+      return `<div class="seqtile"><b>${disp}</b>${lines}</div>`; });
+    return `<div class="dayhd" style="margin-top:8px"><span>COURSE NUMBER SEQUENCES</span><small>after No.A wins, most frequent next winner \u00b7 ${seqStore ? `18 months \u00b7 ${seqStore.races} races` : '14 days'}</small></div>${tiles2.join('')}`;
+  })();
+  const furlOf = (v) => { const s = String(v || '').replace(/\u00bd/g, '.5').toLowerCase();
+    let m2 = s.match(/^(\d+(?:\.\d+)?)f?$/); if (m2) return Math.round(Number(m2[1]));
+    let f = 0; const mm2 = s.match(/(\d+)m/); if (mm2) f += Number(mm2[1]) * 8;
+    const ff = s.match(/(\d*\.?\d+)f/); if (ff) f += Number(ff[1]);
+    return f ? Math.round(f) : null; };
+  const topOf = (obj, lbl2) => { const es = Object.entries(obj || {}).sort((a, b2) => b2[1] - a[1]);
+    return es.length ? `${lbl2}<b>${es[0][0]}</b> won <b>${es[0][1]}</b>\u00d7${es[1] ? `, ${lbl2}${es[1][0]} ${es[1][1]}\u00d7` : ''}` : null; };
+  const profNote = (x) => { const dd2 = /^\d+(\.\d+)?$/.test(String(x.dist)) ? x.dist + 'f' : x.dist;
+    const meta = [x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ');
+    let stats = '';
+    if (seqStore && seqStore.prof) { const f2 = furlOf(x.dist);
+      const pr = f2 ? seqStore.prof[cKey(x.course) + '|' + f2] : null;
+      if (pr && pr.n >= 3) { const nn = topOf(pr.num, 'No.'); const dd = topOf(pr.draw, 'draw ');
+        stats = ` \u2014 ${[nn, dd].filter(Boolean).join(' \u00b7 ')} <small>(${pr.n} runnings, 18mo)</small>`; }
+      else if (f2) stats = ' \u2014 <small>no 18-month profile for this course/distance yet</small>'; }
+    return meta || stats ? `<div class="seq" style="border-left-color:#1B7A3D">${meta.toUpperCase()}${stats}</div>` : ''; };
+  const seqNote = (x) => { const c = cKey(x.course); const arr = seqByCourse[c]; if (!arr || arr.length < 2) return '';
+    const prior = arr.filter(e => e.di < 99 || e.tm < t2m(x.t));
+    if (!prior.length) return '';
+    const L = prior[prior.length - 1].n;
+    const t3 = (transOf[c] || {})[L]; if (!t3) return '';
+    const es = Object.entries(t3).sort((a, b2) => b2[1] - a[1]);
+    const tot = es.reduce((a, e) => a + e[1], 0);
+    if (!es.length || tot < 2) return '';
+    return `<div class="seq">Whenever a <b>${L}</b> wins last at ${crs(x.course)}, the next winner is most often <b>No.${es[0][0]}</b> \u2014 ${es[0][1]}/${tot} times (${seqStore ? '18-month' : '14-day'} course record)</div>`; };
+  listRows.forEach(x => { x.w = winOf[x.k] || null;
+    if (x.w) x.hit = [x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean).some(q => hn(q.r.h) === x.w); });
+  let valsMap = {}; try { const vv = JSON.parse(localStorage.getItem('rsVals:maxlists') || '{}'); valsMap = vv && typeof vv === 'object' ? vv : {}; } catch {}
+  const nextVals = {};
+  const arw = (cur, prev) => { if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || cur === prev) return '';
+    return cur > prev ? '<b style="color:var(--green)">\u25b2</b>' : '<b style="color:var(--red)">\u25bc</b>'; };
+  const snap = (x, colK, q, extra) => { const d3 = Number(q.r.d);
+    const cur = { h: hn(q.r.h), mx: q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null, sig: q.sig != null ? q.sig : null,
+      d: d3 > 0 ? d3 : null, mp: q.mp != null ? Math.round(q.mp * 10) / 10 : null, x1: extra != null ? extra : null };
+    const kk2 = (x.t + '|' + String(x.course) + '|' + colK).toLowerCase();
+    nextVals[kk2] = cur;
+    const prev = valsMap[kk2];
+    return prev && prev.h === cur.h ? prev : null; };
+  const clsBadge = (q) => q.cls2 ? ` <b style="color:${q.cls2.dir === 'down' ? 'var(--green)' : q.cls2.dir === 'up' ? 'var(--red)' : 'var(--faint)'}">${q.cls2.dir === 'down' ? '\u25bc' : q.cls2.dir === 'up' ? '\u25b2' : '='}C${q.cls2.last}\u2192${q.cls2.now}</b>` : '';
+  listRows.forEach(x => { const ns = [x.q, x.or, x.cb && x.cb.q, x.mpp, x.tp].filter(Boolean).map(q => hn(q.r.h));
+    const cnt = {}; ns.forEach(n2 => { cnt[n2] = (cnt[n2] || 0) + 1; });
+    x.matchSet = new Set(Object.keys(cnt).filter(n2 => cnt[n2] >= 2)); });
+  const heatRange = (x) => { if (x._heat) return x._heat;
+    const sigs = (x.runners || []).map(q => q.sig).filter(v => v != null);
+    const mxs = (x.runners || []).map(q => { const d3 = Number(q.r.d); return q.sig != null && d3 > 0 ? q.sig * d3 : null; }).filter(v => v != null);
+    return (x._heat = { sLo: Math.min(...sigs), sHi: Math.max(...sigs), mLo: Math.min(...mxs), mHi: Math.max(...mxs) }); };
+  const heatC = (v, lo, hi, inv) => { if (v == null || !isFinite(lo) || !isFinite(hi) || hi <= lo) return '';
+    let p = Math.max(0, Math.min(1, (v - lo) / (hi - lo))); if (inv) p = 1 - p;
+    return `color:hsl(${Math.round(p * 130)},85%,60%);font-weight:800`; };
+  const statBits = (q, pv, x) => { const d3 = Number(q.r.d);
+    const mxV = q.sig != null && d3 > 0 ? Math.round(q.sig * d3) : null;
+    const mpV = q.mp != null ? Math.round(q.mp * 10) / 10 : null;
+    const hr = x ? heatRange(x) : null;
+    return `MX ${mxV != null ? `<b style="${hr ? heatC(mxV, hr.mLo, hr.mHi, true) : ''}">${mxV}</b>` : '\u2014'}${pv ? arw(mxV, pv.mx) : ''} \u00b7 \u03a3 ${q.sig != null ? `<b style="${hr ? heatC(q.sig, hr.sLo, hr.sHi, false) : ''}">${q.sig}%</b>` : '\u2014'}${pv ? arw(q.sig, pv.sig) : ''} \u00b7 @ ${d3 > 0 ? d3 : '\u2014'}${pv ? arw(d3 > 0 ? d3 : null, pv.d) : ''}${mpV != null ? ` \u00b7 MP ${mpV}${pv ? arw(mpV, pv.mp) : ''}` : ''}${clsBadge(q)}`; };
+  const selLine = (x, lbl, colK, q, head, extra) => { if (!q) return '';
+    const pv = snap(x, colK, q, extra != null ? extra : null);
+    return `<div class="sl${x.matchSet.has(hn(q.r.h)) ? ' lmatch' : ''}${x.w && hn(q.r.h) === x.w ? ' lwin' : ''}"><span class="lb">${lbl}</span><span class="nm3">${q.r.num ? q.r.num + ' ' : ''}${q.r.h}</span>${q.cd ? `<b class="cdmk">${q.cd}</b>` : ''}<span class="ds">${head ? head(pv) + ' \u00b7 ' : ''}${statBits(q, pv, x)}</span></div>`; };
+  // price-vs-peers paint: against rivals with a near Sigma (within 12pts), how does the price compare?
+  const paintBasket = (arr) => { arr.forEach(q => { q.paint = '';
+      const d3 = Number(q.r.d); if (!(d3 > 0) || q.sig == null) return;
+      let best = 1;   // strongest ratio either way, as my price / rival price
+      arr.forEach(o => { if (o === q || o.sig == null) return;
+        const od = Number(o.r.d); if (!(od > 0)) return;
+        if (Math.abs(o.sig - q.sig) > 12) return;
+        const r2 = d3 / od;
+        if (Math.abs(Math.log(r2)) > Math.abs(Math.log(best))) best = r2; });
+      if (best === 1) { q.paint = ''; return; }
+      const v2 = Math.max(-1, Math.min(1, -Math.log(best) / Math.log(2)));   // +1 = half price of a near-\u03a3 rival, -1 = double
+      const hue = Math.round(65 + v2 * 65);                                   // 130 green .. 65 yellow .. 0 red, unique per ratio
+      q.paint = `background:hsl(${hue},50%,15%);border-color:hsl(${hue},70%,52%)`; }); };
+  const jtOf = (q) => { const js2 = (people.jockeys || {})[q.r.jid], ts2 = (people.trainers || {})[q.r.tid];
+    const pt = (s2) => s2 && s2.runs >= 50 ? Math.round(s2.wins / s2.runs * 100) : null;
+    const jp = pt(js2), tp = pt(ts2);
+    return { jp, tp, tot: jp != null && tp != null ? jp + tp : null }; };
+  const hueOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : null; };
+  const greenBoard = () => {
+    const pool = []; listRows.forEach(x => { const sel = new Set([x.q, x.tp, x.or, x.cb && x.cb.q, x.mpp].filter(Boolean));
+      (x.runners || []).forEach(q => { const hu = hueOf2(q);
+        if (hu != null && hu > 65) { q._sel = sel.has(q); pool.push({ x, q, hu }); } }); });
+    const ent = (e, extra) => `<span class="bk" style="${e.q._sel && e.q._both ? 'background:hsl(330,70%,92%);border-color:hsl(330,60%,45%)' : e.q._sel ? 'background:hsl(275,55%,92%);border-color:hsl(275,45%,45%)' : e.q._both ? 'background:hsl(212,62%,91%);border-color:hsl(212,60%,42%)' : e.q.paint}"><small>${crs(e.x.course).slice(0, 3)}</small> ${e.q.r.num ? `<b>${e.q.r.num}</b> ` : ''}${e.q.r.h}${e.q.cd ? ` <b class="cdmk">${e.q.cd}</b>` : ''}${e.q.sig != null ? ` <small>\u03a3 <b style="${heatC(e.q.sig, heatRange(e.x).sLo, heatRange(e.x).sHi, false)}">${e.q.sig}%</b></small>` : ''}${extra || ''}${Number(e.q.r.d) > 0 ? ` <small>@ ${e.q.r.d}</small>` : ''}</span>`;
+    const tMin = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const byTime = (arr, jt2) => { const g2 = {};
+      arr.forEach(e => (g2[e.x.t] = g2[e.x.t] || []).push(e));
+      return Object.keys(g2).sort((a, b2) => tMin(a) - tMin(b2))
+        .map(t => `<span class="gt">${t}</span>${g2[t].map(e => jt2 && e.tot != null ? ent(e, ` <b>JT${e.tot}</b>`) : ent(e)).join('')}`).join(''); };
+    const cdL = pool.filter(e => e.q.cd).sort((a, b2) => (b2.q.cd === 'CD') - (a.q.cd === 'CD') || b2.hu - a.hu);
+    const jtL = pool.map(e => ({ ...e, tot: jtOf(e.q).tot })).filter(e => e.tot != null).sort((a, b2) => b2.tot - a.tot);
+    pool.forEach(e => { e.q._both = false; });
+    const inJt = new Set(jtL.map(e => e.q));
+    cdL.forEach(e => { if (inJt.has(e.q)) e.q._both = true; });
+    const blk = (lbl2, arr) => `<div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? byTime(arr, lbl2.includes('JT')) : '<small style="color:var(--faint)">none yet</small>'}</div>`;
+    return `<div class="rrow" style="border-color:#1B7A3D">${blk('GREEN + C/D FORM', cdL)}${blk('GREEN \u00b7 TOP JT', jtL)}</div>`; };
+  const bChip = (x, q) => { const won = x.w && hn(q.r.h) === x.w;
+    return `<span class="bk${won ? ' bkwin' : ''}"${!won && q.paint ? ` style="${q.paint}"` : ''}>${won ? '\u2705 ' : ''}${q.r.num ? `<b>${q.r.num}</b> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${q.sig != null ? ` <small>\u03a3 <b style="${heatC(q.sig, heatRange(x).sLo, heatRange(x).sHi, false)}">${q.sig}%</b></small>` : ''}${Number(q.r.d) > 0 ? ` <small>@ ${q.r.d}</small>` : ''}${(() => { const g2 = jtOf(q);
+      const bits = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean);
+      return bits.length ? ` <small style="color:var(--faint)">${bits.join('\u00b7')}</small>` : ''; })()}</span>`; };
+  const baskets = (x) => { const rs2 = x.runners || []; if (!rs2.length) return '';
+    const sig2 = rs2.filter(q => q.sig != null);
+    paintBasket(sig2);
+    const hOf = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+    sig2.sort((a, b2) => hOf(b2) - hOf(a) || b2.sig - a.sig);
+    const uns = rs2.filter(q => q.sig == null).sort((a, b2) => (Number(a.r.d) || 999) - (Number(b2.r.d) || 999));
+    const bk = (lbl2, arr) => `<div class="rrow btile"><div class="bask" style="border-top:0;padding-top:0"><span class="blb">${lbl2} (${arr.length})</span>${arr.length ? arr.map(q => bChip(x, q)).join('') : '<small style="color:var(--faint)">none</small>'}</div></div>`;
+    return bk('SIGNALLED', sig2) + bk('UNSIGNALLED', uns); };
+  const bTally = { s: 0, u: 0 };
+  listRows.forEach(x => { if (!x.w || !x.runners) return;
+    const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+    if (wq.sig != null) bTally.s++; else bTally.u++; });
+  const bChips = (bTally.s + bTally.u) ? `<span class="chip" style="color:var(--green);border-color:var(--green)">signalled won ${bTally.s}/${bTally.s + bTally.u}</span><span class="chip">unsignalled won ${bTally.u}/${bTally.s + bTally.u}</span>` : '';
+  const bks = (x, i3) => `<div id="bks-${i3}">${baskets(x)}</div>`;
+  const todayP = {};
+  (st && st.prints || []).forEach(p => { if (p.day === ukd) todayP[p.k] = p; });
+  const printCard = (x) => { const p = todayP[x.k];
+    if (!p || !p.picks || !p.picks.length) return '';
+    const numOf = (nm2) => { const q = (x.runners || []).find(q2 => hn(q2.r.h) === hn(nm2)); return q && q.r.num ? q.r.num : ''; };
+    const rows2 = p.picks.slice().sort((a, b2) => (b2.pts || 0) - (a.pts || 0)).map(s2 => {
+      const isW = x.w && hn(s2.h) === x.w;
+      const pv2 = s2.pos != null && String(s2.pos) !== '' ? `<b style="color:${String(s2.pos) === '1' ? 'var(--green)' : ['2','3'].includes(String(s2.pos)) ? 'var(--gold)' : 'var(--faint)'}">${ordTxt(s2.pos)}</b>` : (x.w && !isW ? '<b style="color:var(--faint)">\u2014</b>' : '');
+      const q2 = (x.runners || []).find(q3 => hn(q3.r.h) === hn(s2.h));
+      const g2 = q2 ? jtOf(q2) : { jp: null, tp: null, tot: null };
+      const jt2 = [g2.jp != null ? `J${g2.jp}` : null, g2.tp != null ? `T${g2.tp}` : null, g2.tot != null ? `JT${g2.tot}` : null].filter(Boolean).join('\u00b7');
+      return `<div class="prow"><span class="pstar">\u2605 ${s2.pts || ''}</span> ${numOf(s2.h) ? `<b>${numOf(s2.h)}</b> ` : ''}${s2.h}${q2 && q2.cd ? ` <b class="cdmk">${q2.cd}</b>` : ''}${isW ? ' \u2705' : ''} ${pv2}${s2.tags && s2.tags.length ? `<span class="ptags">${s2.tags.slice(0, 5).join(' \u00b7 ')}</span>` : ''}${jt2 ? ` <small class="pjt">${jt2}</small>` : ''}</div>`; }).join('');
+    return `<div class="pcard"><span class="blb">PRINT${p.early ? ' (EARLY)' : ''}</span>${rows2}</div>`; };
+  let _sv = null;
+  try { _sv = JSON.parse(sessionStorage.getItem('rsAuto:' + location.pathname) || 'null'); } catch {}
+  if (_sv && Date.now() - _sv.ts > 300000) _sv = null;
+  let fcSort = (_sv && _sv.sort) || 'num', fcDir = (_sv && _sv.dir) || 1;
+  let fdTrip = !!(_sv && _sv.trip);
+  const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
+    jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
+    mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
+    tm: ['TM', (q) => q.tm != null ? q.tm : null, -1],
+    pts: ['PTS', (q) => q.pts2 != null ? q.pts2 : null, -1],
+    pwr: ['PWR', (q) => q.pw3 != null ? q.pw3 : null, -1] };
+  const claimOf = (q) => { const m2 = String(q.r.jockey || '').match(/\((\d+)\)/); return m2 ? Number(m2[1]) : 0; };
+  const calcTM = (x) => { const rs0 = x.runners || [];
+    const anchor = rs0.filter(q => Number(q.r.ofr) > 0 && Number(q.r.lbs) > 0)
+      .sort((a, b2) => Number(b2.r.ofr) - Number(a.r.ofr))[0];
+    rs0.forEach(q => { q.tm = null;
+      if (!anchor) return;
+      const orv = Number(q.r.ofr), lb = Number(q.r.lbs);
+      if (!(orv > 0) || !(lb > 0)) return;
+      q.tm = orv + (Number(anchor.r.lbs) - lb) + claimOf(q); }); };
+  const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
+    calcTM(x);
+    if (window.__calcPower) { const pz3 = window.__calcPower(x);
+      (x.runners || []).forEach(q => { q.pw3 = pz3.sc.get(q); q.pw3r = pz3.rk.get(q); }); }
+    const mxF = (fn2) => { const vs = (x.runners || []).map(fn2).filter(v2 => v2 != null && v2 > 0); return vs.length ? Math.max(...vs) : null; };
+    const fMax = { or: mxF(q => Number(q.r.ofr)), tm: mxF(q => q.tm), pts: mxF(q => q.pts2), pwr: mxF(q => q.pw3), sig: mxF(q => q.sig) };
+    const big = (v2, mk2) => fMax[mk2] != null && v2 === fMax[mk2];
+    { const p2 = todayP[x.k], pm = {};
+      const hs = (s) => hn(s).replace(/[^a-z0-9]/g, '');
+      if (p2) (p2.picks || []).forEach(pk => { if (pk.pts != null) pm[hs(pk.h)] = pk.pts; });
+      (x.runners || []).forEach(q => { q.pts2 = pm[hs(q.r.h)] != null ? pm[hs(q.r.h)] : null; }); }
+    const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+      return (va - vb) * dir; });
+    if (!rs2.length) return '';
+    const dd2 = /^\d+(\.\d+)?$/.test(String(x.dist)) ? x.dist + 'f' : x.dist;
+    const cardMeta = [x.rcls != null ? 'Class ' + x.rcls : null, x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ').toUpperCase();
+    const nUp = rs2.filter(q => q.dd && q.dd.dir === 'up').length, nDn = rs2.filter(q => q.dd && q.dd.dir === 'down').length,
+      nSm = rs2.filter(q => q.dd && q.dd.dir === 'same').length, nG = rs2.filter(q => q.gRan === 1).length, nGx = rs2.filter(q => q.gRan === 0).length;
+    const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
+      cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
+    const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
+    const tripOK = (q) => q.dd && q.dd.dir === 'same' && q.gRan === 1;
+    const dimQ = (q) => fdTrip && q.cdDone && !tripOK(q);
+    const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button></div>`;
+    const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}${k2 === fcSort ? (fcDir === (fcKeys[k2][2]) ? ' \u25bc' : ' \u25b2') : ''}</button>`).join('')}</div>`;
+    const hr2 = heatRange(x);
+    const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
+      const g2 = jtOf(q);
+      const line2 = [
+        q.sig != null ? `<b class="${big(q.sig, 'sig') ? 'mxv' : ''}" style="${heatC(q.sig, hr2.sLo, hr2.sHi, false)}">\u03a3 ${q.sig}%</b>` : '',
+        (() => { const sn = x.gone && snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
+          const sp = sn && sn.prices[hn(q.r.h)];
+          return sp > 0 ? `@ ${sp}` : Number(q.r.d) > 0 ? `@ ${q.r.d}` : ''; })(),
+        q.r.ofr ? `<small>OR</small> ${big(Number(q.r.ofr), 'or') ? `<b class="mxv">${q.r.ofr}</b>` : q.r.ofr}` : '',
+        Number(q.r.lbs) > 0 ? `<small>WGT</small> ${Math.floor(q.r.lbs / 14)}-${q.r.lbs % 14}` : '',
+        q.tm != null ? `<small>TM</small> <b${big(q.tm, 'tm') ? ' class="mxv"' : ''}>${q.tm}</b>` : '',
+        q.pts2 != null ? `<small>PTS</small> <b${big(q.pts2, 'pts') ? ' class="mxv"' : ''}>\u2605${q.pts2}</b>` : '',
+        q.pw3 != null ? `<small>PWR</small> <b class="pwr${big(q.pw3, 'pwr') ? ' mxv' : ''}">${q.pw3}${q.pw3r ? ' #' + q.pw3r : ''}</b>` : '',
+        q.dd ? `<span class="ddb ${q.dd.dir}">${q.dd.dir === 'up' ? '\u25b2' : q.dd.dir === 'down' ? '\u25bc' : '='}${q.dd.diff ? ' ' + (q.dd.diff > 0 ? '+' : '') + Math.round(q.dd.diff * 10) / 10 + 'f' : ' dist'}</span>` : '',
+        q.cc ? `<span class="ddb ${q.cc.dir}">CLS${q.cc.dir === 'up' ? '\u25b2' : q.cc.dir === 'down' ? '\u25bc' : '='}${q.cc.diff ? (q.cc.diff > 0 ? '+' : '') + q.cc.diff : ''}</span>` : '',
+        q.gRan != null ? `<span class="ggb ${q.gRan ? 'y' : 'n'}">G${q.gRan ? '\u2713' : '\u2717'}</span>` : '' ].filter(Boolean).join(' \u00a0 ');
+      const jt2 = [
+        q.r.jockey ? (() => { const cm = String(q.r.jockey).match(/\((\d+)\)/);
+          return `J <b>${q.r.jockey}</b>${cm ? ` <span class="clm">claims ${cm[1]}lb</span>` : ''}${g2.jp != null ? ` ${g2.jp}%` : ''}`; })() : '',
+        q.r.trainer ? `T <b>${q.r.trainer}</b>${g2.tp != null ? ` ${g2.tp}%` : ''}` : '',
+        g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
+      const mv = window.__rkMv && window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)];
+      const mvHtml = mv && (mv.up || mv.dn) ? `<span class="rmv">${mv.pump ? '<b class="pmp">PUMP</b>' : ''}${mv.dump ? '<b class="dmp">DUMP</b>' : ''}${mv.up ? `<b class="rup">\u25b2${mv.up}</b>` : ''}${mv.dn ? `<b class="rdn">\u25bc${mv.dn}</b>` : ''}</span>` : '';
+      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}<b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+    return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const tf2 = (window.__tf || {})[tK(x.t) + '|' + cKeyPre(x.course)];
+      if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
+      const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
+      const at = sn && sn.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(sn.at)) : null;
+      return `<div class="frz">${at ? `prices frozen <b>${at}</b> (server record)` : froze[x.k] ? `no server freeze record \u00b7 page saw it gone <b>${froze[x.k]}</b>` : 'no server freeze record \u00b7 went off before this page was open'}</div>`; })() : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
+  const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
+    + selLine(x, 'LOW MX', 'mx', x.q, null)
+    + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
+    + selLine(x, 'TOP OR', 'or', x.or, (pv) => `OR ${x.or.r.ofr}${pv ? arw(Number(x.or.r.ofr) || null, pv.x1) : ''}`, x.or ? Number(x.or.r.ofr) || null : null)
+    + selLine(x, 'TOP CB', 'cb', x.cb && x.cb.q, (pv) => `<b style="color:var(--gold)">combo ${Math.round(x.cb.pc)}%${pv ? arw(Math.round(x.cb.pc), pv.x1) : ''}</b> <small>(${x.cb.pr.w}/${x.cb.pr.r})</small>`, x.cb ? Math.round(x.cb.pc) : null)
+    + selLine(x, 'LOW MP%', 'mpp', x.mpp, (pv) => `<b style="color:${x.mpp.pct > 0 ? 'var(--green)' : x.mpp.pct < 0 ? 'var(--red)' : 'var(--faint)'}">${x.mpp.pct > 0 ? '+' : ''}${x.mpp.pct}%${pv ? arw(x.mpp.pct, pv.x1) : ''}</b>`, x.mpp ? x.mpp.pct : null)
+    + `</div>`;
+  const lonHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+  let seenMap = {}, lastVisit = null;
+  try { const sv = JSON.parse(localStorage.getItem('rsSeen:maxlists') || '{}'); if (sv && sv.m) { seenMap = sv.m; lastVisit = sv.ts || null; } else seenMap = sv; } catch {}
+  const listHd = `<div class="dayhd"><span>5 LISTS \u00b7 LOW MX / TOP PTS / TOP OR / TOP COMBO / LOW MP%</span><small>${listRows.filter(x => !x.gone).length} to run \u00b7 ${listRows.filter(x => x.gone).length} frozen \u00b7 prices @ ${lonHM}${lastVisit ? ` \u00b7 last visit ${lastVisit}` : ''}</small></div>`;
+  const nextSeen = {};
+  const quick = listRows.length ? `<div class="jump">${listRows.map((x, i3) => { if (!x.q) return ''; const kk = (x.t + '|' + String(x.course)).toLowerCase();
+    const fp = hn(x.q.r.h); nextSeen[kk] = fp;
+    const changed = Object.prototype.hasOwnProperty.call(seenMap, kk) && seenMap[kk] !== fp;
+    return `<a href="#ml-${i3}"${x.gone ? ' style="opacity:.55"' : ''}><b>${x.t}</b> ${String(x.q.r.h).split(' ').slice(0, 2).join(' ')}${changed ? '<span class="ndot"></span>' : ''}</a>`; }).join('')}</div>` : '';
+  try { localStorage.setItem('rsSeen:maxlists', JSON.stringify({ ts: lonHM, m: nextSeen })); } catch {}
+  try { localStorage.setItem('rsVals:maxlists', JSON.stringify(nextVals)); } catch {}
+  const tierOf = (q) => { const hu = hueOf2(q);
+    if (hu == null || hu <= 65) return '';
+    return q._sel && q._both ? 'pink' : q._sel ? 'purple' : q._both ? 'blue' : 'green'; };
+  const labelsOf = (x, q) => { const L = [];
+    if (x.q === q) L.push('LOW MX'); if (x.tp === q) L.push('TOP PTS'); if (x.or === q) L.push('TOP OR');
+    if (x.cb && x.cb.q === q) L.push('TOP CB'); if (x.mpp === q) L.push('LOW MP%'); return L; };
+  const termBuild = () => { const W = { pink: 4, purple: 3, blue: 2, green: 1 };
+    const tm3 = (t) => { const m2 = String(t).match(/(\d+):(\d+)/); if (!m2) return 9999;
+      let hh = Number(m2[1]); if (hh < 10) hh += 12; return hh * 60 + Number(m2[2]); };
+    const all2 = listRows.map((x, i3) => ({ x, i3, sc: (x.runners || []).reduce((s2, q) => s2 + (W[tierOf(q)] || 0), 0) }));
+    let scored = all2.filter(e => !e.x.gone).sort((a, b2) => tm3(a.x.t) - tm3(b2.x.t)).slice(0, 3);
+    if (!scored.length) scored = all2.sort((a, b2) => tm3(b2.x.t) - tm3(a.x.t)).slice(0, 3).reverse();
+    const races = scored.map(e => ({ t: e.x.t, course: e.x.course, k: e.x.k, sc: e.sc, gone: !!e.x.gone, w: e.x.w || null,
+      rtype: e.x.rtype || '', dist: e.x.dist || '', going: e.x.going || '', rclass: e.x.rcls != null ? 'Class ' + e.x.rcls : '',
+      runners: (e.x.runners || []).slice().sort((a, b2) => (Number(a.r.num) || 99) - (Number(b2.r.num) || 99)).map(q => { const g2 = jtOf(q);
+        return { num: q.r.num || '', h: q.r.h, cd: q.cd || '', sig: q.sig, d: q.r.d || null, ofr: q.r.ofr || null,
+          jockey: q.r.jockey || '', trainer: q.r.trainer || '', jp: g2.jp, tp: g2.tp, tot: g2.tot,
+          tier: tierOf(q), labels: labelsOf(e.x, q) }; }) }));
+    const payload = JSON.stringify({ ts: Date.now(), day: ukd, races });
+    try { localStorage.setItem('rsTerm', payload); } catch {}
+    try { if (payload.slice(0, 4000) !== (termBuild._last || '').slice(0, 4000)) { termBuild._last = payload;
+      fetch('/api/yearstate?k=termdata:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(() => {}); } } catch {}
+    return races; };
+  const termRow = () => { const races = termBuild();
+    if (!races.length) return '';
+    return `<div class="rrow" style="background:#0B0B0B;border-color:#000"><div class="bask" style="border-top:0;padding-top:0"><span class="blb" style="color:#9FE870">TERMINAL</span>${races.map((rc, ix) => `<a class="bk" style="background:#000;border-color:#333;color:#fff;text-decoration:none" href="/terminal.html?i=${ix}"><b style="color:#9FE870">${rc.t}</b> ${crs(rc.course).slice(0, 3)}</a>`).join('')}</div></div>`; };
+  // MAX PRINTS + : one race per page, strip pager on top
+  let curIx = listRows.findIndex(x => !x.gone); if (curIx < 0) curIx = listRows.length - 1;
+  if (_sv && _sv.ix != null && listRows[_sv.ix]) curIx = _sv.ix;
+  const strip = () => { const ord = listRows.map((x, i3) => i3)
+      .sort((a, b2) => (listRows[a].gone ? 1 : 0) - (listRows[b2].gone ? 1 : 0) || a - b2);
+    return `<div class="pstrip">${ord.map(i3 => { const x = listRows[i3]; const won = x.gone && x.w;
+    return `<button class="pchip${i3 === curIx ? ' on' : ''}${x.gone ? ' gn' : ''}" data-ix="${i3}">${x.t}<small>${crs(x.course).slice(0, 3)}</small>${/handicap/i.test(x.rtype || '') ? '<span class="hcp">H</span>' : ''}${won ? ' \u2705' : ''}</button>`; }).join('')}</div>`; };
+
+  try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
+    if (pdj && pdj.ok && Array.isArray(pdj.races)) {
+      const wmap = {};
+      pdj.races.forEach(rc2 => { const w2 = (rc2.runners || []).find(r2 => r2.won);
+        if (w2 && w2.h) wmap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = hn(w2.h); });
+      listRows.forEach(x => { if (!x.w) { const w3 = wmap[tK(x.t) + '|' + cKeyPre(x.course)];
+        if (w3) { x.w = w3; x.gone = true; } } });
+    } } catch {}
+  let froze = {};
+  try { froze = JSON.parse(localStorage.getItem('rsFroze:' + ukd) || '{}'); } catch {}
+  listRows.forEach(x => { if (x.gone && froze[x.k] == null)
+    froze[x.k] = (__prevLive && __prevLive.has(x.k)) ? lon2() : ''; });
+  try { localStorage.setItem('rsFroze:' + ukd, JSON.stringify(froze)); } catch {}
+  __prevLive = new Set(listRows.filter(x => !x.gone).map(x => x.k));
+  let dashSel = (window.__uiSel && window.__uiSel.dash) || null;
+  window.__tf = tfreeze;
+  const dashHtml = () => {
+    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0], smn: [0, 0], mn1: [0, 0], mne: [0, 0] };
+    const calcPower = window.__calcPower = (x) => { calcTM(x);
+      const rs0 = x.runners || [];
+      const byS = rs0.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+      if (byS.length >= 2) paintBasket(byS);
+      const byT = rs0.filter(q => q.tm != null).sort((a, b2) => b2.tm - a.tm);
+      const mn = rs0.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct);
+      const hOf4 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+      const gr = rs0.filter(q => hOf4(q) > 65).sort((a, b2) => hOf4(b2) - hOf4(a));
+      const pm3 = {}; { const p3 = todayP[x.k]; const hs3 = (s) => hn(s).replace(/[^a-z0-9]/g, '');
+        if (p3) (p3.picks || []).forEach(pk => { if (pk.pts != null) pm3[hs3(pk.h)] = pk.pts; }); }
+      const pt = rs0.filter(q => pm3[hn(q.r.h).replace(/[^a-z0-9]/g, '')] != null)
+        .sort((a, b2) => pm3[hn(b2.r.h).replace(/[^a-z0-9]/g, '')] - pm3[hn(a.r.h).replace(/[^a-z0-9]/g, '')]);
+      const sc = new Map();
+      rs0.forEach(q => { const parts = [];
+        const add = (arr) => { const i5 = arr.indexOf(q); if (i5 >= 0 && arr.length > 1) parts.push(1 - i5 / (arr.length - 1)); };
+        add(byS); add(byT); add(mn); add(gr); add(pt);
+        if (parts.length) sc.set(q, Math.round(parts.reduce((a2, b2) => a2 + b2, 0) / parts.length * 100)); });
+      const rk = new Map([...sc.entries()].sort((a, b2) => b2[1] - a[1]).map(([q], i5) => [q, i5 + 1]));
+      return { sc, rk }; };
+    const hits = {}; const rec = (key, x, subj, hit, wq, pl, arr) => { const i4 = arr ? arr.findIndex(q => q === wq) : -1;
+      const pz = x.__pow || (x.__pow = calcPower(x));
+      const k3 = tK(x.t) + '|' + cKeyPre(x.course);
+      const fz = (tfreeze[k3] && tfreeze[k3].at) || (snapMap[k3] && snapMap[k3].at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(snapMap[k3].at)) : null);
+      (hits[key] = hits[key] || []).push({ t: x.t, c: x.course, h: subj, hit, w: wq.r.h, pl, pk: i4 >= 0 ? i4 + 1 : null, ps: pz.sc.get(wq), psr: pz.rk.get(wq), fz }); };
+    listRows.forEach(x => { if (!x.w || !x.runners) return;
+      const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+      calcTM(x);
+      const tms = x.runners.filter(q => q.tm != null);
+      if (tms.length >= 2) { const byTm = tms.slice().sort((a, b2) => b2.tm - a.tm);
+        { const hit = wq.tm != null && wq.tm >= byTm[0].tm; cnt.tm1[1]++; if (hit) cnt.tm1[0]++; rec('tm1', x, byTm[0].r.h, hit, wq, 'TM', byTm); }
+        { const hit = byTm.slice(0, 3).some(q => q === wq); cnt.tm3[1]++; if (hit) cnt.tm3[0]++; rec('tm3', x, byTm[0].r.h, hit, wq, 'TM', byTm); }
+        { const hit = byTm.slice(0, 5).some(q => q === wq); cnt.tm5[1]++; if (hit) cnt.tm5[0]++; rec('tm5', x, byTm[0].r.h, hit, wq, 'TM', byTm); }
+        if (byTm[0].cd === 'CD') { const hit = wq === byTm[0]; cnt.tmcd[1]++; if (hit) cnt.tmcd[0]++; rec('tmcd', x, byTm[0].r.h, hit, wq, 'TM', byTm); }
+        const sigT = x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig)[0];
+        if (sigT && sigT === byTm[0]) { const hit = wq === sigT; cnt.stm[1]++; if (hit) cnt.stm[0]++; rec('stm', x, sigT.r.h, hit, wq, 'TM', byTm); }
+        const mnL2 = x.runners.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct);
+        const mnT = mnL2[0];
+        if (mnL2.length >= 2) { const hit = wq === mnT; cnt.mn1[1]++; if (hit) cnt.mn1[0]++; rec('mn1', x, mnT.r.h, hit, wq, 'MIN', mnL2); }
+        const maxOr = Math.max(0, ...x.runners.map(q => Number(q.r.ofr) || 0));
+        if (mnT && maxOr > 0 && mnT.tm != null && mnT.tm > maxOr) {
+          const hit = wq === mnT; cnt.mne[1]++; if (hit) cnt.mne[0]++; rec('mne', x, mnT.r.h, hit, wq, 'TM', byTm); }
+        if (sigT && mnT && sigT === mnT) { const hit = wq === sigT; cnt.smn[1]++; if (hit) cnt.smn[0]++; rec('smn', x, sigT.r.h, hit, wq, '\u03a3', x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig)); }
+        if (sigT && mnT && sigT === byTm[0] && sigT === mnT) { const hit = wq === sigT; cnt.smt[1]++; if (hit) cnt.smt[0]++; rec('smt', x, sigT.r.h, hit, wq, 'TM', byTm); } }
+      const sig2 = x.runners.filter(q => q.sig != null);
+      if (sig2.length >= 2) { paintBasket(sig2);
+        const byS = sig2.slice().sort((a, b2) => b2.sig - a.sig);
+        { const hit = wq.sig != null && wq.sig >= byS[0].sig; cnt.top1[1]++; if (hit) cnt.top1[0]++; rec('top1', x, byS[0].r.h, hit, wq, '\u03a3', byS); }
+        { const hit = wq.sig != null && byS.slice(0, 3).some(q => q === wq); cnt.top3[1]++; if (hit) cnt.top3[0]++; rec('top3', x, byS[0].r.h, hit, wq, '\u03a3', byS); }
+        const hOf2 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+        const grns = sig2.filter(q => hOf2(q) > 65);
+        if (grns.length) { const mx2 = Math.max(...grns.map(hOf2));
+          { const gTop = grns.slice().sort((a, b3) => hOf2(b3) - hOf2(a))[0]; const hit = hOf2(wq) === mx2; cnt.grn[1]++; if (hit) cnt.grn[0]++; rec('grn', x, gTop.r.h, hit, wq, 'GRN', grns.slice().sort((a, b3) => hOf2(b3) - hOf2(a))); }
+          { const hit = hOf2(wq) > 65; cnt.grnAny[1]++; if (hit) cnt.grnAny[0]++; rec('grnAny', x, hit ? wq.r.h : grns[0].r.h, hit, wq, 'GRN', grns.slice().sort((a, b3) => hOf2(b3) - hOf2(a))); } } } });
+    const wPwrs = [];
+    listRows.forEach(x => { if (!x.w || !x.runners || !x.gone) return;
+      const wq = x.runners.find(q => hn(q.r.h) === x.w); if (!wq) return;
+      const pz = x.__pow || (x.__pow = calcPower(x));
+      const s2 = pz.sc.get(wq); if (s2 != null) wPwrs.push(s2); });
+    const wBand = (() => { if (wPwrs.length < 3) return null;
+      const srt = wPwrs.slice().sort((a, b2) => a - b2);
+      const med = srt[Math.floor(srt.length / 2)];
+      return { lo: Math.max(0, med - 10), hi: Math.min(100, med + 10), med }; })();
+    const ups = {}; let pw = new Map(), pr = new Map();
+    const rec2 = (key, x, qs) => { const arr = (Array.isArray(qs) ? qs : [qs]).filter(Boolean);
+      if (arr.length) (ups[key] = ups[key] || []).push({ t: x.t, c: x.course, hs: arr.map(q => ({ h: q.r.h, d: q.r.d, pw: pw.get(q) != null ? pw.get(q) : null, pr: pr.get(q) || null, hl: wBand && pw.get(q) != null && pw.get(q) >= wBand.lo && pw.get(q) <= wBand.hi ? 1 : 0 })) }); };
+    listRows.forEach(x => { if (x.gone || !x.runners) return;
+      calcTM(x);
+      const tms2 = x.runners.filter(q => q.tm != null);
+      const byTm2 = tms2.slice().sort((a, b2) => b2.tm - a.tm);
+      const sig3 = x.runners.filter(q => q.sig != null);
+      if (sig3.length >= 2) paintBasket(sig3);
+      const byS2 = sig3.slice().sort((a, b2) => b2.sig - a.sig);
+      const hOf3 = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+      const grns2 = sig3.filter(q => hOf3(q) > 65).sort((a, b2) => hOf3(b2) - hOf3(a));
+      const mnT2 = x.runners.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct)[0];
+      const pz2 = calcPower(x); pw = pz2.sc; pr = pz2.rk;
+      if (byS2.length >= 2) { rec2('top1', x, byS2[0]); rec2('top3', x, byS2.slice(0, 3)); }
+      if (mnT2) rec2('mn1', x, mnT2);
+      { const mo2 = Math.max(0, ...x.runners.map(q => Number(q.r.ofr) || 0));
+        if (mnT2 && mo2 > 0 && mnT2.tm != null && mnT2.tm > mo2) rec2('mne', x, mnT2); }
+      if (grns2.length) { rec2('grn', x, grns2[0]); rec2('grnAny', x, grns2[0]); }
+      if (byTm2.length >= 2) { rec2('tm1', x, byTm2[0]); rec2('tm3', x, byTm2.slice(0, 3)); rec2('tm5', x, byTm2.slice(0, 5));
+        if (byTm2[0].cd === 'CD') rec2('tmcd', x, byTm2[0]);
+      if (byS2[0] && mnT2 && byS2[0] === mnT2) rec2('smn', x, byS2[0]);
+        if (byS2[0] && byS2[0] === byTm2[0]) { rec2('stm', x, byS2[0]);
+          if (mnT2 && mnT2 === byS2[0]) rec2('smt', x, byS2[0]); } } });
+    if (!cnt.top1[1] && !Object.keys(ups).length) return '';
+    const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
+    const detail = dashSel ? `<div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div>` : '';
+    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1, 'top1')}${cell('TOP 3 \u03a3 WON', cnt.top3, 'top3')}${cell('GREENEST WON', cnt.grn, 'grn')}${cell('ANY GREEN WON', cnt.grnAny, 'grnAny')}${cell('TOP MINUS WON', cnt.mn1, 'mn1')}</div><div class="dash">${cell('TM 1 WON', cnt.tm1, 'tm1')}${cell('TM TOP 3 WON', cnt.tm3, 'tm3')}${cell('TM TOP 5 WON', cnt.tm5, 'tm5')}${cell('TOP TM + CD WON', cnt.tmcd, 'tmcd')}${cell('TOP \u03a3 + TOP TM WON', cnt.stm, 'stm')}${cell('TOP \u03a3 + TOP MINUS WON', cnt.smn, 'smn')}${cell('TOP MINUS + TM EDGE WON', cnt.mne, 'mne')}${cell('\u03a3 + MINUS + TM WON', cnt.smt, 'smt')}</div>${detail}`; };
+  const drawPage = () => {
+    const us = window.__uiSel;   // latest user intent wins over any boot generation's restore
+    if (us) { if (us.ix != null && listRows[us.ix]) curIx = us.ix;
+      if (us.sort) { fcSort = us.sort; fcDir = us.dir || fcDir; }
+      if (us.trip != null) fdTrip = us.trip; }
+    const x = listRows[curIx];
+    const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
+    const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
+    const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh <b id="arCd">${Math.max(0, Math.ceil((__next - Date.now()) / 1000))}</b>s</div>` + logLine;
+    $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
+    document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
+      window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
+    document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
+      window.__uiSel = { ...(window.__uiSel || {}), dash: dashSel }; drawPage(); });
+    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip;
+      window.__uiSel = { ...(window.__uiSel || {}), trip: fdTrip }; if (window.__saveState) window.__saveState(); drawPage(); });
+    document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
+      if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
+      window.__uiSel = { ...(window.__uiSel || {}), sort: fcSort, dir: fcDir }; if (window.__saveState) window.__saveState(); drawPage(); });
+  };
+  window.__draw = drawPage;
+  drawPage();
+  if (__first && _sv && _sv.y) window.scrollTo(0, _sv.y);
+  window.__saveState = () => { try { sessionStorage.setItem('rsAuto:' + location.pathname, JSON.stringify({ ix: curIx, sort: fcSort, dir: fcDir, trip: fdTrip, y: window.scrollY || 0, ts: Date.now() })); } catch {} };
+  (async () => {   // C/D for the rest of the signalled baskets, trickled after first paint
+    const rest = []; const seen2 = new Set([...selUniq.keys()]);
+    listRows.forEach((x, i3) => (x.runners || []).forEach(q => { if (q.r.hid && !q.cdDone && !seen2.has(q.r.hid)) { seen2.add(q.r.hid); rest.push({ q, x, i3, pr: i3 === curIx ? 0 : 1 }); } }));
+    rest.sort((a, b2) => a.pr - b2.pr);
+    let ri = 0;
+    const w2 = async () => { while (ri < rest.length) { const jb = rest[ri++]; try {
+      let rr2 = __runsCache.get(jb.q.r.hid);
+      if (!rr2) { const j = await (await fetch('/api/horsehist?v=3&hid=' + encodeURIComponent(jb.q.r.hid))).json();
+        rr2 = (j && j.runs) || []; __runsCache.set(jb.q.r.hid, rr2); }
+      applyRuns(jb.q, jb.x.rcls, cKeyPre(jb.x.course), furlOfPre(jb.x.dist), rr2, jb.x.going);
+      if (window.__draw) window.__draw();
+    } catch {} } };
+    await Promise.all([1, 2, 3].map(w2));
+  })();
+  const jm2 = document.querySelector('.jump');
+  if (jm2) jm2.addEventListener('click', (ev) => { const a = ev.target.closest('a'); if (!a) return;
+    ev.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+};
+const __run = async () => { if (__busy) return; __busy = true;
+  try { await __boot(); } catch (e) {} __first = false; __busy = false; };
+__run();
+setInterval(() => { __next = Date.now() + 15000;
+  if (document.visibilityState !== 'visible') return;
+  try { if (window.__saveState) window.__saveState(); } catch {}
+  __run(); }, 15000);
+setInterval(() => { const el = document.getElementById('arCd');
+  if (el) el.textContent = Math.max(0, Math.ceil((__next - Date.now()) / 1000)); }, 1000);
+</script>
+</body>
+</html>
