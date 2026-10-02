@@ -741,7 +741,7 @@ const __boot = async () => {
   let dashSel = (window.__uiSel && window.__uiSel.dash) || null;
   window.__tf = tfreeze;
   const dashHtml = () => {
-    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0], smn: [0, 0] };
+    const cnt = { top1: [0, 0], top3: [0, 0], grn: [0, 0], grnAny: [0, 0], tm1: [0, 0], tm3: [0, 0], tm5: [0, 0], tmcd: [0, 0], stm: [0, 0], smt: [0, 0], smn: [0, 0], mn1: [0, 0] };
     const calcPower = (x) => { calcTM(x);
       const rs0 = x.runners || [];
       const byS = rs0.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
@@ -777,7 +777,9 @@ const __boot = async () => {
         if (byTm[0].cd === 'CD') { const hit = wq === byTm[0]; cnt.tmcd[1]++; if (hit) cnt.tmcd[0]++; rec('tmcd', x, byTm[0].r.h, hit, wq, 'TM', byTm); }
         const sigT = x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig)[0];
         if (sigT && sigT === byTm[0]) { const hit = wq === sigT; cnt.stm[1]++; if (hit) cnt.stm[0]++; rec('stm', x, sigT.r.h, hit, wq, 'TM', byTm); }
-        const mnT = x.runners.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct)[0];
+        const mnL2 = x.runners.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct);
+        const mnT = mnL2[0];
+        if (mnL2.length >= 2) { const hit = wq === mnT; cnt.mn1[1]++; if (hit) cnt.mn1[0]++; rec('mn1', x, mnT.r.h, hit, wq, 'MIN', mnL2); }
         if (sigT && mnT && sigT === mnT) { const hit = wq === sigT; cnt.smn[1]++; if (hit) cnt.smn[0]++; rec('smn', x, sigT.r.h, hit, wq, '\u03a3', x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig)); }
         if (sigT && mnT && sigT === byTm[0] && sigT === mnT) { const hit = wq === sigT; cnt.smt[1]++; if (hit) cnt.smt[0]++; rec('smt', x, sigT.r.h, hit, wq, 'TM', byTm); } }
       const sig2 = x.runners.filter(q => q.sig != null);
@@ -814,6 +816,7 @@ const __boot = async () => {
       const mnT2 = x.runners.filter(q => q.pct != null).sort((a, b2) => a.pct - b2.pct)[0];
       const pz2 = calcPower(x); pw = pz2.sc; pr = pz2.rk;
       if (byS2.length >= 2) { rec2('top1', x, byS2[0]); rec2('top3', x, byS2.slice(0, 3)); }
+      if (mnT2) rec2('mn1', x, mnT2);
       if (grns2.length) { rec2('grn', x, grns2[0]); rec2('grnAny', x, grns2[0]); }
       if (byTm2.length >= 2) { rec2('tm1', x, byTm2[0]); rec2('tm3', x, byTm2.slice(0, 3)); rec2('tm5', x, byTm2.slice(0, 5));
         if (byTm2[0].cd === 'CD') rec2('tmcd', x, byTm2[0]);
@@ -823,7 +826,7 @@ const __boot = async () => {
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
     const detail = dashSel ? `<div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div>` : '';
-    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1, 'top1')}${cell('TOP 3 \u03a3 WON', cnt.top3, 'top3')}${cell('GREENEST WON', cnt.grn, 'grn')}${cell('ANY GREEN WON', cnt.grnAny, 'grnAny')}</div><div class="dash">${cell('TM 1 WON', cnt.tm1, 'tm1')}${cell('TM TOP 3 WON', cnt.tm3, 'tm3')}${cell('TM TOP 5 WON', cnt.tm5, 'tm5')}${cell('TOP TM + CD WON', cnt.tmcd, 'tmcd')}${cell('TOP \u03a3 + TOP TM WON', cnt.stm, 'stm')}${cell('TOP \u03a3 + TOP MINUS WON', cnt.smn, 'smn')}${cell('\u03a3 + MINUS + TM WON', cnt.smt, 'smt')}</div>${detail}`; };
+    return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1, 'top1')}${cell('TOP 3 \u03a3 WON', cnt.top3, 'top3')}${cell('GREENEST WON', cnt.grn, 'grn')}${cell('ANY GREEN WON', cnt.grnAny, 'grnAny')}${cell('TOP MINUS WON', cnt.mn1, 'mn1')}</div><div class="dash">${cell('TM 1 WON', cnt.tm1, 'tm1')}${cell('TM TOP 3 WON', cnt.tm3, 'tm3')}${cell('TM TOP 5 WON', cnt.tm5, 'tm5')}${cell('TOP TM + CD WON', cnt.tmcd, 'tmcd')}${cell('TOP \u03a3 + TOP TM WON', cnt.stm, 'stm')}${cell('TOP \u03a3 + TOP MINUS WON', cnt.smn, 'smn')}${cell('\u03a3 + MINUS + TM WON', cnt.smt, 'smt')}</div>${detail}`; };
   const drawPage = () => {
     const us = window.__uiSel;   // latest user intent wins over any boot generation's restore
     if (us) { if (us.ix != null && listRows[us.ix]) curIx = us.ix;
