@@ -237,8 +237,9 @@ const __boot = async () => {
   let tfNew = false;
   list.forEach(rc => { const k2 = tK(rc.t) + '|' + ck0(rc.course);
     if (!rc.gone) { const pm2 = {}; (rc.rs || []).forEach(r2 => { if (Number(r2.d) > 0) pm2[hn(r2.h)] = Number(r2.d); });
-      window.__live[k2] = pm2; return; }
-    if (!tfreeze[k2] && window.__live[k2]) { tfreeze[k2] = { at: lon2(), prices: window.__live[k2] }; tfNew = true; } });
+      window.__live[k2] = { p: pm2, at: lon2() }; return; }
+    if (!tfreeze[k2] && window.__live[k2]) { const lv = window.__live[k2];
+      tfreeze[k2] = lv.p ? { at: lv.at, prices: lv.p } : { at: lon2(), prices: lv }; tfNew = true; } });
   try { localStorage.setItem('rsTF:' + ukd, JSON.stringify(tfreeze)); } catch {}
   if (tfNew) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
     cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
