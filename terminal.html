@@ -126,6 +126,16 @@ box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .tcm p{margin-top:2px;color:var(--ink)}
 .tcm p b{color:var(--am)}
 @media(max-width:700px){#tcMsgs{height:180px}body{padding-bottom:120px}}
+#rchat{position:fixed;right:10px;top:10px;width:270px;max-width:calc(100vw - 20px);z-index:59;
+background:rgba(13,20,32,.97);border:1px solid var(--line2);border-radius:10px;overflow:hidden;
+box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#rcHd{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer}
+#rcHd b{font-size:10px;letter-spacing:.2em;color:var(--ink);font-weight:900}
+#rcDot{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:tcp 1.4s infinite}
+#rcMsgs{height:200px;overflow-y:auto;padding:9px 11px;display:flex;flex-direction:column;gap:8px}
+#rchat.min #rcMsgs{display:none}
+.rcw{color:var(--am);font-weight:900;letter-spacing:.06em}
+@media(max-width:700px){#rcMsgs{height:150px}}
 </style>
 </head>
 <body>
@@ -870,12 +880,24 @@ const __boot = async () => {
   // TERMINAL live feed: insight messages dripped into the chat rail
   window.__tcSeen = window.__tcSeen || new Set(); window.__tcQ = window.__tcQ || [];
   const tcPush = (k3, msg) => { if (window.__tcSeen.has(k3)) return; window.__tcSeen.add(k3); window.__tcQ.push(msg); };
+  window.__rcSeen = window.__rcSeen || new Set(); window.__rcQ = window.__rcQ || [];
+  const rcPush = (k3, msg) => { if (window.__rcSeen.has(k3)) return; window.__rcSeen.add(k3); window.__rcQ.push(msg); };
   try {
     const liveR = list.filter(rc2 => !rc2.gone);
     listRows.forEach(x => {
       const rk4 = tK(x.t) + ' ' + String(x.course || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
       if (x.gone) { const k5 = tK(x.t) + '|' + ck0(x.course);
         if (tfreeze[k5] && tfreeze[k5].at) tcPush('fz|' + k5, `<b>${rk4}</b> locked — stats frozen at ${tfreeze[k5].at}. Result will be judged on that snapshot.`);
+        if (x.w && x.runners && x.runners.length) { calcTM(x);
+          const pz5 = x.__pow || (x.__pow = (window.__calcPower ? window.__calcPower(x) : null));
+          const wq2 = x.runners.find(q => hn(q.r.h) === hn(x.w));
+          const byS3 = x.runners.filter(q => q.sig != null).sort((a, b2) => b2.sig - a.sig);
+          const sR = wq2 ? byS3.findIndex(q => q === wq2) + 1 : 0;
+          const fz2 = (tfreeze[k5] && tfreeze[k5].at) || (snapMap[k5] && snapMap[k5].at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(snapMap[k5].at)) : null);
+          const bits = [ sR ? `MODEL ${sR}` : null,
+            wq2 && pz5 && pz5.sc.get(wq2) != null ? `POWER ${pz5.sc.get(wq2)} #${pz5.rk.get(wq2)}` : null,
+            fz2 ? `froze ${fz2}` : 'no freeze rec' ].filter(Boolean).join(' · ');
+          rcPush('r|' + k5, `<b>${rk4}</b> — Winner: <b>${wq2 ? wq2.r.h : x.w}</b>${sR === 1 ? ' ✅' : ''} <small>(${bits})</small>`); }
         return; }
       calcTM(x);
       const pz4 = x.__pow || (x.__pow = (window.__calcPower ? window.__calcPower(x) : null));
@@ -895,6 +917,16 @@ const __boot = async () => {
       tcPush('d|top1|' + window.__cnt.top1[1], `Today so far: the terminal's top pick has won <b>${window.__cnt.top1[0]}/${window.__cnt.top1[1]}</b> races.`);
     if (liveR.length) tcPush('n|' + liveR.length, `${liveR.length} race${liveR.length > 1 ? 's' : ''} still to come today. Board refreshes itself every 15 seconds.`);
   } catch (e3) {}
+  if (!window.__rcTimer) { window.__rcTimer = setInterval(() => {
+    const q5 = window.__rcQ.shift(); if (!q5) return;
+    const box = document.getElementById('rcMsgs'); if (!box) return;
+    const el = document.createElement('div'); el.className = 'tcm';
+    const t6 = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
+    el.innerHTML = `<span class="rcw">RESULTS</span><span class="tct">${t6}</span><p>${q5}</p>`;
+    const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+    box.appendChild(el); while (box.children.length > 40) box.removeChild(box.firstChild);
+    if (stick) box.scrollTop = box.scrollHeight;
+  }, 5000); }
   if (!window.__tcTimer) { window.__tcTimer = setInterval(() => {
     const q4 = window.__tcQ.shift(); if (!q4) return;
     const box = document.getElementById('tcMsgs'); if (!box) return;
@@ -936,5 +968,7 @@ setInterval(() => { const el = document.getElementById('arCd');
   if (el) el.textContent = Math.max(0, Math.ceil((__next - Date.now()) / 1000)); }, 1000);
 </script>
 <div id="tchat"><div id="tcHd" onclick="document.getElementById('tchat').classList.toggle('min')"><span id="tcDot"></span><b>TERMINAL · LIVE</b></div><div id="tcMsgs"></div></div>
+<div id="rchat"><div id="rcHd" onclick="document.getElementById('rchat').classList.toggle('min')"><span id="rcDot"></span><b>RESULTS · LIVE</b></div><div id="rcMsgs"></div></div>
+<script>if (innerWidth <= 700) document.getElementById('rchat').classList.add('min');</script>
 </body>
 </html>
