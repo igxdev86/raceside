@@ -89,6 +89,7 @@ export default async function handler(req, res) {
       tid: x.trainer_id || null,
       ofr: (() => { const v = parseInt(x.or != null ? x.or : x.ofr, 10); return v >= 1 && v <= 200 ? v : null; })(),
       lbs: lbsOf(x),
+      dr: (() => { const v = parseInt(x.draw, 10); return v > 0 ? v : null; })(),
       d: spDec(x),
       won: String(x.position) === '1' ? 1 : 0,
       pos: x.position != null && String(x.position) !== '' ? String(x.position) : null,
