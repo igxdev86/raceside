@@ -61,20 +61,29 @@ const COMBOS = (() => { const ks = Object.keys(SEL), out = [];
     for (let i = s; i < ks.length; i++) { cur.push(ks[i]); rec(i + 1, cur); cur.pop(); } };
   rec(0, []); return out; })();
 
+const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
 const dayKey = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(off);
 const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(dayKey(new Date(Date.now() - i * 86400000))); return out; };
 
 async function boot() {
   const ds = dates14();
+  let tfDays = {};
+  try { const r0 = await fetch('/api/yearstate?k=termfreeze:v1'); const j0 = await r0.json();
+    tfDays = (j0 && j0.state && j0.state.days) || {}; } catch {}
   const got = await Promise.all(ds.map(async (d) => {
     try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json();
-      return j && j.ok ? { d, races: j.races || [] } : { d, races: null }; }
-    catch { return { d, races: null }; }
+      let snap = null;
+      try { const r2 = await fetch('/api/yearstate?k=minussnap:' + d); const j2 = await r2.json();
+        snap = (j2 && j2.state && j2.state.races) || null; } catch {}
+      return j && j.ok ? { d, races: j.races || [], snap } : { d, races: null, snap };
+    } catch { return { d, races: null, snap: null }; }
   }));
   const agg = {}; COMBOS.forEach(cb => { agg[cb.join('+')] = { n: 0, w: 0 }; });
   const dayRows = [];
-  let totRaces = 0, missing = 0;
-  got.forEach(({ d, races }) => {
+  let totRaces = 0, missing = 0, frozenRaces = 0;
+  got.forEach(({ d, races, snap }) => {
     if (!races) { missing++; dayRows.push({ d, txt: '<span class="err">no data</span>' }); return; }
     let dayN = 0; const dayHit = {};
     races.forEach(rc => {
@@ -82,6 +91,15 @@ async function boot() {
       const w = rc.runners.find(r => r.won); if (!w) return;
       const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0)); if (!topLbs) return;
       rc.runners.forEach(r => { r.tm = tmOf(r, topLbs); });
+      // frozen pre-off prices beat SP: page freeze first, server snapshot second
+      const k1 = tK(rc.t) + '|' + ck0(rc.course);
+      const pf = tfDays[d] && tfDays[d][k1] && tfDays[d][k1].prices;
+      let fz = pf || null;
+      if (!fz && snap) { const sr = snap[k1] || snap[String(rc.t).split(' ')[0] + '|' + String(rc.course || '').replace(/\s*\(aw\)\s*/i, '').trim().toLowerCase()];
+        if (sr && sr.rides) { fz = {}; sr.rides.forEach(r2 => { if (Number(r2.d) > 0) fz[hn(r2.h)] = Number(r2.d); }); } }
+      let used = false;
+      if (fz) rc.runners.forEach(r => { const v = fz[hn(r.h)]; if (v > 1) { r.d = v; used = true; } });
+      if (used) { rc.fz = 1; frozenRaces++; }
       dayN++; totRaces++;
       COMBOS.forEach(cb => {
         const picks = cb.map(k => SEL[k](rc));
@@ -105,8 +123,7 @@ async function boot() {
     `<div class="dash">${solos.map(cell).join('')}</div>` +
     `<div class="dash r2">${multis.map(cell).join('')}</div>` +
     `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days loaded${missing ? ` <span class="err">(${missing} missing)</span>` : ''}.
-     History is scored at <b>SP</b> \u2014 FAV market leader, TM top rating with claims, OR top mark, EDGE thrown-in at the weights.
-     \u03a3 / STEAM / POWER need pre-off records: their ledger builds forward from the freeze era.</div>` +
+     <b>${frozenRaces}</b> races scored at <b>frozen pre-off prices</b> (your own record); the rest at SP. FAV market leader, TM top rating with claims, OR top mark, EDGE thrown-in at the weights. \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
   $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
