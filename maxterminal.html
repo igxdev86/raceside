@@ -648,6 +648,7 @@ const __boot = async () => {
   if (_sv && Date.now() - _sv.ts > 300000) _sv = null;
   let fcSort = (_sv && _sv.sort) || 'num', fcDir = (_sv && _sv.dir) || 1;
   let fdTrip = !!(_sv && _sv.trip);
+  let fdGnd = !!(_sv && _sv.gnd);
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], or: ['OR', (q) => Number(q.r.ofr) || null, -1], sig: ['\u03a3', (q) => q.sig, -1],
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
@@ -686,9 +687,9 @@ const __boot = async () => {
     const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
       cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
-    const tripOK = (q) => q.dd && q.dd.dir === 'same' && q.gRan === 1;
-    const dimQ = (q) => fdTrip && q.cdDone && !tripOK(q);
-    const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button></div>`;
+    const tripOK = (q) => q.dd && q.dd.dir === 'same';
+    const dimQ = (q) => (fdTrip && q.cdDone && !tripOK(q)) || (fdGnd && q.cdDone && q.gRan === 0);
+    const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button><button class="fdb${fdGnd ? ' on' : ''}" data-f="gnd">GROUND</button></div>`;
     const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}${k2 === fcSort ? (fcDir === (fcKeys[k2][2]) ? ' \u25bc' : ' \u25b2') : ''}</button>`).join('')}</div>`;
     const hr2 = heatRange(x);
     const rows2 = rs2.map(q => { const won = x.w && hn(q.r.h) === x.w;
@@ -883,7 +884,8 @@ const __boot = async () => {
     const us = window.__uiSel;   // latest user intent wins over any boot generation's restore
     if (us) { if (us.ix != null && listRows[us.ix]) curIx = us.ix;
       if (us.sort) { fcSort = us.sort; fcDir = us.dir || fcDir; }
-      if (us.trip != null) fdTrip = us.trip; }
+      if (us.trip != null) fdTrip = us.trip;
+      if (us.gnd != null) fdGnd = us.gnd; }
     const x = listRows[curIx];
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
@@ -896,8 +898,8 @@ const __boot = async () => {
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
       window.__uiSel = { ...(window.__uiSel || {}), dash: dashSel }; drawPage(); });
-    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip;
-      window.__uiSel = { ...(window.__uiSel || {}), trip: fdTrip }; if (window.__saveState) window.__saveState(); drawPage(); });
+    document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip; else if (b.dataset.f === 'gnd') fdGnd = !fdGnd;
+      window.__uiSel = { ...(window.__uiSel || {}), trip: fdTrip, gnd: fdGnd }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
       if (k2 === fcSort) fcDir = -fcDir; else { fcSort = k2; fcDir = fcKeys[k2][2]; }
       window.__uiSel = { ...(window.__uiSel || {}), sort: fcSort, dir: fcDir }; if (window.__saveState) window.__saveState(); drawPage(); });
