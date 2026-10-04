@@ -628,7 +628,8 @@ const __boot = async () => {
   const fcKeys = { num: ['NUM', (q) => Number(q.r.num) || 99, 1], d: ['@', (q) => Number(q.r.d) > 0 ? Number(q.r.d) : null, 1],
     jt: ['JT', (q) => jtOf(q).tot, -1], sig: ['MODEL', (q) => q.sig, -1],
     mp: ['STEAM', (q) => q.pct != null ? q.pct : null, 1],
-    pwr: ['POWER', (q) => q.pw3 != null ? q.pw3 : null, -1] };
+    pwr: ['POWER', (q) => q.pw3 != null ? q.pw3 : null, -1],
+    drw: ['DRAW', (q) => Number(q.r.dr) > 0 ? Number(q.r.dr) : null, 1] };
   const claimOf = (q) => { const m2 = String(q.r.jockey || '').match(/\((\d+)\)/); return m2 ? Number(m2[1]) : 0; };
   const calcTM = (x) => { const rs0 = x.runners || [];
     const anchor = rs0.filter(q => Number(q.r.ofr) > 0 && Number(q.r.lbs) > 0)
