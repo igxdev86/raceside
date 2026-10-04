@@ -154,7 +154,7 @@ async function boot() {
     dayRows.push({ d, txt: `${dayN} races <small>\u00b7</small> FAV <b>${f.w}/${f.n}</b> <small>\u00b7</small> TM <b>${t.w}/${t.n}</b> <small>\u00b7</small> FAV+TM <b>${ft.w}/${ft.n}</b>` });
   });
   const rows = Object.entries(agg).map(([nm, g]) => ({ nm, ...g, pc: g.n ? Math.round(g.w / g.n * 100) : 0 }));
-  const solos = rows.filter(r => !r.nm.includes('+'));
+  const solos = rows.filter(r => !r.nm.includes('+')).sort((a, b) => b.pc - a.pc || b.w - a.w);
   const multis = rows.filter(r => r.nm.includes('+') && r.n >= 2).sort((a, b) => b.pc - a.pc || b.w - a.w);
   const bestNm = (multis.filter(r => r.n >= 20)[0] || multis[0] || {}).nm;
   const cell = (g) => `<div class="dcell${g.nm === bestNm ? ' best' : ''}"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`;
