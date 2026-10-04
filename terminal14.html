@@ -75,7 +75,7 @@ const SEL = {
     return a.length >= 2 && JPCT[a[0].jid] > (JPCT[a[1].jid] || 0) ? a[0] : null; },
 };
 const COMBOS = (() => { const ks = Object.keys(SEL), out = [];
-  const rec = (s, cur) => { if (cur.length) out.push([...cur]); if (cur.length === 3) return;
+  const rec = (s, cur) => { if (cur.length) out.push([...cur]);
     for (let i = s; i < ks.length; i++) { cur.push(ks[i]); rec(i + 1, cur); cur.pop(); } };
   rec(0, []); return out; })();
 
@@ -141,13 +141,13 @@ async function boot() {
       if (used) frozenRaces++;
       rc.byD = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
       dayN++; totRaces++;
+      const pick1 = {}; Object.keys(SEL).forEach(k => { pick1[k] = SEL[k](rc); });
       COMBOS.forEach(cb => {
-        const picks = cb.map(k => SEL[k](rc));
-        if (picks.some(p => !p)) return;
-        if (!picks.every(p => p === picks[0])) return;
+        const p0 = pick1[cb[0]]; if (!p0) return;
+        for (let i9 = 1; i9 < cb.length; i9++) if (pick1[cb[i9]] !== p0) return;
         const key = cb.join('+'); agg[key].n++;
         const g = dayHit[key] = dayHit[key] || { n: 0, w: 0 }; g.n++;
-        if (picks[0] === w) { agg[key].w++; g.w++; }
+        if (p0 === w) { agg[key].w++; g.w++; }
       });
     });
     const f = dayHit['FAV'] || { n: 0, w: 0 }, t = dayHit['TM'] || { n: 0, w: 0 }, ft = dayHit['FAV+TM'] || { n: 0, w: 0 };
@@ -161,7 +161,7 @@ async function boot() {
   $('app').innerHTML =
     `<div class="dash">${solos.map(cell).join('')}</div>` +
     `<div class="dash r2">${multis.slice(0, 12).map(cell).join('')}</div>` +
-    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days${missing ? ` <span class="err">(${missing} missing)</span>` : ''} \u00b7 <b>${frozenRaces}</b> at frozen pre-off prices, rest SP \u00b7 ${COMBOS.length} combinations scanned.
+    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days${missing ? ` <span class="err">(${missing} missing)</span>` : ''} \u00b7 <b>${frozenRaces}</b> at frozen pre-off prices, rest SP \u00b7 ${COMBOS.length} combinations scanned (solos to 8-stacks).
      FAV/FAV2 market \u00b7 TM rating+claims \u00b7 OR top mark \u00b7 EDGE thrown in \u00b7 TOPW top weight \u00b7 DRW lowest stall \u00b7 JPC best jockey strike.
      \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
     (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
