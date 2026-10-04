@@ -17,12 +17,12 @@ background:linear-gradient(90deg,var(--cy),var(--grn));-webkit-background-clip:t
 .sub a{color:var(--faint);text-decoration:none}
 .upd{font-family:var(--mono);font-size:10.5px;color:var(--cy);margin:2px 0 10px}
 .dash{display:flex;gap:7px;margin:0 0 7px;flex-wrap:wrap}
-.dcell{flex:1;min-width:86px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+.dcell{flex:1;min-width:82px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
 border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:center}
 .r2 .dcell{border-top-color:var(--am)}
 .dcell.best{border-color:var(--grn);box-shadow:0 0 0 1px var(--grn)}
-.dcell small{display:block;font-size:8px;letter-spacing:.12em;color:var(--dim);font-weight:800;text-transform:uppercase}
-.dcell b{display:block;font-family:var(--mono);font-size:19px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell small{display:block;font-size:8px;letter-spacing:.1em;color:var(--dim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--mono);font-size:18px;font-weight:700;color:#fff;margin:3px 0 1px}
 .dcell span{font-family:var(--mono);font-size:10px;color:var(--grn);font-weight:700}
 .note{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:6px 0 14px;line-height:1.7}
 .note b{color:var(--am)}
@@ -32,6 +32,9 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 .dayln:last-child{border-bottom:0}
 .dayln small{color:var(--faint)}
 .dayln b{color:var(--am)}
+.cln{font-family:var(--mono);font-size:11.5px;line-height:2;color:var(--ink)}
+.cln small{color:var(--faint)}
+.cln b{color:#fff}
 .err{color:var(--red);font-family:var(--mono);font-size:11px}
 </style>
 </head>
@@ -44,26 +47,30 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 </div>
 <script>
 const $ = (id) => document.getElementById(id);
+const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
 const claimOf = (r) => { const m = String(r.jockey || '').match(/\((\d+)\)/); return m ? Number(m[1]) : 0; };
-const tmOf = (r, topLbs) => r.ofr == null || !r.lbs ? null : r.ofr + (topLbs - r.lbs) + claimOf(r);
 
-// base selectors on a resulted race (SP world — what history can actually prove)
+let JPCT = {};   // jid -> season strike %
 const SEL = {
-  FAV: (rc) => { const a = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
-    return a.length >= 2 && (a.length < 2 || a[0].d !== a[1].d) ? a[0] : (a.length >= 2 ? a[0] : null); },
-  TM: (rc) => { const a = rc.runners.filter(r => r.tm != null).sort((x, y) => y.tm - x.tm); return a.length >= 2 ? a[0] : null; },
-  OR: (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
+  FAV:  (rc) => { const a = rc.byD; return a.length >= 2 ? a[0] : null; },
+  FAV2: (rc) => { const a = rc.byD; return a.length >= 3 ? a[1] : null; },
+  TM:   (rc) => { const a = rc.runners.filter(r => r.tm != null).sort((x, y) => y.tm - x.tm); return a.length >= 2 ? a[0] : null; },
+  OR:   (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
   EDGE: (rc) => { const t = SEL.TM(rc); if (!t) return null;
     const mo = Math.max(...rc.runners.map(r => r.ofr || 0)); return mo > 0 && t.tm > mo ? t : null; },
+  TOPW: (rc) => { const a = rc.runners.filter(r => r.lbs).sort((x, y) => y.lbs - x.lbs);
+    return a.length >= 2 && a[0].lbs > a[1].lbs ? a[0] : null; },
+  DRW:  (rc) => { const a = rc.runners.filter(r => r.dr).sort((x, y) => x.dr - y.dr); return a.length >= 3 ? a[0] : null; },
+  JPC:  (rc) => { const a = rc.runners.filter(r => JPCT[r.jid] != null).sort((x, y) => JPCT[y.jid] - JPCT[x.jid]);
+    return a.length >= 2 && JPCT[a[0].jid] > (JPCT[a[1].jid] || 0) ? a[0] : null; },
 };
 const COMBOS = (() => { const ks = Object.keys(SEL), out = [];
   const rec = (s, cur) => { if (cur.length) out.push([...cur]); if (cur.length === 3) return;
     for (let i = s; i < ks.length; i++) { cur.push(ks[i]); rec(i + 1, cur); cur.pop(); } };
   rec(0, []); return out; })();
 
-const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
-const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
-const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
 const dayKey = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(off);
 const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(dayKey(new Date(Date.now() - i * 86400000))); return out; };
 
@@ -72,6 +79,9 @@ async function boot() {
   let tfDays = {};
   try { const r0 = await fetch('/api/yearstate?k=termfreeze:v1'); const j0 = await r0.json();
     tfDays = (j0 && j0.state && j0.state.days) || {}; } catch {}
+  try { const rp = await fetch('/api/peopleall?v=2'); const jp = await rp.json();
+    Object.entries((jp && jp.jockeys) || {}).forEach(([jid, g]) => {
+      if (g && g.runs >= 50) JPCT[jid] = Math.round(g.wins / g.runs * 1000) / 10; }); } catch {}
   const got = await Promise.all(ds.map(async (d) => {
     try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json();
       let snap = null;
@@ -89,9 +99,8 @@ async function boot() {
     races.forEach(rc => {
       if (!rc.runners || rc.runners.length < 2) return;
       const w = rc.runners.find(r => r.won); if (!w) return;
-      const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0)); if (!topLbs) return;
-      rc.runners.forEach(r => { r.tm = tmOf(r, topLbs); });
-      // frozen pre-off prices beat SP: page freeze first, server snapshot second
+      const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0));
+      rc.runners.forEach(r => { r.tm = topLbs && r.ofr != null && r.lbs ? r.ofr + (topLbs - r.lbs) + claimOf(r) : null; });
       const k1 = tK(rc.t) + '|' + ck0(rc.course);
       const pf = tfDays[d] && tfDays[d][k1] && tfDays[d][k1].prices;
       let fz = pf || null;
@@ -99,7 +108,8 @@ async function boot() {
         if (sr && sr.rides) { fz = {}; sr.rides.forEach(r2 => { if (Number(r2.d) > 0) fz[hn(r2.h)] = Number(r2.d); }); } }
       let used = false;
       if (fz) rc.runners.forEach(r => { const v = fz[hn(r.h)]; if (v > 1) { r.d = v; used = true; } });
-      if (used) { rc.fz = 1; frozenRaces++; }
+      if (used) frozenRaces++;
+      rc.byD = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
       dayN++; totRaces++;
       COMBOS.forEach(cb => {
         const picks = cb.map(k => SEL[k](rc));
@@ -113,17 +123,19 @@ async function boot() {
     const f = dayHit['FAV'] || { n: 0, w: 0 }, t = dayHit['TM'] || { n: 0, w: 0 }, ft = dayHit['FAV+TM'] || { n: 0, w: 0 };
     dayRows.push({ d, txt: `${dayN} races <small>\u00b7</small> FAV <b>${f.w}/${f.n}</b> <small>\u00b7</small> TM <b>${t.w}/${t.n}</b> <small>\u00b7</small> FAV+TM <b>${ft.w}/${ft.n}</b>` });
   });
-  const rows = Object.entries(agg).map(([nm, g]) => ({ nm, ...g, pc: g.n ? Math.round(g.w / g.n * 100) : 0 }))
-    .filter(g => g.n > 0).sort((a, b) => b.pc - a.pc || b.w - a.w);
-  const bestNm = (rows.filter(r => r.n >= 20)[0] || rows[0] || {}).nm;
-  const cell = (g) => `<div class="dcell${g.nm === bestNm ? ' best' : ''}"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`;
+  const rows = Object.entries(agg).map(([nm, g]) => ({ nm, ...g, pc: g.n ? Math.round(g.w / g.n * 100) : 0 }));
   const solos = rows.filter(r => !r.nm.includes('+'));
-  const multis = rows.filter(r => r.nm.includes('+'));
+  const multis = rows.filter(r => r.nm.includes('+') && r.n >= 2).sort((a, b) => b.pc - a.pc || b.w - a.w);
+  const bestNm = (multis.filter(r => r.n >= 20)[0] || multis[0] || {}).nm;
+  const cell = (g) => `<div class="dcell${g.nm === bestNm ? ' best' : ''}"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`;
   $('app').innerHTML =
     `<div class="dash">${solos.map(cell).join('')}</div>` +
-    `<div class="dash r2">${multis.map(cell).join('')}</div>` +
-    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days loaded${missing ? ` <span class="err">(${missing} missing)</span>` : ''}.
-     <b>${frozenRaces}</b> races scored at <b>frozen pre-off prices</b> (your own record); the rest at SP. FAV market leader, TM top rating with claims, OR top mark, EDGE thrown-in at the weights. \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
+    `<div class="dash r2">${multis.slice(0, 12).map(cell).join('')}</div>` +
+    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days${missing ? ` <span class="err">(${missing} missing)</span>` : ''} \u00b7 <b>${frozenRaces}</b> at frozen pre-off prices, rest SP \u00b7 ${COMBOS.length} combinations scanned.
+     FAV/FAV2 market \u00b7 TM rating+claims \u00b7 OR top mark \u00b7 EDGE thrown in \u00b7 TOPW top weight \u00b7 DRW lowest stall \u00b7 JPC best jockey strike.
+     \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
+    (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
+      multis.slice(12).map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')}</div>` : '') +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
   $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
