@@ -45,12 +45,12 @@ export default async function handler(req, res) {
       const page = await r.json();
       for (const race of page.results || []) {
         const region = String(race.region || '').toLowerCase();
-        if (region && !['gb', 'ire'].includes(region)) continue;
+        if (region && !['gb', 'ire', 'fr'].includes(region)) continue;
         races.push(race);
       }
     }
     while (!isToday && skip < total && pages < 10) {
-      const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire&start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
+      const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire&region=fr&start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
       const r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
       if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
       const page = await r.json();
