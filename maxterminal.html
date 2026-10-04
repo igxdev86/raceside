@@ -653,7 +653,8 @@ const __boot = async () => {
     mp: ['MINUS', (q) => q.pct != null ? q.pct : null, 1], mx: ['MX', (q) => q.sig != null && Number(q.r.d) > 0 ? q.sig * Number(q.r.d) : null, 1],
     tm: ['TM', (q) => q.tm != null ? q.tm : null, -1],
     pts: ['PTS', (q) => q.pts2 != null ? q.pts2 : null, -1],
-    pwr: ['PWR', (q) => q.pw3 != null ? q.pw3 : null, -1] };
+    pwr: ['PWR', (q) => q.pw3 != null ? q.pw3 : null, -1],
+    drw: ['DRW', (q) => Number(q.r.dr) > 0 ? Number(q.r.dr) : null, 1] };
   const claimOf = (q) => { const m2 = String(q.r.jockey || '').match(/\((\d+)\)/); return m2 ? Number(m2[1]) : 0; };
   const calcTM = (x) => { const rs0 = x.runners || [];
     const anchor = rs0.filter(q => Number(q.r.ofr) > 0 && Number(q.r.lbs) > 0)
