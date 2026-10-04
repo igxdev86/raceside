@@ -869,11 +869,22 @@ const __boot = async () => {
           n5++; if (picks5[0] === wq5) w5++; });
         if (n5 > 0) res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
-    const scanner = () => { const rs5 = scanRows(); if (!rs5.length) return '';
+    const scanner = () => { const rs5 = scanRows();
+      const ks7 = Object.keys(scanSel); const upLines = [];
+      listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2).forEach(x => {
+        const agree = new Map();
+        ks7.forEach(k7 => { const p7 = scanSel[k7](x); if (p7) { const g7 = agree.get(p7) || []; g7.push(k7); agree.set(p7, g7); } });
+        [...agree.entries()].filter(([, tags7]) => tags7.length >= 2).forEach(([q7, tags7]) => {
+          upLines.push({ t: x.t, c: x.course, h: q7.r.h, d: q7.r.d, n: tags7.length, tags: tags7.join('+') }); }); });
+      upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
+      if (!rs5.length && !upLines.length) return '';
       const best = rs5.filter(r5 => r5.n >= 2);
+      const abbr7 = (c7) => String(c7 || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
       return `<div class="dlist"><div class="dup">COMBO SCANNER \u00b7 today, agreement picks</div>${
         rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>`).join('<br>')
-      }</div>`; };
+      }${upLines.length ? `<div class="dup">COMING UP \u00b7 horses carrying 2+ attributes</div>${
+        upLines.map(u7 => `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags}</small>`).join('<br>')
+      }` : ''}</div>`; };
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
     const detail = dashSel ? `<div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div>` : '';
