@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERMINAL 14 — RACESIDE</title>
+<style>
+:root{--bg:#070B12;--panel:#0D1420;--panel2:#111B2B;--line:#1C2940;--line2:#27395C;
+--ink:#E8EEF7;--dim:#8A9BB5;--faint:#54657F;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--red:#FF3B5C;
+--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--cond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--cond);padding:12px 10px 60px}
+.wrap{max-width:760px;margin:0}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+background:linear-gradient(90deg,var(--cy),var(--grn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.sub{font-size:11px;letter-spacing:.18em;color:var(--faint);font-weight:800;margin:4px 0 12px}
+.sub a{color:var(--faint);text-decoration:none}
+.upd{font-family:var(--mono);font-size:10.5px;color:var(--cy);margin:2px 0 10px}
+.dash{display:flex;gap:7px;margin:0 0 7px;flex-wrap:wrap}
+.dcell{flex:1;min-width:86px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:center}
+.r2 .dcell{border-top-color:var(--am)}
+.dcell.best{border-color:var(--grn);box-shadow:0 0 0 1px var(--grn)}
+.dcell small{display:block;font-size:8px;letter-spacing:.12em;color:var(--dim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--mono);font-size:19px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell span{font-family:var(--mono);font-size:10px;color:var(--grn);font-weight:700}
+.note{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:6px 0 14px;line-height:1.7}
+.note b{color:var(--am)}
+.tile{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cy);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.tile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--cy);text-transform:uppercase;margin-bottom:7px}
+.dayln{font-family:var(--mono);font-size:11.5px;line-height:2;color:var(--ink);border-bottom:1px solid var(--line)}
+.dayln:last-child{border-bottom:0}
+.dayln small{color:var(--faint)}
+.dayln b{color:var(--am)}
+.err{color:var(--red);font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>TERMINAL 14</h1>
+<div class="sub">LAST 14 DAYS \u00b7 COMBO LEDGER \u00b7 <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="upd" id="upd">loading 14 days\u2026</div>
+<div id="app"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const claimOf = (r) => { const m = String(r.jockey || '').match(/\((\d+)\)/); return m ? Number(m[1]) : 0; };
+const tmOf = (r, topLbs) => r.ofr == null || !r.lbs ? null : r.ofr + (topLbs - r.lbs) + claimOf(r);
+
+// base selectors on a resulted race (SP world — what history can actually prove)
+const SEL = {
+  FAV: (rc) => { const a = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
+    return a.length >= 2 && (a.length < 2 || a[0].d !== a[1].d) ? a[0] : (a.length >= 2 ? a[0] : null); },
+  TM: (rc) => { const a = rc.runners.filter(r => r.tm != null).sort((x, y) => y.tm - x.tm); return a.length >= 2 ? a[0] : null; },
+  OR: (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
+  EDGE: (rc) => { const t = SEL.TM(rc); if (!t) return null;
+    const mo = Math.max(...rc.runners.map(r => r.ofr || 0)); return mo > 0 && t.tm > mo ? t : null; },
+};
+const COMBOS = (() => { const ks = Object.keys(SEL), out = [];
+  const rec = (s, cur) => { if (cur.length) out.push([...cur]); if (cur.length === 3) return;
+    for (let i = s; i < ks.length; i++) { cur.push(ks[i]); rec(i + 1, cur); cur.pop(); } };
+  rec(0, []); return out; })();
+
+const dayKey = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(off);
+const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(dayKey(new Date(Date.now() - i * 86400000))); return out; };
+
+async function boot() {
+  const ds = dates14();
+  const got = await Promise.all(ds.map(async (d) => {
+    try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json();
+      return j && j.ok ? { d, races: j.races || [] } : { d, races: null }; }
+    catch { return { d, races: null }; }
+  }));
+  const agg = {}; COMBOS.forEach(cb => { agg[cb.join('+')] = { n: 0, w: 0 }; });
+  const dayRows = [];
+  let totRaces = 0, missing = 0;
+  got.forEach(({ d, races }) => {
+    if (!races) { missing++; dayRows.push({ d, txt: '<span class="err">no data</span>' }); return; }
+    let dayN = 0; const dayHit = {};
+    races.forEach(rc => {
+      if (!rc.runners || rc.runners.length < 2) return;
+      const w = rc.runners.find(r => r.won); if (!w) return;
+      const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0)); if (!topLbs) return;
+      rc.runners.forEach(r => { r.tm = tmOf(r, topLbs); });
+      dayN++; totRaces++;
+      COMBOS.forEach(cb => {
+        const picks = cb.map(k => SEL[k](rc));
+        if (picks.some(p => !p)) return;
+        if (!picks.every(p => p === picks[0])) return;
+        const key = cb.join('+'); agg[key].n++;
+        const g = dayHit[key] = dayHit[key] || { n: 0, w: 0 }; g.n++;
+        if (picks[0] === w) { agg[key].w++; g.w++; }
+      });
+    });
+    const f = dayHit['FAV'] || { n: 0, w: 0 }, t = dayHit['TM'] || { n: 0, w: 0 }, ft = dayHit['FAV+TM'] || { n: 0, w: 0 };
+    dayRows.push({ d, txt: `${dayN} races <small>\u00b7</small> FAV <b>${f.w}/${f.n}</b> <small>\u00b7</small> TM <b>${t.w}/${t.n}</b> <small>\u00b7</small> FAV+TM <b>${ft.w}/${ft.n}</b>` });
+  });
+  const rows = Object.entries(agg).map(([nm, g]) => ({ nm, ...g, pc: g.n ? Math.round(g.w / g.n * 100) : 0 }))
+    .filter(g => g.n > 0).sort((a, b) => b.pc - a.pc || b.w - a.w);
+  const bestNm = (rows.filter(r => r.n >= 20)[0] || rows[0] || {}).nm;
+  const cell = (g) => `<div class="dcell${g.nm === bestNm ? ' best' : ''}"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`;
+  const solos = rows.filter(r => !r.nm.includes('+'));
+  const multis = rows.filter(r => r.nm.includes('+'));
+  $('app').innerHTML =
+    `<div class="dash">${solos.map(cell).join('')}</div>` +
+    `<div class="dash r2">${multis.map(cell).join('')}</div>` +
+    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days loaded${missing ? ` <span class="err">(${missing} missing)</span>` : ''}.
+     History is scored at <b>SP</b> \u2014 FAV market leader, TM top rating with claims, OR top mark, EDGE thrown-in at the weights.
+     \u03a3 / STEAM / POWER need pre-off records: their ledger builds forward from the freeze era.</div>` +
+    `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
+  $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
+</script>
+</body>
+</html>
