@@ -13,7 +13,8 @@ function supa() {
 const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1', 'termfreeze:v1'];
 
 export default async function handler(req, res) {
-  const K = KEYS.includes(String(req.query.k)) ? String(req.query.k) : KEYS[0];
+  const qk = String(req.query.k || '');
+  const K = KEYS.includes(qk) ? qk : /^minussnap:\d{4}-\d{2}-\d{2}$/.test(qk) ? qk : KEYS[0];
   const s = supa();
   if (!s) return res.status(200).json({ ok: true, state: null });
   const headers = { apikey: s.key, Authorization: `Bearer ${s.key}`, 'Content-Type': 'application/json' };
