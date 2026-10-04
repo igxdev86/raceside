@@ -86,6 +86,7 @@ border-radius:4px;padding:5px 8px;color:var(--ink);border-left:3px solid var(--l
 .frow.fwin{background:linear-gradient(90deg,rgba(0,230,118,.10),transparent);border-left:3px solid var(--grn);padding-left:8px;margin-left:-8px}
 .frow.fdm{opacity:.25}
 .fl1{font-size:14.5px;font-weight:600;color:#fff}
+.drw{color:#7a8aa3;font-size:11px;margin-left:1px}
 .fnum{color:var(--red);font-weight:900;font-family:var(--mono)}
 .frm{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
 .cdmk{color:var(--am);font-weight:900;font-size:11px}
@@ -154,7 +155,7 @@ const __boot = async () => {
   const races = {};
   if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
     const k = rkz(r.t, r.course);
-    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
+    (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, dr: r.dr || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
   list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
@@ -661,7 +662,7 @@ const __boot = async () => {
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       const mv = window.__rkMv && window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)];
       const mvHtml = mv && (mv.up || mv.dn) ? `<span class="rmv">${mv.pump ? '<b class="pmp">PUMP</b>' : ''}${mv.dump ? '<b class="dmp">DUMP</b>' : ''}${mv.up ? `<b class="rup">\u25b2${mv.up}</b>` : ''}${mv.dn ? `<b class="rdn">\u25bc${mv.dn}</b>` : ''}</span>` : '';
-      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}<b class="fnum">${q.r.num || ''}</b> ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}<b class="fnum">${q.r.num || ''}</b>${q.r.dr ? `<span class="drw">(${q.r.dr})</span>` : ''} ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
     return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const tf2 = (window.__tf || {})[tK(x.t) + '|' + cKeyPre(x.course)];
       if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
       const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
