@@ -42,6 +42,13 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 #ldrTxt{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px}
 #ldrTxt b{color:var(--grn)}
 #ldr.done #ldrFill{width:100%}
+#ldrStage{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--cy);margin-bottom:6px;letter-spacing:.06em}
+#ldrStage .dot{width:8px;height:8px;border-radius:50%;background:var(--cy);animation:tpl 1.1s infinite}
+@keyframes tpl{0%,100%{opacity:1}50%{opacity:.2}}
+#ldr.ind #ldrFill{width:40%!important;animation:tsl 1.2s ease-in-out infinite alternate}
+@keyframes tsl{from{margin-left:0}to{margin-left:60%}}
+#ldr.done #ldrStage{color:var(--grn)}
+#ldr.done #ldrStage .dot{background:var(--grn);animation:none}
 
 </style>
 </head>
@@ -50,7 +57,7 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 <h1>TERMINAL 14</h1>
 <div class="sub">LAST 14 DAYS &middot; COMBO LEDGER &middot; <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
 <div class="upd" id="upd">last 14 days</div>
-<div id="ldr"><div id="ldrBar"><div id="ldrFill"></div></div><div id="ldrTxt">starting\u2026</div></div>
+<div id="ldr"><div id="ldrStage"><span class="dot"></span><span id="ldrStageTxt">STARTING</span></div><div id="ldrBar"><div id="ldrFill"></div></div><div id="ldrTxt">\u00a0</div></div>
 <div id="app"></div>
 </div>
 <script>
@@ -82,7 +89,10 @@ const COMBOS = (() => { const ks = Object.keys(SEL), out = [];
 const dayKey = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(off);
 const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(dayKey(new Date(Date.now() - i * 86400000))); return out; };
 
+const stage = (s) => { const e = document.getElementById('ldrStageTxt'); if (e) e.textContent = s; };
+const indOn = (on) => { const e = document.getElementById('ldr'); if (e) e.classList.toggle('ind', !!on); };
 async function boot() {
+  stage('1/3 \u00b7 CHECKING LEDGER'); indOn(true);
   const ds = dates14();
   const getLedger = async () => { try {
     const rl = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jl = await rl.json();
@@ -92,15 +102,17 @@ async function boot() {
   // auto-bank: if today isn't in the ledger yet, boot TERMINAL X silently in an iframe and let it write
   const todayK = dayKey(new Date());
   if (!ledger || !ledger[todayK]) {
+    stage('1/3 \u00b7 BANKING TODAY \u2014 TERMINAL X ENGINE RUNNING');
     const lt = document.getElementById('ldrTxt');
-    if (lt) lt.textContent = 'banking today from TERMINAL X\u2026';
+    const bank0 = Date.now();
     const fr = document.createElement('iframe');
     fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
     document.body.appendChild(fr);
     for (let w9 = 0; w9 < 15; w9++) {
       await new Promise(r9 => setTimeout(r9, 4000));
+      if (lt) lt.textContent = `engine computing today's \u03a3 / STEAM / MX / PWR\u2026 ${Math.round((Date.now() - bank0) / 1000)}s (up to 60s, first time only)`;
       const l2 = await getLedger();
-      if (l2 && l2[todayK]) { ledger = l2; break; }
+      if (l2 && l2[todayK]) { ledger = l2; if (lt) lt.textContent = 'today banked \u2713'; break; }
     }
     fr.remove();
     if (!ledger) ledger = await getLedger();
@@ -111,6 +123,7 @@ async function boot() {
   try { const rp = await fetch('/api/peopleall?v=2'); const jp = await rp.json();
     Object.entries((jp && jp.jockeys) || {}).forEach(([jid, g]) => {
       if (g && g.runs >= 50) JPCT[jid] = Math.round(g.wins / g.runs * 1000) / 10; }); } catch {}
+  stage('2/3 \u00b7 LOADING 14 DAYS'); indOn(false);
   let doneDays = 0;
   const tick = (d, nRaces) => { doneDays++;
     const f = document.getElementById('ldrFill'), t = document.getElementById('ldrTxt');
@@ -139,7 +152,8 @@ async function boot() {
     } catch (e9) { tick(d, null); got.push({ d, races: null, snap: null, err: String(e9).slice(0, 40) }); }
     await new Promise(r9 => setTimeout(r9, 350));
   }
-  { const t = document.getElementById('ldrTxt'); if (t) t.textContent = 'scoring\u2026'; }
+  stage('3/3 \u00b7 SCORING 255 COMBOS'); indOn(true);
+  { const t = document.getElementById('ldrTxt'); if (t) t.textContent = 'crunching every combination\u2026'; }
   await new Promise(r9 => setTimeout(r9, 30));
   const agg = {}; COMBOS.forEach(cb => { agg[cb.join('+')] = { n: 0, w: 0 }; });
   const dayRows = [];
@@ -229,6 +243,7 @@ async function boot() {
       <div class="cln"><b>MX</b> \u2014 lowest \u03a3\u00d7price: strongest score at the shortest cost</div>
     </div>` +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
+  indOn(false); stage('COMPLETE');
   document.getElementById('ldr').classList.add('done');
   document.getElementById('ldrTxt').innerHTML = `<b>complete</b> \u00b7 ${14 - missing}/14 days \u00b7 ${totRaces} races scored`;
   $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
