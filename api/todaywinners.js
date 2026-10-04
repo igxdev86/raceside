@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const winners = [];
     (d.results || []).forEach((race) => {
       const region = String(race.region || '').toLowerCase();
-      if (region && !['gb', 'ire', 'fr'].includes(region)) return;   // only filter when the field exists
+      if (region && !['gb', 'ire'].includes(region)) return;   // only filter when the field exists
       const w = (race.runners || []).find((x) => String(x.position) === '1');
       if (w) winners.push({ t: race.off || race.off_time || '', course: race.course || '?', h: w.horse || '', sp: w.sp || '' });
     });
