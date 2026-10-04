@@ -194,13 +194,6 @@ async function boot() {
   const bestNm = (multis.filter(r => r.n >= 20)[0] || multis[0] || {}).nm;
   const cell = (g) => `<div class="dcell${g.nm === bestNm ? ' best' : ''}"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`;
   $('app').innerHTML =
-    `<div class="dash">${solos.map(cell).join('')}</div>` +
-    `<div class="dash r2">${multis.slice(0, 12).map(cell).join('')}</div>` +
-    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days${missing ? ` <span class="err">(${missing} missing)</span>` : ''} \u00b7 <b>${frozenRaces}</b> at frozen pre-off prices, rest SP \u00b7 ${COMBOS.length} combinations scanned (solos to 8-stacks).
-     FAV/FAV2 market \u00b7 TM rating+claims \u00b7 OR top mark \u00b7 EDGE thrown in \u00b7 TOPW top weight \u00b7 DRW lowest stall \u00b7 JPC best jockey strike.
-     \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
-    (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
-      multis.slice(12).map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')}</div>` : '') +
     (() => { if (!ledger) return `<div class="tile" style="border-left-color:var(--am)"><div class="hd2" style="color:var(--am)">FREEZE ERA</div><div class="cln"><small>ledger empty \u2014 open MAX TERMINAL / TERMINAL X and let one refresh pass; today's \u03a3, STEAM, MX and PWR counts bank automatically from the live page, then reload here.</small></div></div>`;
       const L = { top1: 'TOP \u03a3', top3: 'TOP 3 \u03a3', grn1: 'GREENEST', grnAny: 'ANY GREEN', mn1: 'TOP STEAM', mne: 'STEAM+EDGE',
         tm1: 'TM 1', tm3: 'TM TOP 3', tm5: 'TM TOP 5', tmcd: 'TM+CD', stm: '\u03a3+TM', smn: '\u03a3+STEAM', smt: '\u03a3+STEAM+TM', pw1: 'TOP PWR' };
@@ -213,15 +206,25 @@ async function boot() {
       const tiles2 = Object.entries(ag).filter(([, g]) => g.n > 0)
         .map(([k, g]) => ({ nm: L[k] || k.toUpperCase(), ...g, pc: Math.round(g.w / g.n * 100) }))
         .sort((a, b) => b.pc - a.pc || b.w - a.w);
+      const mx9 = agS['MX']; if (mx9 && mx9.n) tiles2.push({ nm: 'LOW MX', w: mx9.w, n: mx9.n, pc: Math.round(mx9.w / mx9.n * 100) });
+      const mn9 = agS['MN']; if (mn9 && mn9.n && !ag.mn1) tiles2.push({ nm: 'TOP MINUS', w: mn9.w, n: mn9.n, pc: Math.round(mn9.w / mn9.n * 100) });
+      tiles2.sort((a, b) => b.pc - a.pc || b.w - a.w);
       const scans2 = Object.entries(agS).filter(([, g]) => g.n > 0)
         .map(([nm, g]) => ({ nm, ...g, pc: Math.round(g.w / g.n * 100) }))
         .sort((a, b) => b.pc - a.pc || b.w - a.w);
       if (!tiles2.length && !scans2.length) return `<div class="tile" style="border-left-color:var(--am)"><div class="hd2" style="color:var(--am)">FREEZE ERA</div><div class="cln"><small>ledger empty \u2014 open MAX TERMINAL / TERMINAL X and let one refresh pass; today's \u03a3, STEAM, MX and PWR counts bank automatically from the live page, then reload here.</small></div></div>`;
-      return `<div class="tile" style="border-left-color:var(--grn)"><div class="hd2" style="color:var(--grn)">FREEZE ERA \u2014 the live terminal's own record, stacked (${dayN} day${dayN > 1 ? 's' : ''})</div><div class="dash" style="margin-top:4px">${
+      return `<div class="tile" style="border-left-color:var(--grn)"><div class="hd2" style="color:var(--grn)">YOUR TUNING \u2014 FROZEN RECORD \u00b7 \u03a3 / STEAM / MX / PWR (${dayN} day${dayN > 1 ? 's' : ''})</div><div class="dash" style="margin-top:4px">${
         tiles2.map(g => `<div class="dcell" style="border-top-color:var(--grn)"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`).join('')
       }</div>${scans2.length ? `<div class="hd2" style="color:var(--grn);margin-top:10px">\u03a3 / TM / STEAM / PWR / MX combos</div>${
         scans2.map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')
       }` : ''}</div>`; })() +
+    `<div class="dash">${solos.map(cell).join('')}</div>` +
+    `<div class="dash r2">${multis.slice(0, 12).map(cell).join('')}</div>` +
+    `<div class="note">Agreement picks over <b>${totRaces}</b> races, ${14 - missing} of 14 days${missing ? ` <span class="err">(${missing} missing)</span>` : ''} \u00b7 <b>${frozenRaces}</b> at frozen pre-off prices, rest SP \u00b7 ${COMBOS.length} combinations scanned (solos to 8-stacks).
+     FAV/FAV2 market \u00b7 TM rating+claims \u00b7 OR top mark \u00b7 EDGE thrown in \u00b7 TOPW top weight \u00b7 DRW lowest stall \u00b7 JPC best jockey strike.
+     \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
+    (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
+      multis.slice(12).map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')}</div>` : '') +
     `<div class="tile"><div class="hd2">Legend</div>
       <div class="cln"><b>FAV</b> \u2014 market favourite (shortest price; frozen pre-off where recorded, else SP)</div>
       <div class="cln"><b>FAV2</b> \u2014 second in the market</div>
