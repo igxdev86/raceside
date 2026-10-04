@@ -863,13 +863,15 @@ const __boot = async () => {
         [...agree.entries()].filter(([, tags7]) => tags7.length >= 2).forEach(([q7, tags7]) => {
           upLines.push({ t: x.t, c: x.course, h: q7.r.h, d: q7.r.d, n: tags7.length, tags: tags7.join('+') }); }); });
       upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
+      const comboPerf = {}; rs5.forEach(r5 => { comboPerf[r5.nm] = r5; });
       if (!rs5.length && !upLines.length) return '';
       const best = rs5.filter(r5 => r5.n >= 2);
       const abbr7 = (c7) => String(c7 || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
       return `<div class="dlist"><div class="dup">COMBO SCANNER \u00b7 today, agreement picks</div>${
         rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>`).join('<br>')
       }${upLines.length ? `<div class="dup">COMING UP \u00b7 horses carrying 2+ attributes</div>${
-        upLines.map(u7 => `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags}</small>`).join('<br>')
+        upLines.map(u7 => { const p9 = comboPerf[u7.tags];
+          return `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
       }` : ''}</div>`; };
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
