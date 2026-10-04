@@ -677,7 +677,7 @@ const __boot = async () => {
         g2.tot != null ? `JT <b>${g2.tot}</b>` : '' ].filter(Boolean).join(' \u00b7 ');
       const mv = window.__rkMv && window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)];
       const mvHtml = mv && (mv.up || mv.dn) ? `<span class="rmv">${mv.pump ? '<b class="pmp">PUMP</b>' : ''}${mv.dump ? '<b class="dmp">DUMP</b>' : ''}${mv.up ? `<b class="rup">\u25b2${mv.up}</b>` : ''}${mv.dn ? `<b class="rdn">\u25bc${mv.dn}</b>` : ''}</span>` : '';
-      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}${q.r.sk ? `<img class="slk" src="${q.r.sk}" loading="lazy" onerror="this.remove()">` : ''}<b class="fnum">${q.r.num || ''}</b>${q.r.dr ? `<span class="drw">(${q.r.dr})</span>` : ''} ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
+      return `<div class="frow${won ? ' fwin' : ''}${dimQ(q) ? ' fdm' : ''}"><div class="fl1">${mvHtml}${q.r.sk ? `<img class="slk" src="${q.r.sk}" decoding="sync" onerror="this.remove()">` : ''}<b class="fnum">${q.r.num || ''}</b>${q.r.dr ? `<span class="drw">(${q.r.dr})</span>` : ''} ${q.r.form ? `<span class="frm">${q.r.form}</span> ` : ''}${q.r.h}${q.cd ? ` <b class="cdmk">${q.cd}</b>` : ''}${won ? ' \u2705' : ''}</div>${line2 ? `<div class="fl2">${line2}</div>` : ''}${jt2 ? `<div class="fl3">${jt2}</div>` : ''}</div>`; }).join('');
     return `<div class="fcard"><span class="blb">FULL CARD (${rs2.length})${cardMeta ? ' \u2014 ' + cardMeta : ''}</span>${x.gone ? (() => { const tf2 = (window.__tf || {})[tK(x.t) + '|' + cKeyPre(x.course)];
       if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
       const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
@@ -852,7 +852,10 @@ const __boot = async () => {
     const upd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
     const logLine = Object.keys(fetchLog).length ? `<div class="upd">${Object.entries(fetchLog).map(([k2, v2]) => `${k2} <b>${v2}</b>`).join(' \u00b7 ')}</div>` : '';
     const updBar = `<div class="upd">page updated <b>${upd}</b> \u00b7 auto-refresh <b id="arCd">${Math.max(0, Math.ceil((__next - Date.now()) / 1000))}</b>s</div>` + logLine;
-    $('app').innerHTML = updBar + dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
+    const body9 = dashHtml() + chips.replace('</div>', bChips + '</div>') + strip() + (x ? rowTpl(x, curIx) + bks(x, curIx) + `<div class="rrow">${fullCard(x)}</div>` : '');
+    if (!document.getElementById('appbody')) { $('app').innerHTML = '<div id="updwrap"></div><div id="appbody"></div>'; window.__lastApp = null; }
+    document.getElementById('updwrap').innerHTML = updBar;
+    if (body9 !== window.__lastApp) { window.__lastApp = body9; document.getElementById('appbody').innerHTML = body9; }
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
