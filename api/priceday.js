@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       const page = await r.json();
       for (const race of page.results || []) {
         const region = String(race.region || '').toLowerCase();
-        if (region && !['gb', 'ire', 'fr'].includes(region)) continue;
+        if (region && !['gb', 'ire'].includes(region)) continue;
         races.push(race);
       }
     }
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       total = Number(page.total) || 0;
       for (const race of page.results || []) {
         const region = String(race.region || '').toLowerCase();
-        if (region && !['gb', 'ire', 'fr'].includes(region)) continue;
+        if (region && !['gb', 'ire'].includes(region)) continue;
         races.push(race);
       }
       skip += 50; pages++;
