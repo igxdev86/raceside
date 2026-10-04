@@ -52,7 +52,9 @@ export default async function handler(req, res) {
     }
     while (!isToday && skip < total && pages < MAXPAGES) {
       const url = `https://api.theracingapi.com/v1/results?start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
-      const r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
+      let r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
+      if (r.status === 429) { await new Promise((ok) => setTimeout(ok, 1500));
+        r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } }); }
       if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
       const page = await r.json();
       total = Number(page.total) || 0;
@@ -62,7 +64,7 @@ export default async function handler(req, res) {
         races.push(race);
       }
       skip += 50; pages++;
-      if (skip < total) await new Promise((ok) => setTimeout(ok, 400));
+      if (skip < total) await new Promise((ok) => setTimeout(ok, 650));
     }
   } catch (e) {
     return res.status(502).json({ ok: false, error: String(e) });
