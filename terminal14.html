@@ -84,6 +84,9 @@ const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(da
 
 async function boot() {
   const ds = dates14();
+  let ledger = null;
+  try { const rl = await fetch('/api/yearstate?k=comboledger:v1'); const jl = await rl.json();
+    ledger = (jl && jl.state && jl.state.days) || null; } catch {}
   let tfDays = {};
   try { const r0 = await fetch('/api/yearstate?k=termfreeze:v1'); const j0 = await r0.json();
     tfDays = (j0 && j0.state && j0.state.days) || {}; } catch {}
@@ -166,6 +169,27 @@ async function boot() {
      \u03a3 / STEAM / POWER join as the freeze era accrues days.</div>` +
     (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
       multis.slice(12).map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')}</div>` : '') +
+    (() => { if (!ledger) return '';
+      const L = { top1: 'TOP \u03a3', top3: 'TOP 3 \u03a3', grn1: 'GREENEST', grnAny: 'ANY GREEN', mn1: 'TOP STEAM', mne: 'STEAM+EDGE',
+        tm1: 'TM 1', tm3: 'TM TOP 3', tm5: 'TM TOP 5', tmcd: 'TM+CD', stm: '\u03a3+TM', smn: '\u03a3+STEAM', smt: '\u03a3+STEAM+TM', pw1: 'TOP PWR' };
+      const ag = {}, agS = {}; const dayN = Object.keys(ledger).length;
+      Object.values(ledger).forEach(dv => {
+        Object.entries((dv && dv.tiles) || {}).forEach(([k, v]) => {
+          if (!Array.isArray(v)) return; const g = ag[k] = ag[k] || { w: 0, n: 0 }; g.w += v[0] || 0; g.n += v[1] || 0; });
+        ((dv && dv.scan) || []).forEach(r9 => { if (!r9 || !r9.nm) return;
+          const g = agS[r9.nm] = agS[r9.nm] || { w: 0, n: 0 }; g.w += r9.w || 0; g.n += r9.n || 0; }); });
+      const tiles2 = Object.entries(ag).filter(([, g]) => g.n > 0)
+        .map(([k, g]) => ({ nm: L[k] || k.toUpperCase(), ...g, pc: Math.round(g.w / g.n * 100) }))
+        .sort((a, b) => b.pc - a.pc || b.w - a.w);
+      const scans2 = Object.entries(agS).filter(([, g]) => g.n > 0)
+        .map(([nm, g]) => ({ nm, ...g, pc: Math.round(g.w / g.n * 100) }))
+        .sort((a, b) => b.pc - a.pc || b.w - a.w);
+      if (!tiles2.length && !scans2.length) return '';
+      return `<div class="tile" style="border-left-color:var(--grn)"><div class="hd2" style="color:var(--grn)">FREEZE ERA \u2014 the live terminal's own record, stacked (${dayN} day${dayN > 1 ? 's' : ''})</div><div class="dash" style="margin-top:4px">${
+        tiles2.map(g => `<div class="dcell" style="border-top-color:var(--grn)"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`).join('')
+      }</div>${scans2.length ? `<div class="hd2" style="color:var(--grn);margin-top:10px">\u03a3 / TM / STEAM / PWR / MX combos</div>${
+        scans2.map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')
+      }` : ''}</div>`; })() +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
   document.getElementById('ldr').classList.add('done');
   document.getElementById('ldrTxt').innerHTML = `<b>complete</b> \u00b7 ${14 - missing}/14 days \u00b7 ${totRaces} races scored`;
