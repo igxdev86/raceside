@@ -855,7 +855,7 @@ const __boot = async () => {
           n5++; if (picks5[0] === wq5) w5++; });
         if (n5 > 0) res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
-    const scanner = () => { const rs5 = scanRows();
+    const scanner = () => { const rs5 = window.__scan = scanRows();
       const ks7 = Object.keys(scanSel); const upLines = [];
       listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2).forEach(x => {
         const agree = new Map();
@@ -873,6 +873,7 @@ const __boot = async () => {
         upLines.map(u7 => { const p9 = comboPerf[u7.tags];
           return `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
       }` : ''}</div>`; };
+    window.__cntN = Object.fromEntries(Object.entries(cnt).map(([k9, v9]) => [k9, [v9[0], v9[1]]]));
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
     const detail = dashSel ? `<div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div>` : '';
@@ -891,6 +892,18 @@ const __boot = async () => {
     if (!document.getElementById('appbody')) { $('app').innerHTML = '<div id="updwrap"></div><div id="appbody"></div>'; window.__lastApp = null; }
     document.getElementById('updwrap').innerHTML = updBar;
     if (body9 !== window.__lastApp) { window.__lastApp = body9; document.getElementById('appbody').innerHTML = body9; }
+    (async () => { try {
+      if (!window.__cntN || !window.__scan) return;
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })) };
+      const sig9 = JSON.stringify(today9);
+      if (sig9 === window.__lgSig) return;
+      if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();
+        window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {}; }
+      window.__ledger.days[ukd] = today9;
+      const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.__ledger) });
+      if (rp9.ok) window.__lgSig = sig9;
+    } catch {} })();
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
