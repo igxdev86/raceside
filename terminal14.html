@@ -48,7 +48,7 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 <body>
 <div class="wrap">
 <h1>TERMINAL 14</h1>
-<div class="sub">LAST 14 DAYS \u00b7 COMBO LEDGER \u00b7 <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="sub">LAST 14 DAYS &middot; COMBO LEDGER &middot; <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
 <div class="upd" id="upd">last 14 days</div>
 <div id="ldr"><div id="ldrBar"><div id="ldrFill"></div></div><div id="ldrTxt">starting\u2026</div></div>
 <div id="app"></div>
@@ -96,21 +96,22 @@ async function boot() {
     if (f) f.style.width = Math.round(doneDays / ds.length * 100) + '%';
     if (t) t.textContent = `loading ${doneDays}/${ds.length} days\u2026 ${d} ${nRaces == null ? '(no data)' : '(' + nRaces + ' races)'}`; };
   const got = await Promise.all(ds.map(async (d) => {
-    try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json();
+    try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json().catch(() => null);
       let snap = null;
       try { const r2 = await fetch('/api/yearstate?k=minussnap:' + d); const j2 = await r2.json();
         snap = (j2 && j2.state && j2.state.races) || null; } catch {}
-      const out = j && j.ok ? { d, races: j.races || [], snap } : { d, races: null, snap };
+      const err = j && j.ok ? null : (j && j.error) || ('http-' + r.status);
+      const out = j && j.ok ? { d, races: j.races || [], snap, err: null } : { d, races: null, snap, err };
       tick(d, out.races ? out.races.length : null); return out;
-    } catch { tick(d, null); return { d, races: null, snap: null }; }
+    } catch (e9) { tick(d, null); return { d, races: null, snap: null, err: String(e9).slice(0, 40) }; }
   }));
   { const t = document.getElementById('ldrTxt'); if (t) t.textContent = 'scoring\u2026'; }
   await new Promise(r9 => setTimeout(r9, 30));
   const agg = {}; COMBOS.forEach(cb => { agg[cb.join('+')] = { n: 0, w: 0 }; });
   const dayRows = [];
   let totRaces = 0, missing = 0, frozenRaces = 0;
-  got.forEach(({ d, races, snap }) => {
-    if (!races) { missing++; dayRows.push({ d, txt: '<span class="err">no data</span>' }); return; }
+  got.forEach(({ d, races, snap, err }) => {
+    if (!races) { missing++; dayRows.push({ d, txt: `<span class="err">no data \u00b7 ${err || '?'}</span>` }); return; }
     let dayN = 0; const dayHit = {};
     races.forEach(rc => {
       if (!rc.runners || rc.runners.length < 2) return;
