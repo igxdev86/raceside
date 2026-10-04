@@ -84,10 +84,27 @@ const dates14 = () => { const out = []; for (let i = 0; i < 14; i++) out.push(da
 
 async function boot() {
   const ds = dates14();
-  let ledger = null;
-  try { const rl = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jl = await rl.json();
-    ledger = (jl && jl.state && jl.state.days) || null; } catch {}
-  if (ledger && !Object.keys(ledger).length) ledger = null;
+  const getLedger = async () => { try {
+    const rl = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jl = await rl.json();
+    const dz = (jl && jl.state && jl.state.days) || null;
+    return dz && Object.keys(dz).length ? dz : null; } catch { return null; } };
+  let ledger = await getLedger();
+  // auto-bank: if today isn't in the ledger yet, boot TERMINAL X silently in an iframe and let it write
+  const todayK = dayKey(new Date());
+  if (!ledger || !ledger[todayK]) {
+    const lt = document.getElementById('ldrTxt');
+    if (lt) lt.textContent = 'banking today from TERMINAL X\u2026';
+    const fr = document.createElement('iframe');
+    fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    for (let w9 = 0; w9 < 15; w9++) {
+      await new Promise(r9 => setTimeout(r9, 4000));
+      const l2 = await getLedger();
+      if (l2 && l2[todayK]) { ledger = l2; break; }
+    }
+    fr.remove();
+    if (!ledger) ledger = await getLedger();
+  }
   let tfDays = {};
   try { const r0 = await fetch('/api/yearstate?k=termfreeze:v1'); const j0 = await r0.json();
     tfDays = (j0 && j0.state && j0.state.days) || {}; } catch {}
