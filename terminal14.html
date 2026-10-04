@@ -190,6 +190,26 @@ async function boot() {
       }</div>${scans2.length ? `<div class="hd2" style="color:var(--grn);margin-top:10px">\u03a3 / TM / STEAM / PWR / MX combos</div>${
         scans2.map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')
       }` : ''}</div>`; })() +
+    `<div class="tile"><div class="hd2">Legend</div>
+      <div class="cln"><b>FAV</b> \u2014 market favourite (shortest price; frozen pre-off where recorded, else SP)</div>
+      <div class="cln"><b>FAV2</b> \u2014 second in the market</div>
+      <div class="cln"><b>TM</b> \u2014 top weight-adjusted rating: OR + weight concession + jockey claim</div>
+      <div class="cln"><b>OR</b> \u2014 highest official rating in the race</div>
+      <div class="cln"><b>EDGE</b> \u2014 top TM that beats the race's best OR: genuinely thrown in at the weights</div>
+      <div class="cln"><b>TOPW</b> \u2014 clear top weight carried</div>
+      <div class="cln"><b>DRW</b> \u2014 lowest stall (flat races with draws only)</div>
+      <div class="cln"><b>JPC</b> \u2014 best jockey strike rate in the race this season (50+ rides)</div>
+      <div class="cln"><b>A+B combos</b> \u2014 counted only when every named signal picks the <b>same horse</b>; win = that horse won</div>
+      <div class="cln" style="margin-top:6px"><b>FREEZE ERA</b> \u2014 the live terminal's own banked results, summed day by day:</div>
+      <div class="cln"><b>TOP \u03a3</b> / <b>TOP 3 \u03a3</b> \u2014 model score leader / any of the top three</div>
+      <div class="cln"><b>GREENEST / ANY GREEN</b> \u2014 deepest-painted pick / any green-painted runner</div>
+      <div class="cln"><b>TOP STEAM</b> \u2014 biggest market mover vs model price (MN)</div>
+      <div class="cln"><b>TM 1 / TOP 3 / TOP 5</b> \u2014 ratings leader / leader in top 3 or 5</div>
+      <div class="cln"><b>TM+CD</b> \u2014 ratings leader with a course-and-distance win</div>
+      <div class="cln"><b>\u03a3+TM \u00b7 \u03a3+STEAM \u00b7 STEAM+EDGE \u00b7 \u03a3+STEAM+TM</b> \u2014 those signals agreeing on one horse</div>
+      <div class="cln"><b>TOP PWR</b> \u2014 POWER composite leader (score + rating + steam + green + form blended)</div>
+      <div class="cln"><b>MX</b> \u2014 lowest \u03a3\u00d7price: strongest score at the shortest cost</div>
+    </div>` +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
   document.getElementById('ldr').classList.add('done');
   document.getElementById('ldrTxt').innerHTML = `<b>complete</b> \u00b7 ${14 - missing}/14 days \u00b7 ${totRaces} races scored`;
