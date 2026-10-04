@@ -36,13 +36,21 @@ border-top:3px solid var(--cy);border-radius:6px;padding:9px 4px 8px;text-align:
 .cln small{color:var(--faint)}
 .cln b{color:#fff}
 .err{color:var(--red);font-family:var(--mono);font-size:11px}
+#ldr{margin:0 0 12px}
+#ldrBar{height:4px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+#ldrFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cy),var(--grn));transition:width .25s ease}
+#ldrTxt{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px}
+#ldrTxt b{color:var(--grn)}
+#ldr.done #ldrFill{width:100%}
+
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>TERMINAL 14</h1>
 <div class="sub">LAST 14 DAYS \u00b7 COMBO LEDGER \u00b7 <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
-<div class="upd" id="upd">loading 14 days\u2026</div>
+<div class="upd" id="upd">last 14 days</div>
+<div id="ldr"><div id="ldrBar"><div id="ldrFill"></div></div><div id="ldrTxt">starting\u2026</div></div>
 <div id="app"></div>
 </div>
 <script>
@@ -82,14 +90,22 @@ async function boot() {
   try { const rp = await fetch('/api/peopleall?v=2'); const jp = await rp.json();
     Object.entries((jp && jp.jockeys) || {}).forEach(([jid, g]) => {
       if (g && g.runs >= 50) JPCT[jid] = Math.round(g.wins / g.runs * 1000) / 10; }); } catch {}
+  let doneDays = 0;
+  const tick = (d, nRaces) => { doneDays++;
+    const f = document.getElementById('ldrFill'), t = document.getElementById('ldrTxt');
+    if (f) f.style.width = Math.round(doneDays / ds.length * 100) + '%';
+    if (t) t.textContent = `loading ${doneDays}/${ds.length} days\u2026 ${d} ${nRaces == null ? '(no data)' : '(' + nRaces + ' races)'}`; };
   const got = await Promise.all(ds.map(async (d) => {
     try { const r = await fetch('/api/priceday?date=' + d); const j = await r.json();
       let snap = null;
       try { const r2 = await fetch('/api/yearstate?k=minussnap:' + d); const j2 = await r2.json();
         snap = (j2 && j2.state && j2.state.races) || null; } catch {}
-      return j && j.ok ? { d, races: j.races || [], snap } : { d, races: null, snap };
-    } catch { return { d, races: null, snap: null }; }
+      const out = j && j.ok ? { d, races: j.races || [], snap } : { d, races: null, snap };
+      tick(d, out.races ? out.races.length : null); return out;
+    } catch { tick(d, null); return { d, races: null, snap: null }; }
   }));
+  { const t = document.getElementById('ldrTxt'); if (t) t.textContent = 'scoring\u2026'; }
+  await new Promise(r9 => setTimeout(r9, 30));
   const agg = {}; COMBOS.forEach(cb => { agg[cb.join('+')] = { n: 0, w: 0 }; });
   const dayRows = [];
   let totRaces = 0, missing = 0, frozenRaces = 0;
@@ -137,6 +153,8 @@ async function boot() {
     (multis.length > 12 ? `<div class="tile"><div class="hd2">All pairs &amp; triples</div>${
       multis.slice(12).map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')}</div>` : '') +
     `<div class="tile"><div class="hd2">Day by day</div>${dayRows.map(r => `<div class="dayln"><small>${r.d}</small> \u2014 ${r.txt}</div>`).join('')}</div>`;
+  document.getElementById('ldr').classList.add('done');
+  document.getElementById('ldrTxt').innerHTML = `<b>complete</b> \u00b7 ${14 - missing}/14 days \u00b7 ${totRaces} races scored`;
   $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
 boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
