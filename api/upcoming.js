@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     }
     if (!cards) continue;
     (cards.racecards || []).forEach((rc) => {
-      if (!['gb', 'ire'].includes(String(rc.region || '').toLowerCase())) return;
+      if (!['gb', 'ire', 'fr'].includes(String(rc.region || '').toLowerCase())) return;
       const isNR = (x) => x.non_runner === true || x.non_runner === 1 ||
         /^(true|1|yes|nr)$/i.test(String(x.non_runner == null ? '' : x.non_runner).trim()) ||
         String(x.number == null ? '' : x.number).trim().toUpperCase() === 'NR';
