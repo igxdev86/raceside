@@ -37,6 +37,7 @@ export default async function handler(req, res) {
   const races = [];
   const isToday = d === new Date().toISOString().slice(0, 10);
   let skip = 0, total = Infinity, pages = 0;
+  const MAXPAGES = 20;
   try {
     if (isToday) {
       // the dated results endpoint is empty until the day completes — today lives on /results/today
@@ -49,13 +50,17 @@ export default async function handler(req, res) {
         races.push(race);
       }
     }
-    while (!isToday && skip < total && pages < 10) {
-      const url = `https://api.theracingapi.com/v1/results?region=gb&region=ire&region=fr&start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
+    while (!isToday && skip < total && pages < MAXPAGES) {
+      const url = `https://api.theracingapi.com/v1/results?start_date=${d}&end_date=${d}&limit=50&skip=${skip}`;
       const r = await fetch(url, { headers: { Authorization: auth, Accept: 'application/json' } });
       if (!r.ok) return res.status(r.status).json({ ok: false, error: 'upstream-' + r.status });
       const page = await r.json();
       total = Number(page.total) || 0;
-      for (const race of page.results || []) races.push(race);
+      for (const race of page.results || []) {
+        const region = String(race.region || '').toLowerCase();
+        if (region && !['gb', 'ire', 'fr'].includes(region)) continue;
+        races.push(race);
+      }
       skip += 50; pages++;
       if (skip < total) await new Promise((ok) => setTimeout(ok, 400));
     }
