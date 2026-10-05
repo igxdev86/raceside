@@ -210,7 +210,7 @@ const __boot = async () => {
   try { localStorage.setItem('rsTF:' + ukd, JSON.stringify(tfreeze)); } catch {}
   if (tfNew) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
     cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
-    fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: cur2 }) }); } catch {} }
+    fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur2) }); } catch {} }
   // resulted price source: page freeze (exact off, this screen) > server snapshot > feed
   list.forEach(rc => { if (!rc.gone) return;
     const k2 = tK(rc.t) + '|' + ck0(rc.course);
