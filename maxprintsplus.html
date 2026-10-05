@@ -125,6 +125,10 @@
   .bk.bkwin{background:#E4F5EA;border-color:#1B7A3D;color:var(--ink);box-shadow:0 0 0 1px #1B7A3D}
   .sl.lwin{background:#E4F5EA;box-shadow:inset 2px 0 0 #1B7A3D;border-radius:4px}
   .rrow.rwin{border-color:#1B7A3D;box-shadow:0 0 0 1px rgba(27,122,61,.35)}
+.dmod{position:fixed;inset:0;background:rgba(2,6,12,.78);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:36px 10px;overflow:auto}
+.dbox{background:#0D1420;border:1px solid #27395C;border-radius:10px;max-width:580px;width:100%;max-height:84vh;overflow:auto;padding:12px 14px;box-shadow:0 18px 60px rgba(0,0,0,.6)}
+.dmh{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.16em;margin-bottom:8px}
+.dmx{cursor:pointer;color:#8A9BB5;padding:2px 9px;font-size:15px}
 </style>
 </head>
 <body>
@@ -878,11 +882,19 @@ const __boot = async () => {
           upLines.push({ t: x.t, c: x.course, h: q7.r.h, d: q7.r.d, n: tags7.length, tags: tags7.join('+') }); }); });
       upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
       const comboPerf = {}; rs5.forEach(r5 => { comboPerf[r5.nm] = r5; });
+      const nextBy = {};
+      listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2)
+        .slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(x => {
+          const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
+          scanCombos.forEach(cb8 => { const nm8 = cb8.join('+'); if (nextBy[nm8]) return;
+            const q8 = p8[cb8[0]]; if (!q8) return;
+            for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
+            nextBy[nm8] = { h: q8.r.h, t: x.t }; }); });
       if (!rs5.length && !upLines.length) return '';
       const best = rs5.filter(r5 => r5.n >= 2);
       const abbr7 = (c7) => String(c7 || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
       return `<div class="dlist"><div class="dup">COMBO SCANNER \u00b7 today, agreement picks</div>${
-        rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>`).join('<br>')
+        rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>${nextBy[r5.nm] ? ` <small>\u00b7 next up: <b>${nextBy[r5.nm].h}</b> ${nextBy[r5.nm].t}</small>` : ''}`).join('<br>')
       }${upLines.length ? `<div class="dup">COMING UP \u00b7 horses carrying 2+ attributes</div>${
         upLines.map(u7 => { const p9 = comboPerf[u7.tags];
           return `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
@@ -890,7 +902,8 @@ const __boot = async () => {
     window.__cntN = Object.fromEntries(Object.entries(cnt).map(([k9, v9]) => [k9, [v9[0], v9[1]]]));
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
-    const detail = dashSel ? `<div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div>` : '';
+    const DL9 = { top1: 'TOP \u03a3', top3: 'TOP 3 \u03a3', grn: 'GREENEST', grnAny: 'ANY GREEN', mn1: 'TOP MINUS', pw1: 'TOP PWR', tm1: 'TM 1', tm3: 'TM TOP 3', tm5: 'TM TOP 5', tmcd: 'TM + CD', stm: '\u03a3 + TM', smn: '\u03a3 + MINUS', mne: 'MINUS + EDGE', smt: '\u03a3 + MINUS + TM' };
+    const detail = dashSel ? `<div class="dmod"><div class="dbox"><div class="dmh"><b>${DL9[dashSel] || dashSel.toUpperCase()}</b><span class="dmx">\u2715</span></div><div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div></div></div>` : '';
     return `<div class="dash">${cell('TOP \u03a3 WON', cnt.top1, 'top1')}${cell('TOP 3 \u03a3 WON', cnt.top3, 'top3')}${cell('GREENEST WON', cnt.grn, 'grn')}${cell('ANY GREEN WON', cnt.grnAny, 'grnAny')}${cell('TOP MINUS WON', cnt.mn1, 'mn1')}${cell('TOP PWR WON', cnt.pw1, 'pw1')}</div><div class="dash">${cell('TM 1 WON', cnt.tm1, 'tm1')}${cell('TM TOP 3 WON', cnt.tm3, 'tm3')}${cell('TM TOP 5 WON', cnt.tm5, 'tm5')}${cell('TOP TM + CD WON', cnt.tmcd, 'tmcd')}${cell('TOP \u03a3 + TOP TM WON', cnt.stm, 'stm')}${cell('TOP \u03a3 + TOP MINUS WON', cnt.smn, 'smn')}${cell('TOP MINUS + TM EDGE WON', cnt.mne, 'mne')}${cell('\u03a3 + MINUS + TM WON', cnt.smt, 'smt')}</div>${scanner()}${detail}`; };
   const drawPage = () => {
     const us = window.__uiSel;   // latest user intent wins over any boot generation's restore
@@ -923,6 +936,10 @@ const __boot = async () => {
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
       window.__uiSel = { ...(window.__uiSel || {}), dash: dashSel }; drawPage(); });
+    document.querySelectorAll('.dmx').forEach(b => b.onclick = () => { dashSel = null;
+      window.__uiSel = { ...(window.__uiSel || {}), dash: null }; drawPage(); });
+    document.querySelectorAll('.dmod').forEach(m9 => m9.onclick = (ev9) => { if (ev9.target === m9) { dashSel = null;
+      window.__uiSel = { ...(window.__uiSel || {}), dash: null }; drawPage(); } });
     document.querySelectorAll('.fdb').forEach(b => b.onclick = () => { if (b.dataset.f === 'trip') fdTrip = !fdTrip; else if (b.dataset.f === 'gnd') fdGnd = !fdGnd;
       window.__uiSel = { ...(window.__uiSel || {}), trip: fdTrip, gnd: fdGnd }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.fsb').forEach(b => b.onclick = () => { const k2 = b.dataset.k;
