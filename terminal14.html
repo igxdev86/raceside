@@ -197,8 +197,11 @@ async function boot() {
     (() => { if (!ledger) return `<div class="tile" style="border-left-color:var(--am)"><div class="hd2" style="color:var(--am)">FREEZE ERA</div><div class="cln"><small>ledger empty \u2014 open MAX TERMINAL / TERMINAL X and let one refresh pass; today's \u03a3, STEAM, MX and PWR counts bank automatically from the live page, then reload here.</small></div></div>`;
       const L = { top1: 'TOP \u03a3', top3: 'TOP 3 \u03a3', grn1: 'GREENEST', grnAny: 'ANY GREEN', mn1: 'TOP STEAM', mne: 'STEAM+EDGE',
         tm1: 'TM 1', tm3: 'TM TOP 3', tm5: 'TM TOP 5', tmcd: 'TM+CD', stm: '\u03a3+TM', smn: '\u03a3+STEAM', smt: '\u03a3+STEAM+TM', pw1: 'TOP PWR' };
-      const ag = {}, agS = {}; const dayN = Object.keys(ledger).length;
-      Object.values(ledger).forEach(dv => {
+      const selD = window.__lgDay || 'ALL';
+      const dayKeys = Object.keys(ledger).sort().reverse();
+      const useDays = selD === 'ALL' ? Object.values(ledger) : [ledger[selD]].filter(Boolean);
+      const ag = {}, agS = {}; const dayN = useDays.length;
+      useDays.forEach(dv => {
         Object.entries((dv && dv.tiles) || {}).forEach(([k, v]) => {
           if (!Array.isArray(v)) return; const g = ag[k] = ag[k] || { w: 0, n: 0 }; g.w += v[0] || 0; g.n += v[1] || 0; });
         ((dv && dv.scan) || []).forEach(r9 => { if (!r9 || !r9.nm) return;
@@ -213,7 +216,9 @@ async function boot() {
         .map(([nm, g]) => ({ nm, ...g, pc: Math.round(g.w / g.n * 100) }))
         .sort((a, b) => b.pc - a.pc || b.w - a.w);
       if (!tiles2.length && !scans2.length) return `<div class="tile" style="border-left-color:var(--am)"><div class="hd2" style="color:var(--am)">FREEZE ERA</div><div class="cln"><small>ledger empty \u2014 open MAX TERMINAL / TERMINAL X and let one refresh pass; today's \u03a3, STEAM, MX and PWR counts bank automatically from the live page, then reload here.</small></div></div>`;
-      return `<div class="tile" style="border-left-color:var(--grn)"><div class="hd2" style="color:var(--grn)">YOUR TUNING \u2014 FROZEN RECORD \u00b7 \u03a3 / STEAM / MX / PWR (${dayN} day${dayN > 1 ? 's' : ''})</div><div class="dash" style="margin-top:4px">${
+      return `<div class="tile" style="border-left-color:var(--grn)"><div class="hd2" style="color:var(--grn)">YOUR TUNING \u2014 FROZEN RECORD \u00b7 \u03a3 / STEAM / MX / PWR</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px">${
+        ['ALL', ...dayKeys].map(d9 => `<span onclick="window.__lgDay='${d9}';window.__reboot()" style="cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:5px;border:1px solid ${ (selD === d9) ? 'var(--grn)' : 'var(--line2)'};color:${(selD === d9) ? 'var(--grn)' : 'var(--dim)'}">${d9 === 'ALL' ? 'ALL' : d9.slice(5)}</span>`).join('')
+      }</div><div class="hd2" style="display:none"> (${dayN} day${dayN > 1 ? 's' : ''})</div><div class="dash" style="margin-top:4px">${
         tiles2.map(g => `<div class="dcell" style="border-top-color:var(--grn)"><small>${g.nm}</small><b>${g.w}/${g.n}</b><span>${g.pc}%</span></div>`).join('')
       }</div>${scans2.length ? `<div class="hd2" style="color:var(--grn);margin-top:10px">\u03a3 / TM / STEAM / PWR / MX combos</div>${
         scans2.map(r => `<div class="cln"><b>${r.nm}</b> \u2014 ${r.w}/${r.n} <small>(${r.pc}%)</small></div>`).join('')
@@ -251,6 +256,7 @@ async function boot() {
   document.getElementById('ldrTxt').innerHTML = `<b>complete</b> \u00b7 ${14 - missing}/14 days \u00b7 ${totRaces} races scored`;
   $('upd').textContent = 'last 14 days \u00b7 built ' + new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
+window.__reboot = () => { document.getElementById('app').innerHTML = ''; boot().catch(() => {}); };
 boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
 </script>
 </body>
