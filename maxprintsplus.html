@@ -894,15 +894,15 @@ const __boot = async () => {
           scanCombos.forEach(cb8 => { const nm8 = cb8.join('+'); if (nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
-            nextBy[nm8] = { h: q8.r.h, t: x.t }; }); });
+            nextBy[nm8] = { h: q8.r.h, t: x.t, d: Number(q8.r.d) > 0 ? Number(q8.r.d) : null }; }); });
       const hclr = (nm9) => { let a9 = 0; const s9 = String(nm9 || '').toLowerCase();
         for (let i9 = 0; i9 < s9.length; i9++) a9 = (a9 * 31 + s9.charCodeAt(i9)) >>> 0;
         return `hsl(${a9 % 360},85%,66%)`; };
       const byH = {};
-      Object.entries(nextBy).forEach(([nm9, v9]) => { const g9 = byH[v9.h] = byH[v9.h] || { h: v9.h, t: v9.t, cs: [] }; g9.cs.push(nm9); });
+      Object.entries(nextBy).forEach(([nm9, v9]) => { const g9 = byH[v9.h] = byH[v9.h] || { h: v9.h, t: v9.t, d: v9.d, cs: [] }; g9.cs.push(nm9); });
       const nxtRows = Object.values(byH).sort((a9, b9) => t2m(a9.t) - t2m(b9.t) || b9.cs.length - a9.cs.length);
-      const nxtTable = nxtRows.length ? `<table class="scr"><tr><th>NEXT</th><th>HORSE</th><th>COMBOS</th></tr>${
-        nxtRows.map(g9 => `<tr><td>${g9.t}</td><td><b style="color:${hclr(g9.h)}">${g9.h}</b></td><td>${g9.cs.length}</td></tr>`).join('')
+      const nxtTable = nxtRows.length ? `<table class="scr"><tr><th>NEXT</th><th>HORSE</th><th>@</th><th>COMBOS</th></tr>${
+        nxtRows.map(g9 => `<tr><td>${g9.t}</td><td><b style="color:${hclr(g9.h)}">${g9.h}</b></td><td>${g9.d != null ? g9.d : '\u2014'}</td><td>${g9.cs.length}</td></tr>`).join('')
       }</table>` : '';
       if (!rs5.length && !upLines.length) return '';
       const best = rs5.filter(r5 => r5.n >= 2);
