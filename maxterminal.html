@@ -165,6 +165,11 @@
 .dbox{background:#0D1420;border:1px solid #27395C;border-radius:10px;max-width:580px;width:100%;max-height:84vh;overflow:auto;padding:12px 14px;box-shadow:0 18px 60px rgba(0,0,0,.6)}
 .dmh{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.16em;margin-bottom:8px}
 .dmx{cursor:pointer;color:#8A9BB5;padding:2px 9px;font-size:15px}
+.scw{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.scl{flex:1 1 300px;min-width:0}
+.scr{border-collapse:collapse;flex:0 0 auto}
+.scr th{font-size:9px;letter-spacing:.1em;color:#8A9BB5;text-align:left;padding:2px 8px 4px;border-bottom:1px solid #27395C}
+.scr td{font-size:11px;padding:3px 8px;border-bottom:1px solid #1C2940;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -925,14 +930,23 @@ const __boot = async () => {
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
             nextBy[nm8] = { h: q8.r.h, t: x.t }; }); });
+      const hclr = (nm9) => { let a9 = 0; const s9 = String(nm9 || '').toLowerCase();
+        for (let i9 = 0; i9 < s9.length; i9++) a9 = (a9 * 31 + s9.charCodeAt(i9)) >>> 0;
+        return `hsl(${a9 % 360},85%,66%)`; };
+      const byH = {};
+      Object.entries(nextBy).forEach(([nm9, v9]) => { const g9 = byH[v9.h] = byH[v9.h] || { h: v9.h, t: v9.t, cs: [] }; g9.cs.push(nm9); });
+      const nxtRows = Object.values(byH).sort((a9, b9) => t2m(a9.t) - t2m(b9.t) || b9.cs.length - a9.cs.length);
+      const nxtTable = nxtRows.length ? `<table class="scr"><tr><th>NEXT</th><th>HORSE</th><th>COMBOS</th></tr>${
+        nxtRows.map(g9 => `<tr><td>${g9.t}</td><td><b style="color:${hclr(g9.h)}">${g9.h}</b></td><td>${g9.cs.length}</td></tr>`).join('')
+      }</table>` : '';
       if (!rs5.length && !upLines.length) return '';
       const best = rs5.filter(r5 => r5.n >= 2);
       const abbr7 = (c7) => String(c7 || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
-      return `<div class="dlist"><div class="dup">COMBO SCANNER \u00b7 today, agreement picks</div>${
-        rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>${nextBy[r5.nm] ? ` <small>\u00b7 next up: <b>${nextBy[r5.nm].h}</b> ${nextBy[r5.nm].t}</small>` : ''}`).join('<br>')
-      }${upLines.length ? `<div class="dup">COMING UP \u00b7 horses carrying 2+ attributes</div>${
+      return `<div class="dlist"><div class="dup">COMBO SCANNER \u00b7 today, agreement picks</div><div class="scw"><div class="scl">${
+        rs5.map(r5 => `${best.length && best[0] === r5 ? '\u2605 ' : ''}<b>${r5.nm}</b> \u2014 ${r5.w}/${r5.n} <small>(${r5.pc}%)</small>${nextBy[r5.nm] ? ` <small>\u00b7 next up: <b style="color:${hclr(nextBy[r5.nm].h)}">${nextBy[r5.nm].h}</b> ${nextBy[r5.nm].t}</small>` : ''}`).join('<br>')
+      }</div>${nxtTable}</div>${upLines.length ? `<div class="dup">COMING UP \u00b7 horses carrying 2+ attributes</div>${
         upLines.map(u7 => { const p9 = comboPerf[u7.tags];
-          return `${u7.t} ${abbr7(u7.c)} \u2014 <b>${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
+          return `${u7.t} ${abbr7(u7.c)} \u2014 <b style="color:${hclr(u7.h)}">${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
       }` : ''}</div>`; };
     window.__cntN = Object.fromEntries(Object.entries(cnt).map(([k9, v9]) => [k9, [v9[0], v9[1]]]));
     if (!cnt.top1[1] && !Object.keys(ups).length) return '';
