@@ -914,6 +914,7 @@ const __boot = async () => {
       if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();
         window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {}; }
       window.__ledger.days[ukd] = today9;
+      window.__ledger.ts = Date.now();
       const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.__ledger) });
       if (rp9.ok) window.__lgSig = sig9;
