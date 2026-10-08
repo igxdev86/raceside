@@ -81,28 +81,32 @@ async function boot() {
   if (!ledger) { $('app').innerHTML = '<div class="tile"><div class="hd2">No record yet</div><div class="uln"><small>Open TERMINAL X once during racing and winners bank automatically with their rank scores.</small></div></div>';
     $('upd').textContent = 'empty'; return; }
   const days = Object.keys(ledger).filter(d => Array.isArray(ledger[d].ultra) && ledger[d].ultra.length).sort().reverse();
-  let races = 0, bestWon = 0, top3 = 0, totSum = 0, posSum = 0;
+  let races = 0, bestWon = 0, top3 = 0, totSum = 0, posSum = 0, staked = 0, ret = 0;
   days.forEach(d => ledger[d].ultra.forEach(e => { races++; bestWon += e.bw ? 1 : 0;
-    if (e.pos && e.pos <= 3) top3++; totSum += e.tot || 0; posSum += e.pos || 0; }));
+    if (e.pos && e.pos <= 3) top3++; totSum += e.tot || 0; posSum += e.pos || 0;
+    if (e.bd != null) { staked++; if (e.bw) ret += e.bd; } }));
+  const pl = ret - staked, roi = staked ? Math.round(pl / staked * 1000) / 10 : null;
   const pc = (w, n) => n ? Math.round(w / n * 100) : 0;
   const tiles = `<div class="dash">
     <div class="dcell"><small>ULTRA #1 WON</small><b>${bestWon}/${races}</b><span>${pc(bestWon, races)}%</span></div>
     <div class="dcell"><small>WINNER TOP 3</small><b>${top3}/${races}</b><span>${pc(top3, races)}%</span></div>
     <div class="dcell"><small>AVG WIN POS</small><b>#${races ? Math.round(posSum / races * 10) / 10 : '—'}</b><span>of field</span></div>
     <div class="dcell"><small>AVG WIN TOTAL</small><b>${races ? Math.round(totSum / races * 10) / 10 : '—'}</b><span>rank sum</span></div>
+    <div class="dcell"><small>£1 ON ULTRA #1</small><b>${staked ? '£' + (Math.round(ret * 100) / 100).toFixed(2) : '—'}</b><span>${staked ? 'staked £' + staked : 'no odds banked yet'}</span></div>
+    <div class="dcell"><small>ROI</small><b style="color:${roi == null ? 'var(--dim)' : roi >= 0 ? 'var(--grn)' : 'var(--red)'}">${roi == null ? '—' : (roi > 0 ? '+' : '') + roi + '%'}</b><span>${staked ? (pl >= 0 ? '+' : '') + '£' + (Math.round(pl * 100) / 100).toFixed(2) + ' P/L' : ''}</span></div>
   </div>`;
   const dayBlocks = days.map(d => {
     const rows = ledger[d].ultra.slice().sort((a, b) => t2m9(a.t) - t2m9(b.t)).map(e => {
       const posHtml = e.pos === 1 ? `<span class="p1">ULTRA #1 ✓</span>` : `<span class="${e.pos > Math.ceil(e.n / 2) ? 'pbad' : 'amp'}">ULTRA #${e.pos}</span>`;
       const rline = Object.entries(e.rks || {}).filter(([, v]) => v != null)
         .map(([k, v]) => `<small>${RL[k] || k.toUpperCase()}</small><span${v === 1 ? ' class="rk1"' : ''}>${v}</span>`).join(' ');
-      const missed = e.pos !== 1 && e.bh ? ` <small>· #1 was ${e.bh} (${e.bt})</small>` : '';
-      return `<div class="uln">${e.t} ${String(e.c).toUpperCase()} — <b>${e.w}</b> · ${posHtml} of ${e.n} · <span class="tot">${e.tot}</span>${missed}<span class="rline">${rline}</span></div>`;
+      const missed = e.pos !== 1 && e.bh ? ` <small>· #1 was ${e.bh}${e.bd != null ? ' @ ' + e.bd : ''} (${e.bt})</small>` : '';
+      return `<div class="uln">${e.t} ${String(e.c).toUpperCase()} — <b>${e.w}</b>${e.wd != null ? ` <small>@ ${e.wd}</small>` : ''} · ${posHtml} of ${e.n} · <span class="tot">${e.tot}</span>${missed}<span class="rline">${rline}</span></div>`;
     }).join('');
     return `<div class="tile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${rows}</div>`;
   }).join('');
   $('app').innerHTML = tiles +
-    `<div class="note">Every winner's score from the full-card rank table: position in the race's rank order, gold rank-sum total (lower = stronger convergence), and its rank in each signal. ULTRA #1 = the table's top line won. Missing signal counts worst in the total.</div>` +
+    `<div class="note">Every winner's score from the full-card rank table: position in the race's rank order, gold rank-sum total (lower = stronger convergence), and its rank in each signal. ULTRA #1 = the table's top line won. Missing signal counts worst in the total. £1 line backs the ULTRA #1 in every race at the terminal's recorded price — strike is the product, this is just the receipt.</div>` +
     dayBlocks;
   $('upd').textContent = `${races} winners scored · ${days.length} day${days.length === 1 ? '' : 's'} · built ` +
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());

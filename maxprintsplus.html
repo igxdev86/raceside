@@ -975,7 +975,8 @@ const __boot = async () => {
         const R9 = rankCompute(x9);
         const wq9 = x9.runners.find(q9 => hn(q9.r.h) === x9.w);
         if (!wq9) return;
-        ultra9.push({ t: x9.t, c: String(x9.course || ''), w: wq9.r.h,
+        const od9 = (q9) => Number(q9 && q9.r.d) > 0 ? Number(q9.r.d) : null;
+        ultra9.push({ t: x9.t, c: String(x9.course || ''), w: wq9.r.h, wd: od9(wq9), bd: od9(R9.bestQ9),
           tot: R9.rkTot.get(wq9), pos: R9.rkOrd.indexOf(wq9) + 1, n: R9.fieldN9,
           bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
