@@ -103,6 +103,32 @@ async function boot() {
     <div class="dcell"><small>£1 ON ULTRA #1</small><b>${staked ? '£' + (Math.round(ret * 100) / 100).toFixed(2) : '—'}</b><span>${staked ? 'staked £' + staked : 'no odds banked yet'}</span></div>
     <div class="dcell"><small>ROI</small><b style="color:${roi == null ? 'var(--dim)' : roi >= 0 ? 'var(--grn)' : 'var(--red)'}">${roi == null ? '—' : (roi > 0 ? '+' : '') + roi + '%'}</b><span>${staked ? (pl >= 0 ? '+' : '') + '£' + (Math.round(pl * 100) / 100).toFixed(2) + ' P/L' : ''}</span></div>
   </div>`;
+  const campaign = (() => {
+    const daysAsc = days.slice().sort();
+    let L = 0, pl = 0, peak = 0, run = 0, maxRun = 0, bets = 0, stkSum = 0, stopped = false;
+    const dRows = [];
+    for (const d of daysAsc) {
+      if (stopped) break;
+      const seq = ledger[d].ultra.slice().sort((a, b) => t2m9(a.t) - t2m9(b.t));
+      let w9 = 0, b9 = 0;
+      for (const e of seq) {
+        if (pl >= 1000) { stopped = true; break; }
+        if (e.bd == null) continue;
+        const s = Math.round((L + 10) / (e.bd - 1) * 100) / 100;
+        peak = Math.max(peak, s); bets++; b9++; stkSum += s;
+        if (e.bw) { pl += 10; L = 0; run = 0; w9++; }
+        else { L += s; run++; maxRun = Math.max(maxRun, run); }
+      }
+      dRows.push({ d, b9, w9, pl: pl - L, L });
+    }
+    if (!bets) return '';
+    const net = pl - L;
+    const nx = (dd) => Math.round((L + 10) / (dd - 1) * 100) / 100;
+    return `<div class="tile" style="border-left-color:var(--cy)"><div class="hd2" style="color:var(--cy)">CAMPAIGN \u2014 one continuous ladder, \u00a310/cycle, stop at +\u00a31,000</div>
+      <div class="msum" style="border:0;margin:0 0 6px;padding:0">position <b style="color:${net >= 0 ? 'var(--grn)' : 'var(--red)'}">${net >= 0 ? '+' : ''}\u00a3${net.toFixed(2)}</b> \u00b7 banked <b>\u00a3${pl.toFixed(2)}</b>${L > 0 ? ` \u00b7 open ladder <b style="color:var(--red)">\u2212\u00a3${L.toFixed(2)}</b> \u00b7 next stake <b>\u00a3${nx(3)}</b> @3.0 / <b>\u00a3${nx(2)}</b> @2.0` : ' \u00b7 ladder clear'}${stopped ? ' \u00b7 <b style="color:var(--grn)">TARGET HIT \u2713</b>' : ''}<br>${bets} bets \u00b7 \u00a3${stkSum.toFixed(2)} turned over \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b></div>${
+      dRows.map(r => `<div class="mln">${r.d} <small>\u00b7</small> ${r.w9}/${r.b9} cycles <small>\u00b7</small> <b style="color:${r.pl >= 0 ? 'var(--grn)' : 'var(--red)'}">${r.pl >= 0 ? '+' : ''}\u00a3${r.pl.toFixed(2)}</b>${r.L > 0 ? ` <small>carrying \u00a3${r.L.toFixed(2)}</small>` : ''}</div>`).join('')
+    }</div>`;
+  })();
   const dayBlocks = days.map(d => {
     const rows = ledger[d].ultra.slice().sort((a, b) => t2m9(a.t) - t2m9(b.t)).map(e => {
       const posHtml = e.pos === 1 ? `<span class="p1">ULTRA #1 ✓</span>` : `<span class="${e.pos > Math.ceil(e.n / 2) ? 'pbad' : 'amp'}">ULTRA #${e.pos}</span>`;
@@ -133,7 +159,7 @@ async function boot() {
     })();
     return `<div class="tile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${mart}${rows}</div>`;
   }).join('');
-  $('app').innerHTML = tiles +
+  $('app').innerHTML = tiles + campaign +
     `<div class="note">Every winner's score from the full-card rank table: position in the race's rank order, gold rank-sum total (lower = stronger convergence), and its rank in each signal. ULTRA #1 = the table's top line won. Missing signal counts worst in the total. £1 line backs the ULTRA #1 in every race at the terminal's recorded price — strike is the product, this is just the receipt.</div>` +
     dayBlocks;
   $('upd').textContent = `${races} winners scored · ${days.length} day${days.length === 1 ? '' : 's'} · built ` +
