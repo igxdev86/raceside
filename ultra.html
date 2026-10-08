@@ -62,7 +62,9 @@ async function boot() {
     return dz && Object.keys(dz).length ? dz : null; } catch { return null; } };
   let ledger = await getLedger();
   const todayK = dayKey(new Date());
-  const hasUltra = (L) => L && L[todayK] && Array.isArray(L[todayK].ultra);
+  const hasUltra = (L) => { const u = L && L[todayK] && L[todayK].ultra;
+    if (!Array.isArray(u)) return false;
+    return u.length === 0 || u.some(e => e && e.bd != null); };
   if (!hasUltra(ledger)) {
     $('upd').textContent = 'banking today from TERMINAL X…';
     const fr = document.createElement('iframe');
