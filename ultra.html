@@ -125,8 +125,8 @@ async function boot() {
     const net = pl - L;
     const nx = (dd) => Math.round((L + 10) / (dd - 1) * 100) / 100;
     return `<div class="tile" style="border-left-color:var(--cy)"><div class="hd2" style="color:var(--cy)">CAMPAIGN \u2014 one continuous ladder, \u00a310/cycle, stop at +\u00a31,000</div>
-      <div class="msum" style="border:0;margin:0 0 6px;padding:0">position <b style="color:${net >= 0 ? 'var(--grn)' : 'var(--red)'}">${net >= 0 ? '+' : ''}\u00a3${net.toFixed(2)}</b> \u00b7 banked <b>\u00a3${pl.toFixed(2)}</b>${L > 0 ? ` \u00b7 open ladder <b style="color:var(--red)">\u2212\u00a3${L.toFixed(2)}</b> \u00b7 next stake <b>\u00a3${nx(3)}</b> @3.0 / <b>\u00a3${nx(2)}</b> @2.0` : ' \u00b7 ladder clear'}${stopped ? ' \u00b7 <b style="color:var(--grn)">TARGET HIT \u2713</b>' : ''}<br>${bets} bets \u00b7 \u00a3${stkSum.toFixed(2)} turned over \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b></div>${
-      dRows.map(r => `<div class="mln">${r.d} <small>\u00b7</small> ${r.w9}/${r.b9} cycles <small>\u00b7</small> <b style="color:${r.pl >= 0 ? 'var(--grn)' : 'var(--red)'}">${r.pl >= 0 ? '+' : ''}\u00a3${r.pl.toFixed(2)}</b>${r.L > 0 ? ` <small>carrying \u00a3${r.L.toFixed(2)}</small>` : ''}</div>`).join('')
+      <div class="msum" style="border:0;margin:0 0 6px;padding:0">position <b style="color:${net >= 0 ? 'var(--grn)' : 'var(--red)'}">${net < 0 ? '\u2212' : '+'}\u00a3${Math.abs(net).toFixed(2)}</b> \u00b7 banked <b>\u00a3${pl.toFixed(2)}</b>${L > 0 ? ` \u00b7 open ladder <b style="color:var(--red)">\u2212\u00a3${L.toFixed(2)}</b> \u00b7 next stake <b>\u00a3${nx(3)}</b> @3.0 / <b>\u00a3${nx(2)}</b> @2.0` : ' \u00b7 ladder clear'}${stopped ? ' \u00b7 <b style="color:var(--grn)">TARGET HIT \u2713</b>' : ''}<br>${bets} bets \u00b7 \u00a3${stkSum.toFixed(2)} turned over \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b></div>${
+      dRows.map(r => `<div class="mln">${r.d} <small>\u00b7</small> ${r.w9}/${r.b9} cycles <small>\u00b7</small> <b style="color:${r.pl >= 0 ? 'var(--grn)' : 'var(--red)'}">${r.pl < 0 ? '\u2212' : '+'}\u00a3${Math.abs(r.pl).toFixed(2)}</b>${r.L > 0 ? ` <small>carrying \u00a3${r.L.toFixed(2)}</small>` : ''}</div>`).join('')
     }</div>`;
   })();
   const dayBlocks = days.map(d => {
@@ -155,7 +155,7 @@ async function boot() {
       if (!steps.length) return '';
       return `<div class="mart"><div class="mh">MARTINGALE REPLAY \u00b7 \u00a310/cycle on ULTRA #1, this day's actual sequence${stopped ? ' \u00b7 stopped at +\u00a31000' : ''}</div>${
         steps.map(s9 => `<div class="mln">${s9}</div>`).join('')
-      }<div class="msum">final <b style="color:${final >= 0 ? 'var(--grn)' : 'var(--red)'}">${final >= 0 ? '+' : ''}\u00a3${final.toFixed(2)}</b> \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 worst hole <b>\u00a3${Math.abs(worst).toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b>${L > 0 ? ` \u00b7 <span class="pbad">ends mid-ladder, \u00a3${L.toFixed(2)} unrecovered</span>` : ''}${skipped ? ` \u00b7 ${skipped} no-odds skipped` : ''}</div></div>`;
+      }<div class="msum">final <b style="color:${final >= 0 ? 'var(--grn)' : 'var(--red)'}">${final < 0 ? '\u2212' : '+'}\u00a3${Math.abs(final).toFixed(2)}</b> \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 worst hole <b>\u00a3${Math.abs(worst).toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b>${L > 0 ? ` \u00b7 <span class="pbad">ends mid-ladder, \u00a3${L.toFixed(2)} unrecovered</span>` : ''}${skipped ? ` \u00b7 ${skipped} no-odds skipped` : ''}</div></div>`;
     })();
     return `<div class="tile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${mart}${rows}</div>`;
   }).join('');
