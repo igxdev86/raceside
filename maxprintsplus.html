@@ -685,7 +685,8 @@ const __boot = async () => {
     const maxN9 = Math.max(0, ...(x.runners || []).map(q9 => rkN.get(q9) || 0));
     const bestQ9 = (x.runners || []).filter(q9 => rkN.get(q9) === maxN9)
       .sort((a9, b9) => rkTot.get(a9) - rkTot.get(b9))[0] || null;
-    const ranks = rs2.length > 1 ? `<div class="frks">${rs2.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
+    const rkOrd = rs2.slice().sort((a9, b9) => (rkN.get(b9) || 0) - (rkN.get(a9) || 0) || (rkTot.get(a9) || 999) - (rkTot.get(b9) || 999));
+    const ranks = rs2.length > 1 ? `<div class="frks">${rkOrd.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
       rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
     } <span class="rtot${q9 === bestQ9 ? ' rtb' : ''}">${rkTot.get(q9) || ''}</span></div>`).join('')}</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same';
