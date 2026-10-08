@@ -170,6 +170,11 @@
 .scr{border-collapse:collapse;flex:0 0 auto}
 .scr th{font-size:9px;letter-spacing:.1em;color:#8A9BB5;text-align:left;padding:2px 8px 4px;border-bottom:1px solid #27395C}
 .scr td{font-size:11px;padding:3px 8px;border-bottom:1px solid #1C2940;white-space:nowrap}
+.frks{margin:7px 0 9px;font-family:var(--mono,ui-monospace);font-size:10.5px;line-height:2;color:#8A9BB5;border:1px solid #1C2940;border-radius:7px;padding:6px 9px}
+.frks b{color:#E8EEF7}
+.frks small{color:#54657F;margin-right:1px}
+.frks span{color:#C7D3E4;font-weight:700;margin-right:5px}
+.frks .rk1{color:#00E676}
 </style>
 </head>
 <body>
@@ -696,6 +701,18 @@ const __boot = async () => {
     const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
       cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
+    const rkMetrics = ['d', 'jt', 'or', 'sig', 'mp', 'mx', 'tm', 'pts', 'pwr', 'drw'];
+    const rkLbl = { d: '@', jt: 'JT', or: 'OR', sig: '\u03a3', mp: 'MN', mx: 'MX', tm: 'TM', pts: 'PTS', pwr: 'PWR', drw: 'DRW' };
+    const rkOf = {};
+    rkMetrics.forEach(k9 => { const [, f9, d9] = fcKeys[k9]; const m9 = new Map();
+      (x.runners || []).forEach(q9 => { const v9 = f9(q9); if (v9 == null) return;
+        let better = 0; (x.runners || []).forEach(o9 => { const w9 = f9(o9);
+          if (w9 != null && (d9 === 1 ? w9 < v9 : w9 > v9)) better++; });
+        m9.set(q9, better + 1); });
+      rkOf[k9] = m9; });
+    const ranks = rs2.length > 1 ? `<div class="frks">${rs2.map(q9 => `<div><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
+      rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
+    }</div>`).join('')}</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same';
     const dimQ = (q) => (fdTrip && q.cdDone && !tripOK(q)) || (fdGnd && q.cdDone && q.gRan === 0);
     const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button><button class="fdb${fdGnd ? ' on' : ''}" data-f="gnd">GROUND</button></div>`;
@@ -728,7 +745,7 @@ const __boot = async () => {
       if (tf2) return `<div class="frz">stats frozen at off <b>${tf2.at}</b> (this terminal)</div>`;
       const sn = snapMap[tK(x.t) + '|' + cKeyPre(x.course)];
       const at = sn && sn.at ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(sn.at)) : null;
-      return `<div class="frz">${at ? `prices frozen <b>${at}</b> (server record)` : froze[x.k] ? `no server freeze record \u00b7 page saw it gone <b>${froze[x.k]}</b>` : 'no server freeze record \u00b7 went off before this page was open'}</div>`; })() : ''}${anal}${sortBar}${dimBar}${rows2}</div>`; };
+      return `<div class="frz">${at ? `prices frozen <b>${at}</b> (server record)` : froze[x.k] ? `no server freeze record \u00b7 page saw it gone <b>${froze[x.k]}</b>` : 'no server freeze record \u00b7 went off before this page was open'}</div>`; })() : ''}${anal}${ranks}${sortBar}${dimBar}${rows2}</div>`; };
   const rowTpl = (x, i3) => `<div class="rrow${x.w && x.hit ? ' rwin' : ''}" id="ml-${i3}"${x.gone && !x.w ? ' style="opacity:.72"' : ''}><div class="rhd"><b>${x.t} ${crs(x.course)}</b><span style="color:${x.w ? (x.hit ? 'var(--green)' : 'var(--red)') : x.gone ? 'var(--red)' : 'var(--faint)'}">${x.w ? `${x.hit ? '\u2705' : '\u274c'} ${listRows && x.w ? x.w.replace(/\b\w/g, c => c.toUpperCase()) : ''}` : x.gone ? 'OFF \u00b7 frozen' : 'to run'}</span></div>${profNote(x)}${seqNote(x)}${printCard(x)}`
     + selLine(x, 'LOW MX', 'mx', x.q, null)
     + selLine(x, 'TOP PTS', 'pts', x.tp, (pv) => `<b style="color:var(--ink)">PTS ${x.tp.s.pts}${pv ? arw(x.tp.s.pts, pv.x1) : ''}</b>`, x.tp ? x.tp.s.pts : null)
