@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ULTRA — RACESIDE</title>
+<script src="/nav.js" defer></script>
+<style>
+:root{--bg:#070B12;--panel:#0D1420;--panel2:#111B2B;--line:#1C2940;--line2:#27395C;
+--ink:#E8EEF7;--dim:#8A9BB5;--faint:#54657F;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--red:#FF3B5C;
+--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--cond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--cond);padding:12px 10px 60px}
+.wrap{max-width:760px;margin:0}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+background:linear-gradient(90deg,var(--am),var(--grn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.sub{font-size:11px;letter-spacing:.18em;color:var(--faint);font-weight:800;margin:4px 0 12px}
+.sub a{color:var(--faint);text-decoration:none}
+.upd{font-family:var(--mono);font-size:10.5px;color:var(--cy);margin:2px 0 12px}
+.dash{display:flex;gap:7px;margin:0 0 12px;flex-wrap:wrap}
+.dcell{flex:1;min-width:30%;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+border-top:3px solid var(--am);border-radius:6px;padding:9px 4px 8px;text-align:center}
+.dcell small{display:block;font-size:8px;letter-spacing:.1em;color:var(--dim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--mono);font-size:18px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell span{font-family:var(--mono);font-size:10px;color:var(--grn);font-weight:700}
+.note{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:0 0 14px;line-height:1.7}
+.tile{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.tile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--am);text-transform:uppercase;margin-bottom:7px}
+.uln{font-family:var(--mono);font-size:11.5px;line-height:1.9;padding:5px 0;border-bottom:1px solid var(--line)}
+.uln:last-child{border-bottom:0}
+.uln small{color:var(--faint)}
+.uln b{color:#fff}
+.uln .p1{color:var(--grn);font-weight:900}
+.uln .pbad{color:var(--red);font-weight:700}
+.uln .tot{color:var(--am);font-weight:900}
+.uln .rline{display:block;color:var(--dim);font-size:10.5px}
+.uln .rline small{margin-right:1px}
+.uln .rline span{color:#C7D3E4;font-weight:700;margin-right:5px}
+.uln .rline .rk1{color:var(--grn)}
+.err{color:var(--red);font-family:var(--mono);font-size:11px}
+.amp{color:var(--am)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>ULTRA</h1>
+<div class="sub">WINNERS × RANK TABLE · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="upd" id="upd">loading…</div>
+<div id="app"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const dayKey = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(off);
+const RL = { d: '@', jt: 'JT', or: 'OR', sig: 'Σ', mp: 'MN', mx: 'MX', tm: 'TM', pts: 'PTS', pwr: 'PWR' };
+const t2m9 = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0;
+  let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+
+async function boot() {
+  const getLedger = async () => { try {
+    const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json();
+    const dz = (j && j.state && j.state.days) || null;
+    return dz && Object.keys(dz).length ? dz : null; } catch { return null; } };
+  let ledger = await getLedger();
+  const todayK = dayKey(new Date());
+  const hasUltra = (L) => L && L[todayK] && Array.isArray(L[todayK].ultra);
+  if (!hasUltra(ledger)) {
+    $('upd').textContent = 'banking today from TERMINAL X…';
+    const fr = document.createElement('iframe');
+    fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    const t0 = Date.now();
+    for (let w9 = 0; w9 < 15; w9++) {
+      await new Promise(r9 => setTimeout(r9, 4000));
+      $('upd').textContent = `banking today from TERMINAL X… ${Math.round((Date.now() - t0) / 1000)}s`;
+      const l2 = await getLedger();
+      if (hasUltra(l2)) { ledger = l2; break; }
+      if (l2) ledger = l2;
+    }
+    fr.remove();
+  }
+  if (!ledger) { $('app').innerHTML = '<div class="tile"><div class="hd2">No record yet</div><div class="uln"><small>Open TERMINAL X once during racing and winners bank automatically with their rank scores.</small></div></div>';
+    $('upd').textContent = 'empty'; return; }
+  const days = Object.keys(ledger).filter(d => Array.isArray(ledger[d].ultra) && ledger[d].ultra.length).sort().reverse();
+  let races = 0, bestWon = 0, top3 = 0, totSum = 0, posSum = 0;
+  days.forEach(d => ledger[d].ultra.forEach(e => { races++; bestWon += e.bw ? 1 : 0;
+    if (e.pos && e.pos <= 3) top3++; totSum += e.tot || 0; posSum += e.pos || 0; }));
+  const pc = (w, n) => n ? Math.round(w / n * 100) : 0;
+  const tiles = `<div class="dash">
+    <div class="dcell"><small>ULTRA #1 WON</small><b>${bestWon}/${races}</b><span>${pc(bestWon, races)}%</span></div>
+    <div class="dcell"><small>WINNER TOP 3</small><b>${top3}/${races}</b><span>${pc(top3, races)}%</span></div>
+    <div class="dcell"><small>AVG WIN POS</small><b>#${races ? Math.round(posSum / races * 10) / 10 : '—'}</b><span>of field</span></div>
+    <div class="dcell"><small>AVG WIN TOTAL</small><b>${races ? Math.round(totSum / races * 10) / 10 : '—'}</b><span>rank sum</span></div>
+  </div>`;
+  const dayBlocks = days.map(d => {
+    const rows = ledger[d].ultra.slice().sort((a, b) => t2m9(a.t) - t2m9(b.t)).map(e => {
+      const posHtml = e.pos === 1 ? `<span class="p1">ULTRA #1 ✓</span>` : `<span class="${e.pos > Math.ceil(e.n / 2) ? 'pbad' : 'amp'}">ULTRA #${e.pos}</span>`;
+      const rline = Object.entries(e.rks || {}).filter(([, v]) => v != null)
+        .map(([k, v]) => `<small>${RL[k] || k.toUpperCase()}</small><span${v === 1 ? ' class="rk1"' : ''}>${v}</span>`).join(' ');
+      const missed = e.pos !== 1 && e.bh ? ` <small>· #1 was ${e.bh} (${e.bt})</small>` : '';
+      return `<div class="uln">${e.t} ${String(e.c).toUpperCase()} — <b>${e.w}</b> · ${posHtml} of ${e.n} · <span class="tot">${e.tot}</span>${missed}<span class="rline">${rline}</span></div>`;
+    }).join('');
+    return `<div class="tile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${rows}</div>`;
+  }).join('');
+  $('app').innerHTML = tiles +
+    `<div class="note">Every winner's score from the full-card rank table: position in the race's rank order, gold rank-sum total (lower = stronger convergence), and its rank in each signal. ULTRA #1 = the table's top line won. Missing signal counts worst in the total.</div>` +
+    dayBlocks;
+  $('upd').textContent = `${races} winners scored · ${days.length} day${days.length === 1 ? '' : 's'} · built ` +
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
+</script>
+</body>
+</html>

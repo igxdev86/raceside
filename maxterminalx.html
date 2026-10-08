@@ -633,30 +633,16 @@ const __boot = async () => {
       const orv = Number(q.r.ofr), lb = Number(q.r.lbs);
       if (!(orv > 0) || !(lb > 0)) return;
       q.tm = orv + (Number(anchor.r.lbs) - lb) + claimOf(q); }); };
-  const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
+  const rankCompute = (x) => {
     calcTM(x);
     if (window.__calcPower) { const pz3 = window.__calcPower(x);
       (x.runners || []).forEach(q => { q.pw3 = pz3.sc.get(q); q.pw3r = pz3.rk.get(q); }); }
-    const mxF = (fn2) => { const vs = (x.runners || []).map(fn2).filter(v2 => v2 != null && v2 > 0); return vs.length ? Math.max(...vs) : null; };
-    const fMax = { or: mxF(q => Number(q.r.ofr)), tm: mxF(q => q.tm), pts: mxF(q => q.pts2), pwr: mxF(q => q.pw3), sig: mxF(q => q.sig) };
-    const big = (v2, mk2) => fMax[mk2] != null && v2 === fMax[mk2];
     { const p2 = todayP[x.k], pm = {};
       const hs = (s) => hn(s).replace(/[^a-z0-9]/g, '');
       if (p2) (p2.picks || []).forEach(pk => { if (pk.pts != null) pm[hs(pk.h)] = pk.pts; });
       (x.runners || []).forEach(q => { q.pts2 = pm[hs(q.r.h)] != null ? pm[hs(q.r.h)] : null; }); }
-    const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
-      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
-      return (va - vb) * dir; });
-    if (!rs2.length) return '';
-    const dd2 = /^\d+(\.\d+)?$/.test(String(x.dist)) ? x.dist + 'f' : x.dist;
-    const cardMeta = [x.rcls != null ? 'Class ' + x.rcls : null, x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ').toUpperCase();
-    const nUp = rs2.filter(q => q.dd && q.dd.dir === 'up').length, nDn = rs2.filter(q => q.dd && q.dd.dir === 'down').length,
-      nSm = rs2.filter(q => q.dd && q.dd.dir === 'same').length, nG = rs2.filter(q => q.gRan === 1).length, nGx = rs2.filter(q => q.gRan === 0).length;
-    const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
-      cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
-    const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
     const rkMetrics = ['d', 'jt', 'or', 'sig', 'mp', 'mx', 'tm', 'pts', 'pwr'];
-    const rkLbl = { d: '@', jt: 'JT', or: 'OR', sig: '\u03a3', mp: 'MN', mx: 'MX', tm: 'TM', pts: 'PTS', pwr: 'PWR', drw: 'DRW' };
+    const rkLbl = { d: '@', jt: 'JT', or: 'OR', sig: '\u03a3', mp: 'MN', mx: 'MX', tm: 'TM', pts: 'PTS', pwr: 'PWR' };
     const rkOf = {};
     rkMetrics.forEach(k9 => { const [, f9, d9] = fcKeys[k9]; const m9 = new Map();
       (x.runners || []).forEach(q9 => { const v9 = f9(q9); if (v9 == null) return;
@@ -670,8 +656,28 @@ const __boot = async () => {
     (x.runners || []).forEach(q9 => { let t9 = 0;
       rkActive.forEach(k9 => { t9 += rkOf[k9].get(q9) || fieldN9; });
       rkTot.set(q9, t9); });
-    const rkOrd = rs2.slice().sort((a9, b9) => rkTot.get(a9) - rkTot.get(b9));
-    const bestQ9 = rkOrd[0] || null;
+    const rkOrd = (x.runners || []).slice().sort((a9, b9) => rkTot.get(a9) - rkTot.get(b9));
+    return { rkMetrics, rkLbl, rkOf, rkTot, rkOrd, bestQ9: rkOrd[0] || null, fieldN9 };
+  };
+
+  const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
+    const RK9 = rankCompute(x);
+    const { rkMetrics, rkLbl, rkOf, rkTot, rkOrd: rkOrdAll, bestQ9 } = RK9;
+    const mxF = (fn2) => { const vs = (x.runners || []).map(fn2).filter(v2 => v2 != null && v2 > 0); return vs.length ? Math.max(...vs) : null; };
+    const fMax = { or: mxF(q => Number(q.r.ofr)), tm: mxF(q => q.tm), pts: mxF(q => q.pts2), pwr: mxF(q => q.pw3), sig: mxF(q => q.sig) };
+    const big = (v2, mk2) => fMax[mk2] != null && v2 === fMax[mk2];
+    const rs2 = (x.runners || []).slice().sort((a, b2) => { const va = kf(a), vb = kf(b2);
+      if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1;
+      return (va - vb) * dir; });
+    if (!rs2.length) return '';
+    const dd2 = /^\d+(\.\d+)?$/.test(String(x.dist)) ? x.dist + 'f' : x.dist;
+    const cardMeta = [x.rcls != null ? 'Class ' + x.rcls : null, x.rtype, dd2, x.going].filter(Boolean).join(' \u00b7 ').toUpperCase();
+    const nUp = rs2.filter(q => q.dd && q.dd.dir === 'up').length, nDn = rs2.filter(q => q.dd && q.dd.dir === 'down').length,
+      nSm = rs2.filter(q => q.dd && q.dd.dir === 'same').length, nG = rs2.filter(q => q.gRan === 1).length, nGx = rs2.filter(q => q.gRan === 0).length;
+    const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
+      cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
+    const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
+    const rkOrd = rkOrdAll;
     const ranks = rs2.length > 1 ? `<div class="frks">${rkOrd.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
       rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
     } <span class="rtot${q9 === bestQ9 ? ' rtb' : ''}">${rkTot.get(q9) || ''}</span></div>`).join('')}</div>` : '';
@@ -949,7 +955,18 @@ const __boot = async () => {
     if (body9 !== window.__lastApp) { window.__lastApp = body9; document.getElementById('appbody').innerHTML = body9; }
     (async () => { try {
       if (!window.__cntN || !window.__scan) return;
-      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })) };
+      const ultra9 = [];
+      try { (typeof listRows !== 'undefined' ? listRows : []).forEach(x9 => {
+        if (!x9 || !x9.gone || !x9.w || !x9.runners || x9.runners.length < 2) return;
+        const R9 = rankCompute(x9);
+        const wq9 = x9.runners.find(q9 => hn(q9.r.h) === x9.w);
+        if (!wq9) return;
+        ultra9.push({ t: x9.t, c: String(x9.course || ''), w: wq9.r.h,
+          tot: R9.rkTot.get(wq9), pos: R9.rkOrd.indexOf(wq9) + 1, n: R9.fieldN9,
+          bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
+          rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
+      }); } catch {}
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9 };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();
