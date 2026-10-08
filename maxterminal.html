@@ -704,7 +704,7 @@ const __boot = async () => {
     const cUp = rs2.filter(q => q.cc && q.cc.dir === 'up').length, cDn = rs2.filter(q => q.cc && q.cc.dir === 'down').length,
       cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
-    const rkMetrics = ['d', 'jt', 'or', 'sig', 'mp', 'mx', 'tm', 'pts', 'pwr', 'drw'];
+    const rkMetrics = ['d', 'jt', 'or', 'sig', 'mp', 'mx', 'tm', 'pts', 'pwr'];
     const rkLbl = { d: '@', jt: 'JT', or: 'OR', sig: '\u03a3', mp: 'MN', mx: 'MX', tm: 'TM', pts: 'PTS', pwr: 'PWR', drw: 'DRW' };
     const rkOf = {};
     rkMetrics.forEach(k9 => { const [, f9, d9] = fcKeys[k9]; const m9 = new Map();
