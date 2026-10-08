@@ -126,6 +126,9 @@ border-radius:4px;padding:5px 8px;color:var(--ink);border-left:3px solid var(--l
 .frks small{color:#54657F;margin-right:1px}
 .frks span{color:#C7D3E4;font-weight:700;margin-right:5px}
 .frks .rk1{color:#00E676}
+.frks .rtot{color:#FFB300;font-weight:700;margin-left:4px}
+.frks .rbest{border:1px solid #FFB300;border-radius:6px;padding:0 6px;margin:1px -7px}
+.frks .rtb{font-weight:900;font-size:12px}
 </style>
 </head>
 <body>
@@ -661,9 +664,16 @@ const __boot = async () => {
           if (w9 != null && (d9 === 1 ? w9 < v9 : w9 > v9)) better++; });
         m9.set(q9, better + 1); });
       rkOf[k9] = m9; });
-    const ranks = rs2.length > 1 ? `<div class="frks">${rs2.map(q9 => `<div><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
+    const rkTot = new Map(), rkN = new Map();
+    (x.runners || []).forEach(q9 => { let t9 = 0, n9 = 0;
+      rkMetrics.forEach(k9 => { const r9 = rkOf[k9].get(q9); if (r9) { t9 += r9; n9++; } });
+      rkTot.set(q9, t9); rkN.set(q9, n9); });
+    const maxN9 = Math.max(0, ...(x.runners || []).map(q9 => rkN.get(q9) || 0));
+    const bestQ9 = (x.runners || []).filter(q9 => rkN.get(q9) === maxN9)
+      .sort((a9, b9) => rkTot.get(a9) - rkTot.get(b9))[0] || null;
+    const ranks = rs2.length > 1 ? `<div class="frks">${rs2.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
       rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
-    }</div>`).join('')}</div>` : '';
+    } <span class="rtot${q9 === bestQ9 ? ' rtb' : ''}">${rkTot.get(q9) || ''}</span></div>`).join('')}</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same';
     const dimQ = (q) => (fdTrip && q.cdDone && !tripOK(q)) || (fdGnd && q.cdDone && q.gRan === 0);
     const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button><button class="fdb${fdGnd ? ' on' : ''}" data-f="gnd">GROUND</button></div>`;
