@@ -202,7 +202,8 @@ const __boot = async () => {
   const t2m = (t) => { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 10) hh += 12; return hh * 60 + +m[2]; };
   const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
   const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
-  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const DAYSEL = new URLSearchParams(location.search).get('day') === 'tomorrow' ? 'tomorrow' : 'today';
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
   let st = null, arch = null, people = null, up = null, seqPre = null;
   const lon2 = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   const fetchLog = {};
@@ -226,12 +227,12 @@ const __boot = async () => {
   const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
   const races = {};
-  if (up && up.ok) (up.rides || []).filter(r => r.day === 'today').forEach(r => {
+  if (up && up.ok) (up.rides || []).filter(r => r.day === DAYSEL).forEach(r => {
     const k = rkz(r.t, r.course);
     (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, dr: r.dr || null, sk: r.sk || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
-  list.forEach(rc => { rc.gone = t2m(rc.t) <= nowMin; });
+  list.forEach(rc => { rc.gone = DAYSEL === 'today' && t2m(rc.t) <= nowMin; });
   // pre-off record: resulted races are scored on the server's frozen prices, not the drifting feed
   const snapMap = {};
   const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();

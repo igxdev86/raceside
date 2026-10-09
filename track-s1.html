@@ -56,6 +56,31 @@ window.__renderMenu = (days, cur) => {
 <div class="rec" id="rec">—</div>
 <div class="meta" id="meta">loading…</div>
 <div id="list"></div>
+<div id="tmrw"></div>
+<script>
+window.__renderTomorrow = async (days, SIGNAL, getSt) => {
+  const tmr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + 86400000));
+  const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+  const has = (dz) => !!(dz && dz[tmr] && dz[tmr].tp);
+  const box = document.getElementById('tmrw');
+  if (!has(days)) {
+    box.innerHTML = '<div class="day" style="color:var(--am)"><span>tomorrow</span><span>reading the card\u2026</span></div>';
+    const fr = document.createElement('iframe'); fr.src = '/maxterminalx.html?day=tomorrow'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 4000)); const s2 = await getSt(); if (has(s2 && s2.days)) { days = s2.days; break; } }
+    fr.remove();
+  }
+  const all = (days[tmr] && days[tmr].tp) || {};
+  const mine = (all[SIGNAL] || []).slice().sort((a, b) => t2m(a.t) - t2m(b.t));
+  const fixedNames = ['\u03a3+MN+MX', 'FAV+TM+OR', 'J #1+T #1', 'MX', 'MN'];
+  const others = Object.entries(all).filter(([nm, arr]) => nm !== SIGNAL && arr && arr.length && (fixedNames.includes(nm) || nm.includes('+'))).sort((a, b) => b[1].length - a[1].length).slice(0, 12);
+  const row = (p) => `<div class="pk p"><div class="t">${p.t}<small>${String(p.c || '').replace(/\s*\([^)]*\)/g, '').slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}</div><div class="r">TO RUN</div></div>`;
+  box.innerHTML = `<div class="day" style="color:var(--am);margin-top:28px"><span>tomorrow \u00b7 ${SIGNAL}</span><span>${mine.length} pick${mine.length === 1 ? '' : 's'}</span></div>` +
+    (mine.length ? mine.map(row).join('') : '<div class="empty" style="margin:6px 0">no agreement on tomorrow\u2019s card yet \u2014 prices firm up through the morning</div>') +
+    (others.length ? `<div class="day" style="margin-top:22px"><span>tomorrow \u00b7 other chips</span><span></span></div>` + others.map(([nm, arr]) => `<div style="font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.9;padding:4px 0;border-bottom:1px solid var(--line)"><b style="color:var(--ink)">${nm}</b> <small style="color:var(--faint)">${window.__describe ? window.__describe(nm) : ''}</small><br>${arr.slice().sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => `${p.t} <span style="color:var(--lumo);font-weight:800">${p.h}</span>${p.d != null ? ' <small>@ ' + p.d + '</small>' : ''}`).join(' \u00b7 ')}</div>`).join('') : '');
+};
+</script>
+
 <script>
 const SIGNAL = new URLSearchParams(location.search).get('s') || 'Σ+MN+MX';
 const LABEL = new URLSearchParams(location.search).get('n') || 'S1';
@@ -110,6 +135,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
     if (!picks.length) return hdr + `<div class="empty" style="margin:6px 0 4px">${rec && rec.n ? 'score banked \u00b7 horse names were not stored before 9 Oct' : 'no agreement races'}</div>`;
     return hdr + picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
   }).join('');
+  window.__renderTomorrow(days, SIGNAL, getSt).catch(() => {});
   $('list').innerHTML = `<div class="day" style="margin-top:4px;color:var(--lumo)"><span>${monthName}</span><span>${mn ? `${mw}/${mn} \u00b7 ${Math.round(mw / mn * 100)}%` : ''}</span></div>` + blocks;
 })();
 </script>
