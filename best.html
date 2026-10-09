@@ -89,22 +89,22 @@ async function boot() {
   // ---- signal registry: name -> { fam, w, n, sq, hits: Map(raceKey -> horse) } ----
   const SIG = {};
   const sig = (nm, fam) => SIG[nm] = SIG[nm] || { nm, fam, w: 0, n: 0, sq: '', pick: {} };
-  const record = (nm, fam, rk, horse, won) => { const s = sig(nm, fam); s.n++; if (won) s.w++; s.sq += won ? 'W' : 'L'; s.pick[rk] = { h: horse, won }; };
+  const record = (nm, fam, rk, horse, won, d) => { const s = sig(nm, fam); s.n++; if (won) s.w++; s.sq += won ? 'W' : 'L'; s.pick[rk] = { h: horse, won, d: Number(d) > 0 ? Number(d) : null }; };
   const rkOf = (p) => p.day + '|' + p.k;
   // A) PRINT family: rank-1 tags, PTS top, XS1 top
   settled.forEach(p => {
     const rk = rkOf(p), wn = hn(p.w);
     const tagPick = {};
     p.picks.forEach(x => (x.tags || []).forEach(t3 => { if (/1$/.test(t3) && !tagPick[t3]) tagPick[t3] = x; }));
-    Object.entries(tagPick).forEach(([t3, x]) => record(t3.replace(/1$/, ' #1'), 'PRINT', rk, x.h, hn(x.h) === wn));
+    Object.entries(tagPick).forEach(([t3, x]) => record(t3.replace(/1$/, ' #1'), 'PRINT', rk, x.h, hn(x.h) === wn, x.d));
     const top = p.picks.filter(x => x.pts != null).sort((a, b) => b.pts - a.pts);
-    if (top.length >= 2 && top[0].pts > top[1].pts) record('PTS #1', 'PRINT', rk, top[0].h, hn(top[0].h) === wn);
-    if (top.length >= 2 && top[0].pts >= 20) record('PTS 20+', 'PRINT', rk, top[0].h, hn(top[0].h) === wn);
+    if (top.length >= 2 && top[0].pts > top[1].pts) record('PTS #1', 'PRINT', rk, top[0].h, hn(top[0].h) === wn, top[0].d);
+    if (top.length >= 2 && top[0].pts >= 20) record('PTS 20+', 'PRINT', rk, top[0].h, hn(top[0].h) === wn, top[0].d);
     const xs = p.picks.filter(x => x.xs1 != null).sort((a, b) => b.xs1 - a.xs1);
-    if (xs.length >= 2) record('XS #1', 'PRINT', rk, xs[0].h, hn(xs[0].h) === wn);
+    if (xs.length >= 2) record('XS #1', 'PRINT', rk, xs[0].h, hn(xs[0].h) === wn, xs[0].d);
     // agreement: PTS top also carries J1 / T1 / OR1
     if (top.length >= 2 && top[0].pts > top[1].pts) ['J1', 'T1', 'OR1', 'M1', 'PAIR1'].forEach(t3 => {
-      if ((top[0].tags || []).includes(t3)) record('PTS+' + t3.replace(/1$/, ''), 'PRINT', rk, top[0].h, hn(top[0].h) === wn); });
+      if ((top[0].tags || []).includes(t3)) record('PTS+' + t3.replace(/1$/, ''), 'PRINT', rk, top[0].h, hn(top[0].h) === wn, top[0].d); });
   });
   // B) FREEZE family from the ledger (aggregate + sequences, no per-race picks)
   const days = (jL && jL.state && jL.state.days) || {};
@@ -143,7 +143,7 @@ async function boot() {
       const p1 = {}; Object.keys(SEL).forEach(k => { p1[k] = SEL[k](rc); });
       COMBOS.forEach(cb => { const q0 = p1[cb[0]]; if (!q0) return;
         for (let i = 1; i < cb.length; i++) if (p1[cb[i]] !== q0) return;
-        record(cb.join('+'), 'MARKET', rk, q0.h, q0 === wq); });
+        record(cb.join('+'), 'MARKET', rk, q0.h, q0 === wq, q0.d); });
     });
     await new Promise(r9 => setTimeout(r9, 350));
   }
@@ -168,14 +168,36 @@ async function boot() {
     return `<div class="utile"><div class="hd2">${d === ukd ? 'TODAY' : d} · ${rs.length} races</div>${rs.map(p => { const rk = rkOf(p);
       const badges = top5.map(s => { const v = s.pick[rk]; if (!v) return ''; return `<span class="bdg ${v.won ? 'hit' : 'miss'}">${s.nm}${v.won ? ' ✓' : ''}</span>`; }).join('');
       return `<div class="race">${p.t} ${String(p.course || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()} — <span class="w">${p.w}</span>${badges || ' <small>none of the top 5 had a pick</small>'}</div>`; }).join('')}</div>`; }).join('');
-  $('app').innerHTML = (best ? `<div class="utile best"><div class="hd2">BEST SIGNAL · most consistent race-by-race winner</div>
+  const focusNm = new URLSearchParams(location.search).get('focus');
+  const raceByRk = {}; races.forEach(p => { raceByRk[rkOf(p)] = p; });
+  const focusHtml = (() => { const s = focusNm && SIG[focusNm]; if (!s) return '';
+    const fires = Object.entries(s.pick).map(([rk, v]) => ({ rk, ...v, p: raceByRk[rk] })).filter(f => f.p && f.p.day.startsWith(month))
+      .sort((a, b) => a.p.day.localeCompare(b.p.day) || t2m(a.p.t) - t2m(b.p.t));
+    // gaps = losses between wins, in firing order
+    const gaps = []; let run = 0; fires.forEach(f => { if (f.won) { gaps.push(run); run = 0; } else run++; });
+    const curGap = run; const closed = gaps.slice(); const mx = Math.max(0, ...closed, curGap);
+    const avg = closed.length ? Math.round(closed.reduce((a, b) => a + b, 0) / closed.length * 10) / 10 : null;
+    const hist = {}; closed.forEach(g => { hist[g] = (hist[g] || 0) + 1; });
+    const wins = fires.filter(f => f.won).length;
+    const byD = {}; fires.forEach(f => (byD[f.p.day] = byD[f.p.day] || []).push(f));
+    let seq = 0, since = 0;
+    const dayBlocks = Object.keys(byD).sort().map(d => `<div class="utile"><div class="hd2">${d === ukd ? 'TODAY' : d} \u00b7 ${byD[d].filter(f => f.won).length}/${byD[d].length}</div>${
+      byD[d].map(f => { seq++; const line = `<div class="race"><small>#${seq}</small> ${f.p.t} ${String(f.p.course || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()} \u2014 <span class="w" style="color:${f.won ? 'var(--lumo)' : 'var(--udim)'}">${f.h}</span>${f.d != null ? ` <small>@ ${f.d}</small>` : ''} ${f.won ? `<span class="bdg hit">WON \u2713${since ? ` after ${since}\u2717` : ''}</span>` : `<span class="bdg miss">\u2717 ${since + 1}</span>`}${!f.won && f.p.w ? ` <small>(won: ${f.p.w})</small>` : ''}</div>`;
+        since = f.won ? 0 : since + 1; return line; }).join('')}</div>`).join('');
+    return `<div class="utile best"><div class="hd2">FOCUS \u00b7 ${s.nm} \u00b7 ${month} \u00b7 the gaps</div>
+      <div class="big">${wins}/${fires.length} <small>${fires.length ? Math.round(wins / fires.length * 100) : 0}% this month \u00b7 ${s.w}/${s.n} all time</small></div>
+      <div class="row"><small>gaps between wins: </small><span class="wl">${closed.length ? closed.join(' \u00b7 ') : '\u2014'}</span>${curGap ? `<small>\u00b7 open run <b style="color:var(--red)">${curGap}\u2717</b></small>` : ''}</div>
+      <div class="row"><small>longest <b style="color:var(--am)">${mx}</b> \u00b7 average gap ${avg != null ? avg : '\u2014'} \u00b7 </small>${Object.keys(hist).sort((a, b) => a - b).map(g => `<small>${g}\u2717 \u00d7${hist[g]}</small>`).join(' ')}</div>
+      <div class="row"><small>sequence: </small><span style="font-family:var(--umono);letter-spacing:.12em;word-break:break-all">${fires.map(f => f.won ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span></div></div>` + dayBlocks;
+  })();
+  $('app').innerHTML = focusHtml + (best ? `<div class="utile best"><div class="hd2">BEST SIGNAL · most consistent race-by-race winner</div>
     <div class="big">${best.nm} <small>${best.fam}</small></div>
     <div class="row"><span class="wl">${best.w}/${best.n}</span><span class="pc">${pcf(best.pc)}% strike</span><small>· consistency floor ${pcf(best.lb)}% (95% lower bound)</small></div>
     <div class="row"><small>longest drought <b style="color:var(--am)">${best.mx}</b> · current run ${best.cur}✗${best.days ? ` · hit on ${best.daysHit}/${best.days} days` : ''}</small></div></div>` : '') +
     `<div class="utile"><div class="hd2">All signals · ranked by consistency (Wilson lower bound)</div>${
-      rows.slice(0, 40).map((r, i) => `<div class="row"><span class="rk">${i + 1}</span><span class="nm">${r.nm}</span>${famTag(r.fam)}<span class="wl">${r.w}/${r.n}</span><span class="pc">${pcf(r.pc)}%</span><small>floor ${pcf(r.lb)}% · drought ${r.mx}${r.n < 10 ? ' · thin' : ''}</small></div>`).join('')
+      rows.slice(0, 40).map((r, i) => `<div class="row" style="cursor:pointer" onclick="location.search='?focus='+encodeURIComponent('${r.nm.replace(/'/g, '')}')"><span class="rk">${i + 1}</span><span class="nm">${r.nm}</span>${famTag(r.fam)}<span class="wl">${r.w}/${r.n}</span><span class="pc">${pcf(r.pc)}%</span><small>floor ${pcf(r.lb)}% · drought ${r.mx}${r.n < 10 ? ' · thin' : ''}</small></div>`).join('')
     }</div>` +
-    `<div class="unote">One ranking across every signal built: <b>PRINT</b> (archive tags, points, XS), <b>FREEZE</b> (terminal tiles from the banked ledger) and <b>MARKET</b> (SP-era selectors). Consistency = the 95% lower bound of the strike rate, which rewards a signal for winning often <i>and</i> for having enough races to prove it; a 3/3 cannot outrank a 24/44. Droughts come from each signal's time-ordered sequence. Signals under 10 races are shown but cannot be BEST.</div>` +
+    `<div class="unote">One ranking across every signal built: <b>PRINT</b> (archive tags, points, XS), <b>FREEZE</b> (terminal tiles from the banked ledger) and <b>MARKET</b> (SP-era selectors). Consistency = the 95% lower bound of the strike rate, which rewards a signal for winning often <i>and</i> for having enough races to prove it; a 3/3 cannot outrank a 24/44. Droughts come from each signal's time-ordered sequence. Signals under 10 races are shown but cannot be BEST. <b>Tap any row</b> to lay that signal out race by race with its gaps.</div>` +
     dayHtml;
   $('ldr').classList.add('done'); stage('COMPLETE'); fill(100);
   txt(`${rows.length} signals · ${settled.length} settled races · ${mDays.length} market days`);

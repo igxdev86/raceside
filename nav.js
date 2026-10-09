@@ -22,6 +22,7 @@
       ['/react.html', 'REACT'],
       ['/pointblast.html', 'POINTBLAST'],
       ['/best.html', 'BEST'],
+      ['/best.html?focus=FAV%2BTM%2BOR', 'GAPS'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [
