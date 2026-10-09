@@ -942,7 +942,9 @@ const __boot = async () => {
       TM: (x) => { calcTM(x); const a = x.runners.filter(q => q.tm != null).sort((q1, q2) => q2.tm - q1.tm); return a.length >= 2 ? a[0] : null; },
       MN: (x) => { const a = x.runners.filter(q => q.pct != null).sort((q1, q2) => q1.pct - q2.pct); return a.length >= 2 ? a[0] : null; },
       PWR: (x) => { const p = x.__pow || (x.__pow = calcPower(x)); const q = x.runners.find(q2 => p.rk.get(q2) === 1); return q && x.runners.length >= 2 ? q : null; },
-      MX: (x) => { const a = x.runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => [q, q.sig * Number(q.r.d)]).sort((p1, p2) => p1[1] - p2[1]); return a.length >= 2 ? a[0][0] : null; } };
+      MX: (x) => { const a = x.runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => [q, q.sig * Number(q.r.d)]).sort((p1, p2) => p1[1] - p2[1]); return a.length >= 2 ? a[0][0] : null; },
+      JT: (x) => { const a = x.runners.map(q => [q, jtOf(q).tot]).filter(p2 => p2[1] != null).sort((p1, p2) => p2[1] - p1[1]);
+        return a.length >= 2 && a[0][1] > a[1][1] ? a[0][0] : null; } };
     const scanCombos = (() => { const ks = Object.keys(scanSel); const out = [];
       const rec5 = (start, cur) => { if (cur.length) out.push([...cur]); if (cur.length === 3) return;
         for (let i5 = start; i5 < ks.length; i5++) { cur.push(ks[i5]); rec5(i5 + 1, cur); cur.pop(); } };
