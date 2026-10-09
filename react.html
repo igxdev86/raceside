@@ -83,10 +83,6 @@ async function boot() {
   const dayN = Object.keys(days).length;
   // tile-first: every banked tile/combo with a live next pick
   const live = Object.entries(nx).filter(([, v]) => v && v.h && t2m9(v.t) >= nowM() - 2);
-  if (!live.length) {
-    $('app').innerHTML = '<div class="utile"><div class="hd2">Nothing left to run</div><div class="rrow9"><small>No live races with tile agreement right now \u2014 come back on the next card.</small></div></div>';
-    $('upd').textContent = 'no upcoming picks'; return;
-  }
   const rows = live.map(([nm, v]) => {
     const rec = agS[nm] || { w: 0, n: 0 };
     const oneIn = rec.w > 0 ? rec.n / rec.w : null;
@@ -107,7 +103,15 @@ async function boot() {
       ${g.imp != null ? `<span class="cmb">market says ${pcf(g.imp)}% for this one \u00b7 record says ${pcf(g.est)}% \u00b7 <b style="color:${edge > 0 ? 'var(--grn)' : 'var(--red)'}">${edge > 0 ? '+' : ''}${pcf(edge)}</b></span>` : ''}
       </div></div>`;
   }).join('');
-  $('app').innerHTML = html +
+  const liveNames = new Set(rows.map(r => r.nm));
+  const rest = Object.entries(agS).filter(([nm, g]) => !liveNames.has(nm) && g.n > 0)
+    .map(([nm, g]) => ({ nm, ...g, oneIn: g.w > 0 ? g.n / g.w : null }))
+    .sort((a, b) => (a.oneIn == null ? 1 : 0) - (b.oneIn == null ? 1 : 0) || (a.oneIn || 99) - (b.oneIn || 99) || b.n - a.n);
+  const restHtml = rest.length ? `<div class="utile" style="border-left-color:var(--uline2)"><div class="hd2" style="color:var(--udim)">${rows.length ? 'No live pick right now \u2014 record only' : 'Racing done \u2014 every tile\u2019s record'}</div>${
+    rest.map(g => `<div class="rrow9" style="padding:3px 0"><b style="color:#C7D3E4">${g.nm}</b> <small>\u2014</small> ${g.oneIn != null ? `<b style="color:var(--lumo)">wins 1 in ${Math.round(g.oneIn * 10) / 10}</b>` : '<small>no wins yet</small>'} <small>\u00b7 ${g.w}/${g.n} (${Math.round(g.w / g.n * 100)}%)</small></div>`).join('')
+  }</div>` : '';
+  const html2 = rows.length ? html : '';
+  $('app').innerHTML = html2 + restHtml +
     `<div class="unote">Each tile's banked record as plain frequency \u2014 <b>wins 1 in N</b> \u2014 from ${dayN} day${dayN === 1 ? '' : 's'} of the frozen record, with its next live pick. Record % is raw; the per-horse % is smoothed ((w+1)/(n+2)). A 1-in-2 from four races is luck until it is a 1-in-2 from forty. ${dayN < 7 ? '<b>Early days.</b>' : ''}</div>`;
   $('upd').textContent = rows.length + ' live pick' + (rows.length === 1 ? '' : 's') + ' · built ' +
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
