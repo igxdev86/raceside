@@ -81,38 +81,34 @@ async function boot() {
   Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r9 => { if (!r9 || !r9.nm) return;
     const g = agS[r9.nm] = agS[r9.nm] || { w: 0, n: 0 }; g.w += r9.w || 0; g.n += r9.n || 0; }));
   const dayN = Object.keys(days).length;
-  // fold combo->pick into horse->evidence
-  const byH = {};
-  Object.entries(nx).forEach(([nm, v]) => { if (!v || !v.h) return;
-    if (t2m9(v.t) < nowM() - 2) return;   // already off
-    const g = byH[v.h + '|' + v.t] = byH[v.h + '|' + v.t] || { h: v.h, t: v.t, d: v.d != null ? v.d : null, cs: [] };
-    if (v.d != null && g.d == null) g.d = v.d;
-    const rec = agS[nm] || { w: 0, n: 0 };
-    g.cs.push({ nm, w: rec.w, n: rec.n, est: (rec.w + 1) / (rec.n + 2) }); });
-  const rows = Object.values(byH).map(g => {
-    g.cs.sort((a, b) => b.n - a.n || b.est - a.est);
-    const lead = g.cs.find(c => c.n >= 3) || g.cs[0];
-    g.est = lead ? lead.est : null; g.lead = lead;
-    g.imp = g.d > 1 ? 1 / g.d : null;
-    return g; }).sort((a, b) => t2m9(a.t) - t2m9(b.t));
-  if (!rows.length) {
-    $('app').innerHTML = '<div class="utile"><div class="hd2">Nothing left to run</div><div class="rrow9"><small>No live races with tile agreement right now — come back on the next card.</small></div></div>';
+  // tile-first: every banked tile/combo with a live next pick
+  const live = Object.entries(nx).filter(([, v]) => v && v.h && t2m9(v.t) >= nowM() - 2);
+  if (!live.length) {
+    $('app').innerHTML = '<div class="utile"><div class="hd2">Nothing left to run</div><div class="rrow9"><small>No live races with tile agreement right now \u2014 come back on the next card.</small></div></div>';
     $('upd').textContent = 'no upcoming picks'; return;
   }
+  const rows = live.map(([nm, v]) => {
+    const rec = agS[nm] || { w: 0, n: 0 };
+    const oneIn = rec.w > 0 ? rec.n / rec.w : null;
+    const est = (rec.w + 1) / (rec.n + 2);
+    const imp = v.d > 1 ? 1 / v.d : null;
+    return { nm, ...v, w: rec.w, n: rec.n, oneIn, est, imp };
+  }).sort((a, b) => (a.oneIn == null ? 1 : 0) - (b.oneIn == null ? 1 : 0) || (a.oneIn || 99) - (b.oneIn || 99) || b.n - a.n);
   const pcf = (v) => Math.round(v * 100);
-  const html = rows.map((g, i) => {
-    const edge = g.est != null && g.imp != null ? g.est - g.imp : null;
-    const combos = g.cs.map(c => `<b>${c.nm}</b> ${c.w}/${c.n}${c.n ? ` (${pcf(c.w / c.n)}%)` : ' (no record)'}`).join(' · ');
-    return `<div class="utile${i === 0 ? ' nxt' : ''}"><div class="hd2">${i === 0 ? 'NEXT · ' : ''}${g.t} · agreement pick</div>
-      <div class="rrow9"><span class="hname">${g.h}</span>${g.d != null ? ` <small>@ ${g.d}</small>` : ''}<br>
-      <span class="est" style="color:${g.est == null ? 'var(--udim)' : edge != null && edge > 0 ? 'var(--grn)' : 'var(--am)'}">${g.est != null ? pcf(g.est) + '%' : '—'}</span>
-      <small> win estimate${g.lead ? ` (${g.lead.nm}, ${g.lead.w}/${g.lead.n} banked)` : ''}</small>
-      ${g.imp != null ? `<span class="mkt"> · market says ${pcf(g.imp)}%${edge != null ? ` · <b style="color:${edge > 0 ? 'var(--grn)' : 'var(--red)'}">${edge > 0 ? '+' : ''}${pcf(edge)}</b>` : ''}</span>` : ''}
-      <div class="bar"><i style="width:${g.est != null ? pcf(g.est) : 0}%"></i></div>
-      <span class="cmb">${combos}</span></div></div>`;
+  const fmt1 = (v) => { const r = Math.round(v * 10) / 10; return r === Math.round(r) ? String(Math.round(r)) : r.toFixed(1); };
+  const html = rows.map((g, i9) => {
+    const edge = g.imp != null ? g.est - g.imp : null;
+    return `<div class="utile${i9 === 0 ? ' nxt' : ''}"><div class="hd2">${g.nm} ${i9 === 0 ? '\u00b7 best tile live' : ''}</div>
+      <div class="rrow9">
+      <span class="est" style="color:${g.oneIn == null ? 'var(--udim)' : 'var(--lumo)'}">${g.oneIn != null ? 'wins 1 in ' + fmt1(g.oneIn) : 'no wins banked yet'}</span>
+      <small> \u00b7 ${g.w}/${g.n} across the record${g.n ? ' (' + pcf(g.w / Math.max(g.n, 1)) + '%)' : ''}</small>
+      <div class="bar"><i style="width:${g.n ? pcf(g.w / g.n) : 0}%"></i></div>
+      next pick: <span class="hname">${g.h}</span>${g.d != null ? ` <small>@ ${g.d}</small>` : ''} <small>\u00b7 ${g.t}</small>
+      ${g.imp != null ? `<span class="cmb">market says ${pcf(g.imp)}% for this one \u00b7 record says ${pcf(g.est)}% \u00b7 <b style="color:${edge > 0 ? 'var(--grn)' : 'var(--red)'}">${edge > 0 ? '+' : ''}${pcf(edge)}</b></span>` : ''}
+      </div></div>`;
   }).join('');
   $('app').innerHTML = html +
-    `<div class="unote">Estimate = the pick's strongest-evidenced combo from <b>${dayN} day${dayN === 1 ? '' : 's'}</b> of the frozen record, smoothed ((w+1)/(n+2)) so tiny samples can't claim certainty. Green when the record beats the market's implied chance. ${dayN < 7 ? '<b>Early days:</b> ' + dayN + ' day' + (dayN === 1 ? '' : 's') + ' banked — treat estimates as rough until the record deepens.' : ''}</div>`;
+    `<div class="unote">Each tile's banked record as plain frequency \u2014 <b>wins 1 in N</b> \u2014 from ${dayN} day${dayN === 1 ? '' : 's'} of the frozen record, with its next live pick. Record % is raw; the per-horse % is smoothed ((w+1)/(n+2)). A 1-in-2 from four races is luck until it is a 1-in-2 from forty. ${dayN < 7 ? '<b>Early days.</b>' : ''}</div>`;
   $('upd').textContent = rows.length + ' live pick' + (rows.length === 1 ? '' : 's') + ' · built ' +
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }
