@@ -139,6 +139,7 @@
 .frks small{color:#54657F;margin-right:1px}
 .frks span{color:#C7D3E4;font-weight:700;margin-right:5px}
 .frks .rk1{color:#00E676}
+.frks .rkh{color:#39FF14;font-weight:900}
 .frks .rtot{color:#FFB300;font-weight:700;margin-left:4px}
 .frks .rbest{border:1px solid #FFB300;border-radius:6px;padding:0 6px;margin:1px -7px}
 .frks .rtb{font-weight:900;font-size:12px}
@@ -692,7 +693,7 @@ const __boot = async () => {
       cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
     const rkOrd = rkOrdAll;
-    const ranks = rs2.length > 1 ? `<div class="frks">${rkOrd.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> ${q9.r.h} \u2014 ${
+    const ranks = rs2.length > 1 ? `<div class="frks">${rkOrd.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> <span class="rkh">${q9.r.h}</span> \u2014 ${
       rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
     } <span class="rtot${q9 === bestQ9 ? ' rtb' : ''}">${rkTot.get(q9) || ''}</span></div>`).join('')}</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same';
