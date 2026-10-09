@@ -33,6 +33,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 
 
 <div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
 <script>
+  const D = { '\u03a3': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score\u00d7price', 'JT': 'top jockey+trainer strike',
+    'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover',
+    'FAV+TM+OR': 'favourite that is also top rating and top OR', 'J #1+T #1': 'top jockey and top trainer on one horse' };
+  window.__describe = (nm) => D[nm] || nm.split('+').map(k => D[k] || k).join(' + ');
 window.__renderMenu = (days, cur) => {
   const fixed = [ ['S1', '\u03a3+MN+MX', '/track-s1.html?s=%CE%A3%2BMN%2BMX&n=S1'], ['S2', 'FAV+TM+OR', '/track.html?s=FAV%2BTM%2BOR&n=S2'],
     ['S3', 'J #1+T #1', '/track.html?s=J%20%231%2BT%20%231&n=S3'], ['S4', 'MX', '/track-s1.html?s=MX&n=S4'], ['S5', 'MN', '/track-s1.html?s=MN&n=S5'] ];
@@ -41,12 +45,14 @@ window.__renderMenu = (days, cur) => {
   const fixedNames = new Set(fixed.map(f => f[1]));
   const more = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
     .sort((a, b) => b.lb - a.lb).slice(0, 10);
-  const chip = (lbl, nm, href, sub) => `<a href="${href}" style="text-decoration:none;border:1px solid ${nm === cur ? 'var(--lumo)' : 'var(--line)'};color:${nm === cur ? 'var(--lumo)' : 'var(--dim)'};border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>${lbl}</b> ${nm}${sub ? `<br><span style="color:var(--faint);font-size:9.5px">${sub}</span>` : ''}</a>`;
+  const chip = (lbl, nm, href, sub) => `<a title="${window.__describe(nm)}" href="${href}" style="text-decoration:none;border:1px solid ${nm === cur ? 'var(--lumo)' : 'var(--line)'};color:${nm === cur ? 'var(--lumo)' : 'var(--dim)'};border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>${lbl}</b> ${nm}${sub ? `<br><span style="color:var(--faint);font-size:9.5px">${sub}</span>` : ''}<br><span style="color:var(--faint);font-size:9px;letter-spacing:0;font-family:var(--sans)">${window.__describe(nm)}</span></a>`;
+  { const e = document.getElementById('sigdesc'); if (e) e.textContent = window.__describe(cur); }
   document.getElementById('smenu').innerHTML = fixed.map(f => chip(f[0], f[1], f[2], ag[f[1]] ? `${ag[f[1]].w}/${ag[f[1]].n}` : '')).join('') +
     more.map((m, i) => chip('X' + (i + 1), m.nm, '/track-s1.html?s=' + encodeURIComponent(m.nm) + '&n=X' + (i + 1), `${m.w}/${m.n} \u00b7 ${Math.round(m.w / m.n * 100)}%`)).join('');
 };
 </script>
 <div class="sig" id="sig">S1 · Σ+MN+MX</div>
+<div id="sigdesc" style="font-family:var(--sans);font-size:13px;color:var(--dim);margin-top:6px"></div>
 <div class="rec" id="rec">—</div>
 <div class="meta" id="meta">loading…</div>
 <div id="list"></div>
