@@ -41,10 +41,24 @@ const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if
 const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
 (async () => {
   $('sig').textContent = 'S1 · ' + SIGNAL;
-  let st = null;
-  try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; } catch {}
-  const days = (st && st.days) || {};
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const getSt = async () => { try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); return j && j.state; } catch { return null; } };
+  let st = await getSt();
+  const hasToday = (s) => !!(s && s.days && s.days[ukd] && s.days[ukd].tp && Array.isArray(s.days[ukd].tp[SIGNAL]));
+  if (!hasToday(st)) {
+    $('meta').textContent = 'pulling today\u2019s picks from the terminal\u2026';
+    const fr = document.createElement('iframe');
+    fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    const t0 = Date.now();
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      $('meta').textContent = `pulling today\u2019s picks from the terminal\u2026 ${Math.round((Date.now() - t0) / 1000)}s`;
+      const s2 = await getSt(); if (hasToday(s2)) { st = s2; break; } if (s2) st = s2;
+    }
+    fr.remove();
+  }
+  const days = (st && st.days) || {};
   // all-time record from the aggregate scanner entries (every banked day), sequence from sq
   let W = 0, N = 0, SQ = '';
   Object.keys(days).sort().forEach(d => { const dv = days[d] || {};
@@ -56,7 +70,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   $('meta').innerHTML = N ? `<b>${Object.keys(days).length}</b> days banked · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>` : 'no record yet';
   // every pick on file, newest day first; live picks first within today
   const dayKeys = Object.keys(days).filter(d => days[d] && days[d].tp && Array.isArray(days[d].tp[SIGNAL]) && days[d].tp[SIGNAL].length).sort().reverse();
-  if (!dayKeys.length) { $('list').innerHTML = `<div class="empty">Pick-level tracking for ${SIGNAL} starts from the next refresh of a live terminal — the record above is the signal’s banked history; the race-by-race list fills from today forward.</div>`; return; }
+  if (!dayKeys.length) { $('list').innerHTML = `<div class="empty">No ${SIGNAL} agreement races on today\u2019s card yet. Picks appear here the moment all three signals land on one horse.</div>`; return; }
   const html = dayKeys.map(d => {
     const seen = new Set();
     const picks = days[d].tp[SIGNAL].filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
