@@ -21,6 +21,7 @@
       ['/ultra.html', 'ULTRA'],
       ['/react.html', 'REACT'],
       ['/pointblast.html', 'POINTBLAST'],
+      ['/best.html', 'BEST'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [

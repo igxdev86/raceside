@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BEST — RACESIDE</title>
+<script src="/nav.js" defer></script>
+<style>
+:root{--ubg:#070B12;--upanel:#0D1420;--upanel2:#111B2B;--uline:#1C2940;--uline2:#27395C;
+--uink:#E8EEF7;--udim:#9FB2CC;--ufaint:#6B7E9A;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--lumo:#39FF14;--red:#FF3B5C;
+--umono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--ucond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+html body{background:var(--ubg)!important;color:var(--uink)!important;font-family:var(--ucond);padding:12px 10px 60px}
+body .wrap{max-width:760px;margin:0}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+background:linear-gradient(90deg,var(--lumo),var(--cy));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.usub{font-size:11px;letter-spacing:.18em;color:var(--ufaint);font-weight:800;margin:4px 0 12px}
+.usub a{color:var(--ufaint);text-decoration:none}
+#ldr{margin:0 0 12px}
+#ldrStage{display:flex;align-items:center;gap:7px;font-family:var(--umono);font-size:12px;font-weight:700;color:var(--cy);margin-bottom:6px;letter-spacing:.06em}
+#ldrStage .dot{width:8px;height:8px;border-radius:50%;background:var(--cy);animation:tpl 1.1s infinite}
+@keyframes tpl{0%,100%{opacity:1}50%{opacity:.2}}
+#ldrBar{height:4px;background:var(--upanel2);border:1px solid var(--uline);border-radius:3px;overflow:hidden}
+#ldrFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cy),var(--lumo));transition:width .25s ease}
+#ldrTxt{font-family:var(--umono);font-size:10.5px;color:var(--udim);margin-top:5px}
+#ldr.done #ldrStage{color:var(--grn)} #ldr.done #ldrStage .dot{background:var(--grn);animation:none} #ldr.done #ldrFill{width:100%}
+.utile{background:var(--upanel);border:1px solid var(--uline);border-left:3px solid var(--cy);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.utile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--cy);text-transform:uppercase;margin-bottom:7px}
+.utile.best{border:1px solid var(--lumo);border-left:4px solid var(--lumo);box-shadow:0 0 22px rgba(57,255,20,.1)}
+.utile.best .hd2{color:var(--lumo)}
+.big{font-family:var(--umono);font-size:22px;font-weight:900;color:var(--lumo);line-height:1.3}
+.big small{font-size:12px;color:var(--udim);font-weight:700}
+.row{font-family:var(--umono);font-size:11.5px;line-height:1.95;padding:3px 0;border-bottom:1px solid var(--uline);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.row:last-child{border-bottom:0}
+.row .rk{color:var(--ufaint);min-width:22px}
+.row .nm{color:#fff;font-weight:900;min-width:110px}
+.row .fam{font-size:9px;letter-spacing:.1em;padding:1px 6px;border-radius:4px;border:1px solid var(--uline2);color:var(--udim)}
+.row .pc{color:var(--grn);font-weight:900}
+.row .wl{color:var(--am);font-weight:900}
+.row small{color:var(--ufaint)}
+.race{font-family:var(--umono);font-size:11.5px;line-height:1.9;padding:4px 0;border-bottom:1px solid var(--uline)}
+.race:last-child{border-bottom:0}
+.race .w{color:var(--lumo);font-weight:900}
+.race small{color:var(--ufaint)}
+.bdg{display:inline-block;font-size:9.5px;font-weight:900;letter-spacing:.06em;padding:1px 6px;border-radius:4px;margin-left:4px;border:1px solid}
+.bdg.hit{color:var(--grn);border-color:var(--grn)}
+.bdg.miss{color:var(--red);border-color:#5a1e2a;opacity:.6}
+.unote{font-family:var(--umono);font-size:10.5px;color:var(--ufaint);line-height:1.7;margin:0 0 14px}
+.unote b{color:var(--am)}
+.err{color:var(--red);font-family:var(--umono);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>BEST</h1>
+<div class="usub">EVERY SIGNAL · RACE BY RACE · MOST CONSISTENT WINNER · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div id="ldr"><div id="ldrStage"><span class="dot"></span><span id="ldrStageTxt">STARTING</span></div><div id="ldrBar"><div id="ldrFill"></div></div><div id="ldrTxt">&nbsp;</div></div>
+<div id="app"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim(); let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+const stage = (s) => { $('ldrStageTxt').textContent = s; };
+const txt = (s) => { $('ldrTxt').textContent = s; };
+const fill = (p) => { $('ldrFill').style.width = Math.round(p) + '%'; };
+const wilson = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n;
+  return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
+const drought = (sq) => { let cur = 0, mx = 0; for (const c of sq) { if (c === 'L') { cur++; mx = Math.max(mx, cur); } else cur = 0; } return { cur, mx }; };
+
+async function boot() {
+  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const month = ukd.slice(0, 7);
+  stage('1/4 · READING THE PRINTS ARCHIVE'); fill(5);
+  const [jA, jArch, jL, jP] = await Promise.all([
+    gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()),
+    gj('/api/yearstate?k=comboledger:v1&t=' + Date.now()), gj('/api/peopleall?v=2') ]);
+  // ---- races from prints (whole archive) ----
+  const seen = new Set(); const races = [];
+  const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
+  const arch = (jArch && jArch.state && jArch.state.days) || {};
+  Object.entries(arch).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));
+  ((jA && jA.state && jA.state.prints) || []).forEach(p => add(p.day || ukd, p));
+  races.sort((a, b) => a.day.localeCompare(b.day) || t2m(a.t) - t2m(b.t));
+  const settled = races.filter(p => p.w && (p.picks || []).length);
+  // ---- signal registry: name -> { fam, w, n, sq, hits: Map(raceKey -> horse) } ----
+  const SIG = {};
+  const sig = (nm, fam) => SIG[nm] = SIG[nm] || { nm, fam, w: 0, n: 0, sq: '', pick: {} };
+  const record = (nm, fam, rk, horse, won) => { const s = sig(nm, fam); s.n++; if (won) s.w++; s.sq += won ? 'W' : 'L'; s.pick[rk] = { h: horse, won }; };
+  const rkOf = (p) => p.day + '|' + p.k;
+  // A) PRINT family: rank-1 tags, PTS top, XS1 top
+  settled.forEach(p => {
+    const rk = rkOf(p), wn = hn(p.w);
+    const tagPick = {};
+    p.picks.forEach(x => (x.tags || []).forEach(t3 => { if (/1$/.test(t3) && !tagPick[t3]) tagPick[t3] = x; }));
+    Object.entries(tagPick).forEach(([t3, x]) => record(t3.replace(/1$/, ' #1'), 'PRINT', rk, x.h, hn(x.h) === wn));
+    const top = p.picks.filter(x => x.pts != null).sort((a, b) => b.pts - a.pts);
+    if (top.length >= 2 && top[0].pts > top[1].pts) record('PTS #1', 'PRINT', rk, top[0].h, hn(top[0].h) === wn);
+    if (top.length >= 2 && top[0].pts >= 20) record('PTS 20+', 'PRINT', rk, top[0].h, hn(top[0].h) === wn);
+    const xs = p.picks.filter(x => x.xs1 != null).sort((a, b) => b.xs1 - a.xs1);
+    if (xs.length >= 2) record('XS #1', 'PRINT', rk, xs[0].h, hn(xs[0].h) === wn);
+    // agreement: PTS top also carries J1 / T1 / OR1
+    if (top.length >= 2 && top[0].pts > top[1].pts) ['J1', 'T1', 'OR1', 'M1', 'PAIR1'].forEach(t3 => {
+      if ((top[0].tags || []).includes(t3)) record('PTS+' + t3.replace(/1$/, ''), 'PRINT', rk, top[0].h, hn(top[0].h) === wn); });
+  });
+  // B) FREEZE family from the ledger (aggregate + sequences, no per-race picks)
+  const days = (jL && jL.state && jL.state.days) || {};
+  Object.keys(days).sort().forEach(d => { const dv = days[d] || {};
+    (dv.scan || []).forEach(r => { if (!r || !r.nm) return; const s = sig(r.nm, 'FREEZE'); s.w += r.w || 0; s.n += r.n || 0; });
+    Object.entries(dv.sq || {}).forEach(([nm, s9]) => { const s = sig(nm, 'FREEZE'); s.sq += s9; }); });
+  // C) MARKET family: SP-era selectors over this month's days (priceday, sequential)
+  stage('2/4 · MARKET SIGNALS — ' + month); fill(20);
+  const JPCT = {}; Object.entries((jP && jP.jockeys) || {}).forEach(([jid, g]) => { if (g && g.runs >= 50) JPCT[jid] = g.wins / g.runs; });
+  const mDays = [...new Set(races.map(p => p.day))].filter(d => d.startsWith(month)).sort();
+  const claimOf = (r) => { const m = String(r.jockey || '').match(/\((\d+)\)/); return m ? Number(m[1]) : 0; };
+  const SEL = {
+    FAV: (rc) => rc.byD.length >= 2 ? rc.byD[0] : null,
+    FAV2: (rc) => rc.byD.length >= 3 ? rc.byD[1] : null,
+    TM: (rc) => { const a = rc.runners.filter(r => r.tm != null).sort((x, y) => y.tm - x.tm); return a.length >= 2 ? a[0] : null; },
+    OR: (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
+    TOPW: (rc) => { const a = rc.runners.filter(r => r.lbs).sort((x, y) => y.lbs - x.lbs); return a.length >= 2 && a[0].lbs > a[1].lbs ? a[0] : null; },
+    JPC: (rc) => { const a = rc.runners.filter(r => JPCT[r.jid] != null).sort((x, y) => JPCT[y.jid] - JPCT[x.jid]); return a.length >= 2 && JPCT[a[0].jid] > (JPCT[a[1].jid] || 0) ? a[0] : null; } };
+  const COMBOS = [['FAV'], ['FAV2'], ['TM'], ['OR'], ['TOPW'], ['JPC'], ['FAV', 'TM'], ['FAV', 'OR'], ['FAV', 'JPC'], ['TM', 'OR'], ['FAV', 'TM', 'OR'], ['FAV', 'TM', 'JPC'], ['FAV', 'OR', 'JPC']];
+  const marketPick = {};   // rk -> { comboName: horse }
+  let di = 0;
+  for (const d of mDays) {
+    txt(`${d} (${++di}/${mDays.length})`); fill(20 + di / Math.max(mDays.length, 1) * 50);
+    let j = null; try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {}
+    if (!(j && j.ok) && j && /429/.test(String(j.error))) { await new Promise(r9 => setTimeout(r9, 2500));
+      try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {} }
+    const byKey = {};
+    ((j && j.ok && j.races) || []).forEach(rc => { byKey[tK(rc.t) + '|' + ck0(rc.course)] = rc; });
+    races.filter(p => p.day === d && p.w).forEach(p => {
+      const rc = byKey[tK(p.t) + '|' + ck0(p.course)]; if (!rc || !rc.runners || rc.runners.length < 2) return;
+      const wq = rc.runners.find(r => r.won); if (!wq) return;
+      const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0));
+      rc.runners.forEach(r => { r.tm = topLbs && r.ofr != null && r.lbs ? r.ofr + (topLbs - r.lbs) + claimOf(r) : null; });
+      rc.byD = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
+      const rk = rkOf(p); marketPick[rk] = {};
+      const p1 = {}; Object.keys(SEL).forEach(k => { p1[k] = SEL[k](rc); });
+      COMBOS.forEach(cb => { const q0 = p1[cb[0]]; if (!q0) return;
+        for (let i = 1; i < cb.length; i++) if (p1[cb[i]] !== q0) return;
+        record(cb.join('+'), 'MARKET', rk, q0.h, q0 === wq); });
+    });
+    await new Promise(r9 => setTimeout(r9, 350));
+  }
+  // ---- rank: consistency = Wilson lower bound on strike, then strike, then n ----
+  stage('3/4 · RANKING FOR CONSISTENCY'); fill(80);
+  const rows = Object.values(SIG).filter(s => s.n > 0).map(s => { const dr = drought(s.sq);
+    const dayW = {}; Object.entries(s.pick).forEach(([rk, v]) => { const d = rk.slice(0, 10); dayW[d] = dayW[d] || { w: 0, n: 0 }; dayW[d].n++; if (v.won) dayW[d].w++; });
+    const dvals = Object.values(dayW); const daysHit = dvals.filter(x => x.w > 0).length;
+    return { ...s, pc: s.w / s.n, lb: wilson(s.w, s.n), cur: dr.cur, mx: dr.mx, days: dvals.length, daysHit }; })
+    .sort((a, b) => b.lb - a.lb || b.pc - a.pc || b.n - a.n);
+  const eligible = rows.filter(r => r.n >= 10);
+  const best = eligible[0] || rows[0];
+  const top5 = rows.filter(r => r.n >= 10).slice(0, 5);
+  const famTag = (f) => `<span class="fam">${f}</span>`;
+  const pcf = (v) => Math.round(v * 100);
+  // ---- day by day: every settled race, winner, which top-5 signals had it ----
+  stage('4/4 · RACE BY RACE'); fill(92);
+  const byDay = {};
+  settled.filter(p => p.day.startsWith(month)).forEach(p => (byDay[p.day] = byDay[p.day] || []).push(p));
+  const dayHtml = Object.keys(byDay).sort().reverse().map(d => {
+    const rs = byDay[d].sort((a, b) => t2m(a.t) - t2m(b.t));
+    return `<div class="utile"><div class="hd2">${d === ukd ? 'TODAY' : d} · ${rs.length} races</div>${rs.map(p => { const rk = rkOf(p);
+      const badges = top5.map(s => { const v = s.pick[rk]; if (!v) return ''; return `<span class="bdg ${v.won ? 'hit' : 'miss'}">${s.nm}${v.won ? ' ✓' : ''}</span>`; }).join('');
+      return `<div class="race">${p.t} ${String(p.course || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase()} — <span class="w">${p.w}</span>${badges || ' <small>none of the top 5 had a pick</small>'}</div>`; }).join('')}</div>`; }).join('');
+  $('app').innerHTML = (best ? `<div class="utile best"><div class="hd2">BEST SIGNAL · most consistent race-by-race winner</div>
+    <div class="big">${best.nm} <small>${best.fam}</small></div>
+    <div class="row"><span class="wl">${best.w}/${best.n}</span><span class="pc">${pcf(best.pc)}% strike</span><small>· consistency floor ${pcf(best.lb)}% (95% lower bound)</small></div>
+    <div class="row"><small>longest drought <b style="color:var(--am)">${best.mx}</b> · current run ${best.cur}✗${best.days ? ` · hit on ${best.daysHit}/${best.days} days` : ''}</small></div></div>` : '') +
+    `<div class="utile"><div class="hd2">All signals · ranked by consistency (Wilson lower bound)</div>${
+      rows.slice(0, 40).map((r, i) => `<div class="row"><span class="rk">${i + 1}</span><span class="nm">${r.nm}</span>${famTag(r.fam)}<span class="wl">${r.w}/${r.n}</span><span class="pc">${pcf(r.pc)}%</span><small>floor ${pcf(r.lb)}% · drought ${r.mx}${r.n < 10 ? ' · thin' : ''}</small></div>`).join('')
+    }</div>` +
+    `<div class="unote">One ranking across every signal built: <b>PRINT</b> (archive tags, points, XS), <b>FREEZE</b> (terminal tiles from the banked ledger) and <b>MARKET</b> (SP-era selectors). Consistency = the 95% lower bound of the strike rate, which rewards a signal for winning often <i>and</i> for having enough races to prove it; a 3/3 cannot outrank a 24/44. Droughts come from each signal's time-ordered sequence. Signals under 10 races are shown but cannot be BEST.</div>` +
+    dayHtml;
+  $('ldr').classList.add('done'); stage('COMPLETE'); fill(100);
+  txt(`${rows.length} signals · ${settled.length} settled races · ${mDays.length} market days`);
+}
+boot().catch(e => { txt(''); $('app').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
+</script>
+</body>
+</html>
