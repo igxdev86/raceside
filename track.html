@@ -44,11 +44,15 @@ const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCa
 const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
 const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
 (async () => {
-  $('sig').textContent = LABEL + ' · ' + SIGNAL;
   const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
-  const month = ukd.slice(0, 7);
-  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', month: 'long' }).format(new Date()).toUpperCase();
+  const month = /^\d{4}-\d{2}$/.test(Q.get('m') || '') ? Q.get('m') : ukd.slice(0, 7);
+  const mDate = new Date(month + '-15T12:00:00Z');
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', month: 'long', year: 'numeric' }).format(mDate).toUpperCase();
+  const shift = (k) => { const d = new Date(mDate); d.setUTCMonth(d.getUTCMonth() + k); return d.toISOString().slice(0, 7); };
+  const shortM = (mm) => new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(new Date(mm + '-15T12:00:00Z')).toUpperCase();
+  const mLink = (mm, lbl) => { const q = new URLSearchParams(location.search); q.set('m', mm); return `<a href="?${q}" style="color:var(--dim);text-decoration:none;font-family:var(--mono);font-size:11px;letter-spacing:.14em">${lbl}</a>`; };
+  $('sig').innerHTML = `${LABEL} \u00b7 ${SIGNAL} <span style="float:right">${mLink(shift(-1), '\u2190 ' + shortM(shift(-1)))} &nbsp; ${shift(1) <= ukd.slice(0, 7) ? mLink(shift(1), shortM(shift(1)) + ' \u2192') : ''}</span>`;
   const [jA, jArch, jP] = await Promise.all([ gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()), gj('/api/peopleall?v=2') ]);
   const seen = new Set(); const races = [];
   const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
@@ -80,12 +84,13 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
       OR: (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
       TOPW: (rc) => { const a = rc.runners.filter(r => r.lbs).sort((x, y) => y.lbs - x.lbs); return a.length >= 2 && a[0].lbs > a[1].lbs ? a[0] : null; },
       JPC: (rc) => { const a = rc.runners.filter(r => JPCT[r.jid] != null).sort((x, y) => JPCT[y.jid] - JPCT[x.jid]); return a.length >= 2 && JPCT[a[0].jid] > (JPCT[a[1].jid] || 0) ? a[0] : null; } };
-    const parts = SIGNAL.split('+');
+    const parts = SIGNAL.split('+'); const missing = []; window.__missing = missing;
     const mDays = [...new Set(settled.map(p => p.day))].filter(d => d.startsWith(month)).sort();
     let i = 0;
     for (const d of mDays) {
       $('meta').textContent = `reading results · ${d} (${++i}/${mDays.length})`;
       let j = null; try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {}
+      if (!(j && j.ok)) missing.push(d + (j && j.error ? ' ' + j.error : ''));
       if (!(j && j.ok) && j && /429/.test(String(j.error))) { await new Promise(r9 => setTimeout(r9, 2500)); try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {} }
       ((j && j.ok && j.races) || []).forEach(rc => { if (!rc.runners || rc.runners.length < 2) return;
         const wq = rc.runners.find(r => r.won); if (!wq) return;
@@ -104,7 +109,8 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   let mx = 0, run = 0; for (const c of SQ) { if (c === 'L') { run++; mx = Math.max(mx, run); } else run = 0; }
   const dayN = new Set(picks.map(p => p.day)).size;
   $('rec').innerHTML = N ? `${W}/${N}<small>${Math.round(W / N * 100)}%</small>` : '—';
-  $('meta').innerHTML = N ? `<b>${dayN}</b> days · ${isMarket ? 'SP' : 'print'} prices · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>` : 'no record found for ' + SIGNAL;
+  const missNote = (window.__missing && window.__missing.length) ? `<br><span style="color:var(--red)">no results feed for ${window.__missing.length} day${window.__missing.length === 1 ? '' : 's'}: ${window.__missing.slice(0, 4).join(', ')}${window.__missing.length > 4 ? '\u2026' : ''}</span>` : '';
+  $('meta').innerHTML = N ? `<b>${dayN}</b> days · ${isMarket ? 'SP' : 'print'} prices · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>${missNote}` : ('no record found for ' + SIGNAL + ' in ' + monthName + missNote);
   const mPicks = picks.filter(p => p.day.startsWith(month));
   const mW = mPicks.filter(p => p.w).length;
   const byDay = {}; mPicks.forEach(p => (byDay[p.day] = byDay[p.day] || []).push(p));
