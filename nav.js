@@ -19,6 +19,7 @@
       ['/maxterminalx.html', 'TERMINAL X'],
       ['/terminal14.html', 'TERMINAL 14'],
       ['/ultra.html', 'ULTRA'],
+      ['/react.html', 'REACT'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [

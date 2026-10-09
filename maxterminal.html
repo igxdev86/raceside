@@ -965,7 +965,7 @@ const __boot = async () => {
           upLines.push({ t: x.t, c: x.course, h: q7.r.h, d: q7.r.d, n: tags7.length, tags: tags7.join('+') }); }); });
       upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
       const comboPerf = {}; rs5.forEach(r5 => { comboPerf[r5.nm] = r5; });
-      const nextBy = {};
+      const nextBy = window.__nextBy = {};
       listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2)
         .slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(x => {
           const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
@@ -1025,7 +1025,7 @@ const __boot = async () => {
           bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
       }); } catch {}
-      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9 };
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {} };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();

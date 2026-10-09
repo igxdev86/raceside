@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>REACT — RACESIDE</title>
+<script src="/nav.js" defer></script>
+<style>
+:root{--ubg:#070B12;--upanel:#0D1420;--upanel2:#111B2B;--uline:#1C2940;--uline2:#27395C;
+--uink:#E8EEF7;--udim:#9FB2CC;--ufaint:#6B7E9A;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--lumo:#39FF14;--red:#FF3B5C;
+--umono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--ucond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+html body{background:var(--ubg)!important;color:var(--uink)!important;font-family:var(--ucond);padding:12px 10px 60px}
+body .wrap{max-width:760px;margin:0}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+background:linear-gradient(90deg,var(--cy),var(--lumo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.usub{font-size:11px;letter-spacing:.18em;color:var(--ufaint);font-weight:800;margin:4px 0 12px}
+.usub a{color:var(--ufaint);text-decoration:none}
+.upd2{font-family:var(--umono);font-size:10.5px;color:var(--cy);margin:2px 0 12px}
+.utile{background:var(--upanel);border:1px solid var(--uline);border-left:3px solid var(--cy);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.utile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--cy);text-transform:uppercase;margin-bottom:7px}
+.utile.nxt{border:1px solid var(--lumo);border-left:4px solid var(--lumo);box-shadow:0 0 18px rgba(57,255,20,.08)}
+.utile.nxt .hd2{color:var(--lumo)}
+.rrow9{font-family:var(--umono);font-size:12px;line-height:1.9;padding:7px 0;border-bottom:1px solid var(--uline)}
+.rrow9:last-child{border-bottom:0}
+.rrow9 .hname{color:var(--lumo);font-weight:900;font-size:13px}
+.rrow9 small{color:var(--ufaint)}
+.rrow9 .est{font-weight:900;font-size:15px}
+.rrow9 .mkt{color:var(--udim)}
+.rrow9 .cmb{display:block;color:var(--udim);font-size:10.5px;line-height:1.9}
+.rrow9 .cmb b{color:#C7D3E4}
+.bar{height:5px;background:var(--upanel2);border:1px solid var(--uline);border-radius:3px;overflow:hidden;margin:4px 0 2px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--lumo))}
+.unote{font-family:var(--umono);font-size:10.5px;color:var(--ufaint);line-height:1.7;margin:0 0 14px}
+.unote b{color:var(--am)}
+.err{color:var(--red);font-family:var(--umono);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>REACT</h1>
+<div class="usub">NEXT PICKS × WIN LIKELIHOOD · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="upd2" id="upd">loading…</div>
+<div id="app"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const dayKey = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+const t2m9 = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0;
+  let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+const nowM = () => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).split(':');
+  return (+p[0]) * 60 + (+p[1]); };
+
+async function boot() {
+  const getState = async () => { try {
+    const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json();
+    return (j && j.state) || null; } catch { return null; } };
+  let st = await getState();
+  const today = dayKey();
+  const fresh = (s) => s && s.days && s.days[today] && s.days[today].nx && Object.keys(s.days[today].nx).length
+    && s.ts && (Date.now() - s.ts < 10 * 60 * 1000);
+  if (!fresh(st)) {
+    $('upd').textContent = 'reading the live board — TERMINAL X engine running…';
+    const fr = document.createElement('iframe');
+    fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    const t0 = Date.now();
+    for (let w9 = 0; w9 < 15; w9++) {
+      await new Promise(r9 => setTimeout(r9, 4000));
+      $('upd').textContent = `reading the live board… ${Math.round((Date.now() - t0) / 1000)}s`;
+      const s2 = await getState();
+      if (fresh(s2)) { st = s2; break; }
+      if (s2) st = s2;
+    }
+    fr.remove();
+  }
+  const days = (st && st.days) || {};
+  const nx = (days[today] && days[today].nx) || {};
+  // aggregate every banked day's scanner records
+  const agS = {};
+  Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r9 => { if (!r9 || !r9.nm) return;
+    const g = agS[r9.nm] = agS[r9.nm] || { w: 0, n: 0 }; g.w += r9.w || 0; g.n += r9.n || 0; }));
+  const dayN = Object.keys(days).length;
+  // fold combo->pick into horse->evidence
+  const byH = {};
+  Object.entries(nx).forEach(([nm, v]) => { if (!v || !v.h) return;
+    if (t2m9(v.t) < nowM() - 2) return;   // already off
+    const g = byH[v.h + '|' + v.t] = byH[v.h + '|' + v.t] || { h: v.h, t: v.t, d: v.d != null ? v.d : null, cs: [] };
+    if (v.d != null && g.d == null) g.d = v.d;
+    const rec = agS[nm] || { w: 0, n: 0 };
+    g.cs.push({ nm, w: rec.w, n: rec.n, est: (rec.w + 1) / (rec.n + 2) }); });
+  const rows = Object.values(byH).map(g => {
+    g.cs.sort((a, b) => b.n - a.n || b.est - a.est);
+    const lead = g.cs.find(c => c.n >= 3) || g.cs[0];
+    g.est = lead ? lead.est : null; g.lead = lead;
+    g.imp = g.d > 1 ? 1 / g.d : null;
+    return g; }).sort((a, b) => t2m9(a.t) - t2m9(b.t));
+  if (!rows.length) {
+    $('app').innerHTML = '<div class="utile"><div class="hd2">Nothing left to run</div><div class="rrow9"><small>No live races with tile agreement right now — come back on the next card.</small></div></div>';
+    $('upd').textContent = 'no upcoming picks'; return;
+  }
+  const pcf = (v) => Math.round(v * 100);
+  const html = rows.map((g, i) => {
+    const edge = g.est != null && g.imp != null ? g.est - g.imp : null;
+    const combos = g.cs.map(c => `<b>${c.nm}</b> ${c.w}/${c.n}${c.n ? ` (${pcf(c.w / c.n)}%)` : ' (no record)'}`).join(' · ');
+    return `<div class="utile${i === 0 ? ' nxt' : ''}"><div class="hd2">${i === 0 ? 'NEXT · ' : ''}${g.t} · agreement pick</div>
+      <div class="rrow9"><span class="hname">${g.h}</span>${g.d != null ? ` <small>@ ${g.d}</small>` : ''}<br>
+      <span class="est" style="color:${g.est == null ? 'var(--udim)' : edge != null && edge > 0 ? 'var(--grn)' : 'var(--am)'}">${g.est != null ? pcf(g.est) + '%' : '—'}</span>
+      <small> win estimate${g.lead ? ` (${g.lead.nm}, ${g.lead.w}/${g.lead.n} banked)` : ''}</small>
+      ${g.imp != null ? `<span class="mkt"> · market says ${pcf(g.imp)}%${edge != null ? ` · <b style="color:${edge > 0 ? 'var(--grn)' : 'var(--red)'}">${edge > 0 ? '+' : ''}${pcf(edge)}</b>` : ''}</span>` : ''}
+      <div class="bar"><i style="width:${g.est != null ? pcf(g.est) : 0}%"></i></div>
+      <span class="cmb">${combos}</span></div></div>`;
+  }).join('');
+  $('app').innerHTML = html +
+    `<div class="unote">Estimate = the pick's strongest-evidenced combo from <b>${dayN} day${dayN === 1 ? '' : 's'}</b> of the frozen record, smoothed ((w+1)/(n+2)) so tiny samples can't claim certainty. Green when the record beats the market's implied chance. ${dayN < 7 ? '<b>Early days:</b> ' + dayN + ' day' + (dayN === 1 ? '' : 's') + ' banked — treat estimates as rough until the record deepens.' : ''}</div>`;
+  $('upd').textContent = rows.length + ' live pick' + (rows.length === 1 ? '' : 's') + ' · built ' +
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
+</script>
+</body>
+</html>
