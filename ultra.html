@@ -6,51 +6,55 @@
 <title>ULTRA — RACESIDE</title>
 <script src="/nav.js" defer></script>
 <style>
-:root{--bg:#070B12;--panel:#0D1420;--panel2:#111B2B;--line:#1C2940;--line2:#27395C;
---ink:#E8EEF7;--dim:#8A9BB5;--faint:#54657F;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--red:#FF3B5C;
---mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--cond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+:root{--ubg:#070B12;--upanel:#0D1420;--upanel2:#111B2B;--uline:#1C2940;--uline2:#27395C;
+--uink:#E8EEF7;--udim:#9FB2CC;--ufaint:#6B7E9A;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--red:#FF3B5C;
+--umono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--ucond:-apple-system,"Helvetica Neue",Arial,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--cond);padding:12px 10px 60px}
-.wrap{max-width:760px;margin:0}
+html body{background:var(--ubg)!important;color:var(--uink)!important;font-family:var(--ucond);padding:12px 10px 60px}
+body .wrap{max-width:760px;margin:0}
 h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
 background:linear-gradient(90deg,var(--am),var(--grn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
-.sub{font-size:11px;letter-spacing:.18em;color:var(--faint);font-weight:800;margin:4px 0 12px}
-.sub a{color:var(--faint);text-decoration:none}
-.upd{font-family:var(--mono);font-size:10.5px;color:var(--cy);margin:2px 0 12px}
+.usub{font-size:11px;letter-spacing:.18em;color:var(--ufaint);font-weight:800;margin:4px 0 12px}
+.usub a{color:var(--ufaint);text-decoration:none}
+.upd{font-family:var(--umono);font-size:10.5px;color:var(--cy);margin:2px 0 12px}
 .dash{display:flex;gap:7px;margin:0 0 12px;flex-wrap:wrap}
-.dcell{flex:1;min-width:30%;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+.dcell{flex:1;min-width:30%;background:linear-gradient(180deg,var(--upanel2),var(--upanel));border:1px solid var(--uline);
 border-top:3px solid var(--am);border-radius:6px;padding:9px 4px 8px;text-align:center}
-.dcell small{display:block;font-size:8px;letter-spacing:.1em;color:var(--dim);font-weight:800;text-transform:uppercase}
-.dcell b{display:block;font-family:var(--mono);font-size:18px;font-weight:700;color:#fff;margin:3px 0 1px}
-.dcell span{font-family:var(--mono);font-size:10px;color:var(--grn);font-weight:700}
-.note{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin:0 0 14px;line-height:1.7}
-.tile{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:8px;padding:11px 12px;margin:0 0 10px}
-.tile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--am);text-transform:uppercase;margin-bottom:7px}
-.uln{font-family:var(--mono);font-size:11.5px;line-height:1.9;padding:5px 0;border-bottom:1px solid var(--line)}
+.dcell small{display:block;font-size:8px;letter-spacing:.1em;color:var(--udim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--umono);font-size:18px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell span{font-family:var(--umono);font-size:10px;color:var(--grn);font-weight:700}
+.note{font-family:var(--umono);font-size:10.5px;color:var(--ufaint);margin:0 0 14px;line-height:1.7}
+.utile{background:var(--upanel);border:1px solid var(--uline);border-left:3px solid var(--am);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.utile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--am);text-transform:uppercase;margin-bottom:7px}
+.uln{font-family:var(--umono);font-size:11.5px;line-height:1.9;padding:5px 0;border-bottom:1px solid var(--uline)}
 .uln:last-child{border-bottom:0}
-.uln small{color:var(--faint)}
+.uln small{color:var(--ufaint)}
 .uln b{color:#fff}
 .uln .p1{color:var(--grn);font-weight:900}
 .uln .pbad{color:var(--red);font-weight:700}
 .uln .tot{color:var(--am);font-weight:900}
-.uln .rline{display:block;color:var(--dim);font-size:10.5px}
+.uln .rline{display:block;color:var(--udim);font-size:10.5px}
 .uln .rline small{margin-right:1px}
 .uln .rline span{color:#C7D3E4;font-weight:700;margin-right:5px}
 .uln .rline .rk1{color:var(--grn)}
-.err{color:var(--red);font-family:var(--mono);font-size:11px}
-.mart{border:1px solid var(--line2);border-radius:7px;padding:7px 10px;margin:0 0 10px;background:var(--panel2)}
-.mart .mh{font-size:9px;letter-spacing:.14em;font-weight:900;color:var(--cy);margin-bottom:5px}
-.mart .mln{font-family:var(--mono);font-size:10.5px;line-height:1.85;color:var(--ink)}
-.mart .mln small{color:var(--faint)}
-.mart .msum{font-family:var(--mono);font-size:10.5px;color:var(--dim);border-top:1px solid var(--line);margin-top:5px;padding-top:5px}
-.mart .msum b{color:var(--am)}
+.err{color:var(--red);font-family:var(--umono);font-size:11px}
+.mart{border:1px solid #33497A;border-radius:8px;padding:10px 12px;margin:0 0 12px;background:#0A1526}
+.mart .mh{font-size:10px;letter-spacing:.14em;font-weight:900;color:#00D1FF;margin-bottom:7px}
+.mart .mln{font-family:var(--umono);font-size:12px;line-height:2;color:#E8EEF7!important;border-bottom:1px solid #16233C}
+.mart .mln:last-of-type{border-bottom:0}
+.mart .mln small{color:#9FB2CC}
+.mart .mln .p1{color:#00E676;font-weight:900}
+.mart .mln .pbad{color:#FF3B5C;font-weight:900}
+.mart .msum{font-family:var(--umono);font-size:12px;line-height:1.9;color:#C7D3E4;border-top:1px solid #33497A;margin-top:7px;padding-top:7px}
+.mart .msum b{color:#FFB300}
+.mart .msum small{color:#9FB2CC}
 .amp{color:var(--am)}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>ULTRA</h1>
-<div class="sub">WINNERS × RANK TABLE · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="usub">WINNERS × RANK TABLE · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
 <div class="upd" id="upd">loading…</div>
 <div id="app"></div>
 </div>
@@ -86,7 +90,7 @@ async function boot() {
     }
     fr.remove();
   }
-  if (!ledger) { $('app').innerHTML = '<div class="tile"><div class="hd2">No record yet</div><div class="uln"><small>Open TERMINAL X once during racing and winners bank automatically with their rank scores.</small></div></div>';
+  if (!ledger) { $('app').innerHTML = '<div class="utile"><div class="hd2">No record yet</div><div class="uln"><small>Open TERMINAL X once during racing and winners bank automatically with their rank scores.</small></div></div>';
     $('upd').textContent = 'empty'; return; }
   const days = Object.keys(ledger).filter(d => Array.isArray(ledger[d].ultra) && ledger[d].ultra.length).sort().reverse();
   let races = 0, bestWon = 0, top3 = 0, totSum = 0, posSum = 0, staked = 0, ret = 0;
@@ -101,7 +105,7 @@ async function boot() {
     <div class="dcell"><small>AVG WIN POS</small><b>#${races ? Math.round(posSum / races * 10) / 10 : '—'}</b><span>of field</span></div>
     <div class="dcell"><small>AVG WIN TOTAL</small><b>${races ? Math.round(totSum / races * 10) / 10 : '—'}</b><span>rank sum</span></div>
     <div class="dcell"><small>£1 ON ULTRA #1</small><b>${staked ? '£' + (Math.round(ret * 100) / 100).toFixed(2) : '—'}</b><span>${staked ? 'staked £' + staked : 'no odds banked yet'}</span></div>
-    <div class="dcell"><small>ROI</small><b style="color:${roi == null ? 'var(--dim)' : roi >= 0 ? 'var(--grn)' : 'var(--red)'}">${roi == null ? '—' : (roi > 0 ? '+' : '') + roi + '%'}</b><span>${staked ? (pl >= 0 ? '+' : '') + '£' + (Math.round(pl * 100) / 100).toFixed(2) + ' P/L' : ''}</span></div>
+    <div class="dcell"><small>ROI</small><b style="color:${roi == null ? 'var(--udim)' : roi >= 0 ? 'var(--grn)' : 'var(--red)'}">${roi == null ? '—' : (roi > 0 ? '+' : '') + roi + '%'}</b><span>${staked ? (pl >= 0 ? '+' : '') + '£' + (Math.round(pl * 100) / 100).toFixed(2) + ' P/L' : ''}</span></div>
   </div>`;
   const campaign = (() => {
     const daysAsc = days.slice().sort();
@@ -124,7 +128,7 @@ async function boot() {
     if (!bets) return '';
     const net = pl - L;
     const nx = (dd) => Math.round((L + 10) / (dd - 1) * 100) / 100;
-    return `<div class="tile" style="border-left-color:var(--cy)"><div class="hd2" style="color:var(--cy)">CAMPAIGN \u2014 one continuous ladder, \u00a310/cycle, stop at +\u00a31,000</div>
+    return `<div class="utile" style="border-left-color:var(--cy)"><div class="hd2" style="color:var(--cy)">CAMPAIGN \u2014 one continuous ladder, \u00a310/cycle, stop at +\u00a31,000</div>
       <div class="msum" style="border:0;margin:0 0 6px;padding:0">position <b style="color:${net >= 0 ? 'var(--grn)' : 'var(--red)'}">${net < 0 ? '\u2212' : '+'}\u00a3${Math.abs(net).toFixed(2)}</b> \u00b7 banked <b>\u00a3${pl.toFixed(2)}</b>${L > 0 ? ` \u00b7 open ladder <b style="color:var(--red)">\u2212\u00a3${L.toFixed(2)}</b> \u00b7 next stake <b>\u00a3${nx(3)}</b> @3.0 / <b>\u00a3${nx(2)}</b> @2.0` : ' \u00b7 ladder clear'}${stopped ? ' \u00b7 <b style="color:var(--grn)">TARGET HIT \u2713</b>' : ''}<br>${bets} bets \u00b7 \u00a3${stkSum.toFixed(2)} turned over \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b></div>${
       dRows.map(r => `<div class="mln">${r.d} <small>\u00b7</small> ${r.w9}/${r.b9} cycles <small>\u00b7</small> <b style="color:${r.pl >= 0 ? 'var(--grn)' : 'var(--red)'}">${r.pl < 0 ? '\u2212' : '+'}\u00a3${Math.abs(r.pl).toFixed(2)}</b>${r.L > 0 ? ` <small>carrying \u00a3${r.L.toFixed(2)}</small>` : ''}</div>`).join('')
     }</div>`;
@@ -157,7 +161,7 @@ async function boot() {
         steps.map(s9 => `<div class="mln">${s9}</div>`).join('')
       }<div class="msum">final <b style="color:${final >= 0 ? 'var(--grn)' : 'var(--red)'}">${final < 0 ? '\u2212' : '+'}\u00a3${Math.abs(final).toFixed(2)}</b> \u00b7 peak stake <b>\u00a3${peak.toFixed(2)}</b> \u00b7 worst hole <b>\u00a3${Math.abs(worst).toFixed(2)}</b> \u00b7 longest run <b>${maxRun}\u2717</b>${L > 0 ? ` \u00b7 <span class="pbad">ends mid-ladder, \u00a3${L.toFixed(2)} unrecovered</span>` : ''}${skipped ? ` \u00b7 ${skipped} no-odds skipped` : ''}</div></div>`;
     })();
-    return `<div class="tile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${mart}${rows}</div>`;
+    return `<div class="utile"><div class="hd2">${d === todayK ? 'TODAY' : d}</div>${mart}${rows}</div>`;
   }).join('');
   $('app').innerHTML = tiles + campaign +
     `<div class="note">Every winner's score from the full-card rank table: position in the race's rank order, gold rank-sum total (lower = stronger convergence), and its rank in each signal. ULTRA #1 = the table's top line won. Missing signal counts worst in the total. £1 line backs the ULTRA #1 in every race at the terminal's recorded price — strike is the product, this is just the receipt.</div>` +
