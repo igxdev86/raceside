@@ -36,11 +36,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 
 <div id="list"></div>
 <script>
 const SIGNAL = new URLSearchParams(location.search).get('s') || 'Σ+MN+MX';
+const LABEL = new URLSearchParams(location.search).get('n') || 'S1';
 const $ = (id) => document.getElementById(id);
 const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
 const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
 (async () => {
-  $('sig').textContent = 'S1 · ' + SIGNAL;
+  $('sig').textContent = LABEL + ' · ' + SIGNAL;
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const getSt = async () => { try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); return j && j.state; } catch { return null; } };
   let st = await getSt();
