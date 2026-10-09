@@ -23,6 +23,7 @@
       ['/pointblast.html', 'POINTBLAST'],
       ['/best.html', 'BEST'],
       ['/best.html?focus=FAV%2BTM%2BOR', 'GAPS'],
+      ['/track-s1.html', 'TRACK S1'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [

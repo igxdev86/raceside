@@ -951,13 +951,16 @@ const __boot = async () => {
       rec5(0, []); return out; })();
     const scanRows = () => { const res = [];
       const seqs = window.__scanSeq = {};
+      const TRACK5 = window.__trackCombos || ['\u03a3+MN+MX', '\u03a3+MN', '\u03a3+MX', 'MN+MX', '\u03a3+MN+PWR', '\u03a3+PWR+MX', 'MN+PWR+MX', '\u03a3+TM+MN'];
+      const tp5 = window.__trackPicks = {}; TRACK5.forEach(nm5 => { tp5[nm5] = []; });
       const ordered5 = listRows.slice().sort((a5, b5) => t2m(a5.t) - t2m(b5.t));
       scanCombos.forEach(cb => { let n5 = 0, w5 = 0, sq5 = '';
         ordered5.forEach(x => { if (!x.w || !x.runners || x.runners.length < 2) return;
           const wq5 = x.runners.find(q => hn(q.r.h) === hn(x.w)); if (!wq5) return;
           const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
           if (!picks5.every(p5 => p5 === picks5[0])) return;
-          n5++; if (picks5[0] === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L'; });
+          n5++; if (picks5[0] === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L';
+          { const nm5 = cb.join('+'); if (tp5[nm5]) tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: picks5[0].r.h, d: Number(picks5[0].r.d) > 0 ? Number(picks5[0].r.d) : null, w: picks5[0] === wq5 ? 1 : 0, wn: x.w }); } });
         if (n5 > 0) { seqs[cb.join('+')] = sq5; res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); } });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
     const scanner = () => { const rs5 = window.__scan = scanRows();
@@ -973,7 +976,10 @@ const __boot = async () => {
       listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2)
         .slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(x => {
           const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
-          scanCombos.forEach(cb8 => { const nm8 = cb8.join('+'); if (nextBy[nm8]) return;
+          scanCombos.forEach(cb8 => { const nm8 = cb8.join('+');
+            if (window.__trackPicks && window.__trackPicks[nm8]) { const q8b = p8[cb8[0]];
+              if (q8b && cb8.every(k8b => p8[k8b] === q8b)) window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null }); }
+            if (nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
             nextBy[nm8] = { h: q8.r.h, t: x.t, d: Number(q8.r.d) > 0 ? Number(q8.r.d) : null }; }); });
@@ -1029,7 +1035,7 @@ const __boot = async () => {
           bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
       }); } catch {}
-      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {} };
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {} };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();

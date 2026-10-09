@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRACK S1</title>
+<style>
+:root{--bg:#06080D;--ink:#F2F5FA;--dim:#8C9AB0;--faint:#4E5A6E;--line:#151B26;--lumo:#39FF14;--red:#FF3B5C;--am:#FFB300;
+--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,"Helvetica Neue",Inter,Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 18px 80px;max-width:640px}
+.sig{font-family:var(--mono);font-size:13px;letter-spacing:.3em;color:var(--lumo);font-weight:700}
+.rec{font-family:var(--mono);font-size:44px;font-weight:900;line-height:1.05;margin:10px 0 2px;letter-spacing:-.02em}
+.rec small{font-size:16px;color:var(--dim);font-weight:700;letter-spacing:0;margin-left:8px}
+.meta{font-family:var(--mono);font-size:12px;color:var(--dim);line-height:1.8;margin-bottom:26px}
+.meta b{color:var(--ink)}
+.meta .seq{letter-spacing:.14em;word-break:break-all}
+.day{margin:22px 0 6px;font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--faint);text-transform:uppercase;display:flex;justify-content:space-between}
+.pk{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--line)}
+.pk .t{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.pk .t small{display:block;font-size:9.5px;color:var(--faint);letter-spacing:.1em}
+.pk .h{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.pk .h small{font-family:var(--mono);font-size:11.5px;color:var(--dim);font-weight:600;margin-left:6px}
+.pk .h .lost{display:block;font-size:11px;color:var(--faint);font-weight:500;margin-top:1px}
+.pk .r{font-family:var(--mono);font-size:12px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+.pk.w .r{color:var(--lumo)} .pk.w .h{color:var(--lumo)}
+.pk.l .r{color:var(--red)} .pk.l .h{color:var(--ink);opacity:.55}
+.pk.p .r{color:var(--am)} .pk.p .h{color:var(--ink)}
+.empty{font-family:var(--mono);font-size:12px;color:var(--faint);line-height:1.8;margin-top:30px}
+</style>
+</head>
+<body>
+<div class="sig" id="sig">S1 · Σ+MN+MX</div>
+<div class="rec" id="rec">—</div>
+<div class="meta" id="meta">loading…</div>
+<div id="list"></div>
+<script>
+const SIGNAL = new URLSearchParams(location.search).get('s') || 'Σ+MN+MX';
+const $ = (id) => document.getElementById(id);
+const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
+(async () => {
+  $('sig').textContent = 'S1 · ' + SIGNAL;
+  let st = null;
+  try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; } catch {}
+  const days = (st && st.days) || {};
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  // all-time record from the aggregate scanner entries (every banked day), sequence from sq
+  let W = 0, N = 0, SQ = '';
+  Object.keys(days).sort().forEach(d => { const dv = days[d] || {};
+    const r = (dv.scan || []).find(x => x && x.nm === SIGNAL); if (r) { W += r.w || 0; N += r.n || 0; }
+    if (dv.sq && dv.sq[SIGNAL]) SQ += dv.sq[SIGNAL]; });
+  let cur = 0; for (let i = SQ.length - 1; i >= 0 && SQ[i] === 'L'; i--) cur++;
+  let mx = 0, run = 0; for (const c of SQ) { if (c === 'L') { run++; mx = Math.max(mx, run); } else run = 0; }
+  $('rec').innerHTML = N ? `${W}/${N}<small>${Math.round(W / N * 100)}%</small>` : '—';
+  $('meta').innerHTML = N ? `<b>${Object.keys(days).length}</b> days banked · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>` : 'no record yet';
+  // every pick on file, newest day first; live picks first within today
+  const dayKeys = Object.keys(days).filter(d => days[d] && days[d].tp && Array.isArray(days[d].tp[SIGNAL]) && days[d].tp[SIGNAL].length).sort().reverse();
+  if (!dayKeys.length) { $('list').innerHTML = `<div class="empty">Pick-level tracking for ${SIGNAL} starts from the next refresh of a live terminal — the record above is the signal’s banked history; the race-by-race list fills from today forward.</div>`; return; }
+  const html = dayKeys.map(d => {
+    const seen = new Set();
+    const picks = days[d].tp[SIGNAL].filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
+    const settled = picks.filter(p => p.w !== null), w9 = settled.filter(p => p.w).length;
+    return `<div class="day"><span>${d === ukd ? 'today' : d}</span><span>${settled.length ? `${w9}/${settled.length}` : ''}</span></div>` +
+      picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
+  }).join('');
+  $('list').innerHTML = html;
+})();
+</script>
+</body>
+</html>
