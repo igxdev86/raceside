@@ -27,6 +27,7 @@
       ['/track.html?s=FAV%2BTM%2BOR&n=S2', 'TRACK S2'],
       ['/track.html?s=J%20%231%2BT%20%231&n=S3', 'TRACK S3'],
       ['/track-s1.html?s=MX&n=S4', 'TRACK S4'],
+      ['/track-s1.html?s=MN&n=S5', 'TRACK S5'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [
