@@ -29,6 +29,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 
 </style>
 </head>
 <body>
+
+<div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
+<script>
+window.__renderMenu = (days, cur) => {
+  const fixed = [ ['S1', '\u03a3+MN+MX', '/track-s1.html?s=%CE%A3%2BMN%2BMX&n=S1'], ['S2', 'FAV+TM+OR', '/track.html?s=FAV%2BTM%2BOR&n=S2'],
+    ['S3', 'J #1+T #1', '/track.html?s=J%20%231%2BT%20%231&n=S3'], ['S4', 'MX', '/track-s1.html?s=MX&n=S4'], ['S5', 'MN', '/track-s1.html?s=MN&n=S5'] ];
+  const ag = {}; Object.values(days || {}).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
+  const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
+  const fixedNames = new Set(fixed.map(f => f[1]));
+  const more = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
+    .sort((a, b) => b.lb - a.lb).slice(0, 10);
+  const chip = (lbl, nm, href, sub) => `<a href="${href}" style="text-decoration:none;border:1px solid ${nm === cur ? 'var(--lumo)' : 'var(--line)'};color:${nm === cur ? 'var(--lumo)' : 'var(--dim)'};border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>${lbl}</b> ${nm}${sub ? `<br><span style="color:var(--faint);font-size:9.5px">${sub}</span>` : ''}</a>`;
+  document.getElementById('smenu').innerHTML = fixed.map(f => chip(f[0], f[1], f[2], ag[f[1]] ? `${ag[f[1]].w}/${ag[f[1]].n}` : '')).join('') +
+    more.map((m, i) => chip('X' + (i + 1), m.nm, '/track-s1.html?s=' + encodeURIComponent(m.nm) + '&n=X' + (i + 1), `${m.w}/${m.n} \u00b7 ${Math.round(m.w / m.n * 100)}%`)).join('');
+};
+</script>
 <div class="sig" id="sig">S2</div>
 <div class="rec" id="rec">—</div>
 <div class="meta" id="meta">loading…</div>
@@ -53,7 +69,8 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   const shortM = (mm) => new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(new Date(mm + '-15T12:00:00Z')).toUpperCase();
   const mLink = (mm, lbl) => { const q = new URLSearchParams(location.search); q.set('m', mm); return `<a href="?${q}" style="color:var(--dim);text-decoration:none;font-family:var(--mono);font-size:11px;letter-spacing:.14em">${lbl}</a>`; };
   $('sig').innerHTML = `${LABEL} \u00b7 ${SIGNAL} <span style="float:right">${mLink(shift(-1), '\u2190 ' + shortM(shift(-1)))} &nbsp; ${shift(1) <= ukd.slice(0, 7) ? mLink(shift(1), shortM(shift(1)) + ' \u2192') : ''}</span>`;
-  const [jA, jArch, jP] = await Promise.all([ gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()), gj('/api/peopleall?v=2') ]);
+  const [jA, jArch, jP, jL] = await Promise.all([ gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()), gj('/api/peopleall?v=2'), gj('/api/yearstate?k=comboledger:v1&t=' + Date.now()) ]);
+  try { window.__renderMenu((jL && jL.state && jL.state.days) || {}, SIGNAL); } catch {}
   const seen = new Set(); const races = [];
   const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
   Object.entries((jArch && jArch.state && jArch.state.days) || {}).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));

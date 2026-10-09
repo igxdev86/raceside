@@ -30,6 +30,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 
 </style>
 </head>
 <body>
+
+<div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
+<script>
+window.__renderMenu = (days, cur) => {
+  const fixed = [ ['S1', '\u03a3+MN+MX', '/track-s1.html?s=%CE%A3%2BMN%2BMX&n=S1'], ['S2', 'FAV+TM+OR', '/track.html?s=FAV%2BTM%2BOR&n=S2'],
+    ['S3', 'J #1+T #1', '/track.html?s=J%20%231%2BT%20%231&n=S3'], ['S4', 'MX', '/track-s1.html?s=MX&n=S4'], ['S5', 'MN', '/track-s1.html?s=MN&n=S5'] ];
+  const ag = {}; Object.values(days || {}).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
+  const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
+  const fixedNames = new Set(fixed.map(f => f[1]));
+  const more = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
+    .sort((a, b) => b.lb - a.lb).slice(0, 10);
+  const chip = (lbl, nm, href, sub) => `<a href="${href}" style="text-decoration:none;border:1px solid ${nm === cur ? 'var(--lumo)' : 'var(--line)'};color:${nm === cur ? 'var(--lumo)' : 'var(--dim)'};border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>${lbl}</b> ${nm}${sub ? `<br><span style="color:var(--faint);font-size:9.5px">${sub}</span>` : ''}</a>`;
+  document.getElementById('smenu').innerHTML = fixed.map(f => chip(f[0], f[1], f[2], ag[f[1]] ? `${ag[f[1]].w}/${ag[f[1]].n}` : '')).join('') +
+    more.map((m, i) => chip('X' + (i + 1), m.nm, '/track-s1.html?s=' + encodeURIComponent(m.nm) + '&n=X' + (i + 1), `${m.w}/${m.n} \u00b7 ${Math.round(m.w / m.n * 100)}%`)).join('');
+};
+</script>
 <div class="sig" id="sig">S1 · Σ+MN+MX</div>
 <div class="rec" id="rec">—</div>
 <div class="meta" id="meta">loading…</div>
@@ -60,6 +76,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
     fr.remove();
   }
   const days = (st && st.days) || {};
+  try { window.__renderMenu(days, SIGNAL); } catch {}
   // all-time record from the aggregate scanner entries (every banked day), sequence from sq
   let W = 0, N = 0, SQ = '';
   Object.keys(days).sort().forEach(d => { const dv = days[d] || {};

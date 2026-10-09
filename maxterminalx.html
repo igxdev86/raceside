@@ -902,7 +902,7 @@ const __boot = async () => {
       rec5(0, []); return out; })();
     const scanRows = () => { const res = [];
       const seqs = window.__scanSeq = {};
-      const TRACK5 = window.__trackCombos || ['\u03a3', 'TM', 'MN', 'PWR', 'MX', 'JT', '\u03a3+MN+MX', '\u03a3+MN', '\u03a3+MX', 'MN+MX', '\u03a3+MN+PWR', '\u03a3+PWR+MX', 'MN+PWR+MX', '\u03a3+TM+MN', '\u03a3+JT', 'MX+JT'];
+      const TRACK5 = window.__trackCombos || scanCombos.map(cb9 => cb9.join('+'));
       const tp5 = window.__trackPicks = {}; TRACK5.forEach(nm5 => { tp5[nm5] = []; });
       const ordered5 = listRows.slice().sort((a5, b5) => t2m(a5.t) - t2m(b5.t));
       scanCombos.forEach(cb => { let n5 = 0, w5 = 0, sq5 = '';
