@@ -24,6 +24,7 @@
       ['/best.html', 'BEST'],
       ['/best.html?focus=FAV%2BTM%2BOR', 'GAPS'],
       ['/track-s1.html', 'TRACK S1'],
+      ['/track.html?s=FAV%2BTM%2BOR&n=S2', 'TRACK S2'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [

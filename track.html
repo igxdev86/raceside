@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRACK</title>
+<style>
+:root{--bg:#06080D;--ink:#F2F5FA;--dim:#8C9AB0;--faint:#4E5A6E;--line:#151B26;--lumo:#39FF14;--red:#FF3B5C;--am:#FFB300;
+--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,"Helvetica Neue",Inter,Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 18px 80px;max-width:640px}
+.sig{font-family:var(--mono);font-size:13px;letter-spacing:.3em;color:var(--lumo);font-weight:700}
+.rec{font-family:var(--mono);font-size:44px;font-weight:900;line-height:1.05;margin:10px 0 2px;letter-spacing:-.02em}
+.rec small{font-size:16px;color:var(--dim);font-weight:700;letter-spacing:0;margin-left:8px}
+.meta{font-family:var(--mono);font-size:12px;color:var(--dim);line-height:1.8;margin-bottom:26px}
+.meta b{color:var(--ink)}
+.meta .seq{letter-spacing:.14em;word-break:break-all}
+.day{margin:22px 0 6px;font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--faint);text-transform:uppercase;display:flex;justify-content:space-between}
+.pk{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--line)}
+.pk .t{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.pk .t small{display:block;font-size:9.5px;color:var(--faint);letter-spacing:.1em}
+.pk .h{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.pk .h small{font-family:var(--mono);font-size:11.5px;color:var(--dim);font-weight:600;margin-left:6px}
+.pk .h .lost{display:block;font-size:11px;color:var(--faint);font-weight:500;margin-top:1px}
+.pk .r{font-family:var(--mono);font-size:12px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+.pk.w .r{color:var(--lumo)} .pk.w .h{color:var(--lumo)}
+.pk.l .r{color:var(--red)} .pk.l .h{color:var(--ink);opacity:.55}
+.empty{font-family:var(--mono);font-size:12px;color:var(--faint);line-height:1.8;margin-top:30px}
+</style>
+</head>
+<body>
+<div class="sig" id="sig">S2</div>
+<div class="rec" id="rec">—</div>
+<div class="meta" id="meta">loading…</div>
+<div id="list"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const SIGNAL = Q.get('s') || 'FAV+TM+OR';
+const LABEL = Q.get('n') || 'S2';
+const $ = (id) => document.getElementById(id);
+const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim(); let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
+const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
+(async () => {
+  $('sig').textContent = LABEL + ' · ' + SIGNAL;
+  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const month = ukd.slice(0, 7);
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', month: 'long' }).format(new Date()).toUpperCase();
+  const [jA, jArch, jP] = await Promise.all([ gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()), gj('/api/peopleall?v=2') ]);
+  const seen = new Set(); const races = [];
+  const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
+  Object.entries((jArch && jArch.state && jArch.state.days) || {}).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));
+  ((jA && jA.state && jA.state.prints) || []).forEach(p => add(p.day || ukd, p));
+  races.sort((a, b) => a.day.localeCompare(b.day) || t2m(a.t) - t2m(b.t));
+  const settled = races.filter(p => p.w && (p.picks || []).length);
+  const picks = [];   // { day, t, c, h, d, w, wn }
+  const isMarket = /\b(FAV2?|OR|TOPW|JPC)\b/.test(SIGNAL) || /^TM$/.test(SIGNAL) || /^FAV/.test(SIGNAL);
+  if (!isMarket) {
+    // PRINT family, whole archive
+    settled.forEach(p => { const wn = hn(p.w); let pick = null;
+      const top = p.picks.filter(x => x.pts != null).sort((a, b) => b.pts - a.pts);
+      const tagPick = (t3) => p.picks.find(x => (x.tags || []).includes(t3));
+      const m1 = SIGNAL.match(/^([A-ZΣ]+) #1$/);
+      if (m1) pick = tagPick(m1[1] + '1');
+      else if (SIGNAL === 'PTS #1') pick = top.length >= 2 && top[0].pts > top[1].pts ? top[0] : null;
+      else if (SIGNAL === 'PTS 20+') pick = top.length >= 2 && top[0].pts >= 20 ? top[0] : null;
+      else if (SIGNAL === 'XS #1') { const xs = p.picks.filter(x => x.xs1 != null).sort((a, b) => b.xs1 - a.xs1); pick = xs.length >= 2 ? xs[0] : null; }
+      else { const m2 = SIGNAL.match(/^PTS\+([A-Z]+)$/); if (m2 && top.length >= 2 && top[0].pts > top[1].pts && (top[0].tags || []).includes(m2[1] + '1')) pick = top[0]; }
+      if (pick) picks.push({ day: p.day, t: p.t, c: p.course, h: pick.h, d: pick.d, w: hn(pick.h) === wn ? 1 : 0, wn: p.w }); });
+  } else {
+    // MARKET family, this month's days via results (sequential, paced)
+    const JPCT = {}; Object.entries((jP && jP.jockeys) || {}).forEach(([jid, g]) => { if (g && g.runs >= 50) JPCT[jid] = g.wins / g.runs; });
+    const claimOf = (r) => { const m = String(r.jockey || '').match(/\((\d+)\)/); return m ? Number(m[1]) : 0; };
+    const SEL = {
+      FAV: (rc) => rc.byD.length >= 2 ? rc.byD[0] : null, FAV2: (rc) => rc.byD.length >= 3 ? rc.byD[1] : null,
+      TM: (rc) => { const a = rc.runners.filter(r => r.tm != null).sort((x, y) => y.tm - x.tm); return a.length >= 2 ? a[0] : null; },
+      OR: (rc) => { const a = rc.runners.filter(r => r.ofr != null).sort((x, y) => y.ofr - x.ofr); return a.length >= 2 ? a[0] : null; },
+      TOPW: (rc) => { const a = rc.runners.filter(r => r.lbs).sort((x, y) => y.lbs - x.lbs); return a.length >= 2 && a[0].lbs > a[1].lbs ? a[0] : null; },
+      JPC: (rc) => { const a = rc.runners.filter(r => JPCT[r.jid] != null).sort((x, y) => JPCT[y.jid] - JPCT[x.jid]); return a.length >= 2 && JPCT[a[0].jid] > (JPCT[a[1].jid] || 0) ? a[0] : null; } };
+    const parts = SIGNAL.split('+');
+    const mDays = [...new Set(settled.map(p => p.day))].filter(d => d.startsWith(month)).sort();
+    let i = 0;
+    for (const d of mDays) {
+      $('meta').textContent = `reading results · ${d} (${++i}/${mDays.length})`;
+      let j = null; try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {}
+      if (!(j && j.ok) && j && /429/.test(String(j.error))) { await new Promise(r9 => setTimeout(r9, 2500)); try { const r = await fetch('/api/priceday?date=' + d); j = await r.json(); } catch {} }
+      ((j && j.ok && j.races) || []).forEach(rc => { if (!rc.runners || rc.runners.length < 2) return;
+        const wq = rc.runners.find(r => r.won); if (!wq) return;
+        const topLbs = Math.max(...rc.runners.map(r => r.lbs || 0));
+        rc.runners.forEach(r => { r.tm = topLbs && r.ofr != null && r.lbs ? r.ofr + (topLbs - r.lbs) + claimOf(r) : null; });
+        rc.byD = rc.runners.filter(r => Number(r.d) > 1).sort((x, y) => x.d - y.d);
+        const p1 = parts.map(k => SEL[k] ? SEL[k](rc) : null); if (p1.some(q => !q) || !p1.every(q => q === p1[0])) return;
+        picks.push({ day: d, t: tK(rc.t), c: rc.course, h: p1[0].h, d: p1[0].d, w: p1[0] === wq ? 1 : 0, wn: wq.h }); });
+      await new Promise(r9 => setTimeout(r9, 350));
+    }
+  }
+  picks.sort((a, b) => a.day.localeCompare(b.day) || t2m(a.t) - t2m(b.t));
+  const W = picks.filter(p => p.w).length, N = picks.length;
+  const SQ = picks.map(p => p.w ? 'W' : 'L').join('');
+  let cur = 0; for (let i = SQ.length - 1; i >= 0 && SQ[i] === 'L'; i--) cur++;
+  let mx = 0, run = 0; for (const c of SQ) { if (c === 'L') { run++; mx = Math.max(mx, run); } else run = 0; }
+  const dayN = new Set(picks.map(p => p.day)).size;
+  $('rec').innerHTML = N ? `${W}/${N}<small>${Math.round(W / N * 100)}%</small>` : '—';
+  $('meta').innerHTML = N ? `<b>${dayN}</b> days · ${isMarket ? 'SP' : 'print'} prices · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>` : 'no record found for ' + SIGNAL;
+  const mPicks = picks.filter(p => p.day.startsWith(month));
+  const mW = mPicks.filter(p => p.w).length;
+  const byDay = {}; mPicks.forEach(p => (byDay[p.day] = byDay[p.day] || []).push(p));
+  const blocks = Object.keys(byDay).sort().reverse().map(d => { const ps = byDay[d]; const w9 = ps.filter(p => p.w).length;
+    return `<div class="day"><span>${d === ukd ? 'today' : d.slice(5)}</span><span>${w9}/${ps.length}</span></div>` +
+      ps.map(p => `<div class="pk ${p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${Number(p.d) > 0 ? `<small>@ ${p.d}</small>` : ''}${!p.w && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w ? 'WON' : 'LOST'}</div></div>`).join(''); }).join('');
+  $('list').innerHTML = mPicks.length ? `<div class="day" style="margin-top:4px;color:var(--lumo)"><span>${monthName}</span><span>${mW}/${mPicks.length} · ${Math.round(mW / mPicks.length * 100)}%</span></div>` + blocks : `<div class="empty">No ${SIGNAL} picks in ${monthName}.</div>`;
+})();
+</script>
+</body>
+</html>
