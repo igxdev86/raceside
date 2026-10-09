@@ -68,18 +68,25 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   let mx = 0, run = 0; for (const c of SQ) { if (c === 'L') { run++; mx = Math.max(mx, run); } else run = 0; }
   $('rec').innerHTML = N ? `${W}/${N}<small>${Math.round(W / N * 100)}%</small>` : '—';
   $('meta').innerHTML = N ? `<b>${Object.keys(days).length}</b> days banked · longest losing run <b>${mx}</b> · current <b style="color:${cur ? 'var(--red)' : 'var(--lumo)'}">${cur}✗</b><br><span class="seq">${[...SQ].map(c => c === 'W' ? '<b style="color:var(--lumo)">W</b>' : '<span style="color:var(--red)">L</span>').join('')}</span>` : 'no record yet';
-  // every pick on file, newest day first; live picks first within today
-  const dayKeys = Object.keys(days).filter(d => days[d] && days[d].tp && Array.isArray(days[d].tp[SIGNAL]) && days[d].tp[SIGNAL].length).sort().reverse();
-  if (!dayKeys.length) { $('list').innerHTML = `<div class="empty">No ${SIGNAL} agreement races on today\u2019s card yet. Picks appear here the moment all three signals land on one horse.</div>`; return; }
-  const html = dayKeys.map(d => {
+  // THIS MONTH: every banked day, newest first. Picks listed where stored; score line where only the tally exists.
+  const month = ukd.slice(0, 7);
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', month: 'long' }).format(new Date()).toUpperCase();
+  const mDays = Object.keys(days).filter(d => d.startsWith(month)).sort().reverse();
+  if (!mDays.length) { $('list').innerHTML = `<div class="empty">Nothing banked for ${monthName} yet.</div>`; return; }
+  let mw = 0, mn = 0;
+  const blocks = mDays.map(d => {
+    const dv = days[d] || {};
+    const rec = (dv.scan || []).find(x => x && x.nm === SIGNAL);
+    if (rec) { mw += rec.w || 0; mn += rec.n || 0; }
+    const raw = (dv.tp && dv.tp[SIGNAL]) || [];
     const seen = new Set();
-    const picks = days[d].tp[SIGNAL].filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
+    const picks = raw.filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
-    const settled = picks.filter(p => p.w !== null), w9 = settled.filter(p => p.w).length;
-    return `<div class="day"><span>${d === ukd ? 'today' : d}</span><span>${settled.length ? `${w9}/${settled.length}` : ''}</span></div>` +
-      picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
+    const hdr = `<div class="day"><span>${d === ukd ? 'today' : d.slice(5)}</span><span>${rec && rec.n ? `${rec.w}/${rec.n}` : ''}</span></div>`;
+    if (!picks.length) return hdr + `<div class="empty" style="margin:6px 0 4px">${rec && rec.n ? 'score banked \u00b7 horse names were not stored before 9 Oct' : 'no agreement races'}</div>`;
+    return hdr + picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
   }).join('');
-  $('list').innerHTML = html;
+  $('list').innerHTML = `<div class="day" style="margin-top:4px;color:var(--lumo)"><span>${monthName}</span><span>${mn ? `${mw}/${mn} \u00b7 ${Math.round(mw / mn * 100)}%` : ''}</span></div>` + blocks;
 })();
 </script>
 </body>
