@@ -20,6 +20,7 @@
       ['/terminal14.html', 'TERMINAL 14'],
       ['/ultra.html', 'ULTRA'],
       ['/react.html', 'REACT'],
+      ['/pointblast.html', 'POINTBLAST'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
     ['TMRW', [

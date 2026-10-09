@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POINTBLAST — RACESIDE</title>
+<script src="/nav.js" defer></script>
+<style>
+:root{--ubg:#070B12;--upanel:#0D1420;--upanel2:#111B2B;--uline:#1C2940;--uline2:#27395C;
+--uink:#E8EEF7;--udim:#9FB2CC;--ufaint:#6B7E9A;--cy:#00D1FF;--am:#FFB300;--grn:#00E676;--lumo:#39FF14;--red:#FF3B5C;
+--umono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;--ucond:-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
+html body{background:var(--ubg)!important;color:var(--uink)!important;font-family:var(--ucond);padding:12px 10px 60px}
+body .wrap{max-width:760px;margin:0}
+h1{font-size:24px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+background:linear-gradient(90deg,var(--am),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.usub{font-size:11px;letter-spacing:.18em;color:var(--ufaint);font-weight:800;margin:4px 0 12px}
+.usub a{color:var(--ufaint);text-decoration:none}
+.upd2{font-family:var(--umono);font-size:10.5px;color:var(--cy);margin:2px 0 12px}
+.dash{display:flex;gap:7px;margin:0 0 12px;flex-wrap:wrap}
+.dcell{flex:1;min-width:30%;background:linear-gradient(180deg,var(--upanel2),var(--upanel));border:1px solid var(--uline);
+border-top:3px solid var(--am);border-radius:6px;padding:9px 4px 8px;text-align:center}
+.dcell small{display:block;font-size:8px;letter-spacing:.1em;color:var(--udim);font-weight:800;text-transform:uppercase}
+.dcell b{display:block;font-family:var(--umono);font-size:18px;font-weight:700;color:#fff;margin:3px 0 1px}
+.dcell span{font-family:var(--umono);font-size:10px;color:var(--grn);font-weight:700}
+.utile{background:var(--upanel);border:1px solid var(--uline);border-left:3px solid var(--am);border-radius:8px;padding:11px 12px;margin:0 0 10px}
+.utile .hd2{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--am);text-transform:uppercase;margin-bottom:7px}
+.pb{font-family:var(--umono);font-size:12px;line-height:2.1;padding:4px 0;border-bottom:1px solid var(--uline)}
+.pb:last-child{border-bottom:0}
+.pb .pts{display:inline-block;min-width:52px;color:var(--am);font-weight:900;font-size:14px}
+.pb .hname{color:var(--lumo);font-weight:900;font-size:13px}
+.pb small{color:var(--ufaint)}
+.pb .win{color:var(--grn);font-weight:900}
+.pb .lose{color:var(--red)}
+.pb .pend{color:var(--udim)}
+.pb .tags{color:var(--udim);font-size:10.5px}
+.unote{font-family:var(--umono);font-size:10.5px;color:var(--ufaint);line-height:1.7;margin:0 0 14px}
+.unote b{color:var(--am)}
+.err{color:var(--red);font-family:var(--umono);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>POINTBLAST</h1>
+<div class="usub">HIGHEST-POINTS HORSES · THIS MONTH · <a href="/maxterminalx.html">&larr; TERMINAL X</a></div>
+<div class="upd2" id="upd">loading…</div>
+<div id="app"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const hn = (s) => String(s || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+async function boot() {
+  const gj = (u) => fetch(u).then(r => r.json()).catch(() => null);
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const month = ukd.slice(0, 7);
+  const monthName = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', month: 'long', year: 'numeric' }).format(new Date()).toUpperCase();
+  const [jA, jArch] = await Promise.all([
+    gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()),
+    gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()) ]);
+  const seen = new Set(); const prints = [];
+  const add = (day, p) => { if (!p || !day || !day.startsWith(month)) return;
+    const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk);
+    prints.push({ ...p, day }); };
+  const arch = jArch && jArch.state && jArch.state.days || {};
+  Object.entries(arch).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));
+  ((jA && jA.state && jA.state.prints) || []).forEach(p => add(p.day || ukd, p));
+  const rows = [];
+  prints.forEach(p => (p.picks || []).forEach(x => { if (x.pts == null) return;
+    const settled = !!p.w;
+    rows.push({ pts: x.pts, h: x.h, d: x.d, day: p.day, t: p.t, c: p.course,
+      won: settled ? hn(x.h) === hn(p.w) : null, w: p.w, tags: (x.tags || []).slice(0, 4) }); }));
+  rows.sort((a, b) => b.pts - a.pts || (b.won === true ? 1 : 0) - (a.won === true ? 1 : 0));
+  if (!rows.length) {
+    $('app').innerHTML = `<div class="utile"><div class="hd2">No points yet for ${monthName}</div><div class="pb"><small>Prints bank as the month runs — check back after today's racing.</small></div></div>`;
+    $('upd').textContent = 'empty'; return;
+  }
+  const top = rows.slice(0, 60);
+  const settled = rows.filter(r => r.won !== null);
+  const wins = settled.filter(r => r.won).length;
+  const t20 = settled.filter(r => r.pts >= 20), t20w = t20.filter(r => r.won).length;
+  const best = rows[0];
+  const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').slice(0, 3).toUpperCase();
+  const tiles = `<div class="dash">
+    <div class="dcell"><small>${monthName.split(' ')[0]} PICKS</small><b>${rows.length}</b><span>${prints.length} races</span></div>
+    <div class="dcell"><small>SETTLED STRIKE</small><b>${wins}/${settled.length}</b><span>${settled.length ? Math.round(wins / settled.length * 100) : 0}%</span></div>
+    <div class="dcell"><small>20+ PTS STRIKE</small><b>${t20w}/${t20.length}</b><span>${t20.length ? Math.round(t20w / t20.length * 100) : 0}%</span></div>
+    <div class="dcell"><small>TOP SCORE</small><b>★${best.pts}</b><span>${best.h}</span></div>
+  </div>`;
+  const list = `<div class="utile"><div class="hd2">Top ${top.length} by points · ${monthName}</div>${
+    top.map(r => `<div class="pb"><span class="pts">★ ${r.pts}</span><span class="hname">${r.h}</span>${Number(r.d) > 0 ? ` <small>@ ${r.d}</small>` : ''}
+      ${r.won === true ? '<span class="win">WON ✓</span>' : r.won === false ? `<span class="lose">✗</span> <small>(won: ${r.w})</small>` : '<span class="pend">to run / unsettled</span>'}
+      <br><small>${r.day.slice(5)} · ${r.t} ${abbr(r.c)}</small>${r.tags.length ? ` <span class="tags">${r.tags.join(' · ')}</span>` : ''}</div>`).join('')
+  }</div>`;
+  $('app').innerHTML = tiles + list +
+    `<div class="unote">Every print pick this month ranked by its ★ points score at print time — the engine's conviction, frozen when the card was live. Strike tiles show whether big scores are actually converting.</div>`;
+  $('upd').textContent = `${rows.length} picks · ${Object.keys(arch).filter(d => d.startsWith(month)).length + 1} days scanned · built ` +
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+boot().catch(e => { $('upd').innerHTML = '<span class="err">failed: ' + e + '</span>'; });
+</script>
+</body>
+</html>
