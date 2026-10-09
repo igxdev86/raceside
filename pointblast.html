@@ -86,12 +86,23 @@ async function boot() {
     <div class="dcell"><small>20+ PTS STRIKE</small><b>${t20w}/${t20.length}</b><span>${t20.length ? Math.round(t20w / t20.length * 100) : 0}%</span></div>
     <div class="dcell"><small>TOP SCORE</small><b>★${best.pts}</b><span>${best.h}</span></div>
   </div>`;
-  const list = `<div class="utile"><div class="hd2">Top ${top.length} by points · ${monthName}</div>${
-    top.map(r => `<div class="pb"><span class="pts">★ ${r.pts}</span><span class="hname">${r.h}</span>${Number(r.d) > 0 ? ` <small>@ ${r.d}</small>` : ''}
+  const line = (r, withDay) => `<div class="pb"><span class="pts">★ ${r.pts}</span><span class="hname">${r.h}</span>${Number(r.d) > 0 ? ` <small>@ ${r.d}</small>` : ''}
       ${r.won === true ? '<span class="win">WON ✓</span>' : r.won === false ? `<span class="lose">✗</span> <small>(won: ${r.w})</small>` : '<span class="pend">to run / unsettled</span>'}
-      <br><small>${r.day.slice(5)} · ${r.t} ${abbr(r.c)}</small>${r.tags.length ? ` <span class="tags">${r.tags.join(' · ')}</span>` : ''}</div>`).join('')
-  }</div>`;
-  $('app').innerHTML = tiles + list +
+      <br><small>${withDay ? r.day.slice(5) + ' · ' : ''}${r.t} ${abbr(r.c)}</small>${r.tags.length ? ` <span class="tags">${r.tags.join(' · ')}</span>` : ''}</div>`;
+  const list = `<div class="utile"><div class="hd2">Top ${top.length} by points · ${monthName}</div>${top.map(r => line(r, true)).join('')}</div>`;
+  const t2m9 = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0;
+    let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
+  const byDay = {};
+  prints.forEach(p => { const best9 = (p.picks || []).filter(x => x.pts != null).sort((a, b) => b.pts - a.pts)[0];
+    if (!best9) return;
+    (byDay[p.day] = byDay[p.day] || []).push({ pts: best9.pts, h: best9.h, d: best9.d, t: p.t, c: p.course,
+      won: p.w ? hn(best9.h) === hn(p.w) : null, w: p.w, tags: (best9.tags || []).slice(0, 4), day: p.day }); });
+  const dayList = Object.keys(byDay).sort().reverse().map(d9 => {
+    const rs9 = byDay[d9].sort((a, b) => t2m9(a.t) - t2m9(b.t));
+    const st9 = rs9.filter(r => r.won !== null); const w9 = st9.filter(r => r.won).length;
+    return `<div class="utile" style="border-left-color:var(--cy)"><div class="hd2" style="color:var(--cy)">${d9 === ukd ? 'TODAY' : d9} · ${rs9.length} races${st9.length ? ` · top pick ${w9}/${st9.length}` : ''}</div>${rs9.map(r => line(r, false)).join('')}</div>`;
+  }).join('');
+  $('app').innerHTML = tiles + list + dayList +
     `<div class="unote">Every print pick this month ranked by its ★ points score at print time — the engine's conviction, frozen when the card was live. Strike tiles show whether big scores are actually converting.</div>`;
   $('upd').textContent = `${rows.length} picks · ${Object.keys(arch).filter(d => d.startsWith(month)).length + 1} days scanned · built ` +
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
