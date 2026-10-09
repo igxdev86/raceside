@@ -81,14 +81,35 @@ async function boot() {
   Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r9 => { if (!r9 || !r9.nm) return;
     const g = agS[r9.nm] = agS[r9.nm] || { w: 0, n: 0 }; g.w += r9.w || 0; g.n += r9.n || 0; }));
   const dayN = Object.keys(days).length;
+  // full time-ordered W/L sequence per tile across all banked days
+  const seqOf = {};
+  Object.keys(days).sort().forEach(d9 => { const sq9 = days[d9] && days[d9].sq;
+    if (sq9) Object.entries(sq9).forEach(([nm, s9]) => { seqOf[nm] = (seqOf[nm] || '') + s9; }); });
+  const streakOf = (nm) => { const s9 = seqOf[nm] || ''; let L9 = 0;
+    for (let i9 = s9.length - 1; i9 >= 0 && s9[i9] === 'L'; i9--) L9++; return L9; };
+  const afterRun = (nm, L9) => { // historically, after >=L9 straight losses, how often did the NEXT bet win?
+    const s9 = seqOf[nm] || ''; let run9 = 0, won9 = 0, tot9 = 0;
+    for (let i9 = 0; i9 < s9.length; i9++) {
+      if (run9 >= L9 && L9 > 0) { tot9++; if (s9[i9] === 'W') won9++; }
+      run9 = s9[i9] === 'L' ? run9 + 1 : 0; }
+    return { won9, tot9 }; };
   // tile-first: every banked tile/combo with a live next pick
   const live = Object.entries(nx).filter(([, v]) => v && v.h && t2m9(v.t) >= nowM() - 2);
   const rows = live.map(([nm, v]) => {
     const rec = agS[nm] || { w: 0, n: 0 };
     const oneIn = rec.w > 0 ? rec.n / rec.w : null;
-    const est = (rec.w + 1) / (rec.n + 2);
+    let est = (rec.w + 1) / (rec.n + 2);
+    const stk = streakOf(nm);
+    const ar = stk > 0 ? afterRun(nm, stk) : { won9: 0, tot9: 0 };
+    let dueTxt = '';
+    if (stk > 0) {
+      dueTxt = `${stk}\u2717 since a win`;
+      if (ar.tot9 >= 3) { est = (ar.won9 + 1) / (ar.tot9 + 2);
+        dueTxt += ` \u00b7 after ${stk}\u2717 the next one won <b>${ar.won9}/${ar.tot9}</b> historically`; }
+      else if (oneIn != null) dueTxt += ` \u00b7 typical gap ${Math.round(oneIn * 10) / 10}`;
+    }
     const imp = v.d > 1 ? 1 / v.d : null;
-    return { nm, ...v, w: rec.w, n: rec.n, oneIn, est, imp };
+    return { nm, ...v, w: rec.w, n: rec.n, oneIn, est, imp, stk, dueTxt };
   }).sort((a, b) => (a.oneIn == null ? 1 : 0) - (b.oneIn == null ? 1 : 0) || (a.oneIn || 99) - (b.oneIn || 99) || b.n - a.n);
   const pcf = (v) => Math.round(v * 100);
   const fmt1 = (v) => { const r = Math.round(v * 10) / 10; return r === Math.round(r) ? String(Math.round(r)) : r.toFixed(1); };
@@ -98,6 +119,7 @@ async function boot() {
       <div class="rrow9">
       <span class="est" style="color:${g.oneIn == null ? 'var(--udim)' : 'var(--lumo)'}">${g.oneIn != null ? 'wins 1 in ' + fmt1(g.oneIn) : 'no wins banked yet'}</span>
       <small> \u00b7 ${g.w}/${g.n} across the record${g.n ? ' (' + pcf(g.w / Math.max(g.n, 1)) + '%)' : ''}</small>
+      ${g.dueTxt ? `<span class="cmb" style="color:${g.stk >= (g.oneIn || 9) ? 'var(--am)' : 'var(--udim)'}">${g.dueTxt}</span>` : ''}
       <div class="bar"><i style="width:${g.n ? pcf(g.w / g.n) : 0}%"></i></div>
       next pick: <span class="hname">${g.h}</span>${g.d != null ? ` <small>@ ${g.d}</small>` : ''} <small>\u00b7 ${g.t}</small>
       ${g.imp != null ? `<span class="cmb">market says ${pcf(g.imp)}% for this one \u00b7 record says ${pcf(g.est)}% \u00b7 <b style="color:${edge > 0 ? 'var(--grn)' : 'var(--red)'}">${edge > 0 ? '+' : ''}${pcf(edge)}</b></span>` : ''}
@@ -108,11 +130,11 @@ async function boot() {
     .map(([nm, g]) => ({ nm, ...g, oneIn: g.w > 0 ? g.n / g.w : null }))
     .sort((a, b) => (a.oneIn == null ? 1 : 0) - (b.oneIn == null ? 1 : 0) || (a.oneIn || 99) - (b.oneIn || 99) || b.n - a.n);
   const restHtml = rest.length ? `<div class="utile" style="border-left-color:var(--uline2)"><div class="hd2" style="color:var(--udim)">${rows.length ? 'No live pick right now \u2014 record only' : 'Racing done \u2014 every tile\u2019s record'}</div>${
-    rest.map(g => `<div class="rrow9" style="padding:3px 0"><b style="color:#C7D3E4">${g.nm}</b> <small>\u2014</small> ${g.oneIn != null ? `<b style="color:var(--lumo)">wins 1 in ${Math.round(g.oneIn * 10) / 10}</b>` : '<small>no wins yet</small>'} <small>\u00b7 ${g.w}/${g.n} (${Math.round(g.w / g.n * 100)}%)</small></div>`).join('')
+    rest.map(g => `<div class="rrow9" style="padding:3px 0"><b style="color:#C7D3E4">${g.nm}</b> <small>\u2014</small> ${g.oneIn != null ? `<b style="color:var(--lumo)">wins 1 in ${Math.round(g.oneIn * 10) / 10}</b>` : '<small>no wins yet</small>'} <small>\u00b7 ${g.w}/${g.n} (${Math.round(g.w / g.n * 100)}%)</small>${streakOf(g.nm) > 0 ? ` <b style="color:${streakOf(g.nm) >= (g.oneIn || 9) ? 'var(--am)' : 'var(--ufaint)'};font-size:10.5px">${streakOf(g.nm)}\u2717 running</b>` : ''}</div>`).join('')
   }</div>` : '';
   const html2 = rows.length ? html : '';
   $('app').innerHTML = html2 + restHtml +
-    `<div class="unote">Each tile's banked record as plain frequency \u2014 <b>wins 1 in N</b> \u2014 from ${dayN} day${dayN === 1 ? '' : 's'} of the frozen record, with its next live pick. Record % is raw; the per-horse % is smoothed ((w+1)/(n+2)). A 1-in-2 from four races is luck until it is a 1-in-2 from forty. ${dayN < 7 ? '<b>Early days.</b>' : ''}</div>`;
+    `<div class="unote">Each tile's banked record as plain frequency \u2014 <b>wins 1 in N</b> \u2014 from ${dayN} day${dayN === 1 ? '' : 's'} of the frozen record, with its next live pick. Record % is raw; the per-horse % is smoothed ((w+1)/(n+2)). A 1-in-2 from four races is luck until it is a 1-in-2 from forty. The due line shows where a tile sits in its losing run against its typical gap, and when the record holds enough cases, the estimate switches to what actually happened after runs that long \u2014 measured, not assumed. ${dayN < 7 ? '<b>Early days.</b>' : ''}</div>`;
   $('upd').textContent = rows.length + ' live pick' + (rows.length === 1 ? '' : 's') + ' · built ' +
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }).format(new Date());
 }

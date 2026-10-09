@@ -913,13 +913,15 @@ const __boot = async () => {
         for (let i5 = start; i5 < ks.length; i5++) { cur.push(ks[i5]); rec5(i5 + 1, cur); cur.pop(); } };
       rec5(0, []); return out; })();
     const scanRows = () => { const res = [];
-      scanCombos.forEach(cb => { let n5 = 0, w5 = 0;
-        listRows.forEach(x => { if (!x.w || !x.runners || x.runners.length < 2) return;
+      const seqs = window.__scanSeq = {};
+      const ordered5 = listRows.slice().sort((a5, b5) => t2m(a5.t) - t2m(b5.t));
+      scanCombos.forEach(cb => { let n5 = 0, w5 = 0, sq5 = '';
+        ordered5.forEach(x => { if (!x.w || !x.runners || x.runners.length < 2) return;
           const wq5 = x.runners.find(q => hn(q.r.h) === hn(x.w)); if (!wq5) return;
           const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
           if (!picks5.every(p5 => p5 === picks5[0])) return;
-          n5++; if (picks5[0] === wq5) w5++; });
-        if (n5 > 0) res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); });
+          n5++; if (picks5[0] === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L'; });
+        if (n5 > 0) { seqs[cb.join('+')] = sq5; res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); } });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
     const scanner = () => { const rs5 = window.__scan = scanRows();
       const ks7 = Object.keys(scanSel); const upLines = [];
@@ -990,7 +992,7 @@ const __boot = async () => {
           bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
       }); } catch {}
-      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {} };
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {} };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();
