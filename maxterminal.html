@@ -176,6 +176,11 @@
 .frks span{color:#C7D3E4;font-weight:700;margin-right:5px}
 .frks .rk1{color:#00E676}
 .frks .rkh{color:#39FF14;font-weight:900}
+.frks .rkrow{cursor:pointer;-webkit-user-select:none;user-select:none}
+.frks .rkdim{opacity:.32;filter:grayscale(.7)}
+.frks .rkdim .rkh{text-decoration:line-through}
+.frks .rkhd small{color:#54657F;font-size:9px;letter-spacing:.08em}
+.frks .rkhd b{color:#C7D3E4}
 .frks .rtot{color:#FFB300;font-weight:700;margin-left:4px}
 .frks .rbest{border:1px solid #FFB300;border-radius:6px;padding:0 6px;margin:1px -7px}
 .frks .rtb{font-weight:900;font-size:12px}
@@ -710,6 +715,8 @@ const __boot = async () => {
     return { rkMetrics, rkLbl, rkOf, rkTot, rkOrd, bestQ9: rkOrd[0] || null, fieldN9 };
   };
 
+  if (!window.__dimH) { try { window.__dimH = JSON.parse(localStorage.getItem('rsDimH:' + ukd) || '{}'); } catch { window.__dimH = {}; } }
+  const dimKey = (x, q9) => x.k + '|' + hn(q9.r.h);
   const fullCard = (x) => { const [, kf] = fcKeys[fcSort] || fcKeys.num; const dir = fcDir;
     const RK9 = rankCompute(x);
     const { rkMetrics, rkLbl, rkOf, rkTot, rkOrd: rkOrdAll, bestQ9 } = RK9;
@@ -728,11 +735,12 @@ const __boot = async () => {
       cSm = rs2.filter(q => q.cc && q.cc.dir === 'same').length;
     const anal = (nUp + nDn + nSm) ? `<div class="fanal">dist: <b>${nUp}</b> up \u00b7 <b>${nDn}</b> down \u00b7 <b>${nSm}</b> same \u2014 going: <b>${nG}</b> ran on it \u00b7 <b>${nGx}</b> never \u2014 class: <b>${cUp}</b> up \u00b7 <b>${cDn}</b> down \u00b7 <b>${cSm}</b> same</div>` : '';
     const rkOrd = rkOrdAll;
-    const ranks = rs2.length > 1 ? `<div class="frks">${rkOrd.map(q9 => `<div${q9 === bestQ9 ? ' class="rbest"' : ''}><b>${q9.r.num || ''}</b> <span class="rkh">${q9.r.h}${Number(q9.r.d) > 0 ? ' @ ' + q9.r.d : ''}</span> \u2014 ${
+    const inPlay = rkOrd.filter(q9 => !window.__dimH[dimKey(x, q9)]).length;
+    const ranks = rs2.length > 1 ? `<div class="frks"><div class="rkhd"><small>tap a row to discount \u00b7 <b>${inPlay}</b>/${rkOrd.length} in play</small></div>${rkOrd.map(q9 => `<div data-dh="${dimKey(x, q9)}" class="rkrow${q9 === bestQ9 ? ' rbest' : ''}${window.__dimH[dimKey(x, q9)] ? ' rkdim' : ''}"><b>${q9.r.num || ''}</b> <span class="rkh">${q9.r.h}${Number(q9.r.d) > 0 ? ' @ ' + q9.r.d : ''}</span> \u2014 ${
       rkMetrics.map(k9 => { const r9 = rkOf[k9].get(q9); return r9 ? `<small>${rkLbl[k9]}</small><span${r9 === 1 ? ' class="rk1"' : ''}>${r9}</span>` : ''; }).filter(Boolean).join(' ')
     } <span class="rtot${q9 === bestQ9 ? ' rtb' : ''}">${rkTot.get(q9) || ''}</span></div>`).join('')}</div>` : '';
     const tripOK = (q) => q.dd && q.dd.dir === 'same';
-    const dimQ = (q) => (fdTrip && q.cdDone && !tripOK(q)) || (fdGnd && q.cdDone && q.gRan === 0);
+    const dimQ = (q) => window.__dimH[dimKey(x, q)] || (fdTrip && q.cdDone && !tripOK(q)) || (fdGnd && q.cdDone && q.gRan === 0);
     const dimBar = `<div class="fdim"><small>DIM</small><button class="fdb${fdTrip ? ' on' : ''}" data-f="trip">TRIP</button><button class="fdb${fdGnd ? ' on' : ''}" data-f="gnd">GROUND</button></div>`;
     const sortBar = `<div class="fsort">${Object.entries(fcKeys).map(([k2, def]) => `<button class="fsb${k2 === fcSort ? ' on' : ''}" data-k="${k2}">${def[0]}${k2 === fcSort ? (fcDir === (fcKeys[k2][2]) ? ' \u25bc' : ' \u25b2') : ''}</button>`).join('')}</div>`;
     const hr2 = heatRange(x);
@@ -1032,6 +1040,11 @@ const __boot = async () => {
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
       window.__uiSel = { ...(window.__uiSel || {}), dash: dashSel }; drawPage(); });
+    document.querySelectorAll('.frks .rkrow[data-dh]').forEach(b => b.onclick = () => {
+      const k2 = b.dataset.dh;
+      if (window.__dimH[k2]) delete window.__dimH[k2]; else window.__dimH[k2] = 1;
+      try { localStorage.setItem('rsDimH:' + ukd, JSON.stringify(window.__dimH)); } catch {}
+      drawPage(); });
     document.querySelectorAll('.dmx').forEach(b => b.onclick = () => { dashSel = null;
       window.__uiSel = { ...(window.__uiSel || {}), dash: null }; drawPage(); });
     document.querySelectorAll('.dmod').forEach(m9 => m9.onclick = (ev9) => { if (ev9.target === m9) { dashSel = null;
