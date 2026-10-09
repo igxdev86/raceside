@@ -895,7 +895,20 @@ const __boot = async () => {
       PWR: (x) => { const p = x.__pow || (x.__pow = calcPower(x)); const q = x.runners.find(q2 => p.rk.get(q2) === 1); return q && x.runners.length >= 2 ? q : null; },
       MX: (x) => { const a = x.runners.filter(q => q.sig != null && Number(q.r.d) > 0).map(q => [q, q.sig * Number(q.r.d)]).sort((p1, p2) => p1[1] - p2[1]); return a.length >= 2 ? a[0][0] : null; },
       JT: (x) => { const a = x.runners.map(q => [q, jtOf(q).tot]).filter(p2 => p2[1] != null).sort((p1, p2) => p2[1] - p1[1]);
-        return a.length >= 2 && a[0][1] > a[1][1] ? a[0][0] : null; } };
+        return a.length >= 2 && a[0][1] > a[1][1] ? a[0][0] : null; },
+      FAV: (x) => { const a = x.runners.filter(q => Number(q.r.d) > 1).sort((q1, q2) => Number(q1.r.d) - Number(q2.r.d)); return a.length >= 2 && Number(a[0].r.d) < Number(a[1].r.d) ? a[0] : null; },
+      OR: (x) => { const a = x.runners.filter(q => Number(q.r.ofr) > 0).sort((q1, q2) => Number(q2.r.ofr) - Number(q1.r.ofr)); return a.length >= 2 && Number(a[0].r.ofr) > Number(a[1].r.ofr) ? a[0] : null; },
+      PTS: (x) => { const p2 = todayP[x.k]; if (!p2 || !(p2.picks || []).length) return null;
+        const ps = p2.picks.filter(k2 => k2.pts != null).sort((a2, b2) => b2.pts - a2.pts); if (ps.length < 2 || ps[0].pts <= ps[1].pts) return null;
+        return x.runners.find(q => hn(q.r.h) === hn(ps[0].h)) || null; },
+      GRN: (x) => { const hue = (q) => { const m2 = String(q.paint || '').match(/hsl\((\d+)/); return m2 ? Number(m2[1]) : -1; };
+        const a = x.runners.filter(q => hue(q) > 65).sort((q1, q2) => hue(q2) - hue(q1)); return a.length && x.runners.length >= 2 && (a.length === 1 || hue(a[0]) > hue(a[1])) ? a[0] : null; },
+      EDGE: (x) => { calcTM(x); const a = x.runners.filter(q => q.tm != null).sort((q1, q2) => q2.tm - q1.tm); if (a.length < 2) return null;
+        const mo = Math.max(0, ...x.runners.map(q => Number(q.r.ofr) || 0)); return mo > 0 && a[0].tm > mo ? a[0] : null; },
+      CD: (x) => { const a = x.runners.filter(q => q.cd === 'CD').sort((q1, q2) => (q2.sig || 0) - (q1.sig || 0)); return a.length && x.runners.length >= 2 && (a.length === 1 || (a[0].sig || 0) > (a[1].sig || 0)) ? a[0] : null; },
+      DRW: (x) => { const a = x.runners.filter(q => Number(q.r.dr) > 0).sort((q1, q2) => Number(q1.r.dr) - Number(q2.r.dr)); return a.length >= 3 ? a[0] : null; },
+      PUMP: (x) => { if (!window.__rkMv) return null; const up = (q) => { const m2 = window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)]; return m2 ? (m2.up || 0) : 0; };
+        const a = x.runners.slice().sort((q1, q2) => up(q2) - up(q1)); return a.length >= 2 && up(a[0]) >= 2 && up(a[0]) > up(a[1]) ? a[0] : null; } };
     const scanCombos = (() => { const ks = Object.keys(scanSel); const out = [];
       const rec5 = (start, cur) => { if (cur.length) out.push([...cur]); if (cur.length === 3) return;
         for (let i5 = start; i5 < ks.length; i5++) { cur.push(ks[i5]); rec5(i5 + 1, cur); cur.pop(); } };
