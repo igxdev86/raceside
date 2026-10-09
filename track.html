@@ -68,7 +68,9 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
       const top = p.picks.filter(x => x.pts != null).sort((a, b) => b.pts - a.pts);
       const tagPick = (t3) => p.picks.find(x => (x.tags || []).includes(t3));
       const m1 = SIGNAL.match(/^([A-ZΣ]+) #1$/);
+      const tagParts = SIGNAL.split('+').map(s => s.trim().match(/^([A-ZΣ]+) #1$/)).filter(Boolean).map(m => m[1] + '1');
       if (m1) pick = tagPick(m1[1] + '1');
+      else if (tagParts.length >= 2 && tagParts.length === SIGNAL.split('+').length) pick = p.picks.find(x => tagParts.every(t3 => (x.tags || []).includes(t3))) || null;
       else if (SIGNAL === 'PTS #1') pick = top.length >= 2 && top[0].pts > top[1].pts ? top[0] : null;
       else if (SIGNAL === 'PTS 20+') pick = top.length >= 2 && top[0].pts >= 20 ? top[0] : null;
       else if (SIGNAL === 'XS #1') { const xs = p.picks.filter(x => x.xs1 != null).sort((a, b) => b.xs1 - a.xs1); pick = xs.length >= 2 ? xs[0] : null; }
