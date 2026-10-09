@@ -61,7 +61,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const getSt = async () => { try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); return j && j.state; } catch { return null; } };
   let st = await getSt();
-  const hasToday = (s) => !!(s && s.days && s.days[ukd] && s.days[ukd].tp && Array.isArray(s.days[ukd].tp[SIGNAL]));
+  const hasToday = (s) => !!(s && s.days && s.days[ukd] && (s.days[ukd].v || 0) >= 2 && s.days[ukd].tp && Array.isArray(s.days[ukd].tp[SIGNAL]));
   if (!hasToday(st)) {
     $('meta').textContent = 'pulling today\u2019s picks from the terminal\u2026';
     const fr = document.createElement('iframe');

@@ -70,7 +70,16 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   const mLink = (mm, lbl) => { const q = new URLSearchParams(location.search); q.set('m', mm); return `<a href="?${q}" style="color:var(--dim);text-decoration:none;font-family:var(--mono);font-size:11px;letter-spacing:.14em">${lbl}</a>`; };
   $('sig').innerHTML = `${LABEL} \u00b7 ${SIGNAL} <span style="float:right">${mLink(shift(-1), '\u2190 ' + shortM(shift(-1)))} &nbsp; ${shift(1) <= ukd.slice(0, 7) ? mLink(shift(1), shortM(shift(1)) + ' \u2192') : ''}</span>`;
   const [jA, jArch, jP, jL] = await Promise.all([ gj('/api/yearstate?k=alertstate:v1&t=' + Date.now()), gj('/api/yearstate?k=printsarchive:v1&t=' + Date.now()), gj('/api/peopleall?v=2'), gj('/api/yearstate?k=comboledger:v1&t=' + Date.now()) ]);
-  try { window.__renderMenu((jL && jL.state && jL.state.days) || {}, SIGNAL); } catch {}
+  let stX = jL && jL.state;
+  const getStX = async () => { try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); return j && j.state; } catch { return null; } };
+  const freshX = (s) => !!(s && s.days && s.days[ukd] && (s.days[ukd].v || 0) >= 2);
+  if (!freshX(stX)) {
+    const fr = document.createElement('iframe'); fr.src = '/maxterminalx.html'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    for (let i = 0; i < 15; i++) { await new Promise(r => setTimeout(r, 4000)); const s2 = await getStX(); if (freshX(s2)) { stX = s2; break; } if (s2) stX = s2; }
+    fr.remove();
+  }
+  try { window.__renderMenu((stX && stX.days) || {}, SIGNAL); } catch {}
   const seen = new Set(); const races = [];
   const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
   Object.entries((jArch && jArch.state && jArch.state.days) || {}).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));
