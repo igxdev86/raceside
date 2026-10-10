@@ -1077,8 +1077,8 @@ const __boot = async () => {
       window.__ledger.ts = Date.now();
       const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.__ledger) });
-      if (rp9.ok) window.__lgSig = sig9;
-    } catch {} })();
+      if (rp9.ok) { window.__lgSig = sig9; window.__bankedAt = lon2(); window.__bankErr = null; } else window.__bankErr = 'POST ' + rp9.status;
+    } catch (e9) { window.__bankErr = String((e9 && e9.stack) || e9).slice(0, 400); } })();
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);
       window.__uiSel = { ...(window.__uiSel || {}), ix: curIx }; if (window.__saveState) window.__saveState(); drawPage(); });
     document.querySelectorAll('.dcell[data-d]').forEach(b => b.onclick = () => { dashSel = dashSel === b.dataset.d ? null : b.dataset.d;
