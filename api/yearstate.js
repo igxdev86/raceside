@@ -32,6 +32,18 @@ export default async function handler(req, res) {
         if (nf(prev) && nf(state) && nf(prev) > nf(state)) {
           return res.status(200).json({ ok: true, kept: 'newer-exists' });
         }
+        // comboledger: finished days are append-only. A page may add or grow a day, never shrink or drop one,
+        // and a past day can only be replaced by a richer version of itself.
+        if (K === 'comboledger:v1' && prev && prev.days && typeof prev.days === 'object') {
+          state.days = state.days && typeof state.days === 'object' ? state.days : {};
+          const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+          const size = (v) => { try { return JSON.stringify(v || null).length; } catch { return 0; } };
+          for (const d of Object.keys(prev.days)) {
+            const was = prev.days[d], now = state.days[d];
+            if (!now) { state.days[d] = was; continue; }
+            if (d < today && size(now) < size(was)) state.days[d] = was;
+          }
+        }
       }
       const up = await fetch(`${s.url}/rest/v1/rs_kv`, {
         method: 'POST',

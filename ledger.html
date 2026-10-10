@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LEDGER</title>
+<style>body{background:#06080D;color:#E8EEF7;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:18px;line-height:1.7}
+h1{font-size:14px;letter-spacing:.3em;color:#39FF14;margin-bottom:12px}.d{border:1px solid #1C2940;border-radius:6px;padding:8px 10px;margin:0 0 8px}.d b{color:#FFB300}.k{color:#8A9BB5}.w{color:#FF3B5C}</style></head>
+<body><h1>LEDGER</h1><div id="o">loading…</div>
+<script>
+(async () => {
+  const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); const st = j && j.state;
+  const days = (st && st.days) || {}; const ks = Object.keys(days).sort().reverse();
+  const sz = (v) => JSON.stringify(v || null).length;
+  document.getElementById('o').innerHTML = `<div class="d">ts <b>${st && st.ts ? new Date(st.ts).toISOString() : '—'}</b> · days <b>${ks.length}</b> · bytes <b>${sz(st)}</b></div>` +
+    ks.map(d => { const v = days[d] || {}; const scan = v.scan || []; const tp = v.tp || {}; const sq = v.sq || {};
+      const tpN = Object.values(tp).reduce((a, b) => a + (b ? b.length : 0), 0); const tpLive = Object.values(tp).reduce((a, b) => a + (b || []).filter(p => p.w === null).length, 0);
+      const s1 = scan.find(x => x.nm === 'Σ+MN+MX');
+      return `<div class="d"><b>${d}</b> · v${v.v || 1} · scan <b>${scan.length}</b> combos · seq <b>${Object.keys(sq).length}</b> · picks <b>${tpN}</b>${tpLive ? ` <span class="w">(${tpLive} unrun)</span>` : ''} · ultra ${(v.ultra || []).length} · nx ${Object.keys(v.nx || {}).length}
+      <br><span class="k">Σ+MN+MX</span> ${s1 ? `${s1.w}/${s1.n}` : '—'} · <span class="k">seq</span> ${sq['Σ+MN+MX'] || '—'} · <span class="k">tiles</span> ${v.tiles ? Object.keys(v.tiles).length : 0}</div>`; }).join('');
+})();
+</script></body></html>
