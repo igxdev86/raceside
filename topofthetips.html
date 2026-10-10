@@ -195,12 +195,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + esc(p.wn) : 'settled')}</span></div>
       <div class="r">${p.w === null ? 'LIVE' : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
-    const cl0 = (() => { try { return localStorage.getItem('tt:cl:' + m.id) === '1'; } catch { return false; } })();
+    const cl0 = false; // every load opens fully: nothing we pick is ever hidden
     return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
       <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
-  document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); const on = sec.classList.toggle('cl'); try { localStorage.setItem('tt:cl:' + sec.dataset.id, on ? '1' : '0'); } catch {} }));
+  document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
   document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
   const tk = tkR.concat(tkL); document.getElementById('tlab').textContent = tkR.length ? 'RESULTS' : 'LIVE';
