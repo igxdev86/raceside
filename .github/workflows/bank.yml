@@ -1,0 +1,21 @@
+name: cloud banker
+on:
+  schedule:
+    # every hour on the hour, 10:00-21:00 UTC (11:00-22:00 UK in summer, 10:00-21:00 in winter) - covers every GB/IRE card
+    - cron: '0 10-21 * * *'
+  workflow_dispatch:
+concurrency:
+  group: banker
+  cancel-in-progress: false
+jobs:
+  bank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.47.2-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm init -y >/dev/null && npm install playwright@1.47.2 --no-audit --no-fund --silent
+      - run: node scripts/bank.mjs
+        env:
+          RUN_MINUTES: '57'
