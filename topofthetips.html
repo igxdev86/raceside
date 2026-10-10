@@ -2,75 +2,135 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TOP OF THE TIPS</title>
-<meta name="description" content="Horse racing tips from five locked models. Every tip posted before the off, every result on record.">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TOP OF THE TIPS — Horse Racing Tips On The Record</title>
+<meta name="description" content="Five models. Every tip posted before the off. Every result on the page.">
+<meta name="theme-color" content="#06080d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,800;1,800;1,900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0B1F17;--bg2:#0F2A1F;--card:#122F23;--line:#1E4433;--cream:#F6F0E4;--muted:#A9BDB0;--gold:#F2C14E;--gold2:#FFD97A;--win:#5CF28C;--lose:#FF6B81;--amber:#FFB347;
---sans:'Archivo',-apple-system,"Helvetica Neue",Arial,sans-serif;--disp:'Archivo Black','Archivo',sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--cream);font-family:var(--sans);line-height:1.5}
-.wrap{max-width:720px;margin:0 auto;padding:0 18px 90px}
-header{padding:26px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-family:var(--disp);font-size:22px;letter-spacing:-.01em;line-height:1}
-.brand span{color:var(--gold)}
-.brand small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--muted);margin-top:6px;font-weight:500}
-.pill{font-family:var(--mono);font-size:11px;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 11px;white-space:nowrap}
-.pill b{color:var(--gold)}
-.hero{margin:22px 0 26px}
-.hero h1{font-family:var(--disp);font-size:34px;line-height:1.05;letter-spacing:-.02em}
-.hero h1 em{font-style:normal;color:var(--gold)}
-.hero p{color:var(--muted);margin-top:12px;font-size:15px;max-width:560px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 6px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center}
-.stat b{display:block;font-family:var(--mono);font-size:22px;color:var(--cream)}
-.stat small{font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
-.model{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 10px;margin:14px 0;position:relative;overflow:hidden}
-.model .mh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
-.model h2{font-family:var(--disp);font-size:19px;letter-spacing:-.01em}
-.model h2 small{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--gold);display:block;margin-bottom:5px;font-weight:700}
-.model .rec{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
-.model .rec b{color:var(--cream);font-size:15px;display:block}
-.model .desc{color:var(--muted);font-size:13.5px;margin:4px 0 12px}
-.tip{display:grid;grid-template-columns:58px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
-.tip .t{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.3}
-.tip .t small{display:block;font-size:9.5px;letter-spacing:.08em;color:#6E8578}
-.tip .h{font-weight:700;font-size:16px}
-.tip .h small{font-family:var(--mono);font-weight:500;color:var(--muted);font-size:11.5px;margin-left:6px}
-.tip .h .sub{display:block;font-size:11px;color:#6E8578;font-weight:400;margin-top:2px}
-.tip .r{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;padding:5px 9px;border-radius:999px;border:1px solid}
-.tip.p .r{color:var(--amber);border-color:var(--amber)} .tip.w .r{color:var(--win);border-color:var(--win)} .tip.w .h{color:var(--win)}
-.tip.l .r{color:var(--lose);border-color:#5a2a33} .tip.l .h{opacity:.6}
-.none{color:#6E8578;font-size:13px;padding:10px 0 6px;border-top:1px solid var(--line)}
-.lock{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,31,23,.2),rgba(11,31,23,.96) 55%);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 18px 22px;text-align:center}
-.lock b{font-family:var(--disp);font-size:16px;margin-bottom:6px}
-.lock p{color:var(--muted);font-size:13px;max-width:360px}
-.cta{display:inline-block;margin-top:12px;background:var(--gold);color:#1a1200;font-weight:700;border-radius:999px;padding:11px 20px;text-decoration:none;font-size:14px}
-.how{margin:34px 0 10px}
-.how h3{font-family:var(--disp);font-size:18px;margin-bottom:10px}
-.how ol{padding-left:18px;color:var(--muted);font-size:14px}
-.how li{margin:6px 0}
-footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:#6E8578;font-size:11.5px;line-height:1.7}
-footer b{color:var(--muted)}
-.form{display:flex;align-items:center;gap:4px;margin:0 0 10px;flex-wrap:wrap}.form small{color:var(--muted);font:600 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;margin-right:4px}.form i{font:800 11px/22px 'JetBrains Mono',monospace;width:22px;text-align:center;border-radius:5px;font-style:normal}.form .fw{background:var(--gold);color:#0B1F17}.form .fl{background:rgba(255,255,255,.08);color:var(--muted)}
+:root{--bg:#06080d;--panel:#0d1119;--panel2:#141a26;--line:rgba(255,255,255,.08);--ink:#fff;--muted:#8d97a8;--red:#e4002b;--red2:#ff2d55;--blue:#0a4ae0;--blue2:#2f8cff;--gold:#ffc53d;--win:#1fd36a;--lose:#ff3b4e;--amber:#ffb020;--disp:'Barlow Condensed',Impact,sans-serif;--sans:'Barlow',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{color:var(--ink);font:500 15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:env(safe-area-inset-bottom)}
+a{color:inherit;text-decoration:none}
+.gl{position:relative}
+.gl:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.04) 48%,rgba(0,0,0,0) 52%,rgba(0,0,0,.25));pointer-events:none;border-radius:inherit}
+
+/* top network bar */
+.top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:linear-gradient(180deg,#181d2a,#0b0e16);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.logo{font:italic 900 24px/1 var(--disp);letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.logo .bx{background:linear-gradient(180deg,var(--red2),var(--red));padding:4px 8px 3px;border-radius:4px;box-shadow:0 2px 10px rgba(228,0,43,.5);position:relative;overflow:hidden}
+.logo .bx:after{content:"";position:absolute;left:0;right:0;top:0;height:50%;background:rgba(255,255,255,.22)}
+.logo em{font-style:italic;background:linear-gradient(180deg,#fff,#b9c6dc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.live{display:flex;align-items:center;gap:7px;white-space:nowrap;font:800 11px/1 var(--mono);letter-spacing:.1em;background:#000;border:1px solid var(--line);padding:7px 10px;border-radius:999px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 10px var(--red2);animation:pul 1.2s infinite}
+@keyframes pul{50%{opacity:.35}}
+
+/* ticker */
+.tick{background:linear-gradient(90deg,var(--red),#9a0020);border-bottom:1px solid rgba(0,0,0,.4);overflow:hidden;display:flex;height:34px;align-items:center}
+.tick .lab{flex:0 0 auto;background:#000;color:#fff;font:italic 900 13px/34px var(--disp);letter-spacing:.14em;padding:0 12px;position:relative;z-index:2}
+.tick .lab:after{content:"";position:absolute;right:-12px;top:0;border-left:12px solid #000;border-top:34px solid transparent}
+.tick .rail{flex:1;overflow:hidden;white-space:nowrap}
+.tick .run{display:inline-block;padding-left:100%;animation:mq 38s linear infinite;font:800 13px/34px var(--mono);letter-spacing:.04em}
+.tick .run span{margin-right:44px}.tick .run b{color:var(--gold)}
+@keyframes mq{to{transform:translateX(-100%)}}
+
+/* hero */
+.hero{position:relative;padding:34px 16px 26px;overflow:hidden;background:radial-gradient(120% 90% at 0% 0%,#1033a8 0%,rgba(16,51,168,0) 55%),radial-gradient(90% 80% at 100% 100%,#9a0020 0%,rgba(154,0,32,0) 55%),linear-gradient(180deg,#0b0f1a,#06080d)}
+.hero:before{content:"";position:absolute;inset:-40% -10% auto -10%;height:70%;background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0));transform:skewY(-8deg);pointer-events:none}
+.kick{font:900 13px/1 var(--disp);letter-spacing:.22em;color:var(--gold);text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;margin-bottom:10px}
+.kick:before{content:"";width:22px;height:3px;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+h1{font:italic 900 clamp(46px,13vw,96px)/.9 var(--disp);text-transform:uppercase;letter-spacing:-.02em;background:linear-gradient(180deg,#fff 30%,#9fb2d4);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6))}
+h1 b{display:block;background:linear-gradient(180deg,#ffe28a,#f0a400);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:14px 0 0;max-width:560px;color:#c9d2e3;font-size:16px}
+.board{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.sc{flex:1 1 90px;background:linear-gradient(180deg,#1b2231,#0e121b);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.sc b{display:block;font:900 36px/1 var(--disp);letter-spacing:-.02em}
+.sc small{display:block;color:var(--muted);font:800 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
+.sc.hot b{color:var(--gold)}
+
+/* section headers */
+.sh{display:flex;align-items:center;gap:10px;padding:22px 16px 10px}
+.sh h2{font:italic 900 26px/1 var(--disp);text-transform:uppercase;letter-spacing:.01em}
+.sh:after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--red2),rgba(255,255,255,0))}
+
+/* model cards */
+.grid{display:grid;grid-template-columns:1fr;gap:14px;padding:0 16px}
+@media(min-width:760px){.grid{grid-template-columns:1fr 1fr}.grid .model:first-child{grid-column:1/-1}}
+.model{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08)}
+.model:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--acc,var(--blue2));box-shadow:0 0 18px var(--acc,var(--blue2))}
+.mh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:16px 16px 10px 20px;background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,0))}
+.mh .tag{font:800 10px/1 var(--mono);letter-spacing:.16em;color:var(--acc,var(--blue2));text-transform:uppercase}
+.mh h3{font:italic 900 32px/1 var(--disp);text-transform:uppercase;letter-spacing:-.01em;margin-top:4px}
+.rec{text-align:right;flex:0 0 auto}
+.rec b{display:block;font:900 40px/1 var(--disp);background:linear-gradient(180deg,#ffe28a,#f0a400);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rec small{display:block;font:800 10px/1 var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.desc{padding:0 16px 12px 20px;color:#b7c1d3;font-size:14px}
+.form{display:flex;align-items:center;gap:4px;padding:0 16px 12px 20px;flex-wrap:wrap}
+.form small{color:var(--muted);font:800 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;margin-right:6px}
+.form i{font:800 12px/24px var(--mono);width:24px;text-align:center;border-radius:5px;font-style:normal;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.form .fw{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f}
+.form .fl{background:linear-gradient(180deg,#2a3242,#161b26);color:#7f8a9c}
+.tip{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:10px;padding:12px 16px 12px 20px;border-top:1px solid var(--line);background:linear-gradient(90deg,rgba(255,255,255,.025),rgba(255,255,255,0))}
+.tip .t{font:900 20px/1 var(--disp)}.tip .t small{display:block;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--muted);margin-top:4px}
+.tip .h{font:800 20px/1.05 var(--disp);text-transform:uppercase;letter-spacing:.01em}
+.tip .h small{color:var(--gold);font:800 15px/1 var(--mono);margin-left:8px}
+.tip .sub{display:block;font:600 11px/1.3 var(--sans);color:var(--muted);text-transform:none;letter-spacing:0;margin-top:4px}
+.tip .r{font:italic 900 13px/1 var(--disp);letter-spacing:.1em;padding:7px 10px;border-radius:6px;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.tip .r:after{content:"";position:absolute;left:0;right:0;top:0;height:50%;background:rgba(255,255,255,.2)}
+.tip.p .r{background:linear-gradient(180deg,var(--red2),var(--red));color:#fff}
+.tip.w .r{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f}
+.tip.l .r{background:linear-gradient(180deg,#2a3242,#161b26);color:#9aa5b8}
+.tip.w .h{color:var(--win)}.tip.l .h{color:#8d97a8}
+.none{padding:14px 16px 16px 20px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+.lock{position:absolute;inset:0;background:rgba(6,8,13,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:3}
+.lock b{font:italic 900 26px/1 var(--disp);text-transform:uppercase}
+.lock p{color:#c9d2e3;font-size:13px;margin:8px 0 14px;max-width:320px}
+.cta{display:inline-block;background:linear-gradient(180deg,var(--red2),var(--red));color:#fff;font:italic 900 16px/1 var(--disp);letter-spacing:.1em;text-transform:uppercase;padding:14px 22px;border-radius:8px;box-shadow:0 10px 30px rgba(228,0,43,.5),inset 0 1px 0 rgba(255,255,255,.4)}
+.lock .k{font:800 10px/1 var(--mono);letter-spacing:.18em;color:var(--gold);margin-bottom:8px}
+
+/* join band */
+.join{margin:26px 16px 0;border-radius:14px;padding:26px 20px;background:radial-gradient(100% 120% at 100% 0%,#1033a8,rgba(16,51,168,0) 60%),linear-gradient(135deg,#9a0020,#e4002b 60%,#ff2d55);box-shadow:0 20px 60px rgba(228,0,43,.35);position:relative;overflow:hidden}
+.join h2{font:italic 900 clamp(34px,9vw,54px)/.95 var(--disp);text-transform:uppercase;letter-spacing:-.01em}
+.join p{margin:10px 0 16px;max-width:520px;color:#ffe3e9}
+.join ul{list-style:none;display:grid;gap:6px;margin-bottom:18px;font-weight:600}
+.join li:before{content:"✔";color:var(--gold);margin-right:8px}
+.join .cta{background:linear-gradient(180deg,#fff,#dbe3f2);color:#9a0020;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.how{padding:26px 16px 0}
+.how ol{counter-reset:s;list-style:none;display:grid;gap:10px}
+.how li{counter-increment:s;display:grid;grid-template-columns:40px 1fr;gap:10px;align-items:start;color:#c9d2e3;font-size:14px}
+.how li:before{content:counter(s,decimal-leading-zero);font:italic 900 28px/1 var(--disp);color:var(--red2)}
+footer{padding:30px 16px 40px;color:var(--muted);font-size:12px;line-height:1.6;border-top:1px solid var(--line);margin-top:30px}
+footer b{color:#c9d2e3}
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <div class="brand">TOP OF THE <span>TIPS</span><small>FIVE MODELS · LOCKED PRE-OFF</small></div>
-  <div class="pill" id="pill">loading</div>
-</header>
+<div class="top">
+  <a class="logo" href="/topofthetips.html"><span class="bx">TOP</span><em>OF THE TIPS</em></a>
+  <div class="live" id="pill"><i></i>LOADING</div>
+</div>
+<div class="tick"><div class="lab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
+
 <section class="hero">
-  <h1>Tips that are <em>on the record</em> before the off.</h1>
-  <p>Five independent models pick a horse only when their signals agree. Every tip is published and time-stamped before the race starts, and every result stays on the page — wins and losses.</p>
-  <div class="stats" id="stats"></div>
+  <div class="kick">On the record · before the off</div>
+  <h1>Tips you can <b>check.</b></h1>
+  <p>Five models. Each posts a horse only when its signals agree. Every tip is time-stamped before the race starts and every result — win or lose — stays on the page.</p>
+  <div class="board" id="stats"></div>
 </section>
-<div id="models"></div>
+
+<div class="sh"><h2>Today's card</h2></div>
+<div class="grid" id="models"></div>
+
+<section class="join" id="join">
+  <h2>Every model.<br>Every tip.<br>Before the off.</h2>
+  <p>Members get all five models live, with the time each tip was posted and the full day-by-day record.</p>
+  <ul><li>The Triple Lock, The Form Favourite, The Stable Edge, The Value Pick, The Steamer</li><li>Tips posted before the race, never edited after</li><li>Full win/loss record for every model</li></ul>
+  <a class="cta" href="#join">Join TOP OF THE TIPS</a>
+</section>
+
 <section class="how">
-  <h3>How it works</h3>
+  <div class="sh" style="padding-left:0;padding-right:0"><h2>How it works</h2></div>
   <ol>
     <li>Each model watches the live market, ratings and the stables all day.</li>
     <li>When a model's signals land on the same horse, the tip is posted here with the time.</li>
@@ -78,45 +138,49 @@ footer b{color:var(--muted)}
   </ol>
 </section>
 <footer><b>TOP OF THE TIPS</b> is an IGX Ltd product. 18+ only. Please gamble responsibly — <b>BeGambleAware.org</b>. Tips are opinions, not guarantees; past results do not predict future results.</footer>
-</div>
+
 <script>
 const Q = new URLSearchParams(location.search);
 const MEMBER = Q.get('member') === '1';
 const MODELS = [
-  { id: 'S1', nm: 'Σ+MN+MX', title: 'The Triple Lock', desc: 'Our model’s top-rated horse, backed by money in the market, at the best price per point of rating. All three must agree.' },
-  { id: 'S2', nm: 'FAV+TM+OR', title: 'The Form Favourite', desc: 'The favourite that is also the top-rated horse on both the handicap and the official figures.' },
-  { id: 'S3', nm: 'JT', title: 'The Stable Edge', desc: 'The strongest jockey-and-trainer partnership in the race by strike rate this season.' },
-  { id: 'S4', nm: 'MX', title: 'The Value Pick', desc: 'The horse offering the most rating for the shortest price in its race.' },
-  { id: 'S5', nm: 'MN', title: 'The Steamer', desc: 'The horse the market is moving towards hardest against our model’s price.' } ];
+  { id: 'S1', nm: 'Σ+MN+MX', title: 'The Triple Lock', acc: '#ffc53d', desc: 'Our model’s top-rated horse, backed by money in the market, at the best price per point of rating. All three must agree.' },
+  { id: 'S2', nm: 'FAV+TM+OR', title: 'The Form Favourite', acc: '#2f8cff', desc: 'The favourite that is also the top-rated horse on both the handicap and the official figures.' },
+  { id: 'S3', nm: 'JT', title: 'The Stable Edge', acc: '#ff2d55', desc: 'The strongest jockey-and-trainer partnership in the race by strike rate this season.' },
+  { id: 'S4', nm: 'MX', title: 'The Value Pick', acc: '#1fd36a', desc: 'The horse offering the most rating for the shortest price in its race.' },
+  { id: 'S5', nm: 'MN', title: 'The Steamer', acc: '#b06cff', desc: 'The horse the market is moving towards hardest against our model’s price.' } ];
 const t2m = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let hh = +m[1]; if (hh < 11) hh += 12; return hh * 60 + (+m[2]); };
 const course = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 (async () => {
   let st = null; try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; } catch {}
   const days = (st && st.days) || {};
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const today = days[ukd] || {};
   const agg = (nm) => { let w = 0, n = 0; Object.values(days).forEach(dv => { const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
-  let liveN = 0, wonN = 0, settledN = 0;
+  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tk = [];
   const html = MODELS.map((m, i) => {
-    const rec = agg(m.nm);
+    const rec = agg(m.nm); totW += rec.w; totN += rec.n;
     const raw = (today.tp && today.tp[m.nm]) || [];
     const seen = new Set();
     const tips = raw.filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     const gated = !MEMBER && i > 0;
+    if (!gated) tips.forEach(p => tk.push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${esc(p.h)}</b>${p.w === null ? ' · LIVE' : p.w ? ' · WON' : ' · LOST'}</span>`));
+    else tips.forEach(p => tk.push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>MEMBERS ONLY</b>${p.w === null ? ' · LIVE' : p.w ? ' · WON' : ' · LOST'}</span>`));
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
-    const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${p.d0} ${p.t} ${p.h}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
-    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${course(p.c).slice(0, 11).toUpperCase()}</small></div>
-      <div class="h">${p.h}${p.d != null ? `<small>${p.d}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + String(p.at).slice(0, 5) : 'posted') : p.lk ? 'posted ' + String(p.lk).slice(0, 5) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + p.wn : 'settled')}</span></div>
+    const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
+    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
+      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + esc(p.wn) : 'settled')}</span></div>
       <div class="r">${p.w === null ? 'LIVE' : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
-    return `<section class="model"><div class="mh"><h2><small>${m.id} · ${m.nm}</small>${m.title}</h2><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</div></div>
-      <div class="desc">${m.desc}</div>${form}${rows}${gated ? `<div class="lock"><b>Members see all five models</b><p>${m.title} and three more models, every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
+    return `<section class="model gl" style="--acc:${m.acc}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}</div><h3>${esc(m.title)}</h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+      <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
-  document.getElementById('stats').innerHTML = `<div class="stat"><b>${liveN}</b><small>live tips</small></div><div class="stat"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="stat"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
-  document.getElementById('pill').innerHTML = `<b>${new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</b> · ${liveN ? liveN + ' live' : 'card forming'}`;
+  document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
+  document.getElementById('pill').innerHTML = `<i></i>${new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()).toUpperCase()} · ${liveN ? liveN + ' LIVE' : 'CARD FORMING'}`;
+  document.getElementById('run').innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>No tips posted yet today — the models only speak when their signals agree.</span><span>Every tip is time-stamped before the off.</span>`;
 })();
 </script>
 </body>
