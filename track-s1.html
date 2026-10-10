@@ -72,7 +72,7 @@ window.__renderMenu = (days, cur) => {
     .sort((a, b) => b.lb - a.lb).slice(0, 10);
   const chip = (lbl, nm, href, sub) => `<a title="${window.__describe(nm)}" href="${href}" style="text-decoration:none;border:1px solid ${nm === cur ? 'var(--lumo)' : 'var(--line)'};color:${nm === cur ? 'var(--lumo)' : 'var(--dim)'};border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>${lbl}</b> ${nm}${sub ? `<br><span style="color:var(--faint);font-size:9.5px">${sub}</span>` : ''}<br><span style="color:var(--faint);font-size:9px;letter-spacing:0;font-family:var(--sans)">${window.__describe(nm)}</span></a>`;
   { const e = document.getElementById('sigdesc'); if (e) e.textContent = window.__describe(cur); }
-  document.getElementById('smenu').innerHTML = fixed.map(f => chip(f[0], f[1], f[2], ag[f[1]] ? `${ag[f[1]].w}/${ag[f[1]].n}` : '')).join('') +
+  document.getElementById('smenu').innerHTML = `<a href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener" style="text-decoration:none;border:1px solid var(--am);color:var(--am);border-radius:6px;padding:5px 9px;font-size:10.5px;letter-spacing:.08em;line-height:1.5"><b>\u25b6 RACING RADIO</b><br><span style="color:var(--faint);font-size:9px;letter-spacing:0;font-family:var(--sans)">live commentary</span></a>` + fixed.map(f => chip(f[0], f[1], f[2], ag[f[1]] ? `${ag[f[1]].w}/${ag[f[1]].n}` : '')).join('') +
     more.map((m, i) => chip('X' + (i + 1), m.nm, '/track-s1.html?s=' + encodeURIComponent(m.nm) + '&n=X' + (i + 1), `${m.w}/${m.n} \u00b7 ${Math.round(m.w / m.n * 100)}%`)).join('');
 };
 </script>
