@@ -172,7 +172,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
   const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
   let SEEN = {}; try { SEEN = JSON.parse(localStorage.getItem('tt:seen:' + ukd) || '{}') || {}; } catch {}
-  const agg = (nm) => { let w = 0, n = 0; Object.values(days).forEach(dv => { const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
+  // record = the picks on the page. Past days: the day's locked picks (tp) when it has them, else its scan tally. Today: counted from the rows shown below, so the header always matches the list.
+  const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
+      const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined) { n++; if (e.w) w++; } }); return; }
+      const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
   let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tkR = [], tkL = [];
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
   const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
@@ -183,10 +186,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const XM = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
     .sort((a, b) => b.lb - a.lb).slice(0, 10).map((x, i) => ({ id: 'X' + (i + 1), nm: x.nm, title: x.nm.replace(/\+/g, ' + '), acc: XACC[i % XACC.length], desc: describe(x.nm) + '. All must agree on one horse.', x: true }));
   // one list, best strike first (Wilson lower bound breaks ties between thin and deep records); S1 stays the free model wherever it lands
-  const pct = (m) => { const g = ag[m.nm] || { w: 0, n: 0 }; return g.n ? g.w / g.n : -1; };
-  const ALL = MODELS.concat(XM).sort((a, b) => pct(b) - pct(a) || wil((ag[b.nm] || {}).w || 0, (ag[b.nm] || {}).n || 0) - wil((ag[a.nm] || {}).w || 0, (ag[a.nm] || {}).n || 0));
+  const todayRec = (nm) => { let w = 0, n = 0; const seenK = new Set(); ((today.tp && today.tp[nm]) || []).forEach(p => { if (!p || p.w === null || p.w === undefined) return; const k = p.t + '|' + p.c; if (seenK.has(k)) return; seenK.add(k); n++; if (p.w) w++; }); return { w, n }; };
+  const fullRec = (nm) => { const a = agg(nm), t = todayRec(nm); return { w: a.w + t.w, n: a.n + t.n }; };
+  const pct = (m) => { const g = fullRec(m.nm); return g.n ? g.w / g.n : -1; };
+  const ALL = MODELS.concat(XM).sort((a, b) => pct(b) - pct(a) || wil(fullRec(b.nm).w, fullRec(b.nm).n) - wil(fullRec(a.nm).w, fullRec(a.nm).n));
   const html = ALL.map((m, i) => {
-    const rec = agg(m.nm); totW += rec.w; totN += rec.n;
+    const rec = agg(m.nm);
     const raw = (today.tp && today.tp[m.nm]) || [];
     // every pick this device has seen today is kept on the page even if a later server write drops it: the record is never allowed to shrink
     const mem = (SEEN[m.nm] = SEEN[m.nm] || {});
@@ -202,6 +207,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const tips = Object.values(byK).map(p => ({ ...p, ran: p.w === null && t2m(p.t) + 5 < nowMin }))
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
+    tips.forEach(p => { if (p.w !== null) { rec.n++; if (p.w) rec.w++; } }); totW += rec.w; totN += rec.n;
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
     tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? (p.ran ? '<em class="tl">RAN</em>' : '<em class="tl">LIVE</em>') : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
