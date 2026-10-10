@@ -132,7 +132,7 @@ footer b{color:#c9d2e3}
   <div class="board" id="stats"></div>
 </section>
 
-<div class="sh"><h2>Today's card</h2></div>
+<div class="sh"><h2>Today's card · best strike first</h2></div>
 <div class="grid" id="models"></div>
 
 <section class="join" id="join">
@@ -182,7 +182,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
   const XM = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
     .sort((a, b) => b.lb - a.lb).slice(0, 10).map((x, i) => ({ id: 'X' + (i + 1), nm: x.nm, title: x.nm.replace(/\+/g, ' + '), acc: XACC[i % XACC.length], desc: describe(x.nm) + '. All must agree on one horse.', x: true }));
-  const ALL = MODELS.concat(XM);
+  // one list, best strike first (Wilson lower bound breaks ties between thin and deep records); S1 stays the free model wherever it lands
+  const pct = (m) => { const g = ag[m.nm] || { w: 0, n: 0 }; return g.n ? g.w / g.n : -1; };
+  const ALL = MODELS.concat(XM).sort((a, b) => pct(b) - pct(a) || wil((ag[b.nm] || {}).w || 0, (ag[b.nm] || {}).n || 0) - wil((ag[a.nm] || {}).w || 0, (ag[a.nm] || {}).n || 0));
   const html = ALL.map((m, i) => {
     const rec = agg(m.nm); totW += rec.w; totN += rec.n;
     const raw = (today.tp && today.tp[m.nm]) || [];
@@ -200,8 +202,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const tips = Object.values(byK).map(p => ({ ...p, ran: p.w === null && t2m(p.t) + 5 < nowMin }))
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
-    const gated = !MEMBER && i > 0;
-    const xhead = m.x && i === MODELS.length ? '</div><div class="sh"><h2>Extended models</h2></div><div class="grid">' : '';
+    const gated = !MEMBER && m.id !== 'S1';
+    const xhead = '';
     tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? (p.ran ? '<em class="tl">RAN</em>' : '<em class="tl">LIVE</em>') : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
