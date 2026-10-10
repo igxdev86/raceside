@@ -208,6 +208,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     tips.forEach(p => { if (p.w !== null) { rec.n++; if (p.w) rec.w++; } }); totW += rec.w; totN += rec.n;
+    const settledHere = { w: 0, n: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
     tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? (p.ran ? '<em class="tl">RAN</em>' : '<em class="tl">LIVE</em>') : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
@@ -217,8 +218,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
-    const cl0 = false; // every load opens fully: nothing we pick is ever hidden
-    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+    const cl0 = true; // tiles load closed; tap a header to open it
+    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
       <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
