@@ -829,6 +829,8 @@ const __boot = async () => {
   try { const pdj = await gj('/api/priceday?v=5&date=' + ukd);
     if (pdj && pdj.ok && Array.isArray(pdj.races)) {
       const wmap = {};
+      // finishing positions per race (for FRAME: placed under each-way terms by field size)
+      window.__posMap = {}; pdj.races.forEach(rc2 => { const pm = {}; let fn = 0; (rc2.runners || []).forEach(r2 => { if (!r2 || !r2.h) return; fn++; if (r2.pos) pm[hn(r2.h)] = r2.pos; }); window.__posMap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = { pm, fn, hc: /handicap/i.test(String(rc2.type || rc2.rtype || rc2.name || '')) }; });
       pdj.races.forEach(rc2 => { const w2 = (rc2.runners || []).find(r2 => r2.won);
         if (w2 && w2.h) wmap[tK(rc2.t) + '|' + cKeyPre(rc2.course)] = hn(w2.h); });
       listRows.forEach(x => { if (!x.w) { const w3 = wmap[tK(x.t) + '|' + cKeyPre(x.course)];
@@ -984,7 +986,9 @@ const __boot = async () => {
           if (!pick5) { const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
             if (!picks5.every(p5 => p5 === picks5[0])) return; pick5 = picks5[0]; }
           n5++; if (pick5 === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L';
-          if (tp5[nm5]) tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: pick5.r.h, d: Number(pick5.r.d) > 0 ? Number(pick5.r.d) : null, w: pick5 === wq5 ? 1 : 0, wn: x.w, lk: lkAt, post: lkAt ? 0 : 1 }); });
+          if (tp5[nm5]) { const pmr = window.__posMap && window.__posMap[tK(x.t) + '|' + cKeyPre(x.course)]; const pos5 = pmr && pmr.pm ? pmr.pm[hn(pick5.r.h)] : null; const fn5 = pmr && pmr.fn ? pmr.fn : (x.runners ? x.runners.length : null);
+            const places5 = fn5 == null ? null : fn5 < 5 ? 1 : fn5 < 8 ? 2 : (fn5 >= 16 && pmr && pmr.hc) ? 4 : 3; const pn5 = pos5 != null && /^\d+$/.test(String(pos5)) ? Number(pos5) : null;
+            tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: pick5.r.h, d: Number(pick5.r.d) > 0 ? Number(pick5.r.d) : null, w: pick5 === wq5 ? 1 : 0, wn: x.w, lk: lkAt, post: lkAt ? 0 : 1, pos: pos5 != null ? String(pos5) : null, fn: fn5, pl: pn5 != null && places5 != null ? (pn5 <= places5 ? 1 : 0) : null }); } });
         if (n5 > 0) { seqs[cb.join('+')] = sq5; res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); } });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
     const scanner = () => { window.__rescan = scanner; const rs5 = window.__scan = scanRows();
