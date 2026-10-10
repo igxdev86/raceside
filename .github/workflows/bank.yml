@@ -3,6 +3,7 @@ on:
   schedule:
     # every hour on the hour, 10:00-21:00 UTC (11:00-22:00 UK in summer, 10:00-21:00 in winter) - covers every GB/IRE card
     - cron: '0 10-21 * * *'
+    - cron: '30 10-21 * * *'   # second lane so two runs always overlap - no gaps between hours
   workflow_dispatch:
 concurrency:
   group: banker
