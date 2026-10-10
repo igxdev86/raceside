@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TOP OF THE TIPS — Horse Racing Tips On The Record</title>
-<meta name="description" content="Five models. Every tip posted before the off. Every result on the page.">
+<meta name="description" content="Independent models. Every tip posted before the off. Every result on the page.">
 <meta name="theme-color" content="#06080d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,800;1,800;1,900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
@@ -136,7 +136,7 @@ footer b{color:#c9d2e3}
 <section class="hero">
   <div class="kick">On the record · before the off</div>
   <h1>Tips you can <b>check.</b></h1>
-  <p>Five models. Each posts a horse only when its signals agree. Every tip is time-stamped before the race starts and every result — win or lose — stays on the page.</p>
+  <p><b id="nmodels">Models</b> running. Each posts a horse only when its signals agree. Every tip is time-stamped before the race starts and every result — win or lose — stays on the page.</p>
   <div class="board" id="stats"></div>
 </section>
 
@@ -249,9 +249,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('')
     .replace(/<s class="dots" data-k="([^"]*)"><\/s>/g, (_, k) => { const kk = k.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); const n = (PICKK[kk] ? PICKK[kk].size : 1) - 1; if (n <= 0) return ''; return `<span class="dots" title="on ${n} other tile${n === 1 ? '' : 's'}">${'<i></i>'.repeat(Math.min(n, 10))}${n > 10 ? `<small>+${n - 10}</small>` : ''}</span>`; });
   document.getElementById('models').innerHTML = html;
+  { const e = document.getElementById('nmodels'); if (e) e.textContent = built.length + ' model' + (built.length === 1 ? '' : 's'); }
   try { localStorage.setItem('tt:seen:' + ukd, JSON.stringify(SEEN)); } catch {}
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
-  document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
+  document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${built.length}</b><small>models live</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
   // ticker = the day's actual race results (GB/IRE), newest first - not our picks
   const runEl = document.getElementById('run'); document.getElementById('tlab').textContent = 'RESULTS';
