@@ -124,12 +124,15 @@ footer b{color:#c9d2e3}
 .nxt b{font:900 15px/1 var(--disp);color:#fff}
 .nxt em{font:800 11px/1.1 var(--sans);font-style:normal;text-transform:uppercase;letter-spacing:.02em;color:#e6ecf7;overflow:hidden;text-overflow:ellipsis;max-width:200px}
 .mh{align-items:flex-start}
+.tmh{display:flex;flex-direction:column;gap:2px;padding:12px 16px 6px 20px;border-top:1px solid var(--line);background:linear-gradient(90deg,rgba(47,140,255,.12),rgba(47,140,255,0))}.tmh b{font:italic 900 13px/1 var(--disp);letter-spacing:.12em;color:var(--blue2)}.tmh span{font:600 11px/1.3 var(--sans);color:var(--muted)}
+.tip.tm .r{background:linear-gradient(180deg,#2f8cff,#0a4ae0);color:#fff}.tip.tm .h{color:#c9d2e3}
+.archive{display:grid;gap:8px;padding:0 16px}.archive .day{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line)}.archive .day b{font:900 18px/1 var(--disp);text-transform:uppercase}.archive .day span{font:800 11px/1 var(--mono);color:var(--gold);letter-spacing:.06em}
 </style>
 </head>
 <body>
 <div class="top">
   <a class="logo" href="/topofthetips.html"><span class="bx">TOP</span><em>OF THE TIPS</em></a>
-  <div class="tools"><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
+  <div class="tools"><a class="radio" id="back" href="/topofthetips.html" style="display:none;background:linear-gradient(180deg,#fff,#dbe3f2);color:#0b0e16">TODAY</a><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
 </div>
 <div class="tick"><div class="lab" id="tlab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
 
@@ -150,6 +153,8 @@ footer b{color:#c9d2e3}
   <a class="cta" href="#join">Join TOP OF THE TIPS</a>
 </section>
 
+<div class="sh"><h2>Past days</h2></div>
+<div class="archive" id="arch"></div>
 <section class="how">
   <div class="sh" style="padding-left:0;padding-right:0"><h2>How it works</h2></div>
   <ol>
@@ -175,11 +180,17 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 (async () => {
   let st = null; try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; } catch {}
   const days = (st && st.days) || {};
-  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const realD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  // ?date=YYYY-MM-DD opens any past day exactly as it was recorded: picks of record only, nothing recomputed
+  const VIEW = /^\d{4}-\d{2}-\d{2}$/.test(Q.get('date') || '') && Q.get('date') < realD ? Q.get('date') : null;
+  const ukd = VIEW || realD;
+  const tmrwD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + 86400000));
+  const tmrw = VIEW ? {} : (days[tmrwD] || {});
   const today = days[ukd] || {};
+  const fmtD = (d) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(d + 'T12:00:00Z'));
   const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
-  const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
-  let SEEN = {}; try { SEEN = JSON.parse(localStorage.getItem('tt:seen:' + ukd) || '{}') || {}; } catch {}
+  const nowMin = VIEW ? 1440 : (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
+  let SEEN = {}; if (!VIEW) { try { SEEN = JSON.parse(localStorage.getItem('tt:seen:' + ukd) || '{}') || {}; } catch {} }
   // record = the picks on the page. Past days: the day's locked picks (tp) when it has them, else its scan tally. Today: counted from the rows shown below, so the header always matches the list.
   const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
       const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || dv.src === 'replay')) { n++; if (e.w) w++; } }); return; }
@@ -232,16 +243,25 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
+    const tmRaw = ((tmrw.tm && tmrw.tm[m.nm]) || []).filter(p => p && p.h); const tmSeen = new Set();
+    const tmTips = tmRaw.filter(p => { const k = p.t + '|' + p.c; if (tmSeen.has(k)) return false; tmSeen.add(k); return true; }).sort((a, b) => t2m(a.t) - t2m(b.t));
+    const tmBlock = tmTips.length ? `<div class="tmh"><b>TOMORROW · ${esc(fmtD(tmrwD))}</b><span>early look ${tmrw.tmAt ? esc(String(tmrw.tmAt).slice(0, 5)) : ''} · picks post for real on the day</span></div>` + tmTips.map(p => `<div class="tip tm"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div><div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">early look · signals can move before the off</span></div><div class="r">EARLY</div></div>`).join('') : '';
     const cl0 = true; // tiles load closed; tap a header to open it
     const pc = rec.n ? rec.w / rec.n : -1, lb = wil(rec.w, rec.n);
-    return { pc, lb, n: rec.n, html: xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
-      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span><s class="dots" data-k="${esc(nxt.t + '|' + nxt.c + '|' + String(nxt.h).toLowerCase())}"></s></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
+    return { pc, lb, n: rec.n, html: xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}${tmTips.length ? ' · ' + tmTips.length + ' TMRW' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span><s class="dots" data-k="${esc(nxt.t + '|' + nxt.c + '|' + String(nxt.h).toLowerCase())}"></s></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${tmBlock}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
   });
   // rank on the numbers actually shown in each header: strike % high to low, ties by confidence then depth
   // white dots under the NEXT horse: one per other tile that has the same horse in the same race
   const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('')
     .replace(/<s class="dots" data-k="([^"]*)"><\/s>/g, (_, k) => { const kk = k.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); const n = (PICKK[kk] ? PICKK[kk].size : 1) - 1; if (n <= 0) return ''; return `<span class="dots" title="on ${n} other tile${n === 1 ? '' : 's'}">${'<i></i>'.repeat(Math.min(n, 10))}${n > 10 ? `<small>+${n - 10}</small>` : ''}</span>`; });
   document.getElementById('models').innerHTML = html;
+  { const h2 = document.querySelector('.sh h2'); if (h2) h2.textContent = VIEW ? fmtD(VIEW) + ' · results' : "Today's card";
+    const arch = Object.keys(days).filter(d => d < realD).sort().reverse().slice(0, 14).map(d => { const dv = days[d] || {}; let w = 0, n = 0;
+      ALL.forEach(m => ((dv.tp && dv.tp[m.nm]) || []).forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || dv.src === 'replay')) { n++; if (e.w) w++; } }));
+      return `<a class="day" href="/topofthetips.html?date=${d}"><b>${esc(fmtD(d))}</b><span>${n ? w + '/' + n + ' · ' + Math.round(w / n * 100) + '%' : 'no picks of record'}</span></a>`; }).join('');
+    const ae = document.getElementById('arch'); if (ae) ae.innerHTML = arch || '<div class="none">No past days yet.</div>';
+    if (VIEW) { const b = document.getElementById('back'); if (b) b.style.display = 'inline-flex'; } }
   { const e = document.getElementById('nmodels'); if (e) e.textContent = built.length + ' model' + (built.length === 1 ? '' : 's'); }
   try { localStorage.setItem('tt:seen:' + ukd, JSON.stringify(SEEN)); } catch {}
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
@@ -256,8 +276,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   } catch { runEl.innerHTML = '<span>Results feed unavailable.</span>'; }
   requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
-setTimeout(() => location.reload(), 60000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') location.reload(); });
+if (!/\bdate=\d{4}-\d{2}-\d{2}/.test(location.search)) { setTimeout(() => location.reload(), 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') location.reload(); }); }
 </script>
 </body>
 </html>
