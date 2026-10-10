@@ -18,12 +18,12 @@ a{color:inherit;text-decoration:none}
 .gl:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.04) 48%,rgba(0,0,0,0) 52%,rgba(0,0,0,.25));pointer-events:none;border-radius:inherit}
 
 /* top network bar */
-.top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:linear-gradient(180deg,#181d2a,#0b0e16);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-.logo{font:italic 900 24px/1 var(--disp);letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:linear-gradient(180deg,#181d2a,#0b0e16);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.logo{font:italic 900 22px/1 var(--disp);letter-spacing:-.01em;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:0 0 auto}
 .logo .bx{background:linear-gradient(180deg,var(--red2),var(--red));padding:4px 8px 3px;border-radius:4px;box-shadow:0 2px 10px rgba(228,0,43,.5);position:relative;overflow:hidden}
 .logo .bx:after{content:"";position:absolute;left:0;right:0;top:0;height:50%;background:rgba(255,255,255,.22)}
 .logo em{font-style:italic;background:linear-gradient(180deg,#fff,#b9c6dc);-webkit-background-clip:text;background-clip:text;color:transparent}
-.live{display:flex;align-items:center;gap:7px;white-space:nowrap;font:800 11px/1 var(--mono);letter-spacing:.1em;background:#000;border:1px solid var(--line);padding:7px 10px;border-radius:999px}
+.live{display:flex;align-items:center;gap:6px;white-space:nowrap;font:800 11px/1 var(--mono);letter-spacing:.08em;background:#000;border:1px solid var(--line);padding:8px 10px;border-radius:999px}
 .live i{width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 10px var(--red2);animation:pul 1.2s infinite}
 @keyframes pul{50%{opacity:.35}}
 
@@ -108,14 +108,19 @@ footer b{color:#c9d2e3}
 .mh .cv{display:inline-block;margin-left:8px;font:900 14px/1 var(--disp);color:var(--muted);transition:transform .2s}
 .model.cl .mh .cv{transform:rotate(-90deg)}
 .cnt{display:inline-block;margin-left:8px;font:800 10px/1 var(--mono);letter-spacing:.1em;color:var(--muted);vertical-align:middle}
+.tick .run em{font-style:normal;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px}
+.tick .run .tw{background:#12b85a;color:#04210f}.tick .run .tx{background:#000;color:#9aa5b8}.tick .run .tl{background:#fff;color:var(--red)}
+.radio{display:inline-flex;align-items:center;gap:7px;font:800 11px/1 var(--mono);letter-spacing:.1em;background:linear-gradient(180deg,#ffd76a,#f0a400);color:#2a1800;padding:8px 11px;border-radius:999px;box-shadow:0 4px 14px rgba(240,164,0,.4),inset 0 1px 0 rgba(255,255,255,.5);white-space:nowrap}
+.radio i{width:8px;height:8px;border-radius:50%;background:#2a1800;animation:pul 1.2s infinite}
+.tools{display:flex;gap:6px;align-items:center;flex:0 1 auto;min-width:0}
 </style>
 </head>
 <body>
 <div class="top">
   <a class="logo" href="/topofthetips.html"><span class="bx">TOP</span><em>OF THE TIPS</em></a>
-  <div class="live" id="pill"><i></i>LOADING</div>
+  <div class="tools"><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
 </div>
-<div class="tick"><div class="lab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
+<div class="tick"><div class="lab" id="tlab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
 
 <section class="hero">
   <div class="kick">On the record · before the off</div>
@@ -162,7 +167,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const today = days[ukd] || {};
   const agg = (nm) => { let w = 0, n = 0; Object.values(days).forEach(dv => { const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
-  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tk = [];
+  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tkR = [], tkL = [];
   const html = MODELS.map((m, i) => {
     const rec = agg(m.nm); totW += rec.w; totN += rec.n;
     const raw = (today.tp && today.tp[m.nm]) || [];
@@ -171,8 +176,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     const gated = !MEMBER && i > 0;
-    if (!gated) tips.forEach(p => tk.push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${esc(p.h)}</b>${p.w === null ? ' · LIVE' : p.w ? ' · WON' : ' · LOST'}</span>`));
-    else tips.forEach(p => tk.push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>MEMBERS ONLY</b>${p.w === null ? ' · LIVE' : p.w ? ' · WON' : ' · LOST'}</span>`));
+    tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? '<em class="tl">LIVE</em>' : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
@@ -186,9 +190,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   document.getElementById('models').innerHTML = html;
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); const on = sec.classList.toggle('cl'); try { localStorage.setItem('tt:cl:' + sec.dataset.id, on ? '1' : '0'); } catch {} }));
   document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
-  document.getElementById('pill').innerHTML = `<i></i>${new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()).toUpperCase()} · ${liveN ? liveN + ' LIVE' : 'CARD FORMING'}`;
+  document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
+  const tk = tkR.concat(tkL); document.getElementById('tlab').textContent = tkR.length ? 'RESULTS' : 'LIVE';
   document.getElementById('run').innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>No tips posted yet today — the models only speak when their signals agree.</span><span>Every tip is time-stamped before the off.</span>`;
 })();
+setTimeout(() => location.reload(), 120000);
 </script>
 </body>
 </html>
