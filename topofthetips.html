@@ -197,6 +197,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   try { XSET = XSET.concat(JSON.parse(localStorage.getItem('tt:xset:' + ukd) || '[]') || []).filter((v, i, a) => a.indexOf(v) === i); } catch {}
   const xBefore = XSET.length;
   const top = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, lb: wil(g.w, g.n) })).sort((a, b) => b.lb - a.lb).slice(0, 10).map(x => x.nm);
+  // pinned combos always on the card; ?add=COMBO pins another one for the day from any device
+  const PINS = ['PWR+CD'];
+  PINS.concat((Q.get('add') || '').split(',').map(v => v.trim()).filter(Boolean)).forEach(nm => { if (!fixedNames.has(nm) && !XSET.includes(nm)) XSET.push(nm); });
   top.forEach(nm => { if (!XSET.includes(nm)) XSET.push(nm); });
   try { localStorage.setItem('tt:xset:' + ukd, JSON.stringify(XSET)); } catch {}
   if (XSRV && XSET.length !== xBefore) { try { XSRV.days = XSRV.days || {}; XSRV.days[ukd] = XSET; XSRV.ts = Date.now(); fetch('/api/yearstate?k=tottset:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(XSRV) }); } catch {} }
