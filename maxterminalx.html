@@ -947,7 +947,7 @@ const __boot = async () => {
           if (tp5[nm5]) tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: pick5.r.h, d: Number(pick5.r.d) > 0 ? Number(pick5.r.d) : null, w: pick5 === wq5 ? 1 : 0, wn: x.w, lk: lkAt, post: lkAt ? 0 : 1 }); });
         if (n5 > 0) { seqs[cb.join('+')] = sq5; res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); } });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
-    const scanner = () => { const rs5 = window.__scan = scanRows();
+    const scanner = () => { window.__rescan = scanner; const rs5 = window.__scan = scanRows();
       const ks7 = Object.keys(scanSel); const upLines = [];
       listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2).forEach(x => {
         const agree = new Map();
@@ -957,15 +957,18 @@ const __boot = async () => {
       upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
       const comboPerf = {}; rs5.forEach(r5 => { comboPerf[r5.nm] = r5; });
       const nextBy = window.__nextBy = {};
-      listRows.filter(x => !x.gone && x.runners && x.runners.length >= 2)
+      listRows.filter(x => (!x.gone || !x.w) && x.runners && x.runners.length >= 2)
         .slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(x => {
           const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
           scanCombos.forEach(cb8 => { const nm8 = cb8.join('+');
             if (window.__trackPicks && window.__trackPicks[nm8]) { const q8b = p8[cb8[0]];
-              if (q8b && cb8.every(k8b => p8[k8b] === q8b)) { const prev8 = window.__lockMap && window.__lockMap[nm8] && window.__lockMap[nm8][x.t + '|' + String(x.course || '')];
-                const at8 = prev8 && prev8.h && hn(prev8.h) === hn(q8b.r.h) && prev8.at ? prev8.at : lon2();
-                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: at8 }); } }
-            if (nextBy[nm8]) return;
+              const prev8 = window.__lockMap && window.__lockMap[nm8] && window.__lockMap[nm8][x.t + '|' + String(x.course || '')];
+              // a pick already posted pre-off is the pick of record: it stays on the card even if the signals drift apart or the race has gone off without a result yet
+              if (prev8 && prev8.h) { const ql = x.runners.find(q => hn(q.r.h) === hn(prev8.h));
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: prev8.h, d: ql && Number(ql.r.d) > 0 ? Number(ql.r.d) : (prev8.d || null), w: null, at: prev8.at || lon2() }); }
+              else if (!x.gone && q8b && cb8.every(k8b => p8[k8b] === q8b)) {
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: lon2() }); } }
+            if (x.gone || nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
             nextBy[nm8] = { h: q8.r.h, t: x.t, d: Number(q8.r.d) > 0 ? Number(q8.r.d) : null }; }); });
@@ -1012,6 +1015,14 @@ const __boot = async () => {
       // a tab left open past midnight must never write today's card under yesterday's date
       const liveD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
       if (!REPLAY && liveD !== ukd) { try { location.reload(); } catch {} return; }
+      // pre-off locks first: union of what the server already holds for today and what this page has seen (earliest post time wins), then rescan so the card we write honours every lock
+      { const rL = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jL = await rL.json();
+        window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {};
+        const prevD = window.__ledger.days[ukd]; const lm = window.__lockMap || {};
+        Object.entries((prevD && prevD.tp) || {}).forEach(([nm, arr]) => { (arr || []).forEach(e => { if (!e || !e.h) return;
+          const at = e.w === null ? e.at : e.lk; if (!at) return; const k = e.t + '|' + e.c; const cur = (lm[nm] = lm[nm] || {})[k];
+          if (!cur || String(at) < String(cur.at)) lm[nm][k] = { h: e.h, d: e.d, at }; }); });
+        window.__lockMap = lm; if (window.__rescan) window.__rescan(); }
       const ultra9 = [];
       try { (typeof listRows !== 'undefined' ? listRows : []).forEach(x9 => {
         if (!x9 || !x9.gone || !x9.w || !x9.runners || x9.runners.length < 2) return;
@@ -1027,14 +1038,6 @@ const __boot = async () => {
       const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2, src: REPLAY ? 'replay' : 'live', fz: window.__fzCount || 0, gone: window.__goneCount || 0 };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
-      // always merge into the server's current ledger, never a stale page snapshot; only this page's own day is written
-      { const rL = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jL = await rL.json();
-        window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {}; }
-      // pre-off locks: every pick the ledger already holds for today (live with its bank time, or resulted with its lock) is the pick of record
-      { const prevD = window.__ledger.days[ukd]; const lm = {};
-        Object.entries((prevD && prevD.tp) || {}).forEach(([nm, arr]) => { (arr || []).forEach(e => { if (!e || !e.h) return;
-          const at = e.w === null ? e.at : e.lk; if (!at) return; (lm[nm] = lm[nm] || {})[e.t + '|' + e.c] = { h: e.h, d: e.d, at }; }); });
-        window.__lockMap = lm; }
       window.__ledger.days[ukd] = today9;
       window.__ledger.ts = Date.now();
       const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
