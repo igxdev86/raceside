@@ -190,8 +190,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const ag = {}; Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
   const fixedNames = new Set(MODELS.map(m => m.nm));
   const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
-  const XM = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
-    .sort((a, b) => b.lb - a.lb).slice(0, 10).map((x, i) => ({ id: 'X' + (i + 1), nm: x.nm, title: x.nm.replace(/\+/g, ' + '), acc: XACC[i % XACC.length], desc: describe(x.nm) + '. All must agree on one horse.', x: true }));
+  // the day's extended set is sticky: once a combo has been shown today it stays on the page all day, even if other combos overtake it in the ranking
+  let XSET = []; try { XSET = JSON.parse(localStorage.getItem('tt:xset:' + ukd) || '[]') || []; } catch {}
+  const top = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, lb: wil(g.w, g.n) })).sort((a, b) => b.lb - a.lb).slice(0, 10).map(x => x.nm);
+  top.forEach(nm => { if (!XSET.includes(nm)) XSET.push(nm); });
+  try { localStorage.setItem('tt:xset:' + ukd, JSON.stringify(XSET)); } catch {}
+  const XM = XSET.map((nm, i) => ({ id: 'X' + (i + 1), nm, title: nm.replace(/\+/g, ' + '), acc: XACC[i % XACC.length], desc: describe(nm) + '. All must agree on one horse.', x: true }));
   // one list, best strike first (Wilson lower bound breaks ties between thin and deep records); S1 stays the free model wherever it lands
   const todayRec = (nm) => { let w = 0, n = 0; const seenK = new Set(); ((today.tp && today.tp[nm]) || []).forEach(p => { if (!p || p.w === null || p.w === undefined) return; const k = p.t + '|' + p.c; if (seenK.has(k)) return; seenK.add(k); n++; if (p.w) w++; }); return { w, n }; };
   const fullRec = (nm) => { const a = agg(nm), t = todayRec(nm); return { w: a.w + t.w, n: a.n + t.n }; };
