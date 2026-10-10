@@ -194,7 +194,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     Object.entries(mem).forEach(([k, p]) => { const cur = byK[k];
       if (!cur) byK[k] = p;
       else if (cur.w === null && p.at && String(p.at) < String(cur.at || '99')) cur.at = p.at; });
-    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : p; });
+    // a settled entry carries its lock time; if the server lost it, the time this device first saw the pick posted is the time of record
+    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; if (p.w !== null && !p.lk && old && old.at) p.lk = old.at; });
+    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : (old && old.at && !p.at && p.w === null ? { ...p, at: old.at } : p); });
     const tips = Object.values(byK).map(p => ({ ...p, ran: p.w === null && t2m(p.t) + 5 < nowMin }))
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
@@ -204,7 +206,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
-      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + esc(p.wn) : 'settled')}</span></div>
+      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'settled post-race' + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const cl0 = false; // every load opens fully: nothing we pick is ever hidden
