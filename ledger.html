@@ -3,7 +3,20 @@
 <style>body{background:#06080D;color:#E8EEF7;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:18px;line-height:1.7}
 h1{font-size:14px;letter-spacing:.3em;color:#39FF14;margin-bottom:12px}.d{border:1px solid #1C2940;border-radius:6px;padding:8px 10px;margin:0 0 8px}.d b{color:#FFB300}.k{color:#8A9BB5}.w{color:#FF3B5C}</style></head>
 <body><h1>LEDGER</h1><div id="o">loading…</div>
+<div style="margin-top:14px"><button id="fix09" style="background:#111B2B;color:#FFB300;border:1px solid #FFB300;border-radius:6px;padding:8px 12px;font-family:inherit;font-size:12px">restore 9 Oct · S1 record (Sharadd W, Gunfighter L)</button> <span id="fixmsg" class="k"></span></div>
 <script>
+document.getElementById('fix09').onclick = async () => {
+  const m = document.getElementById('fixmsg'); m.textContent = 'repairing…';
+  const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); const st = (j && j.state) || { days: {} };
+  st.days = st.days || {}; const d = st.days['2026-10-09'] = st.days['2026-10-09'] || {};
+  d.scan = (d.scan || []).filter(x => x && x.nm !== '\u03a3+MN+MX'); d.scan.push({ nm: '\u03a3+MN+MX', n: 2, w: 1, pc: 50 });
+  d.sq = d.sq || {}; d.sq['\u03a3+MN+MX'] = 'WL';
+  d.tp = d.tp || {}; d.tp['\u03a3+MN+MX'] = [ { t: '3:18', c: 'York', h: 'Sharadd', d: 1.36, w: 1 }, { t: '7:15', c: 'Kempton', h: 'Gunfighter', d: 1.83, w: 0, wn: 'berry clever' } ];
+  d.repaired = 'S1 restored from 9 Oct screenshot';
+  st.ts = Date.now();
+  const p = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) });
+  m.textContent = p.ok ? 'done — reload' : 'failed ' + p.status;
+};
 (async () => {
   const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); const st = j && j.state;
   const days = (st && st.days) || {}; const ks = Object.keys(days).sort().reverse();
