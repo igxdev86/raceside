@@ -185,14 +185,14 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || dv.src === 'replay')) { n++; if (e.w) w++; } }); return; }
       const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
   let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const PICKK = {};
-  const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
+  const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover', 'LWT': 'lowest weight carried (flat only)' };
   const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
   const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
   const ag = {}; Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
   const fixedNames = new Set(MODELS.map(m => m.nm));
   const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
   // FIXED ROSTER. Nothing is added or dropped automatically - the card shows exactly these models every day. Change the list here, nowhere else.
-  const XSET = ['Σ+PWR+MX', 'Σ+MX', 'Σ+MX+FAV', 'PWR+MX', 'PWR+MX+FAV', 'Σ+MN+PWR', 'MN+PWR+MX', 'MN+JT+FAV', 'MN+PWR+FAV', 'MX+FAV', 'CD', 'PWR+CD'];
+  const XSET = ['Σ+PWR+MX', 'Σ+MX', 'Σ+MX+FAV', 'PWR+MX', 'PWR+MX+FAV', 'Σ+MN+PWR', 'MN+PWR+MX', 'MN+JT+FAV', 'MN+PWR+FAV', 'MX+FAV', 'CD', 'PWR+CD', 'JT+DRW+LWT'];
   // model names: fixed for the core five, deterministic codename per combo for the rest (same combo = same name every day)
   const NAMES = ['HELIX', 'APEX', 'TITAN', 'ZENITH', 'FLUX', 'PRISM', 'VERTEX', 'CIPHER', 'KINETIC', 'LUMEN', 'NEXUS', 'ONYX', 'SABRE', 'TEMPO', 'VANTA', 'AURORA', 'COBALT', 'DRIFT', 'EMBER', 'FALCON', 'GRAVITY', 'HALO', 'IRIS', 'JET', 'KRYPTON', 'LASER', 'MERIDIAN', 'NIMBUS', 'OMEGA', 'PHOTON', 'QUASAR', 'RADIAN', 'SOLAR', 'TURBO', 'ULTRA', 'VOLT', 'WARP', 'XENON', 'YIELD', 'ZERO'];
   const codename = (nm) => { let h = 0; for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0; return NAMES[h % NAMES.length] + ' ' + (nm.split('+').length) + '.' + (h % 9 + 1); };

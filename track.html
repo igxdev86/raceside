@@ -58,7 +58,7 @@ window.__keepBanking = () => { if (document.getElementById('bankfr')) return;
 <div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
 <script>
   const D = { '\u03a3': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score\u00d7price', 'JT': 'top jockey+trainer strike',
-    'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover',
+    'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover', 'LWT': 'lowest weight carried (flat only)',
     'FAV+TM+OR': 'favourite that is also top rating and top OR', 'J #1+T #1': 'top jockey and top trainer on one horse' };
   window.__describe = (nm) => D[nm] || nm.split('+').map(k => D[k] || k).join(' + ');
 window.__renderMenu = (days, cur) => {

@@ -958,6 +958,9 @@ const __boot = async () => {
         const mo = Math.max(0, ...x.runners.map(q => Number(q.r.ofr) || 0)); return mo > 0 && a[0].tm > mo ? a[0] : null; },
       CD: (x) => { const a = x.runners.filter(q => q.cd === 'CD').sort((q1, q2) => (q2.sig || 0) - (q1.sig || 0)); return a.length && x.runners.length >= 2 && (a.length === 1 || (a[0].sig || 0) > (a[1].sig || 0)) ? a[0] : null; },
       DRW: (x) => { const a = x.runners.filter(q => Number(q.r.dr) > 0).sort((q1, q2) => Number(q1.r.dr) - Number(q2.r.dr)); return a.length >= 3 ? a[0] : null; },
+      // LWT: lowest weight carried - flat races only (never hurdles, chases, bumpers); a clear lowest, not a tie
+      LWT: (x) => { if (/hurdle|chase|bumper|nh flat|national hunt/i.test(String(x.rtype || ''))) return null;
+        const a = x.runners.filter(q => Number(q.r.lbs) > 0).sort((q1, q2) => Number(q1.r.lbs) - Number(q2.r.lbs)); return a.length >= 3 && Number(a[0].r.lbs) < Number(a[1].r.lbs) ? a[0] : null; },
       PUMP: (x) => { if (!window.__rkMv) return null; const up = (q) => { const m2 = window.__rkMv[tK(x.t) + '|' + cKeyPre(x.course) + '|' + hn(q.r.h)]; return m2 ? (m2.up || 0) : 0; };
         const a = x.runners.slice().sort((q1, q2) => up(q2) - up(q1)); return a.length >= 2 && up(a[0]) >= 2 && up(a[0]) > up(a[1]) ? a[0] : null; } };
     const scanCombos = (() => { const ks = Object.keys(scanSel); const out = [];
