@@ -30,6 +30,25 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);padding:28px 
 </head>
 <body>
 
+
+<script>
+// rebuild any finished day this month that predates the 13-signal scanner (v<2 or no named picks), oldest first
+window.__rebuildStale = async (days, getSt, onMsg) => {
+  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+  const month = ukd.slice(0, 7);
+  const stale = Object.keys(days || {}).filter(d => d.startsWith(month) && d < ukd && ((days[d] && days[d].v) || 0) < 2).sort();
+  let latest = days;
+  for (const d of stale.slice(0, 6)) {
+    onMsg && onMsg(`rebuilding ${d} from the results feed\u2026`);
+    const fr = document.createElement('iframe'); fr.src = '/maxterminalx.html?date=' + d; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(fr);
+    for (let i = 0; i < 15; i++) { await new Promise(r => setTimeout(r, 4000)); const s2 = await getSt(); const dz = s2 && s2.days;
+      if (dz && dz[d] && (dz[d].v || 0) >= 2) { latest = dz; break; } if (dz) latest = dz; }
+    fr.remove();
+  }
+  return latest;
+};
+</script>
 <div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
 <script>
   const D = { '\u03a3': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score\u00d7price', 'JT': 'top jockey+trainer strike',
@@ -110,6 +129,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
     for (let i = 0; i < 15; i++) { await new Promise(r => setTimeout(r, 4000)); const s2 = await getStX(); if (freshX(s2)) { stX = s2; break; } if (s2) stX = s2; }
     fr.remove();
   }
+  { const dz = await window.__rebuildStale((stX && stX.days) || {}, getStX, (m) => { $('meta').textContent = m; }); if (dz) stX = Object.assign({}, stX || {}, { days: dz }); }
   try { window.__renderMenu((stX && stX.days) || {}, SIGNAL); } catch {}
   window.__renderTomorrow((stX && stX.days) || {}, SIGNAL, getStX).catch(() => {});
   const seen = new Set(); const races = [];

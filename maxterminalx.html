@@ -154,7 +154,8 @@ const __boot = async () => {
   const tK = (t) => { const m = String(t || '').trim().match(/(\d{1,2})[:.](\d{2})/); if (!m) return String(t || '').trim().split(' ')[0]; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2]; };
   const rkz = (t, c) => tK(t) + '|' + String(c || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z]/g, '');
   const DAYSEL = new URLSearchParams(location.search).get('day') === 'tomorrow' ? 'tomorrow' : 'today';
-  const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
+  const REPLAY = (() => { const d = new URLSearchParams(location.search).get('date') || ''; return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null; })();
+  const ukd = REPLAY || new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
   let st = null, arch = null, people = null, up = null, seqPre = null;
   const lon2 = () => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date());
   const fetchLog = {};
@@ -170,6 +171,19 @@ const __boot = async () => {
     arch = j2 && j2.state && j2.state.days ? j2.state.days : null;
     people = j3;
     up = j4;
+    if (REPLAY) {   // REPLAY: rebuild a finished day - runners from the results feed, prices from the frozen record below
+      let pr = null; try { pr = await gj('/api/priceday?v=5&date=' + REPLAY); } catch {}
+      const rides = [];
+      ((pr && pr.ok && pr.races) || []).forEach(rc => (rc.runners || []).forEach(r => rides.push({
+        day: 'today', date: REPLAY, t: rc.t, course: rc.course, h: r.h, num: r.num || null, hid: r.hid || null, d: Number(r.d) > 0 ? Number(r.d) : null,
+        jid: r.jid || null, tid: r.tid || null, jockey: r.jockey || '', trainer: r.trainer || '', ofr: r.ofr != null ? r.ofr : null, lbs: r.lbs || null, dr: r.dr || null,
+        form: '', rclass: rc.class != null ? 'Class ' + rc.class : '', dist: rc.dist != null ? String(rc.dist) : '', going: rc.going || '', rtype: rc.type || rc.rtype || '', sk: null })));
+      up = { ok: true, rides };
+      fetchLog.replay = REPLAY + ' (' + ((pr && pr.races) || []).length + ' races)';
+      // the day's prints live in the archive, not the live store
+      const ap = (arch && arch[REPLAY]) || [];
+      st = Object.assign({}, st || {}, { prints: ap.map(p => Object.assign({}, p, { day: REPLAY })) });
+    }
     seqPre = j5;
   }
   let sj2 = typeof sj !== 'undefined' ? sj : null;
@@ -183,7 +197,7 @@ const __boot = async () => {
     (races[k] = races[k] || { k, t: tK(r.t), course: r.course, rclass: r.rclass || '', dist: r.dist || '', going: r.going || '', rtype: r.rtype || '', rs: [] }).rs.push({ h: r.h, num: r.num || null, hid: r.hid || null, dr: r.dr || null, sk: r.sk || null, form: r.form || '', jockey: r.jockey, trainer: r.trainer || '', jid: r.jid, tid: r.tid, ofr: r.ofr, lbs: r.lbs, d: Number(r.d) > 1 ? Number(r.d) : null, pos: null });
   });
   const list = Object.values(races).filter(rc => rc.rs.length >= 3).sort((a, b2) => t2m(a.t) - t2m(b2.t));
-  list.forEach(rc => { rc.gone = DAYSEL === 'today' && t2m(rc.t) <= nowMin; });
+  list.forEach(rc => { rc.gone = !!REPLAY || (DAYSEL === 'today' && t2m(rc.t) <= nowMin); });
   // pre-off record: resulted races are scored on the server's frozen prices, not the drifting feed
   const snapMap = {};
   const ck0 = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
@@ -218,7 +232,7 @@ const __boot = async () => {
     if (!tfreeze[k2] && window.__live[k2]) { const lv = window.__live[k2];
       tfreeze[k2] = lv.p ? { at: lv.at, prices: lv.p } : { at: lon2(), prices: lv }; tfNew = true; } });
   try { localStorage.setItem('rsTF:' + ukd, JSON.stringify(tfreeze)); } catch {}
-  if (tfNew) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
+  if (tfNew && !REPLAY) { try { const cur2 = (window.__tfj && window.__tfj.state) || { days: {} };
     cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
     fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur2) }); } catch {} }
   // resulted price source: page freeze (exact off, this screen) > server snapshot > feed
@@ -227,7 +241,7 @@ const __boot = async () => {
     const src = (tfreeze[k2] && tfreeze[k2].prices) || (snapMap[k2] && snapMap[k2].prices);
     if (!src) return;
     (rc.rs || []).forEach(r2 => { const sp = src[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
-  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
+  if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">' + (REPLAY ? 'no results feed for ' + REPLAY : 'no races left to run today.') + '</div>'; return; }
   const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
   const days = [ukd];
 
@@ -762,7 +776,7 @@ const __boot = async () => {
           tier: tierOf(q), labels: labelsOf(e.x, q) }; }) }));
     const payload = JSON.stringify({ ts: Date.now(), day: ukd, races });
     try { localStorage.setItem('rsTerm', payload); } catch {}
-    try { if (payload.slice(0, 4000) !== (termBuild._last || '').slice(0, 4000)) { termBuild._last = payload;
+    try { if (!REPLAY && payload.slice(0, 4000) !== (termBuild._last || '').slice(0, 4000)) { termBuild._last = payload;
       fetch('/api/yearstate?k=termdata:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(() => {}); } } catch {}
     return races; };
   const termRow = () => { const races = termBuild();
@@ -967,7 +981,7 @@ const __boot = async () => {
           return `${u7.t} ${abbr7(u7.c)} \u2014 <b style="color:${hclr(u7.h)}">${u7.h}</b>${Number(u7.d) > 0 ? ` @ ${u7.d}` : ''} <small>\u00b7 ${u7.tags} ${p9 ? `(${p9.w}/${p9.n} \u00b7 ${p9.pc}%)` : '(no results yet)'}</small>`; }).join('<br>')
       }` : ''}</div>`; };
     window.__cntN = Object.fromEntries(Object.entries(cnt).map(([k9, v9]) => [k9, [v9[0], v9[1]]]));
-    if (!cnt.top1[1] && !Object.keys(ups).length) return '';
+    if (!REPLAY && !cnt.top1[1] && !Object.keys(ups).length) return '';
     const cell = (lbl2, c2, key2) => `<div class="dcell${dashSel === key2 ? ' sel' : ''}" data-d="${key2}"><small>${lbl2}</small><b>${c2[0]}/${c2[1]}</b><span>${c2[1] ? Math.round(c2[0] / c2[1] * 100) : 0}%</span></div>`;
     const DL9 = { top1: 'TOP \u03a3', top3: 'TOP 3 \u03a3', grn: 'GREENEST', grnAny: 'ANY GREEN', mn1: 'TOP MINUS', pw1: 'TOP PWR', tm1: 'TM 1', tm3: 'TM TOP 3', tm5: 'TM TOP 5', tmcd: 'TM + CD', stm: '\u03a3 + TM', smn: '\u03a3 + MINUS', mne: 'MINUS + EDGE', smt: '\u03a3 + MINUS + TM' };
     const detail = dashSel ? `<div class="dmod"><div class="dbox"><div class="dmh"><b>${DL9[dashSel] || dashSel.toUpperCase()}</b><span class="dmx">\u2715</span></div><div class="dlist">${(hits[dashSel] || []).slice().sort((a, b2) => (b2.hit ? 1 : 0) - (a.hit ? 1 : 0)).map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hit ? `${e2.w} \u2705 <small>(${e2.pl} ${e2.pk || '?'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''}${hn(e2.w) !== hn(e2.h) ? ` \u00b7 top: ${e2.h}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>` : `${e2.h} \u2717 <small>(won: ${e2.w}${e2.pk ? `, ${e2.pl} ${e2.pk}` : ', unranked'}${e2.ps != null ? ` \u00b7 PWR ${e2.ps} #${e2.psr}` : ''} \u00b7 ${e2.fz ? `froze ${e2.fz}` : 'no freeze rec'})</small>`}</div>`).join('')}${ups[dashSel] && ups[dashSel].length ? `<div class="dup">UPCOMING${wBand ? ` <small>\u00b7 gold = PWR ${wBand.lo}\u2013${wBand.hi} (winner median ${wBand.med})</small>` : ''}</div>` + ups[dashSel].map(e2 => `<div>${e2.t} ${crs(e2.c).slice(0, 3)} \u2014 ${e2.hs.map(z => `${z.hl ? `<span class="wlk">${z.h}</span>` : z.h}${Number(z.d) > 0 ? ` <small>@ ${z.d}</small>` : ''}${z.pw != null ? ` <b class="pwr">PWR ${z.pw}</b> <small>(${z.pr})</small>` : ''}`).join(' \u00b7 ')}</div>`).join('') : ''}${!(hits[dashSel] || []).length && !((ups[dashSel] || []).length) ? '<div><small>no qualifying races yet today</small></div>' : ''}</div></div></div>` : '';
@@ -990,7 +1004,7 @@ const __boot = async () => {
       if (!window.__cntN || !window.__scan) return;
       // a tab left open past midnight must never write today's card under yesterday's date
       const liveD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
-      if (liveD !== ukd) { try { location.reload(); } catch {} return; }
+      if (!REPLAY && liveD !== ukd) { try { location.reload(); } catch {} return; }
       const ultra9 = [];
       try { (typeof listRows !== 'undefined' ? listRows : []).forEach(x9 => {
         if (!x9 || !x9.gone || !x9.w || !x9.runners || x9.runners.length < 2) return;
@@ -1061,6 +1075,7 @@ const __run = async () => { if (__busy) return; __busy = true;
   try { await __boot(); } catch (e) {} __first = false; __busy = false; };
 __run();
 setInterval(() => { __next = Date.now() + 15000;
+  if (REPLAY) return;
   if (document.visibilityState !== 'visible') return;
   try { if (window.__saveState) window.__saveState(); } catch {}
   __run(); }, 15000);
