@@ -231,10 +231,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
   const tkAll = Object.values(TK).sort((a, b) => (a.w === null ? 1 : 0) - (b.w === null ? 1 : 0) || t2m(b.t) - t2m(a.t));
   const tkR = tkAll.filter(e => e.w !== null), tkRan = tkAll.filter(e => e.w === null);
-  const tk = tkR.concat(tkRan).map(e => `<span>${esc(e.t)} ${esc(course(e.c)).toUpperCase()} <b>${esc(e.h)}</b> ${e.w === null ? '<em class="tl">RAN</em>' : e.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST' + (e.wn ? ' · ' + esc(e.wn) : '') + '</em>'} <i>${e.ms.join(' ')}</i></span>`);
-  document.getElementById('tlab').textContent = tkR.length ? `RESULTS ${tkR.filter(e => e.w).length}/${tkR.length}` : 'LIVE';
+  const tk = tkR.map(e => `<span>${esc(e.t)} ${esc(course(e.c)).toUpperCase()} <b>${esc(e.h)}</b> ${e.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'}</span>`);
+  document.getElementById('tlab').textContent = 'RESULTS';
   const runEl = document.getElementById('run');
-  runEl.innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>${liveN} tip${liveN === 1 ? '' : 's'} posted and waiting for the off — results run here as they land.</span>`;
+  runEl.innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>No results yet today.</span>`;
   // scroll speed set by length so it reads the same whether there are 3 results or 60
   requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
