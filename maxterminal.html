@@ -1037,6 +1037,9 @@ const __boot = async () => {
     if (body9 !== window.__lastApp) { window.__lastApp = body9; document.getElementById('appbody').innerHTML = body9; }
     (async () => { try {
       if (!window.__cntN || !window.__scan) return;
+      // a tab left open past midnight must never write today's card under yesterday's date
+      const liveD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
+      if (liveD !== ukd) { try { location.reload(); } catch {} return; }
       const ultra9 = [];
       try { (typeof listRows !== 'undefined' ? listRows : []).forEach(x9 => {
         if (!x9 || !x9.gone || !x9.w || !x9.runners || x9.runners.length < 2) return;
@@ -1052,7 +1055,8 @@ const __boot = async () => {
       const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2 };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
-      if (!window.__ledger) { const rL = await fetch('/api/yearstate?k=comboledger:v1'); const jL = await rL.json();
+      // always merge into the server's current ledger, never a stale page snapshot; only this page's own day is written
+      { const rL = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jL = await rL.json();
         window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {}; }
       window.__ledger.days[ukd] = today9;
       window.__ledger.ts = Date.now();
