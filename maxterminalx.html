@@ -935,12 +935,16 @@ const __boot = async () => {
       const tp5 = window.__trackPicks = {}; TRACK5.forEach(nm5 => { tp5[nm5] = []; });
       const ordered5 = listRows.slice().sort((a5, b5) => t2m(a5.t) - t2m(b5.t));
       scanCombos.forEach(cb => { let n5 = 0, w5 = 0, sq5 = '';
+        const nm5 = cb.join('+');
         ordered5.forEach(x => { if (!x.w || !x.runners || x.runners.length < 2) return;
           const wq5 = x.runners.find(q => hn(q.r.h) === hn(x.w)); if (!wq5) return;
-          const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
-          if (!picks5.every(p5 => p5 === picks5[0])) return;
-          n5++; if (picks5[0] === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L';
-          { const nm5 = cb.join('+'); if (tp5[nm5]) tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: picks5[0].r.h, d: Number(picks5[0].r.d) > 0 ? Number(picks5[0].r.d) : null, w: picks5[0] === wq5 ? 1 : 0, wn: x.w }); } });
+          const lk5 = window.__lockMap && window.__lockMap[nm5] && window.__lockMap[nm5][x.t + '|' + String(x.course || '')];
+          let pick5 = null, lkAt = null;
+          if (lk5 && lk5.h) { pick5 = x.runners.find(q => hn(q.r.h) === hn(lk5.h)) || null; lkAt = lk5.at || null; }
+          if (!pick5) { const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
+            if (!picks5.every(p5 => p5 === picks5[0])) return; pick5 = picks5[0]; }
+          n5++; if (pick5 === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L';
+          if (tp5[nm5]) tp5[nm5].push({ t: x.t, c: String(x.course || ''), h: pick5.r.h, d: Number(pick5.r.d) > 0 ? Number(pick5.r.d) : null, w: pick5 === wq5 ? 1 : 0, wn: x.w, lk: lkAt, post: lkAt ? 0 : 1 }); });
         if (n5 > 0) { seqs[cb.join('+')] = sq5; res.push({ nm: cb.join('+'), n: n5, w: w5, pc: Math.round(w5 / n5 * 100) }); } });
       res.sort((a, b2) => b2.pc - a.pc || b2.w - a.w || a.n - b2.n); return res; };
     const scanner = () => { const rs5 = window.__scan = scanRows();
@@ -958,7 +962,9 @@ const __boot = async () => {
           const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
           scanCombos.forEach(cb8 => { const nm8 = cb8.join('+');
             if (window.__trackPicks && window.__trackPicks[nm8]) { const q8b = p8[cb8[0]];
-              if (q8b && cb8.every(k8b => p8[k8b] === q8b)) window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null }); }
+              if (q8b && cb8.every(k8b => p8[k8b] === q8b)) { const prev8 = window.__lockMap && window.__lockMap[nm8] && window.__lockMap[nm8][x.t + '|' + String(x.course || '')];
+                const at8 = prev8 && prev8.h && hn(prev8.h) === hn(q8b.r.h) && prev8.at ? prev8.at : lon2();
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: at8 }); } }
             if (nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
@@ -1024,6 +1030,11 @@ const __boot = async () => {
       // always merge into the server's current ledger, never a stale page snapshot; only this page's own day is written
       { const rL = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jL = await rL.json();
         window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {}; }
+      // pre-off locks: every pick the ledger already holds for today (live with its bank time, or resulted with its lock) is the pick of record
+      { const prevD = window.__ledger.days[ukd]; const lm = {};
+        Object.entries((prevD && prevD.tp) || {}).forEach(([nm, arr]) => { (arr || []).forEach(e => { if (!e || !e.h) return;
+          const at = e.w === null ? e.at : e.lk; if (!at) return; (lm[nm] = lm[nm] || {})[e.t + '|' + e.c] = { h: e.h, d: e.d, at }; }); });
+        window.__lockMap = lm; }
       window.__ledger.days[ukd] = today9;
       window.__ledger.ts = Date.now();
       const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
@@ -1076,7 +1087,7 @@ const __run = async () => { if (__busy) return; __busy = true;
   try { await __boot(); } catch (e) {} __first = false; __busy = false; };
 __run();
 setInterval(() => { __next = Date.now() + 15000;
-  if (REPLAY) return;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(new URLSearchParams(location.search).get('date') || '')) return;
   if (document.visibilityState !== 'visible') return;
   try { if (window.__saveState) window.__saveState(); } catch {}
   __run(); }, 15000);
