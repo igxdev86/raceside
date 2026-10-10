@@ -30,6 +30,10 @@
       ['/track-s1.html?s=MN&n=S5', 'TRACK S5'],
       ['/maxarchive.html', 'MAX ARCHIVE'],
     ]],
+    ['TIPS', [
+      ['/topofthetips.html', 'TOP OF THE TIPS'],
+      ['/topofthetips.html?member=1', 'TIPS (MEMBER)'],
+    ]],
     ['TMRW', [
       ['/maxprints2.html', 'MAX PRINTS TMRW'],
       ['/maxlists2.html', 'MAX LISTS TMRW'],
