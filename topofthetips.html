@@ -117,7 +117,8 @@ footer b{color:#c9d2e3}
 .radio.fr{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f;box-shadow:0 4px 14px rgba(18,184,90,.4),inset 0 1px 0 rgba(255,255,255,.5)}
 @media(max-width:480px){.logo em{display:none}.radio,.live{padding:8px 9px;font-size:10px}}
 .tip.ran .r{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}
-.nxrow{display:flex;justify-content:flex-end;padding:0 16px 10px 20px;margin-top:-4px}
+.nxrow{display:flex;flex-direction:column;align-items:flex-end;gap:5px;padding:0 16px 10px 20px;margin-top:-4px}
+.dots{display:inline-flex;align-items:center;gap:4px;padding-right:6px}.dots i{width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}.dots small{color:#fff;font:800 10px/1 var(--mono)}
 .nxt{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03));border:1px solid var(--acc,var(--blue2));box-shadow:0 0 14px color-mix(in srgb,var(--acc,var(--blue2)) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.15);white-space:nowrap;max-width:100%}
 .nxt i{font:italic 900 10px/1 var(--disp);letter-spacing:.12em;color:#06080d;background:var(--acc,var(--blue2));padding:5px 7px 4px;border-radius:999px;font-style:italic}
 .nxt b{font:900 15px/1 var(--disp);color:#fff}
@@ -183,7 +184,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
       const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined) { n++; if (e.w) w++; } }); return; }
       const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
-  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const TK = {};
+  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const PICKK = {};
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
   const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
   const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
@@ -220,6 +221,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     tips.forEach(p => { if (p.w !== null) { rec.n++; if (p.w) rec.w++; } }); totW += rec.w; totN += rec.n;
     const nxt = tips.filter(p => p.w === null && !p.ran).sort((a, b) => t2m(a.t) - t2m(b.t))[0] || null;
+    tips.forEach(p => { if (p.w !== null) return; const k = p.t + '|' + p.c + '|' + String(p.h).toLowerCase(); (PICKK[k] = PICKK[k] || new Set()).add(m.id); });
     const settledHere = { w: 0, n: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
@@ -232,10 +234,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const cl0 = true; // tiles load closed; tap a header to open it
     const pc = rec.n ? rec.w / rec.n : -1, lb = wil(rec.w, rec.n);
     return { pc, lb, n: rec.n, html: xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
-      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
+      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span><s class="dots" data-k="${esc(nxt.t + '|' + nxt.c + '|' + String(nxt.h).toLowerCase())}"></s></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
   });
   // rank on the numbers actually shown in each header: strike % high to low, ties by confidence then depth
-  const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('');
+  // white dots under the NEXT horse: one per other tile that has the same horse in the same race
+  const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('')
+    .replace(/<s class="dots" data-k="([^"]*)"><\/s>/g, (_, k) => { const kk = k.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); const n = (PICKK[kk] ? PICKK[kk].size : 1) - 1; if (n <= 0) return ''; return `<span class="dots" title="on ${n} other tile${n === 1 ? '' : 's'}">${'<i></i>'.repeat(Math.min(n, 10))}${n > 10 ? `<small>+${n - 10}</small>` : ''}</span>`; });
   document.getElementById('models').innerHTML = html;
   try { localStorage.setItem('tt:seen:' + ukd, JSON.stringify(SEEN)); } catch {}
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
