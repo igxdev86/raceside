@@ -152,9 +152,10 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
     const picks = raw.filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     const prov = (() => { if (!dv.v) return 'tally only'; const fz = dv.fz || 0, g = dv.gone || 0;
-      const p = g ? Math.round(fz / g * 100) : 0;
+      if (!g) return dv.src === 'replay' ? 'rebuilt \u00b7 no results' : 'live \u00b7 nothing run yet';
+      const p = Math.round(fz / g * 100);
       return `${dv.src === 'replay' ? 'rebuilt' : 'live'} \u00b7 ${fz}/${g} at frozen prices${p < 100 ? ' \u00b7 rest SP' : ''}`; })();
-    const provCol = !dv.v ? 'var(--faint)' : (dv.gone && dv.fz === dv.gone) ? 'var(--lumo)' : (dv.fz ? 'var(--am)' : 'var(--red)');
+    const provCol = !dv.v ? 'var(--faint)' : !dv.gone ? 'var(--dim)' : (dv.fz === dv.gone) ? 'var(--lumo)' : (dv.fz ? 'var(--am)' : 'var(--red)');
     const hdr = `<div class="day"><span>${d === ukd ? 'today' : d.slice(5)} <small style="color:${provCol};letter-spacing:.06em;text-transform:none">${prov}</small></span><span>${rec && rec.n ? `${rec.w}/${rec.n}` : ''}</span></div>`;
     if (!picks.length) return hdr + `<div class="empty" style="margin:6px 0 4px">${rec && rec.n ? 'score banked \u00b7 horse names were not stored before 9 Oct' : 'no agreement races'}</div>`;
     return hdr + picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}</div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
