@@ -136,7 +136,7 @@ footer b{color:#c9d2e3}
 
 <section class="join" id="join">
   <h2>Every model.<br>Every tip.<br>Before the off.</h2>
-  <p>Members get all five models live, with the time each tip was posted and the full day-by-day record.</p>
+  <p>Members get every model live, with the time each tip was posted and the full day-by-day record.</p>
   <ul><li>The Triple Lock, The Form Favourite, The Stable Edge, The Value Pick, The Steamer</li><li>Tips posted before the race, never edited after</li><li>Full win/loss record for every model</li></ul>
   <a class="cta" href="#join">Join TOP OF THE TIPS</a>
 </section>
@@ -170,7 +170,16 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const today = days[ukd] || {};
   const agg = (nm) => { let w = 0, n = 0; Object.values(days).forEach(dv => { const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
   let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tkR = [], tkL = [];
-  const html = MODELS.map((m, i) => {
+  const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
+  const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
+  const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
+  const ag = {}; Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
+  const fixedNames = new Set(MODELS.map(m => m.nm));
+  const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
+  const XM = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, ...g, lb: wil(g.w, g.n) }))
+    .sort((a, b) => b.lb - a.lb).slice(0, 10).map((x, i) => ({ id: 'X' + (i + 1), nm: x.nm, title: x.nm.replace(/\+/g, ' + '), acc: XACC[i % XACC.length], desc: describe(x.nm) + '. All must agree on one horse.', x: true }));
+  const ALL = MODELS.concat(XM);
+  const html = ALL.map((m, i) => {
     const rec = agg(m.nm); totW += rec.w; totN += rec.n;
     const raw = (today.tp && today.tp[m.nm]) || [];
     const seen = new Set();
@@ -178,6 +187,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     const gated = !MEMBER && i > 0;
+    const xhead = m.x && i === MODELS.length ? '</div><div class="sh"><h2>Extended models</h2></div><div class="grid">' : '';
     tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? '<em class="tl">LIVE</em>' : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
@@ -186,7 +196,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="r">${p.w === null ? 'LIVE' : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const cl0 = (() => { try { return localStorage.getItem('tt:cl:' + m.id) === '1'; } catch { return false; } })();
-    return `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
       <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
