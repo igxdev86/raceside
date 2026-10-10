@@ -1,10 +1,13 @@
 name: cloud banker
 on:
   schedule:
-    # every hour on the hour, 10:00-21:00 UTC (11:00-22:00 UK in summer, 10:00-21:00 in winter) - covers every GB/IRE card
+    # safety net only - the chain below keeps itself alive; GitHub cron is best-effort and often late or missing
     - cron: '0 10-21 * * *'
-    - cron: '30 10-21 * * *'   # second lane so two runs always overlap - no gaps between hours
+    - cron: '30 10-21 * * *'
   workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
 concurrency:
   group: banker
   cancel-in-progress: false
@@ -16,6 +19,18 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.47.2-jammy
     steps:
       - uses: actions/checkout@v4
+      # queue the next lap first: it waits in the concurrency group and starts the moment this one ends, so the banker never relies on cron
+      - name: queue next lap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          H=$(date -u +%H)
+          if [ "$H" -ge 9 ] && [ "$H" -le 21 ]; then
+            curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/bank.yml/dispatches" -d '{"ref":"main"}' && echo "next lap queued"
+          else
+            echo "outside racing hours (UTC $H) - no next lap; cron restarts at 10:00 UTC"
+          fi
       - run: npm init -y >/dev/null && npm install playwright@1.47.2 --no-audit --no-fund --silent
       - run: node scripts/bank.mjs
         env:
