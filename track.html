@@ -49,6 +49,12 @@ window.__rebuildStale = async (days, getSt, onMsg) => {
   return latest;
 };
 </script>
+
+<script>
+window.__keepBanking = () => { if (document.getElementById('bankfr')) return;
+  const fr = document.createElement('iframe'); fr.id = 'bankfr'; fr.src = '/maxterminalx.html?bg=1'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+  document.body.appendChild(fr); };
+</script>
 <div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
 <script>
   const D = { '\u03a3': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score\u00d7price', 'JT': 'top jockey+trainer strike',
@@ -132,6 +138,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
   { const dz = await window.__rebuildStale((stX && stX.days) || {}, getStX, (m) => { $('meta').textContent = m; }); if (dz) stX = Object.assign({}, stX || {}, { days: dz }); }
   try { window.__renderMenu((stX && stX.days) || {}, SIGNAL); } catch {}
   window.__renderTomorrow((stX && stX.days) || {}, SIGNAL, getStX).catch(() => {});
+  window.__keepBanking();
   const seen = new Set(); const races = [];
   const add = (day, p) => { if (!p || !day || !p.k) return; const kk = day + '|' + p.k; if (seen.has(kk)) return; seen.add(kk); races.push({ ...p, day }); };
   Object.entries((jArch && jArch.state && jArch.state.days) || {}).forEach(([d, arr]) => (arr || []).forEach(p => add(d, p)));

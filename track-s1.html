@@ -50,6 +50,12 @@ window.__rebuildStale = async (days, getSt, onMsg) => {
   return latest;
 };
 </script>
+
+<script>
+window.__keepBanking = () => { if (document.getElementById('bankfr')) return;
+  const fr = document.createElement('iframe'); fr.id = 'bankfr'; fr.src = '/maxterminalx.html?bg=1'; fr.style.cssText = 'position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-9999px';
+  document.body.appendChild(fr); };
+</script>
 <div id="smenu" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-family:var(--mono)"></div>
 <script>
   const D = { '\u03a3': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score\u00d7price', 'JT': 'top jockey+trainer strike',
@@ -162,6 +168,7 @@ const abbr = (c) => String(c || '').replace(/\s*\([^)]*\)/g, '').trim();
     return hdr + picks.map(p => `<div class="pk ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${p.t}<small>${abbr(p.c).slice(0, 10)}</small></div><div class="h">${p.h}${p.d != null ? `<small>@ ${p.d}</small>` : ''}${p.w === 0 && p.wn ? `<span class="lost">won by ${p.wn}</span>` : ''}<span class="lost" style="color:${p.w === null ? 'var(--am)' : p.lk ? 'var(--lumo)' : 'var(--red)'};opacity:.85">${p.w === null ? (p.at ? 'banked ' + p.at.slice(0, 5) + ' \u00b7 pre-off' : 'banked live') : p.lk ? 'locked ' + p.lk.slice(0, 5) + ' \u00b7 pre-off' : 'post-race calc \u00b7 not banked before the off'}</span></div><div class="r">${p.w === null ? 'TO RUN' : p.w ? 'WON' : 'LOST'}</div></div>`).join('');
   }).join('');
   window.__renderTomorrow(days, SIGNAL, getSt).catch(() => {});
+  window.__keepBanking();
   $('list').innerHTML = `<div class="day" style="margin-top:4px;color:var(--lumo)"><span>${monthName}</span><span>${mn ? `${mw}/${mn} \u00b7 ${Math.round(mw / mn * 100)}%` : ''}</span></div>` + blocks;
 })();
 </script>

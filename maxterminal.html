@@ -1122,7 +1122,8 @@ const __run = async () => { if (__busy) return; __busy = true;
   try { await __boot(); } catch (e) {} __first = false; __busy = false; };
 __run();
 setInterval(() => { __next = Date.now() + 15000;
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible') { window.__hiddenTicks = (window.__hiddenTicks || 0) + 1; if (window.__hiddenTicks % 4) return; }
+  else window.__hiddenTicks = 0;
   try { if (window.__saveState) window.__saveState(); } catch {}
   __run(); }, 15000);
 setInterval(() => { const el = document.getElementById('arCd');
