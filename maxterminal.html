@@ -271,10 +271,11 @@ const __boot = async () => {
     cur2.days = cur2.days || {}; cur2.days[ukd] = { ...(cur2.days[ukd] || {}), ...tfreeze }; cur2.ts = Date.now();
     fetch('/api/yearstate?k=termfreeze:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur2) }); } catch {} }
   // resulted price source: page freeze (exact off, this screen) > server snapshot > feed
-  list.forEach(rc => { if (!rc.gone) return;
+  window.__fzCount = 0; window.__goneCount = 0;
+  list.forEach(rc => { if (!rc.gone) return; window.__goneCount++;
     const k2 = tK(rc.t) + '|' + ck0(rc.course);
     const src = (tfreeze[k2] && tfreeze[k2].prices) || (snapMap[k2] && snapMap[k2].prices);
-    if (!src) return;
+    if (!src) return; window.__fzCount++;
     (rc.rs || []).forEach(r2 => { const sp = src[hn(r2.h)]; if (sp > 0) r2.d = sp; }); });
   if (!list.length) { $('app').innerHTML = '<div style="padding:30px;text-align:center;color:var(--dim)">no races left to run today.</div>'; return; }
   const byDay = { [ukd]: list.map(rc => ({ k: rc.k, t: rc.t, course: rc.course, rclass: rc.rclass, dist: rc.dist, going: rc.going, rtype: rc.rtype, gone: rc.gone, picks: [], _rs: rc.rs })) };
@@ -1052,7 +1053,7 @@ const __boot = async () => {
           bw: R9.bestQ9 === wq9 ? 1 : 0, bh: R9.bestQ9 ? R9.bestQ9.r.h : null, bt: R9.bestQ9 ? R9.rkTot.get(R9.bestQ9) : null,
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
       }); } catch {}
-      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2 };
+      const today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2, src: 'live', fz: window.__fzCount || 0, gone: window.__goneCount || 0 };
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       // always merge into the server's current ledger, never a stale page snapshot; only this page's own day is written
