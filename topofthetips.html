@@ -141,7 +141,7 @@ footer b{color:#c9d2e3}
 
 <script>
 const Q = new URLSearchParams(location.search);
-const MEMBER = Q.get('member') === '1';
+const MEMBER = Q.get('gate') !== '1'; // all tips open for now; ?gate=1 previews the paywall
 const MODELS = [
   { id: 'S1', nm: 'Σ+MN+MX', title: 'The Triple Lock', acc: '#ffc53d', desc: 'Our model’s top-rated horse, backed by money in the market, at the best price per point of rating. All three must agree.' },
   { id: 'S2', nm: 'FAV+TM+OR', title: 'The Form Favourite', acc: '#2f8cff', desc: 'The favourite that is also the top-rated horse on both the handicap and the official figures.' },

@@ -32,7 +32,7 @@
     ]],
     ['TIPS', [
       ['/topofthetips.html', 'TOP OF THE TIPS'],
-      ['/topofthetips.html?member=1', 'TIPS (MEMBER)'],
+      ['/topofthetips.html?gate=1', 'TIPS (PAYWALL PREVIEW)'],
     ]],
     ['TMRW', [
       ['/maxprints2.html', 'MAX PRINTS TMRW'],
