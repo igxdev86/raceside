@@ -117,6 +117,8 @@ footer b{color:#c9d2e3}
 .radio.fr{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f;box-shadow:0 4px 14px rgba(18,184,90,.4),inset 0 1px 0 rgba(255,255,255,.5)}
 @media(max-width:480px){.logo em{display:none}.radio,.live{padding:8px 9px;font-size:10px}}
 .tip.ran .r{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}
+.nxt{display:inline-block;margin-bottom:6px;font:800 10px/1 var(--mono);letter-spacing:.08em;background:linear-gradient(180deg,#ffd76a,#f0a400);color:#2a1800;padding:7px 10px;border-radius:999px;box-shadow:0 4px 12px rgba(240,164,0,.35),inset 0 1px 0 rgba(255,255,255,.5);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.mh{align-items:flex-start}
 </style>
 </head>
 <body>
@@ -133,7 +135,7 @@ footer b{color:#c9d2e3}
   <div class="board" id="stats"></div>
 </section>
 
-<div class="sh"><h2>Today's card · best strike first</h2></div>
+<div class="sh"><h2>Today's card</h2></div>
 <div class="grid" id="models"></div>
 
 <section class="join" id="join">
@@ -209,6 +211,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     tips.forEach(p => { if (p.w !== null) { rec.n++; if (p.w) rec.w++; } }); totW += rec.w; totN += rec.n;
+    const nxt = tips.filter(p => p.w === null && !p.ran).sort((a, b) => t2m(a.t) - t2m(b.t))[0] || null;
     const settledHere = { w: 0, n: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
@@ -221,7 +224,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const cl0 = true; // tiles load closed; tap a header to open it
-    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec">${nxt ? `<span class="nxt">${esc(nxt.t)} ${esc(nxt.h).toUpperCase()}</span>` : ''}<b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
       <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
