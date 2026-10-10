@@ -976,6 +976,8 @@ const __boot = async () => {
           const lk5 = window.__lockMap && window.__lockMap[nm5] && window.__lockMap[nm5][x.t + '|' + String(x.course || '')];
           let pick5 = null, lkAt = null;
           if (lk5 && lk5.h) { pick5 = x.runners.find(q => hn(q.r.h) === hn(lk5.h)) || null; lkAt = lk5.at || null; }
+          // live days: a resulted race with no pre-off pick on record gets NO pick - a post-race calculation is not a tip. Only a replay rebuild of a past day may score post-race.
+          if (!pick5 && !false) return;
           if (!pick5) { const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
             if (!picks5.every(p5 => p5 === picks5[0])) return; pick5 = picks5[0]; }
           n5++; if (pick5 === wq5) { w5++; sq5 += 'W'; } else sq5 += 'L';
