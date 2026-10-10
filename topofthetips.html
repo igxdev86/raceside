@@ -191,18 +191,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const ag = {}; Object.values(days).forEach(dv => ((dv && dv.scan) || []).forEach(r => { if (!r || !r.nm) return; const g = ag[r.nm] = ag[r.nm] || { w: 0, n: 0 }; g.w += r.w || 0; g.n += r.n || 0; }));
   const fixedNames = new Set(MODELS.map(m => m.nm));
   const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
-  // the day's extended set is sticky: once a combo has been shown today it stays on the page all day, even if other combos overtake it in the ranking
-  // the set lives on the server (not this device - a private tab forgets everything), as a union that only ever grows through the day
-  let XSET = [], XSRV = null; try { const rx = await fetch('/api/yearstate?k=tottset:v1&t=' + Date.now()); const jx = await rx.json(); XSRV = (jx && jx.state) || { days: {} }; XSET = (XSRV.days && Array.isArray(XSRV.days[ukd]) && XSRV.days[ukd]) || []; } catch {}
-  try { XSET = XSET.concat(JSON.parse(localStorage.getItem('tt:xset:' + ukd) || '[]') || []).filter((v, i, a) => a.indexOf(v) === i); } catch {}
-  const xBefore = XSET.length;
-  const top = Object.entries(ag).filter(([nm, g]) => g.n >= 5 && !fixedNames.has(nm)).map(([nm, g]) => ({ nm, lb: wil(g.w, g.n) })).sort((a, b) => b.lb - a.lb).slice(0, 10).map(x => x.nm);
-  // pinned combos always on the card; ?add=COMBO pins another one for the day from any device
-  const PINS = ['CD', 'PWR+CD'];
-  PINS.concat((Q.get('add') || '').split(',').map(v => v.trim()).filter(Boolean)).forEach(nm => { if (!fixedNames.has(nm) && !XSET.includes(nm)) XSET.push(nm); });
-  top.forEach(nm => { if (!XSET.includes(nm)) XSET.push(nm); });
-  try { localStorage.setItem('tt:xset:' + ukd, JSON.stringify(XSET)); } catch {}
-  if (XSRV && XSET.length !== xBefore) { try { XSRV.days = XSRV.days || {}; XSRV.days[ukd] = XSET; XSRV.ts = Date.now(); fetch('/api/yearstate?k=tottset:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(XSRV) }); } catch {} }
+  // FIXED ROSTER. Nothing is added or dropped automatically - the card shows exactly these models every day. Change the list here, nowhere else.
+  const XSET = ['Σ+PWR+MX', 'Σ+MX', 'Σ+MX+FAV', 'PWR+MX', 'PWR+MX+FAV', 'Σ+MN+PWR', 'MN+PWR+MX', 'MN+JT+FAV', 'MN+PWR+FAV', 'MX+FAV', 'CD', 'PWR+CD'];
   // model names: fixed for the core five, deterministic codename per combo for the rest (same combo = same name every day)
   const NAMES = ['HELIX', 'APEX', 'TITAN', 'ZENITH', 'FLUX', 'PRISM', 'VERTEX', 'CIPHER', 'KINETIC', 'LUMEN', 'NEXUS', 'ONYX', 'SABRE', 'TEMPO', 'VANTA', 'AURORA', 'COBALT', 'DRIFT', 'EMBER', 'FALCON', 'GRAVITY', 'HALO', 'IRIS', 'JET', 'KRYPTON', 'LASER', 'MERIDIAN', 'NIMBUS', 'OMEGA', 'PHOTON', 'QUASAR', 'RADIAN', 'SOLAR', 'TURBO', 'ULTRA', 'VOLT', 'WARP', 'XENON', 'YIELD', 'ZERO'];
   const codename = (nm) => { let h = 0; for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0; return NAMES[h % NAMES.length] + ' ' + (nm.split('+').length) + '.' + (h % 9 + 1); };
