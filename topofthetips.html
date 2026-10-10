@@ -115,6 +115,7 @@ footer b{color:#c9d2e3}
 .tools{display:flex;gap:6px;align-items:center;flex:0 1 auto;min-width:0}
 .radio.fr{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f;box-shadow:0 4px 14px rgba(18,184,90,.4),inset 0 1px 0 rgba(255,255,255,.5)}
 @media(max-width:480px){.logo em{display:none}.radio,.live{padding:8px 9px;font-size:10px}}
+.tip.ran .r{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}
 </style>
 </head>
 <body>
@@ -168,6 +169,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const days = (st && st.days) || {};
   const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   const today = days[ukd] || {};
+  const lonNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  const nowMin = (+lonNow.slice(0, 2)) * 60 + (+lonNow.slice(3, 5));
+  let SEEN = {}; try { SEEN = JSON.parse(localStorage.getItem('tt:seen:' + ukd) || '{}') || {}; } catch {}
   const agg = (nm) => { let w = 0, n = 0; Object.values(days).forEach(dv => { const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
   let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tkR = [], tkL = [];
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
@@ -182,24 +186,33 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const html = ALL.map((m, i) => {
     const rec = agg(m.nm); totW += rec.w; totN += rec.n;
     const raw = (today.tp && today.tp[m.nm]) || [];
-    const seen = new Set();
-    const tips = raw.filter(p => { const k = p.t + '|' + p.c; if (seen.has(k)) return false; seen.add(k); return true; })
+    // every pick this device has seen today is kept on the page even if a later server write drops it: the record is never allowed to shrink
+    const mem = (SEEN[m.nm] = SEEN[m.nm] || {});
+    const byK = {};
+    raw.forEach(p => { if (!p || !p.h) return; const k = p.t + '|' + p.c; const cur = byK[k];
+      if (!cur || (cur.w === null && p.w !== null)) byK[k] = p; });
+    Object.entries(mem).forEach(([k, p]) => { const cur = byK[k];
+      if (!cur) byK[k] = p;
+      else if (cur.w === null && p.at && String(p.at) < String(cur.at || '99')) cur.at = p.at; });
+    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : p; });
+    const tips = Object.values(byK).map(p => ({ ...p, ran: p.w === null && t2m(p.t) + 5 < nowMin }))
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     const gated = !MEMBER && i > 0;
     const xhead = m.x && i === MODELS.length ? '</div><div class="sh"><h2>Extended models</h2></div><div class="grid">' : '';
-    tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? '<em class="tl">LIVE</em>' : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
+    tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? (p.ran ? '<em class="tl">RAN</em>' : '<em class="tl">LIVE</em>') : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
-    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? 'p' : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
-      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + esc(p.wn) : 'settled')}</span></div>
-      <div class="r">${p.w === null ? 'LIVE' : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
+    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
+      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(p.d)}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' : (p.w === 0 && p.wn ? 'won by ' + esc(p.wn) : 'settled')}</span></div>
+      <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const cl0 = false; // every load opens fully: nothing we pick is ever hidden
     return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
       <div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
   }).join('');
   document.getElementById('models').innerHTML = html;
+  try { localStorage.setItem('tt:seen:' + ukd, JSON.stringify(SEEN)); } catch {}
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
   document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
