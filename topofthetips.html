@@ -32,7 +32,7 @@ a{color:inherit;text-decoration:none}
 .tick .lab{flex:0 0 auto;background:#000;color:#fff;font:italic 900 13px/34px var(--disp);letter-spacing:.14em;padding:0 12px;position:relative;z-index:2}
 .tick .lab:after{content:"";position:absolute;right:-12px;top:0;border-left:12px solid #000;border-top:34px solid transparent}
 .tick .rail{flex:1;overflow:hidden;white-space:nowrap}
-.tick .run{display:inline-block;padding-left:100%;animation:mq 38s linear infinite;font:800 13px/34px var(--mono);letter-spacing:.04em}
+.tick .run{display:inline-block;padding-left:100%;animation:mq 60s linear infinite;will-change:transform;font:800 13px/34px var(--mono);letter-spacing:.04em}
 .tick .run span{margin-right:44px}.tick .run b{color:var(--gold)}
 @keyframes mq{to{transform:translateX(-100%)}}
 
@@ -108,7 +108,8 @@ footer b{color:#c9d2e3}
 .mh .cv{display:inline-block;margin-left:8px;font:900 14px/1 var(--disp);color:var(--muted);transition:transform .2s}
 .model.cl .mh .cv{transform:rotate(-90deg)}
 .cnt{display:inline-block;margin-left:8px;font:800 10px/1 var(--mono);letter-spacing:.1em;color:var(--muted);vertical-align:middle}
-.tick .run em{font-style:normal;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px}
+.tick .run em{font-style:normal;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px}.tick .run i{font-style:normal;color:rgba(255,255,255,.55);font-weight:600;margin-left:6px}
+.tick:active .run,.tick:hover .run{animation-play-state:paused}
 .tick .run .tw{background:#12b85a;color:#04210f}.tick .run .tx{background:#000;color:#9aa5b8}.tick .run .tl{background:#fff;color:var(--red)}
 .radio{display:inline-flex;align-items:center;gap:7px;font:800 11px/1 var(--mono);letter-spacing:.1em;background:linear-gradient(180deg,#ffd76a,#f0a400);color:#2a1800;padding:8px 11px;border-radius:999px;box-shadow:0 4px 14px rgba(240,164,0,.4),inset 0 1px 0 rgba(255,255,255,.5);white-space:nowrap}
 .radio i{width:8px;height:8px;border-radius:50%;background:#2a1800;animation:pul 1.2s infinite}
@@ -176,7 +177,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
       const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined) { n++; if (e.w) w++; } }); return; }
       const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
-  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const tkR = [], tkL = [];
+  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const TK = {};
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover' };
   const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
   const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
@@ -211,7 +212,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const settledHere = { w: 0, n: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
-    tips.forEach(p => { const nm = gated ? 'MEMBERS ONLY' : esc(p.h); const r = p.w === null ? (p.ran ? '<em class="tl">RAN</em>' : '<em class="tl">LIVE</em>') : p.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'; (p.w === null ? tkL : tkR).push(`<span>${esc(m.title)} · ${esc(p.t)} ${esc(course(p.c))} <b>${nm}</b> ${r}</span>`); });
+    // ticker feed: one line per race+horse, listing every model that had it (not one line per model)
+    tips.forEach(p => { if (p.w === null && !p.ran) return; const k = p.t + '|' + p.c + '|' + p.h; const e = TK[k] = TK[k] || { t: p.t, c: p.c, h: gated ? 'MEMBERS ONLY' : p.h, w: p.w, wn: p.wn, ran: p.ran, ms: [] }; if (p.w !== null) { e.w = p.w; e.wn = p.wn; e.ran = false; } e.ms.push(m.id); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
@@ -227,8 +229,14 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
   document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
-  const tk = tkR.concat(tkL); document.getElementById('tlab').textContent = tkR.length ? 'RESULTS' : 'LIVE';
-  document.getElementById('run').innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>No tips posted yet today — the models only speak when their signals agree.</span><span>Every tip is time-stamped before the off.</span>`;
+  const tkAll = Object.values(TK).sort((a, b) => (a.w === null ? 1 : 0) - (b.w === null ? 1 : 0) || t2m(b.t) - t2m(a.t));
+  const tkR = tkAll.filter(e => e.w !== null), tkRan = tkAll.filter(e => e.w === null);
+  const tk = tkR.concat(tkRan).map(e => `<span>${esc(e.t)} ${esc(course(e.c)).toUpperCase()} <b>${esc(e.h)}</b> ${e.w === null ? '<em class="tl">RAN</em>' : e.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST' + (e.wn ? ' · ' + esc(e.wn) : '') + '</em>'} <i>${e.ms.join(' ')}</i></span>`);
+  document.getElementById('tlab').textContent = tkR.length ? `RESULTS ${tkR.filter(e => e.w).length}/${tkR.length}` : 'LIVE';
+  const runEl = document.getElementById('run');
+  runEl.innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>${liveN} tip${liveN === 1 ? '' : 's'} posted and waiting for the off — results run here as they land.</span>`;
+  // scroll speed set by length so it reads the same whether there are 3 results or 60
+  requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
 setTimeout(() => location.reload(), 120000);
 </script>
