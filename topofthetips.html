@@ -110,7 +110,7 @@ footer b{color:#c9d2e3}
 .cnt{display:inline-block;margin-left:8px;font:800 10px/1 var(--mono);letter-spacing:.1em;color:var(--muted);vertical-align:middle}
 .tick .run em{font-style:normal;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px}.tick .run i{font-style:normal;color:rgba(255,255,255,.55);font-weight:600;margin-left:6px}
 .tick:active .run,.tick:hover .run{animation-play-state:paused}
-.tick .run .tw{background:#12b85a;color:#04210f}.tick .run .tx{background:#000;color:#9aa5b8}.tick .run .tl{background:#fff;color:var(--red)}
+.tick .run .tw{background:transparent;color:var(--gold);padding:0;text-transform:uppercase}.tick .run .tx{background:#000;color:#9aa5b8}.tick .run .tl{background:#fff;color:var(--red)}
 .radio{display:inline-flex;align-items:center;gap:7px;font:800 11px/1 var(--mono);letter-spacing:.1em;background:linear-gradient(180deg,#ffd76a,#f0a400);color:#2a1800;padding:8px 11px;border-radius:999px;box-shadow:0 4px 14px rgba(240,164,0,.4),inset 0 1px 0 rgba(255,255,255,.5);white-space:nowrap}
 .radio i{width:8px;height:8px;border-radius:50%;background:#2a1800;animation:pul 1.2s infinite}
 .tools{display:flex;gap:6px;align-items:center;flex:0 1 auto;min-width:0}
@@ -201,7 +201,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const fullRec = (nm) => { const a = agg(nm), t = todayRec(nm); return { w: a.w + t.w, n: a.n + t.n }; };
   const pct = (m) => { const g = fullRec(m.nm); return g.n ? g.w / g.n : -1; };
   const ALL = MODELS.concat(XM).sort((a, b) => pct(b) - pct(a) || wil(fullRec(b.nm).w, fullRec(b.nm).n) - wil(fullRec(a.nm).w, fullRec(a.nm).n));
-  const html = ALL.map((m, i) => {
+  const built = ALL.map((m, i) => {
     const rec = agg(m.nm);
     const raw = (today.tp && today.tp[m.nm]) || [];
     // every pick this device has seen today is kept on the page even if a later server write drops it: the record is never allowed to shrink
@@ -223,8 +223,6 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const settledHere = { w: 0, n: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
-    // ticker feed: one line per race+horse, listing every model that had it (not one line per model)
-    tips.forEach(p => { if (p.w === null && !p.ran) return; const k = p.t + '|' + p.c + '|' + p.h; const e = TK[k] = TK[k] || { t: p.t, c: p.c, h: gated ? 'MEMBERS ONLY' : p.h, w: p.w, wn: p.wn, ran: p.ran, ms: [] }; if (p.w !== null) { e.w = p.w; e.wn = p.wn; e.ran = false; } e.ms.push(m.id); });
     const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
     const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
@@ -232,21 +230,24 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const cl0 = true; // tiles load closed; tap a header to open it
-    return xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
-      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>`;
-  }).join('');
+    const pc = rec.n ? rec.w / rec.n : -1, lb = wil(rec.w, rec.n);
+    return { pc, lb, n: rec.n, html: xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
+      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
+  });
+  // rank on the numbers actually shown in each header: strike % high to low, ties by confidence then depth
+  const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('');
   document.getElementById('models').innerHTML = html;
   try { localStorage.setItem('tt:seen:' + ukd, JSON.stringify(SEEN)); } catch {}
   document.querySelectorAll('.model .mh').forEach(h => h.addEventListener('click', () => { const sec = h.closest('.model'); sec.classList.toggle('cl'); }));
   document.getElementById('stats').innerHTML = `<div class="sc gl hot"><b>${liveN}</b><small>live tips</small></div><div class="sc gl"><b>${settledN ? wonN + '/' + settledN : '—'}</b><small>today</small></div><div class="sc gl"><b>${totN ? Math.round(totW / totN * 100) + '%' : '—'}</b><small>all-model strike</small></div><div class="sc gl"><b>${Object.keys(days).length}</b><small>days on record</small></div>`;
   document.getElementById('pill').innerHTML = `<i></i>${liveN ? liveN + ' LIVE' : 'FORMING'}`;
-  const tkAll = Object.values(TK).sort((a, b) => (a.w === null ? 1 : 0) - (b.w === null ? 1 : 0) || t2m(b.t) - t2m(a.t));
-  const tkR = tkAll.filter(e => e.w !== null), tkRan = tkAll.filter(e => e.w === null);
-  const tk = tkR.map(e => `<span>${esc(e.t)} ${esc(course(e.c)).toUpperCase()} <b>${esc(e.h)}</b> ${e.w ? '<em class="tw">WON</em>' : '<em class="tx">LOST</em>'}</span>`);
-  document.getElementById('tlab').textContent = 'RESULTS';
-  const runEl = document.getElementById('run');
-  runEl.innerHTML = tk.length ? tk.join('') + tk.join('') : `<span>No results yet today.</span>`;
-  // scroll speed set by length so it reads the same whether there are 3 results or 60
+  // ticker = the day's actual race results (GB/IRE), newest first - not our picks
+  const runEl = document.getElementById('run'); document.getElementById('tlab').textContent = 'RESULTS';
+  try { const rw = await fetch('/api/todaywinners?t=' + Math.floor(Date.now() / 60000)); const jw = await rw.json();
+    const ws = ((jw && jw.winners) || []).filter(w => w && w.h).sort((a, b) => t2m(b.t) - t2m(a.t));
+    const tk = ws.map(w => `<span><b>${esc(String(w.t).replace(/^0/, '').slice(0, 5))}</b> ${esc(course(w.course)).toUpperCase()} <em class="tw">${esc(w.h)}</em>${w.sp ? ' ' + esc(w.sp) : ''}</span>`);
+    runEl.innerHTML = tk.length ? tk.join('') + tk.join('') : '<span>No results yet today.</span>';
+  } catch { runEl.innerHTML = '<span>Results feed unavailable.</span>'; }
   requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
 setTimeout(() => location.reload(), 60000);
