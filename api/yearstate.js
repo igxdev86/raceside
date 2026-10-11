@@ -58,7 +58,12 @@ export default async function handler(req, res) {
     const rows = await r.json();
     const FAST = K === 'termdata:v1' || K === 'alertstate:v1' || K === 'termfreeze:v1' || K === 'comboledger:v1' || K === 'bankerlog:v1' || K === 'tottset:v1';
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
-    return res.status(200).json({ ok: true, state: (rows && rows[0] && rows[0].v) || null });
+    let out = (rows && rows[0] && rows[0].v) || null;
+    // ?day=YYYY-MM-DD returns just that day; &tp=A,B,C narrows its picks to those combos (small payloads for consumers and checks)
+    const qd = String(req.query.day || ''); if (out && out.days && /^\d{4}-\d{2}-\d{2}$/.test(qd)) { const dv = out.days[qd] || null; let d2 = dv;
+      if (dv && req.query.tp) { const want = String(req.query.tp).split(','); d2 = { ...dv, tp: Object.fromEntries(want.filter(k => dv.tp && dv.tp[k]).map(k => [k, dv.tp[k]])), tm: dv.tm ? Object.fromEntries(want.filter(k => dv.tm[k]).map(k => [k, dv.tm[k]])) : undefined, scan: undefined, nx: undefined, sq: undefined, ultra: undefined, tiles: undefined, tmScan: undefined }; }
+      out = { days: { [qd]: d2 }, ts: out.ts }; }
+    return res.status(200).json({ ok: true, state: out });
   } catch {
     return res.status(200).json({ ok: true, state: null });
   }
