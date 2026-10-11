@@ -936,7 +936,9 @@ const __boot = async () => {
       rec5(0, []); return out; })();
     const scanRows = () => { const res = [];
       const seqs = window.__scanSeq = {};
-      const TRACK5 = window.__trackCombos || scanCombos.map(cb9 => cb9.join('+'));
+      // picks are kept on record for a bounded set - every single, every pair, and the roster's triples - so a day's record stays small enough to read and write safely; tallies (scan) still cover every combo
+      const ROSTER5 = ['\u03a3+MN+MX','FAV+TM+OR','\u03a3+PWR+MX','\u03a3+MX+FAV','PWR+MX+FAV','\u03a3+MN+PWR','MN+PWR+MX','MN+JT+FAV','MN+PWR+FAV','JT+DRW+LWT','PWR+CD'];
+      const TRACK5 = window.__trackCombos || scanCombos.filter(cb9 => cb9.length <= 2 || ROSTER5.includes(cb9.join('+'))).map(cb9 => cb9.join('+'));
       const tp5 = window.__trackPicks = {}; TRACK5.forEach(nm5 => { tp5[nm5] = []; });
       const ordered5 = listRows.slice().sort((a5, b5) => t2m(a5.t) - t2m(b5.t));
       scanCombos.forEach(cb => { let n5 = 0, w5 = 0, sq5 = '';

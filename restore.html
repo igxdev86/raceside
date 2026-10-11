@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restore a day from this device</title>
+<style>body{background:#06080d;color:#fff;font:15px/1.5 system-ui,sans-serif;padding:16px;max-width:640px;margin:0 auto}h1{font-size:20px}.d{border:1px solid #2a3242;border-radius:10px;padding:12px;margin:10px 0}button{background:#1fd36a;color:#04210f;border:0;border-radius:8px;padding:10px 14px;font-weight:800;font-size:14px}button:disabled{opacity:.4}.m{color:#8d97a8;font-size:13px}.ok{color:#1fd36a}.bad{color:#ff3b4e}pre{white-space:pre-wrap;font-size:12px;color:#c9d2e3}</style></head>
+<body>
+<h1>Restore a day's picks from this phone</h1>
+<p class="m">TOP OF THE TIPS keeps every pick it has shown on this device. If a day is missing from the server record, it can be put back from here - posted times and results exactly as this device saw them. Open this page in the same browser (not a private tab) you used on the day.</p>
+<div id="list">looking…</div>
+<pre id="log"></pre>
+<script>
+const log = (m, c) => { const e = document.getElementById('log'); e.innerHTML += `<span class="${c || ''}">${m}</span>\n`; };
+const days = Object.keys(localStorage).filter(k => /^tt:seen:\d{4}-\d{2}-\d{2}$/.test(k)).map(k => k.slice(8)).sort().reverse();
+const list = document.getElementById('list');
+if (!days.length) list.innerHTML = '<div class="d bad">Nothing saved on this device.</div>';
+days.forEach(d => { let seen = {}; try { seen = JSON.parse(localStorage.getItem('tt:seen:' + d) || '{}') || {}; } catch {}
+  const models = Object.keys(seen).filter(nm => Object.keys(seen[nm] || {}).length); const n = models.reduce((a, nm) => a + Object.keys(seen[nm]).length, 0);
+  const settled = models.reduce((a, nm) => a + Object.values(seen[nm]).filter(p => p && p.w !== null && p.w !== undefined).length, 0);
+  const box = document.createElement('div'); box.className = 'd';
+  box.innerHTML = `<b>${d}</b> · ${models.length} models · ${n} picks · ${settled} settled<br><span class="m" id="s-${d}">checking server…</span><br><button id="b-${d}" disabled>Restore ${d} to the server</button>`;
+  list.appendChild(box);
+  (async () => { const st = document.getElementById('s-' + d), b = document.getElementById('b-' + d);
+    try { const r = await fetch('/api/yearstate?k=comboledger:v1&day=' + d + '&t=' + Date.now()); const j = await r.json(); const dv = j && j.state && j.state.days && j.state.days[d];
+      const have = dv && dv.tp ? Object.values(dv.tp).reduce((a, arr) => a + (arr || []).length, 0) : 0;
+      st.textContent = dv ? `server has this day with ${have} picks` : 'server has NO record of this day';
+      b.disabled = false; b.textContent = dv && have ? `Merge this device's ${n} picks into the server day` : `Restore ${d} to the server`; } catch { st.textContent = 'server unreachable'; }
+    b.onclick = async () => { b.disabled = true; log('reading full server record…');
+      try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); const full = (j && j.state) || { days: {} }; full.days = full.days || {};
+        const dv = full.days[d] || { v: 2, src: 'live', tp: {} }; dv.tp = dv.tp || {}; dv.v = Math.max(2, dv.v || 2); dv.restored = (dv.restored || 0) + 1; dv.restoredAt = new Date().toISOString();
+        let added = 0, upd = 0;
+        models.forEach(nm => { const arr = dv.tp[nm] = dv.tp[nm] || []; Object.values(seen[nm]).forEach(p => { if (!p || !p.h) return; const k = p.t + '|' + p.c; const cur = arr.find(e => e && e.t + '|' + e.c === k);
+          if (!cur) { arr.push({ ...p }); added++; } else if (cur.w === null && p.w !== null) { Object.assign(cur, p); upd++; } }); });
+        full.days[d] = dv; full.ts = Date.now();
+        const rp = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(full) }); const jp = await rp.json();
+        if (rp.ok && jp && jp.ok) log(`${d}: restored - ${added} picks added, ${upd} settled (server now ${Object.keys(full.days).length} days)`, 'ok'); else log(`${d}: server refused - ${JSON.stringify(jp)}`, 'bad'); }
+      catch (e) { log('failed: ' + e, 'bad'); } b.disabled = false; }; })(); });
+</script></body></html>

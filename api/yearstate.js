@@ -25,6 +25,8 @@ export default async function handler(req, res) {
       if (!state || (!state.lastDate && !state.ts)) return res.status(400).json({ ok: false, error: 'no-state' });
       // last-write-wins, but never overwrite a newer state with an older one
       const cur = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
+      // if the stored state cannot be read, nothing is written: a write that cannot be merged could only destroy history
+      if (!cur.ok) return res.status(503).json({ ok: false, error: 'read-failed' });
       if (cur.ok) {
         const rows = await cur.json();
         const prev = rows && rows[0] && rows[0].v;
@@ -43,6 +45,7 @@ export default async function handler(req, res) {
             if (!now) { state.days[d] = was; continue; }
             if (d < today && size(now) < size(was)) state.days[d] = was;
           }
+          if (Object.keys(state.days).length < Object.keys(prev.days).length) return res.status(409).json({ ok: false, error: 'would-drop-days' });
         }
       }
       const up = await fetch(`${s.url}/rest/v1/rs_kv`, {
