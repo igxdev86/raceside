@@ -1045,6 +1045,20 @@ const __boot = async () => {
           rks: Object.fromEntries(R9.rkMetrics.map(k9 => [k9, R9.rkOf[k9].get(wq9) || null])) });
       }); } catch {}
       let today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2, src: 'live', fz: window.__fzCount || 0, gone: window.__goneCount || 0 };
+      // GUARANTEE: every posted pick on record stays on record, and is settled the moment its result is in the results feed - independent of whether the scanner still matches the race
+      if (DAYSEL !== 'tomorrow' && !false) { try {
+        const winMap = {}; Object.entries(window.__posMap || {}).forEach(([k, r]) => { const wn = Object.entries(r.pm || {}).find(([, p]) => String(p) === '1'); if (wn) winMap[k] = { h: wn[0], r }; });
+        (typeof listRows !== 'undefined' ? listRows : []).forEach(x => { if (x && x.w) { const k = tK(x.t) + '|' + cKeyPre(x.course); if (!winMap[k]) winMap[k] = { h: hn(x.w), r: null }; } });
+        Object.entries(window.__lockMap || {}).forEach(([nm, races]) => { today9.tp[nm] = today9.tp[nm] || [];
+          Object.entries(races).forEach(([rk, lk]) => { if (!lk || !lk.h) return; const [t0, c0] = rk.split('|'); const have = today9.tp[nm].find(e => e && e.t === t0 && e.c === c0);
+            const res = winMap[tK(t0) + '|' + cKeyPre(c0)];
+            if (have && have.w !== null) return;                                        // settled by the scanner - nothing to do
+            if (!res) { if (!have) today9.tp[nm].push({ t: t0, c: c0, h: lk.h, d: lk.d || null, w: null, at: lk.at }); return; }   // still to run or no result yet: keep it posted
+            const won = hn(lk.h) === hn(res.h) ? 1 : 0; const pm = res.r && res.r.pm ? res.r.pm[hn(lk.h)] : null; const fn = res.r ? res.r.fn : null;
+            const places = fn == null ? null : fn < 5 ? 1 : fn < 8 ? 2 : (fn >= 16 && res.r.hc) ? 4 : 3; const pn = pm != null && /^\d+$/.test(String(pm)) ? Number(pm) : null;
+            const settled = { t: t0, c: c0, h: lk.h, d: (have && have.d) || lk.d || null, w: won, wn: res.h, lk: lk.at, post: 0, pos: pm != null ? String(pm) : null, fn, pl: pn != null && places != null ? (pn <= places ? 1 : 0) : null };
+            if (have) Object.assign(have, settled); else today9.tp[nm].push(settled); }); });
+      } catch (e8) { window.__bankErr = 'sweep ' + String(e8).slice(0, 200); } }
       const sig9 = JSON.stringify(today9);
       if (sig9 === window.__lgSig) return;
       // tomorrow mode writes a PREVIEW (tm), never picks of record: the day's locks begin only when the day page runs. The day page keeps the preview alongside its own record.
