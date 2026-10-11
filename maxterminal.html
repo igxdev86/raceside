@@ -1009,9 +1009,9 @@ const __boot = async () => {
               const prev8 = window.__lockMap && window.__lockMap[nm8] && window.__lockMap[nm8][x.t + '|' + String(x.course || '')];
               // a pick already posted pre-off is the pick of record: it stays on the card even if the signals drift apart or the race has gone off without a result yet
               if (prev8 && prev8.h) { const ql = x.runners.find(q => hn(q.r.h) === hn(prev8.h));
-                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: prev8.h, d: ql && Number(ql.r.d) > 0 ? Number(ql.r.d) : (prev8.d || null), w: null, at: prev8.at || lon2() }); }
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: prev8.h, d: ql && Number(ql.r.d) > 0 ? Number(ql.r.d) : (prev8.d || null), w: null, at: prev8.at || lon2(), on: ukd }); }
               else if (!x.gone && q8b && cb8.every(k8b => p8[k8b] === q8b)) {
-                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: lon2() }); } }
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: lon2(), on: ukd }); } }
             if (x.gone || nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
@@ -1065,6 +1065,8 @@ const __boot = async () => {
         const prevD = window.__ledger.days[ukd]; const lm = window.__lockMap || {};
         Object.entries((prevD && prevD.tp) || {}).forEach(([nm, arr]) => { (arr || []).forEach(e => { if (!e || !e.h) return;
           const at = e.w === null ? e.at : e.lk; if (!at) return; const k = e.t + '|' + e.c; const cur = (lm[nm] = lm[nm] || {})[k];
+          // a live entry is only a lock if it was posted today: one stamped for another day, or at a time of day still in the future, is stale and is dropped (fresh signals post it again)
+          if (e.w === null && ((e.on && e.on !== ukd) || (!e.on && String(at).slice(0, 8) > lon2()))) return;
           if (!cur || String(at) < String(cur.at)) lm[nm][k] = { h: e.h, d: e.d, at }; }); });
         window.__lockMap = lm; if (window.__rescan) window.__rescan(); }
       const ultra9 = [];
@@ -1088,7 +1090,7 @@ const __boot = async () => {
           Object.entries(races).forEach(([rk, lk]) => { if (!lk || !lk.h) return; const [t0, c0] = rk.split('|'); const have = today9.tp[nm].find(e => e && e.t === t0 && e.c === c0);
             const res = winMap[tK(t0) + '|' + cKeyPre(c0)];
             if (have && have.w !== null) return;                                        // settled by the scanner - nothing to do
-            if (!res) { if (!have) today9.tp[nm].push({ t: t0, c: c0, h: lk.h, d: lk.d || null, w: null, at: lk.at }); return; }   // still to run or no result yet: keep it posted
+            if (!res) { if (!have) today9.tp[nm].push({ t: t0, c: c0, h: lk.h, d: lk.d || null, w: null, at: lk.at, on: ukd }); return; }   // still to run or no result yet: keep it posted
             const won = hn(lk.h) === hn(res.h) ? 1 : 0; const pm = res.r && res.r.pm ? res.r.pm[hn(lk.h)] : null; const fn = res.r ? res.r.fn : null;
             const places = fn == null ? null : fn < 5 ? 1 : fn < 8 ? 2 : (fn >= 16 && res.r.hc) ? 4 : 3; const pn = pm != null && /^\d+$/.test(String(pm)) ? Number(pm) : null;
             const settled = { t: t0, c: c0, h: lk.h, d: (have && have.d) || lk.d || null, w: won, wn: res.h, lk: lk.at, post: 0, pos: pm != null ? String(pm) : null, fn, pl: pn != null && places != null ? (pn <= places ? 1 : 0) : null };
