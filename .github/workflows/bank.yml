@@ -24,13 +24,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          H=$(date -u +%H)
-          if [ "$H" -ge 9 ] && [ "$H" -le 21 ]; then
-            curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/bank.yml/dispatches" -d '{"ref":"main"}' && echo "next lap queued"
-          else
-            echo "outside racing hours (UTC $H) - no next lap; cron restarts at 10:00 UTC"
-          fi
+          # always queue the next lap: GitHub cron proved unreliable for restarting the chain in the morning, so the chain never stops (public repo - minutes are free)
+          curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/bank.yml/dispatches" -d '{"ref":"main"}' && echo "next lap queued"
       - run: npm init -y >/dev/null && npm install playwright@1.47.2 --no-audit --no-fund --silent
       - run: node scripts/bank.mjs
         env:
