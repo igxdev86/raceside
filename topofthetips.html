@@ -194,7 +194,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const POS = {}; try { const rp = await fetch('/api/priceday?v=5&date=' + ukd + '&t=' + Math.floor(Date.now() / 120000)); const jp = await rp.json();
     ((jp && jp.races) || []).forEach(rc => { const pm = {}; let fn = 0; (rc.runners || []).forEach(r => { if (!r || !r.h) return; fn++; if (r.pos) pm[String(r.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim()] = r.pos; });
       const m = String(rc.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return; let hh = +m[1]; if (hh > 12) hh -= 12;
-      POS[hh + ':' + m[2] + '|' + course(rc.course).toLowerCase()] = { pm, fn, hc: /handicap/i.test(String(rc.name || rc.type || '')) }; }); } catch {}
+      const wr = (rc.runners || []).find(r => r && (r.won || String(r.pos) === '1')); const win = wr ? String(wr.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim() : null;
+      POS[hh + ':' + m[2] + '|' + course(rc.course).toLowerCase()] = { pm, fn, win, winName: wr ? wr.h : null, hc: /handicap/i.test(String(rc.name || rc.type || '')) }; }); } catch {}
   const placeOf = (p) => { if (p.pl != null) return p.pl; const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
     const r = POS[hh + ':' + m[2] + '|' + course(p.c).toLowerCase()]; if (!r) return null; const pos = r.pm[String(p.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim()];
     if (pos == null || !/^\d+$/.test(String(pos))) return null; const places = r.fn < 5 ? 1 : r.fn < 8 ? 2 : (r.fn >= 16 && r.hc) ? 4 : 3; p.pos = p.pos || String(pos); p.fn = p.fn || r.fn; return Number(pos) <= places ? 1 : 0; };
@@ -239,7 +240,13 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; if (p.w !== null && !p.lk && old && old.at) p.lk = old.at; });
     Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : (old && old.at && !p.at && p.w === null ? { ...p, at: old.at } : p); });
     // a settled pick with no pre-off time is a post-race calculation, not a tip: it is not shown and not counted
-    const tips = Object.values(byK).filter(p => p.w === null || p.lk || today.src === 'replay').map(p => { const q = { ...p, ran: p.w === null && t2m(p.t) <= nowMin }; if (q.w === 0) q.pl = placeOf(q); return q; })
+    // a posted pick whose race has run is settled here from the results feed if the banker has not settled it yet: the posted time is its evidence, the result is public
+    const settleOf = (p) => { const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
+      const r = POS[hh + ':' + m[2] + '|' + course(p.c).toLowerCase()]; if (!r || !r.win) return null; const key = String(p.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+      return { w: r.win === key ? 1 : 0, wn: r.winName, lk: p.lk || p.at || null }; };
+    const tips = Object.values(byK).filter(p => p.w === null || p.lk || today.src === 'replay').map(p => { const q = { ...p, ran: p.w === null && t2m(p.t) <= nowMin };
+      if (q.w === null && q.ran) { const st = settleOf(q); if (st) { Object.assign(q, st); q.ran = false; } }
+      if (q.w === 0) q.pl = placeOf(q); return q; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
     tips.forEach(p => { if (p.w !== null) { rec.n++; if (p.w) rec.w++; } }); totW += rec.w; totN += rec.n;
