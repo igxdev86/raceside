@@ -250,14 +250,16 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     // every pick this device has seen today is kept on the page even if a later server write drops it: the record is never allowed to shrink
     const mem = (SEEN[m.nm] = SEEN[m.nm] || {});
     const byK = {};
-    raw.forEach(p => { if (!p || !p.h) return; const k = p.t + '|' + p.c; const cur = byK[k];
+    raw.forEach(p => { if (!p || !p.h) return; if (!VIEW && !today.restored && String(p.lk || p.fz || p.at || '').slice(0, 5) < '09:00') return; const k = p.t + '|' + p.c; const cur = byK[k];
       if (!cur || (cur.w === null && p.w !== null)) byK[k] = p; });
+    // device memory only ever restores what is on record: a settled or LOCKED pick the server lost. A provisional pick the server no longer carries was withdrawn, and an overnight stamp was never a pick
     Object.entries(mem).forEach(([k, p]) => { const cur = byK[k];
-      if (!cur) byK[k] = p;
-      else if (cur.w === null && p.at && String(p.at) < String(cur.at || '99')) cur.at = p.at; });
+      if (!p || String(p.at || p.fz || p.lk || '').slice(0, 5) < '09:00') { delete mem[k]; return; }
+      if (!cur) { if (p.w !== null || p.fz) byK[k] = p; else delete mem[k]; }
+      else if (cur.w === null && !cur.fz && p.at && String(p.at) < String(cur.at || '99') && String(p.h).toLowerCase() === String(cur.h).toLowerCase()) cur.at = p.at; });
     // a settled entry carries its lock time; if the server lost it, the time this device first saw the pick posted is the time of record
     Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; if (p.w !== null && !p.lk && old && old.at) p.lk = old.at; if (p.w !== null && !p.lk && today.restored && p.at) p.lk = p.at; });
-    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : (old && old.at && !p.at && p.w === null ? { ...p, at: old.at } : p); });
+    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : p; });
     // a settled pick with no pre-off time is a post-race calculation, not a tip: it is not shown and not counted
     // a posted pick whose race has run is settled here from the results feed if the banker has not settled it yet: the posted time is its evidence, the result is public
     const settleOf = (p) => { const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
