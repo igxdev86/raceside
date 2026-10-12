@@ -71,7 +71,7 @@ h1 b{display:block;background:linear-gradient(180deg,#ffe28a,#f0a400);-webkit-ba
 .form small{color:var(--muted);font:800 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;margin-right:6px}
 .form i{font:800 12px/24px var(--mono);width:24px;text-align:center;border-radius:5px;font-style:normal;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
 .form .fw{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f}
-.form .fl{background:linear-gradient(180deg,#2a3242,#161b26);color:#7f8a9c}
+.form .fl{background:linear-gradient(180deg,#2a3242,#161b26);color:#7f8a9c}.form .ff{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}
 .tip{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:10px;padding:12px 16px 12px 20px;border-top:1px solid var(--line);background:linear-gradient(90deg,rgba(255,255,255,.025),rgba(255,255,255,0))}
 .tip .t{font:900 20px/1 var(--disp)}.tip .t small{display:block;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--muted);margin-top:4px}
 .tip .h{font:800 20px/1.05 var(--disp);text-transform:uppercase;letter-spacing:.01em}
@@ -103,7 +103,7 @@ h1 b{display:block;background:linear-gradient(180deg,#ffe28a,#f0a400);-webkit-ba
 .how li:before{content:counter(s,decimal-leading-zero);font:italic 900 28px/1 var(--disp);color:var(--red2)}
 footer{padding:30px 16px 40px;color:var(--muted);font-size:12px;line-height:1.6;border-top:1px solid var(--line);margin-top:30px}
 footer b{color:#c9d2e3}
-.model.cl .desc,.model.cl .form,.model.cl .tip,.model.cl .none{display:none}
+.model.cl .desc,.model.cl .tip,.model.cl .none,.model.cl .tmh,.model.cl .nxrow{display:none}
 .mh{cursor:pointer;-webkit-user-select:none;user-select:none}
 .mh .cv{display:inline-block;margin-left:8px;font:900 14px/1 var(--disp);color:var(--muted);transition:transform .2s}
 .model.cl .mh .cv{transform:rotate(-90deg)}
@@ -255,8 +255,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const settledHere = { w: 0, n: 0, f: 0 }; let liveHere = 0; tips.forEach(p => { if (p.w === null) liveHere++; else { settledHere.n++; if (p.w) settledHere.w++; else if (p.pl) settledHere.f++; } });
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
-    const past = Object.keys(days).filter(d => d < ukd).sort().slice(-14).flatMap(d => ((days[d].tp && days[d].tp[m.nm]) || []).filter(p => p && p.w !== null).map(p => ({ ...p, d0: d }))).slice(-10);
-    const form = past.length ? `<div class="form"><small>last ${past.length}</small>${past.map(p => `<i class="${p.w ? 'fw' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : 'L'}</i>`).join('')}</div>` : '';
+    // lifetime form: every pick of record (pre-off, or a replay-rebuilt day) in date order, oldest to newest, today's settled picks last
+    const life = Object.keys(days).filter(d => d < ukd).sort().flatMap(d => { const dv = days[d] || {}; return ((dv.tp && dv.tp[m.nm]) || []).filter(p => p && p.w !== null && p.w !== undefined && (p.lk || dv.src === 'replay')).sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => ({ ...p, d0: d })); })
+      .concat(tips.filter(p => p.w !== null).slice().sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => ({ ...p, d0: ukd })));
+    const lifeW = life.filter(p => p.w).length;
+    const form = life.length ? `<div class="form"><small>lifetime ${lifeW}/${life.length}</small>${life.slice(-60).map(p => `<i class="${p.w ? 'fw' : p.pl ? 'ff' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : p.pl ? 'F' : 'L'}</i>`).join('')}${life.length > 60 ? `<small>+${life.length - 60} earlier</small>` : ''}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : p.pl ? 'f' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
       <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(frac(p.d))}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : p.pl ? 'FRAME' : 'LOST'}</div></div>`).join('')
@@ -267,7 +270,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const cl0 = true; // tiles load closed; tap a header to open it
     const pc = rec.n ? rec.w / rec.n : -1, lb = wil(rec.w, rec.n);
     return { pc, lb, n: rec.n, html: xhead + `<section class="model gl${cl0 ? ' cl' : ''}" style="--acc:${m.acc}" data-id="${m.id}"><div class="mh"><div><div class="tag">${m.id} · ${esc(m.nm)}<span class="cnt">${tips.length} TIP${tips.length === 1 ? '' : 'S'}${settledHere.n ? ' · ' + settledHere.w + '/' + settledHere.n + ' TODAY' + (settledHere.f ? ' · ' + settledHere.f + ' FRAME' : '') : ''}${liveHere ? ' · ' + liveHere + ' LIVE' : ''}${tmTips.length ? ' · ' + tmTips.length + ' TMRW' : ''}</span></div><h3>${esc(m.title)}<span class="cv">▼</span></h3></div><div class="rec"><b>${rec.n ? Math.round(rec.w / rec.n * 100) + '%' : '—'}</b><small>${rec.n ? `${rec.w} from ${rec.n}` : 'no record yet'}</small></div></div>
-      ${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span><s class="dots" data-k="${esc(nxt.t + '|' + nxt.c + '|' + String(nxt.h).toLowerCase())}"></s></div>` : ''}<div class="desc">${esc(m.desc)}</div>${form}${rows}${tmBlock}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
+      ${form}${nxt ? `<div class="nxrow"><span class="nxt"><i>NEXT</i><b>${esc(nxt.t)}</b><em>${esc(nxt.h)}</em></span><s class="dots" data-k="${esc(nxt.t + '|' + nxt.c + '|' + String(nxt.h).toLowerCase())}"></s></div>` : ''}<div class="desc">${esc(m.desc)}</div>${rows}${tmBlock}${gated ? `<div class="lock"><div class="k">MEMBERS ONLY</div><b>${esc(m.title)}</b><p>Unlock all five models — every tip before the off, every result on record.</p><a class="cta" href="#join">Join TOP OF THE TIPS</a></div>` : ''}</section>` };
   });
   // rank on the numbers actually shown in each header: strike % high to low, ties by confidence then depth
   // white dots under the NEXT horse: one per other tile that has the same horse in the same race
