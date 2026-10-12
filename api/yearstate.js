@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     }
 
     const r = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
-    if (!r.ok) return res.status(200).json({ ok: true, state: null });
+    if (!r.ok) { const body = await r.text().catch(() => ''); if (req.query.diag) return res.status(200).json({ ok: false, upstream: r.status, body: body.slice(0, 300) }); return res.status(200).json({ ok: true, state: null, upstream: r.status }); }
     const rows = await r.json();
     const FAST = K === 'termdata:v1' || K === 'alertstate:v1' || K === 'termfreeze:v1' || K === 'comboledger:v1' || K === 'bankerlog:v1' || K === 'tottset:v1';
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
