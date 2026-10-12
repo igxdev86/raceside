@@ -982,7 +982,7 @@ const __boot = async () => {
           const wq5 = x.runners.find(q => hn(q.r.h) === hn(x.w)); if (!wq5) return;
           const lk5 = window.__lockMap && window.__lockMap[nm5] && window.__lockMap[nm5][x.t + '|' + String(x.course || '')];
           let pick5 = null, lkAt = null;
-          if (lk5 && lk5.h) { pick5 = x.runners.find(q => hn(q.r.h) === hn(lk5.h)) || null; lkAt = lk5.at || null; }
+          if (lk5 && lk5.h) { pick5 = x.runners.find(q => hn(q.r.h) === hn(lk5.h)) || null; lkAt = lk5.fz || lk5.at || null; }
           // live days: a resulted race with no pre-off pick on record gets NO pick - a post-race calculation is not a tip. Only a replay rebuild of a past day may score post-race.
           if (!pick5 && !false) return;
           if (!pick5) { const picks5 = cb.map(k6 => scanSel[k6](x)); if (picks5.some(p5 => !p5)) return;
@@ -1003,17 +1003,20 @@ const __boot = async () => {
       upLines.sort((a, b2) => b2.n - a.n || t2m(a.t) - t2m(b2.t));
       const comboPerf = {}; rs5.forEach(r5 => { comboPerf[r5.nm] = r5; });
       const nextBy = window.__nextBy = {};
+      const nowMin8 = (() => { const l = lon2(); return (+l.slice(0, 2)) * 60 + (+l.slice(3, 5)); })();
       listRows.filter(x => (!x.gone || !x.w) && x.runners && x.runners.length >= 2)
         .slice().sort((a, b2) => t2m(a.t) - t2m(b2.t)).forEach(x => {
           const p8 = {}; ks7.forEach(k8 => { p8[k8] = scanSel[k8](x); });
           scanCombos.forEach(cb8 => { const nm8 = cb8.join('+');
             if (window.__trackPicks && window.__trackPicks[nm8]) { const q8b = p8[cb8[0]];
               const prev8 = window.__lockMap && window.__lockMap[nm8] && window.__lockMap[nm8][x.t + '|' + String(x.course || '')];
-              // a pick already posted pre-off is the pick of record: it stays on the card even if the signals drift apart or the race has gone off without a result yet
-              if (prev8 && prev8.h) { const ql = x.runners.find(q => hn(q.r.h) === hn(prev8.h));
-                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: prev8.h, d: ql && Number(ql.r.d) > 0 ? Number(ql.r.d) : (prev8.d || null), w: null, at: prev8.at || lon2(), on: ukd }); }
-              else if (!x.gone && q8b && cb8.every(k8b => p8[k8b] === q8b)) {
-                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: q8b.r.h, d: Number(q8b.r.d) > 0 ? Number(q8b.r.d) : null, w: null, at: lon2(), on: ukd }); } }
+              // the pick is reposted every scan while the signals move, and FREEZES five minutes before the off: the frozen pick is the pick of record
+              const freeze8 = x.gone || (t2m(x.t) - nowMin8) <= 5;
+              const agree8 = !x.gone && q8b && cb8.every(k8b => p8[k8b] === q8b) ? q8b : null;
+              if (freeze8 && prev8 && prev8.h) { const ql = x.runners.find(q => hn(q.r.h) === hn(prev8.h));
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: prev8.h, d: ql && Number(ql.r.d) > 0 ? Number(ql.r.d) : (prev8.d || null), w: null, at: prev8.at || lon2(), fz: prev8.fz || lon2(), on: ukd }); }
+              else if (agree8) { const same8 = prev8 && prev8.h && hn(prev8.h) === hn(agree8.r.h);
+                window.__trackPicks[nm8].push({ t: x.t, c: String(x.course || ''), h: agree8.r.h, d: Number(agree8.r.d) > 0 ? Number(agree8.r.d) : null, w: null, at: same8 ? prev8.at : lon2(), ...(freeze8 ? { fz: lon2() } : {}), on: ukd }); } }
             if (x.gone || nextBy[nm8]) return;
             const q8 = p8[cb8[0]]; if (!q8) return;
             for (let i8 = 1; i8 < cb8.length; i8++) if (p8[cb8[i8]] !== q8) return;
@@ -1074,7 +1077,7 @@ const __boot = async () => {
           // a live entry is only a lock if it was posted today: one stamped for another day, or at a time of day still in the future, is stale and is dropped (fresh signals post it again)
           if (e.w === null && ((e.on && e.on !== ukd) || (!e.on && String(at).slice(0, 8) > lon2()))) return;
           if (String(at).slice(0, 5) < '09:00') return;   // an overnight stamp is the feed's rollover, not a pick of record
-          if (!cur || String(at) < String(cur.at)) lm[nm][k] = { h: e.h, d: e.d, at }; }); });
+          if (!cur || String(at) < String(cur.at)) lm[nm][k] = { h: e.h, d: e.d, at, fz: e.fz || cur && cur.fz || null }; }); });
         window.__lockMap = lm; if (window.__rescan) window.__rescan(); }
       const ultra9 = [];
       try { (typeof listRows !== 'undefined' ? listRows : []).forEach(x9 => {
@@ -1091,16 +1094,18 @@ const __boot = async () => {
       let today9 = { tiles: window.__cntN, scan: window.__scan.map(r9 => ({ nm: r9.nm, n: r9.n, w: r9.w })), ultra: ultra9, nx: window.__nextBy || {}, sq: window.__scanSeq || {}, tp: window.__trackPicks || {}, v: 2, src: 'live', fz: window.__fzCount || 0, gone: window.__goneCount || 0 };
       // GUARANTEE: every posted pick on record stays on record, and is settled the moment its result is in the results feed - independent of whether the scanner still matches the race
       if (DAYSEL !== 'tomorrow' && !false) { try {
+        const nowMinS = (() => { const l = lon2(); return (+l.slice(0, 2)) * 60 + (+l.slice(3, 5)); })();
         const winMap = {}; Object.entries(window.__posMap || {}).forEach(([k, r]) => { const wn = Object.entries(r.pm || {}).find(([, p]) => String(p) === '1'); if (wn) winMap[k] = { h: wn[0], r }; });
         (typeof listRows !== 'undefined' ? listRows : []).forEach(x => { if (x && x.w) { const k = tK(x.t) + '|' + cKeyPre(x.course); if (!winMap[k]) winMap[k] = { h: hn(x.w), r: null }; } });
         Object.entries(window.__lockMap || {}).forEach(([nm, races]) => { today9.tp[nm] = today9.tp[nm] || [];
           Object.entries(races).forEach(([rk, lk]) => { if (!lk || !lk.h) return; const [t0, c0] = rk.split('|'); const have = today9.tp[nm].find(e => e && e.t === t0 && e.c === c0);
             const res = winMap[tK(t0) + '|' + cKeyPre(c0)];
             if (have && have.w !== null) return;                                        // settled by the scanner - nothing to do
-            if (!res) { if (!have) today9.tp[nm].push({ t: t0, c: c0, h: lk.h, d: lk.d || null, w: null, at: lk.at, on: ukd }); return; }   // still to run or no result yet: keep it posted
+            const frozen = (t2m(t0) - nowMinS) <= 5;
+            if (!res) { if (!have && frozen) today9.tp[nm].push({ t: t0, c: c0, h: lk.h, d: lk.d || null, w: null, at: lk.at, fz: lk.fz || lon2(), on: ukd }); return; }   // frozen pick with no result yet: keep it posted; a provisional one the scanner dropped stays dropped
             const won = hn(lk.h) === hn(res.h) ? 1 : 0; const pm = res.r && res.r.pm ? res.r.pm[hn(lk.h)] : null; const fn = res.r ? res.r.fn : null;
             const places = fn == null ? null : fn < 5 ? 1 : fn < 8 ? 2 : (fn >= 16 && res.r.hc) ? 4 : 3; const pn = pm != null && /^\d+$/.test(String(pm)) ? Number(pm) : null;
-            const settled = { t: t0, c: c0, h: lk.h, d: (have && have.d) || lk.d || null, w: won, wn: res.h, lk: lk.at, post: 0, pos: pm != null ? String(pm) : null, fn, pl: pn != null && places != null ? (pn <= places ? 1 : 0) : null };
+            const settled = { t: t0, c: c0, h: lk.h, d: (have && have.d) || lk.d || null, w: won, wn: res.h, lk: lk.fz || lk.at, at: lk.at, post: 0, pos: pm != null ? String(pm) : null, fn, pl: pn != null && places != null ? (pn <= places ? 1 : 0) : null };
             if (have) Object.assign(have, settled); else today9.tp[nm].push(settled); }); });
       } catch (e8) { window.__bankErr = 'sweep ' + String(e8).slice(0, 200); } }
       const sig9 = JSON.stringify(today9);

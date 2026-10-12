@@ -140,6 +140,7 @@ footer b{color:#c9d2e3}
 .cyc .due{font:italic 900 12px/1 var(--disp);letter-spacing:.14em;background:linear-gradient(180deg,#ff5f7e,#e4002b);color:#fff;padding:7px 9px;border-radius:6px;box-shadow:0 0 14px rgba(228,0,43,.5)}
 .model.cl .cyc{display:flex}
 .radio.busy{animation:pul 1s infinite;pointer-events:none}
+.tip.fz .r{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f;box-shadow:0 0 14px rgba(31,211,106,.5)}
 </style>
 </head>
 <body>
@@ -152,7 +153,7 @@ footer b{color:#c9d2e3}
 <section class="hero">
   <div class="kick">On the record · before the off</div>
   <h1>Tips you can <b>check.</b></h1>
-  <p><b id="nmodels">Models</b> running. Each posts a horse only when its signals agree. Every tip is time-stamped before the race starts and every result — win or lose — stays on the page.</p>
+  <p><b id="nmodels">Models</b> running. Each names a horse only when its signals agree, re-checks it right up to the off, and locks it five minutes before the race. Every locked tip is time-stamped and every result — win or lose — stays on the page.</p>
   <div class="board" id="stats"></div>
 </section>
 
@@ -174,8 +175,8 @@ footer b{color:#c9d2e3}
   <div class="sh" style="padding-left:0;padding-right:0"><h2>How it works</h2></div>
   <ol>
     <li>Each model watches the live market, ratings and the stables all day.</li>
-    <li>When a model's signals land on the same horse, the tip is posted here with the time.</li>
-    <li>After the race the tip is marked won or lost. Nothing is edited afterwards.</li>
+    <li>When a model's signals land on the same horse it shows here as provisional; it can change while the market moves.</li>
+    <li>Five minutes before the off the pick is LOCKED with the time. After the race it is marked won, placed or lost. Nothing is edited afterwards.</li>
   </ol>
 </section>
 <footer><b>TOP OF THE TIPS</b> is an IGX Ltd product. 18+ only. Please gamble responsibly — <b>BeGambleAware.org</b>. Tips are opinions, not guarantees; past results do not predict future results.</footer>
@@ -288,9 +289,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const cycle = life.length ? `<div class="cyc"><span><b>${oneIn != null ? '1 IN ' + oneIn : 'NO WIN YET'}</b><small>wins</small></span><span><b>${since}</b><small>since win</small></span><span><b>${longest}</b><small>longest gap</small></span>${since > 0 && afterN >= 3 ? `<span><b>${Math.round(afterW / afterN * 100)}%</b><small>next won after ${since}+ gap (${afterW}/${afterN})</small></span>` : ''}${due ? '<span class="due">DUE</span>' : ''}</div>` : '';
     const tier = life.length < 10 ? { k: 'new', t: 'NEW' } : winPc >= 45 ? { k: 'elite', t: 'ELITE' } : winPc >= 35 ? { k: 'strong', t: 'STRONG' } : winPc >= 25 ? { k: 'fair', t: 'FAIR' } : { k: 'weak', t: 'WEAK' };
     const form = life.length ? `<div class="form"><small>lifetime ${lifeW}/${life.length}</small>${life.slice(-60).map(p => `<i class="${p.w ? 'fw' : p.pl ? 'ff' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : p.pl ? 'F' : 'L'}</i>`).join('')}${life.length > 60 ? `<small>+${life.length - 60} earlier</small>` : ''}</div>` : '';
-    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : 'p') : p.w ? 'w' : p.pl ? 'f' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
-      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(frac(p.d))}</small>` : ''}<span class="sub">${p.w === null ? (p.at ? 'posted ' + esc(String(p.at).slice(0, 5)) : 'posted') + (p.ran ? ' · result pending' : '') : p.lk ? 'posted ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
-      <div class="r">${p.w === null ? (p.ran ? 'RAN' : 'LIVE') : p.w ? 'WON' : p.pl ? 'FRAME' : 'LOST'}</div></div>`).join('')
+    const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : p.fz ? 'fz' : 'p') : p.w ? 'w' : p.pl ? 'f' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
+      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(frac(p.d))}</small>` : ''}<span class="sub">${p.w === null ? (p.fz ? 'LOCKED ' + esc(String(p.fz).slice(0, 5)) + ' · pick since ' + esc(String(p.at || p.fz).slice(0, 5)) : 'provisional · pick since ' + esc(String(p.at || '').slice(0, 5)) + ' · locks 5 min before the off') + (p.ran ? ' · result pending' : '') : p.lk ? 'locked ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
+      <div class="r">${p.w === null ? (p.ran ? 'RAN' : p.fz ? 'LOCKED' : 'LIVE') : p.w ? 'WON' : p.pl ? 'FRAME' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const tmRaw = ((tmrw.tm && tmrw.tm[m.nm]) || []).filter(p => p && p.h); const tmSeen = new Set();
     const tmTips = tmRaw.filter(p => { const k = p.t + '|' + p.c; if (tmSeen.has(k)) return false; tmSeen.add(k); return true; }).sort((a, b) => t2m(a.t) - t2m(b.t));
