@@ -128,12 +128,14 @@ footer b{color:#c9d2e3}
 .tip.tm .r{background:linear-gradient(180deg,#2f8cff,#0a4ae0);color:#fff}.tip.tm .h{color:#c9d2e3}
 .archive{display:grid;gap:8px;padding:0 16px}.archive .day{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line)}.archive .day b{font:900 18px/1 var(--disp);text-transform:uppercase}.archive .day span{font:800 11px/1 var(--mono);color:var(--gold);letter-spacing:.06em}
 .tip.f .r{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}.tip.f .h{color:#ffd06a}
+.radio.rf{background:linear-gradient(180deg,#ff5f7e,#e4002b);color:#fff;box-shadow:0 4px 14px rgba(228,0,43,.45),inset 0 1px 0 rgba(255,255,255,.4)}
+@media(max-width:480px){.radio.fr{display:none}}
 </style>
 </head>
 <body>
 <div class="top">
   <a class="logo" href="/topofthetips.html"><span class="bx">TOP</span><em>OF THE TIPS</em></a>
-  <div class="tools"><a class="radio" id="back" href="/topofthetips.html" style="display:none;background:linear-gradient(180deg,#fff,#dbe3f2);color:#0b0e16">TODAY</a><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
+  <div class="tools"><a class="radio rf" id="refresh" href="#">REFRESH</a><a class="radio" id="back" href="/topofthetips.html" style="display:none;background:linear-gradient(180deg,#fff,#dbe3f2);color:#0b0e16">TODAY</a><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
 </div>
 <div class="tick"><div class="lab" id="tlab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
 
@@ -297,8 +299,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   } catch { runEl.innerHTML = '<span>Results feed unavailable.</span>'; }
   requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
-if (!/\bdate=\d{4}-\d{2}-\d{2}/.test(location.search)) { setTimeout(() => location.reload(), 60000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') location.reload(); }); }
+// no automatic refresh: the page updates only when REFRESH is tapped
+document.getElementById('refresh').onclick = () => { const b = document.getElementById('refresh'); b.textContent = 'LOADING…'; location.reload(); };
 </script>
 </body>
 </html>
