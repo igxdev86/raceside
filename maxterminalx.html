@@ -1026,6 +1026,8 @@ const __boot = async () => {
       // a tab left open past midnight must never write today's card under yesterday's date
       const liveD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
       if (!REPLAY && liveD !== ukd) { try { location.reload(); } catch {} return; }
+      // the day's picks post from 09:00 London: nothing banks overnight, when the feed is still rolling over from yesterday's card
+      if (DAYSEL !== 'tomorrow' && !(typeof REPLAY !== 'undefined' && REPLAY) && lon2().slice(0, 2) < '09') return;
       // pre-off locks first: union of what the server already holds for today and what this page has seen (earliest post time wins), then rescan so the card we write honours every lock
       { const rL = await fetch('/api/yearstate?k=comboledger:day:' + ukd + '&t=' + Date.now()); const jL = await rL.json();
         // the day row could not be read (store down): never write blind
@@ -1036,6 +1038,7 @@ const __boot = async () => {
           const at = e.w === null ? e.at : e.lk; if (!at) return; const k = e.t + '|' + e.c; const cur = (lm[nm] = lm[nm] || {})[k];
           // a live entry is only a lock if it was posted today: one stamped for another day, or at a time of day still in the future, is stale and is dropped (fresh signals post it again)
           if (e.w === null && ((e.on && e.on !== ukd) || (!e.on && String(at).slice(0, 8) > lon2()))) return;
+          if (String(at).slice(0, 5) < '09:00') return;   // an overnight stamp is the feed's rollover, not a pick of record
           if (!cur || String(at) < String(cur.at)) lm[nm][k] = { h: e.h, d: e.d, at }; }); });
         window.__lockMap = lm; if (window.__rescan) window.__rescan(); }
       const ultra9 = [];
