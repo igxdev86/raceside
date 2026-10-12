@@ -205,7 +205,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   let SEEN = {}; if (!VIEW) { try { SEEN = JSON.parse(localStorage.getItem('tt:seen:' + ukd) || '{}') || {}; } catch {} }
   // record = the picks on the page. Past days: the day's locked picks (tp) when it has them, else its scan tally. Today: counted from the rows shown below, so the header always matches the list.
   const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
-      const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || dv.src === 'replay')) { n++; if (e.w) w++; } }); return; }
+      const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || (dv.restored && e.at) || dv.src === 'replay')) { n++; if (e.w) w++; } }); return; }
       const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
   let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const PICKK = {};
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover', 'LWT': 'lowest weight carried (flat only)' };
@@ -221,7 +221,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const codename = (nm) => { let h = 0; for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0; return NAMES[h % NAMES.length] + ' ' + (nm.split('+').length) + '.' + (h % 9 + 1); };
   const XM = XSET.map((nm, i) => ({ id: 'X' + (i + 1), nm, title: codename(nm), acc: XACC[i % XACC.length], desc: describe(nm) + '. All must agree on one horse.', x: true }));
   // one list, best strike first (Wilson lower bound breaks ties between thin and deep records); S1 stays the free model wherever it lands
-  const todayRec = (nm) => { let w = 0, n = 0; const seenK = new Set(); ((today.tp && today.tp[nm]) || []).forEach(p => { if (!p || p.w === null || p.w === undefined || !(p.lk || today.src === 'replay')) return; const k = p.t + '|' + p.c; if (seenK.has(k)) return; seenK.add(k); n++; if (p.w) w++; }); return { w, n }; };
+  const todayRec = (nm) => { let w = 0, n = 0; const seenK = new Set(); ((today.tp && today.tp[nm]) || []).forEach(p => { if (!p || p.w === null || p.w === undefined || !(p.lk || (today.restored && p.at) || today.src === 'replay')) return; const k = p.t + '|' + p.c; if (seenK.has(k)) return; seenK.add(k); n++; if (p.w) w++; }); return { w, n }; };
   const fullRec = (nm) => { const a = agg(nm), t = todayRec(nm); return { w: a.w + t.w, n: a.n + t.n }; };
   const pct = (m) => { const g = fullRec(m.nm); return g.n ? g.w / g.n : -1; };
   const ALL = MODELS.concat(XM).sort((a, b) => pct(b) - pct(a) || wil(fullRec(b.nm).w, fullRec(b.nm).n) - wil(fullRec(a.nm).w, fullRec(a.nm).n));
@@ -237,14 +237,14 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       if (!cur) byK[k] = p;
       else if (cur.w === null && p.at && String(p.at) < String(cur.at || '99')) cur.at = p.at; });
     // a settled entry carries its lock time; if the server lost it, the time this device first saw the pick posted is the time of record
-    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; if (p.w !== null && !p.lk && old && old.at) p.lk = old.at; });
+    Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; if (p.w !== null && !p.lk && old && old.at) p.lk = old.at; if (p.w !== null && !p.lk && today.restored && p.at) p.lk = p.at; });
     Object.entries(byK).forEach(([k, p]) => { const old = mem[k]; mem[k] = old && old.w !== null && p.w === null ? old : (old && old.at && !p.at && p.w === null ? { ...p, at: old.at } : p); });
     // a settled pick with no pre-off time is a post-race calculation, not a tip: it is not shown and not counted
     // a posted pick whose race has run is settled here from the results feed if the banker has not settled it yet: the posted time is its evidence, the result is public
     const settleOf = (p) => { const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
       const r = POS[hh + ':' + m[2] + '|' + course(p.c).toLowerCase()]; if (!r || !r.win) return null; const key = String(p.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
       return { w: r.win === key ? 1 : 0, wn: r.winName, lk: p.lk || p.at || null }; };
-    const tips = Object.values(byK).filter(p => p.w === null || p.lk || today.src === 'replay').map(p => { const q = { ...p, ran: p.w === null && t2m(p.t) <= nowMin };
+    const tips = Object.values(byK).filter(p => p.w === null || p.lk || (today.restored && p.at) || today.src === 'replay').map(p => { const q = { ...p, ran: p.w === null && t2m(p.t) <= nowMin };
       if (q.w === null && q.ran) { const st = settleOf(q); if (st) { Object.assign(q, st); q.ran = false; } }
       if (q.w === 0) q.pl = placeOf(q); return q; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
@@ -256,7 +256,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const gated = !MEMBER && m.id !== 'S1';
     const xhead = '';
     // lifetime form: every pick of record (pre-off, or a replay-rebuilt day) in date order, oldest to newest, today's settled picks last
-    const life = Object.keys(days).filter(d => d < ukd).sort().flatMap(d => { const dv = days[d] || {}; return ((dv.tp && dv.tp[m.nm]) || []).filter(p => p && p.w !== null && p.w !== undefined && (p.lk || dv.src === 'replay')).sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => ({ ...p, d0: d })); })
+    const life = Object.keys(days).filter(d => d < ukd).sort().flatMap(d => { const dv = days[d] || {}; return ((dv.tp && dv.tp[m.nm]) || []).filter(p => p && p.w !== null && p.w !== undefined && (p.lk || (dv.restored && p.at) || dv.src === 'replay')).sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => ({ ...p, d0: d })); })
       .concat(tips.filter(p => p.w !== null).slice().sort((a, b) => t2m(a.t) - t2m(b.t)).map(p => ({ ...p, d0: ukd })));
     const lifeW = life.filter(p => p.w).length;
     const form = life.length ? `<div class="form"><small>lifetime ${lifeW}/${life.length}</small>${life.slice(-60).map(p => `<i class="${p.w ? 'fw' : p.pl ? 'ff' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : p.pl ? 'F' : 'L'}</i>`).join('')}${life.length > 60 ? `<small>+${life.length - 60} earlier</small>` : ''}</div>` : '';
@@ -279,7 +279,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   document.getElementById('models').innerHTML = html;
   { const h2 = document.querySelector('.sh h2'); if (h2) h2.textContent = VIEW ? fmtD(VIEW) + ' · results' : "Today's card";
     const arch = Object.keys(days).filter(d => d < realD).sort().reverse().slice(0, 14).map(d => { const dv = days[d] || {}; let w = 0, n = 0;
-      ALL.forEach(m => ((dv.tp && dv.tp[m.nm]) || []).forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || dv.src === 'replay')) { n++; if (e.w) w++; } }));
+      ALL.forEach(m => ((dv.tp && dv.tp[m.nm]) || []).forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || (dv.restored && e.at) || dv.src === 'replay')) { n++; if (e.w) w++; } }));
       return `<a class="day" href="/topofthetips.html?date=${d}"><b>${esc(fmtD(d))}</b><span>${n ? w + '/' + n + ' · ' + Math.round(w / n * 100) + '%' : 'no picks of record'}</span></a>`; }).join('');
     const ae = document.getElementById('arch'); if (ae) ae.innerHTML = arch || '<div class="none">No past days yet.</div>';
     if (VIEW) { const b = document.getElementById('back'); if (b) b.style.display = 'inline-flex'; } }

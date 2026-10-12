@@ -16,6 +16,12 @@ log('terminal open');
 const tm = await ctx.newPage();
 tm.goto(BASE + '/maxterminalx.html?day=tomorrow', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
 setTimeout(() => tm.close().catch(() => {}), 90000);
+// backfill: any day since 1 Oct missing from the record is rebuilt from the results feed (REPLAY mode, flagged as rebuilt - not pre-off), one or two per lap
+try { const ix = await (await fetch(BASE + '/api/yearstate?k=comboledger:v1&index=1&t=' + Date.now())).json(); const have = (ix && ix.days) || {};
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date()); const miss = [];
+  for (let d = new Date('2026-10-01T12:00:00Z'); ; d.setUTCDate(d.getUTCDate() + 1)) { const k = d.toISOString().slice(0, 10); if (k >= today) break; if (!have[k] || !have[k].picks) miss.push(k); }
+  log('backfill missing', miss.join(',') || 'none');
+  for (const d of miss.slice(-2)) { const rp = await ctx.newPage(); log('replay', d); await rp.goto(BASE + '/maxterminalx.html?date=' + d, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}); await rp.waitForTimeout(150000); await rp.close().catch(() => {}); } } catch (e) { log('backfill err', String(e).slice(0, 120)); }
 const end = Date.now() + RUN_MINUTES * 60000;
 while (Date.now() < end) {
   await page.waitForTimeout(60000);
