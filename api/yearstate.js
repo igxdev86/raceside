@@ -13,6 +13,7 @@ function supa() {
 const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1', 'termfreeze:v1', 'comboledger:v1', 'bankerlog:v1', 'tottset:v1'];
 
 export default async function handler(req, res) {
+  const size = (v) => { try { return JSON.stringify(v || null).length; } catch { return 0; } };
   const qk = String(req.query.k || '');
   const K = KEYS.includes(qk) ? qk : /^minussnap:\d{4}-\d{2}-\d{2}$/.test(qk) ? qk : KEYS[0];
   const s = supa();
@@ -63,6 +64,10 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
     let out = (rows && rows[0] && rows[0].v) || null;
     // ?day=YYYY-MM-DD returns just that day; &tp=A,B,C narrows its picks to those combos (small payloads for consumers and checks)
+    // ?index=1 returns a one-line-per-day summary instead of the data
+    if (out && out.days && req.query.index) { const idx = {}; Object.entries(out.days).forEach(([d, dv]) => { if (!dv) { idx[d] = null; return; } let n = 0, settled = 0, locked = 0; Object.values(dv.tp || {}).forEach(arr => (arr || []).forEach(e => { if (!e) return; n++; if (e.w !== null && e.w !== undefined) { settled++; if (e.lk) locked++; } }));
+      idx[d] = { v: dv.v, src: dv.src, preview: dv.preview || 0, restored: dv.restored || 0, combos: Object.keys(dv.tp || {}).length, picks: n, settled, settledWithTime: locked, tm: dv.tm ? Object.keys(dv.tm).length : 0, bytes: size(dv) }; });
+      return res.status(200).json({ ok: true, ts: out.ts, days: idx, bytes: size(out) }); }
     const qd = String(req.query.day || ''); if (out && out.days && /^\d{4}-\d{2}-\d{2}$/.test(qd)) { const dv = out.days[qd] || null; let d2 = dv;
       if (dv && req.query.tp) { const want = String(req.query.tp).split(','); d2 = { ...dv, tp: Object.fromEntries(want.filter(k => dv.tp && dv.tp[k]).map(k => [k, dv.tp[k]])), tm: dv.tm ? Object.fromEntries(want.filter(k => dv.tm[k]).map(k => [k, dv.tm[k]])) : undefined, scan: undefined, nx: undefined, sq: undefined, ultra: undefined, tiles: undefined, tmScan: undefined }; }
       out = { days: { [qd]: d2 }, ts: out.ts }; }
