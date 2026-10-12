@@ -1027,8 +1027,10 @@ const __boot = async () => {
       const liveD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() + (DAYSEL === 'tomorrow' ? 86400000 : 0)));
       if (!REPLAY && liveD !== ukd) { try { location.reload(); } catch {} return; }
       // pre-off locks first: union of what the server already holds for today and what this page has seen (earliest post time wins), then rescan so the card we write honours every lock
-      { const rL = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const jL = await rL.json();
-        window.__ledger = (jL && jL.state) || { days: {} }; if (!window.__ledger.days) window.__ledger.days = {};
+      { const rL = await fetch('/api/yearstate?k=comboledger:day:' + ukd + '&t=' + Date.now()); const jL = await rL.json();
+        // the day row could not be read (store down): never write blind
+        if (!jL || jL.upstream || !rL.ok) { window.__bankErr = 'ledger read failed ' + (jL && jL.upstream || rL.status); return; }
+        window.__ledger = { days: { [ukd]: (jL && jL.state) || null } }; if (!window.__ledger.days[ukd]) delete window.__ledger.days[ukd];
         const prevD = window.__ledger.days[ukd]; const lm = window.__lockMap || {};
         Object.entries((prevD && prevD.tp) || {}).forEach(([nm, arr]) => { (arr || []).forEach(e => { if (!e || !e.h) return;
           const at = e.w === null ? e.at : e.lk; if (!at) return; const k = e.t + '|' + e.c; const cur = (lm[nm] = lm[nm] || {})[k];
@@ -1072,8 +1074,9 @@ const __boot = async () => {
         else if (prevD9.tm) { today9.tm = prevD9.tm; today9.tmAt = prevD9.tmAt || null; } }
       window.__ledger.days[ukd] = today9;
       window.__ledger.ts = Date.now();
-      const rp9 = await fetch('/api/yearstate?k=comboledger:v1', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.__ledger) });
+      // only today's row is written - a few hundred KB, not the whole history
+      const rp9 = await fetch('/api/yearstate?k=comboledger:day:' + ukd, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...today9, savedTs: Date.now(), ts: Date.now() }) });
       if (rp9.ok) { window.__lgSig = sig9; window.__bankedAt = lon2(); window.__bankErr = null; } else window.__bankErr = 'POST ' + rp9.status;
     } catch (e9) { window.__bankErr = String((e9 && e9.stack) || e9).slice(0, 400); } })();
     document.querySelectorAll('.pchip').forEach(b => b.onclick = () => { curIx = Number(b.dataset.ix);

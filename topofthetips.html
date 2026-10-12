@@ -139,6 +139,7 @@ footer b{color:#c9d2e3}
 .cyc{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:0 16px 10px 20px}.cyc span{display:flex;flex-direction:column;gap:3px}.cyc b{font:900 18px/1 var(--disp);color:#fff}.cyc small{font:700 9px/1.2 var(--mono);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .cyc .due{font:italic 900 12px/1 var(--disp);letter-spacing:.14em;background:linear-gradient(180deg,#ff5f7e,#e4002b);color:#fff;padding:7px 9px;border-radius:6px;box-shadow:0 0 14px rgba(228,0,43,.5)}
 .model.cl .cyc{display:flex}
+.radio.busy{animation:pul 1s infinite;pointer-events:none}
 </style>
 </head>
 <body>
@@ -194,7 +195,9 @@ const FR = ['1/10','1/9','1/8','1/7','1/6','1/5','2/9','1/4','2/7','3/10','1/3',
 const frac = (d) => { const v = Number(d); if (!(v > 1)) return d == null ? '' : String(d); let best = FR[0]; FR.forEach(x => { if (Math.abs(x.d - v) < Math.abs(best.d - v)) best = x; }); return best.f; };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 (async () => {
-  let st = null; try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; } catch {}
+  const rb = document.getElementById('refresh'); if (rb) { rb.textContent = 'BUILDING…'; rb.classList.add('busy'); }
+  let st = null, down = false; try { const r = await fetch('/api/yearstate?k=comboledger:v1&t=' + Date.now()); const j = await r.json(); st = j && j.state; if (!r.ok || !j || j.upstream || !st) down = true; } catch { down = true; }
+  if (down) { document.getElementById('models').innerHTML = '<div class="none" style="padding:18px 16px;font-size:14px;color:#ffb020">The record store is unavailable right now — nothing shown here is missing, it just can\'t be read. Tap REFRESH in a minute.</div>'; if (rb) { rb.textContent = 'REFRESH'; rb.classList.remove('busy'); } return; }
   const days = (st && st.days) || {};
   const realD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
   // ?date=YYYY-MM-DD opens any past day exactly as it was recorded: picks of record only, nothing recomputed
@@ -300,6 +303,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const html = built.sort((a, b) => b.pc - a.pc || b.lb - a.lb || b.n - a.n).map(x => x.html).join('')
     .replace(/<s class="dots" data-k="([^"]*)"><\/s>/g, (_, k) => { const kk = k.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); const n = (PICKK[kk] ? PICKK[kk].size : 1) - 1; if (n <= 0) return ''; return `<span class="dots" title="on ${n} other tile${n === 1 ? '' : 's'}">${'<i></i>'.repeat(Math.min(n, 10))}${n > 10 ? `<small>+${n - 10}</small>` : ''}</span>`; });
   document.getElementById('models').innerHTML = html;
+  if (rb) { rb.textContent = 'REFRESH'; rb.classList.remove('busy'); }
   // HIT RATE board: lifetime, picks of record only, £1 level stakes at the recorded price
   { const rows = built.map(x => x.board).sort((a, b) => (b.n ? b.w / b.n : -1) - (a.n ? a.w / a.n : -1) || b.n - a.n);
     const el = document.getElementById('board'); if (el) el.innerHTML = `<div class="bh"><span>MODEL</span><span>WIN</span><span>1 IN</span><span>£1 P/L</span><span>TIER</span></div>` + rows.map(r => `<div class="br" style="--acc:${r.acc}"><span class="bm"><b>${esc(r.title)}</b><small>${esc(r.id)} · ${esc(r.nm)}</small></span><span class="bw">${r.n ? Math.round(r.w / r.n * 100) + '%' : '—'}<small>${r.w}/${r.n}</small></span><span>${r.oneIn != null ? r.oneIn : '—'}<small>${r.n ? r.since + ' since win' : ''}${r.due ? ' · DUE' : ''}</small></span><span class="${r.pnl > 0 ? 'pos' : r.pnl < 0 ? 'neg' : ''}">${r.n ? (r.pnl > 0 ? '+' : '') + r.pnl.toFixed(2) : '—'}<small>${r.n ? Math.round(r.pnl / r.n * 100) + '% ROI' : ''}</small></span><span><i class="tier ${r.tier.k}">${r.tier.t}</i></span></div>`).join(''); }
@@ -324,7 +328,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   requestAnimationFrame(() => { const w = runEl.scrollWidth || 2000; runEl.style.animationDuration = Math.max(20, Math.round(w / 70)) + 's'; });
 })();
 // no automatic refresh: the page updates only when REFRESH is tapped
-document.getElementById('refresh').onclick = () => { const b = document.getElementById('refresh'); b.textContent = 'LOADING…'; location.reload(); };
+document.getElementById('refresh').onclick = (ev) => { ev.preventDefault(); const b = document.getElementById('refresh'); b.textContent = 'BUILDING…'; b.classList.add('busy'); location.reload(); };
 </script>
 </body>
 </html>
