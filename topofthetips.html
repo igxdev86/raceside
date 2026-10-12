@@ -141,12 +141,17 @@ footer b{color:#c9d2e3}
 .model.cl .cyc{display:flex}
 .radio.busy{animation:pul 1s infinite;pointer-events:none}
 .tip.fz .r{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f;box-shadow:0 0 14px rgba(31,211,106,.5)}
+.radio.st{background:linear-gradient(180deg,#b06cff,#7a3df0);color:#fff;box-shadow:0 4px 14px rgba(122,61,240,.45),inset 0 1px 0 rgba(255,255,255,.4)}
+.settlewrap{padding:0 16px}.srace{border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,var(--panel2),var(--panel));margin-bottom:10px;overflow:hidden}.srh{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.04)}.srh b{font:900 16px/1 var(--disp)}.srh span{font:800 10px/1 var(--mono);color:var(--amber);letter-spacing:.1em}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}.sh2{font:800 16px/1.1 var(--disp);text-transform:uppercase;display:flex;flex-direction:column;gap:3px}.sh2 small{font:700 9px/1 var(--mono);color:var(--muted);letter-spacing:.06em}
+.sb{display:flex;gap:6px;flex:0 0 auto}.sb button{border:0;border-radius:6px;padding:9px 10px;font:italic 900 11px/1 var(--disp);letter-spacing:.08em;background:#2a3242;color:#dfe6f3}.sb button[data-v=W]{background:linear-gradient(180deg,#44ff92,#12b85a);color:#04210f}.sb button[data-v=P]{background:linear-gradient(180deg,#ffd06a,#e59a00);color:#2a1800}.sb button:disabled{opacity:.35}.sb button.on{opacity:1;outline:2px solid #fff}
+@media(max-width:480px){.radio.st{padding:8px 9px}}
 </style>
 </head>
 <body>
 <div class="top">
   <a class="logo" href="/topofthetips.html"><span class="bx">TOP</span><em>OF THE TIPS</em></a>
-  <div class="tools"><a class="radio rf" id="refresh" href="#">REFRESH</a><a class="radio" id="back" href="/topofthetips.html" style="display:none;background:linear-gradient(180deg,#fff,#dbe3f2);color:#0b0e16">TODAY</a><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
+  <div class="tools"><a class="radio st" id="stchip" href="#settleh">SETTLE</a><a class="radio rf" id="refresh" href="#">REFRESH</a><a class="radio" id="back" href="/topofthetips.html" style="display:none;background:linear-gradient(180deg,#fff,#dbe3f2);color:#0b0e16">TODAY</a><a class="radio fr" href="https://www.sportinglife.com/racing/fast-results" target="_blank" rel="noopener">RESULTS</a><a class="radio" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener"><i></i>RADIO</a><div class="live" id="pill"><i></i>LOADING</div></div>
 </div>
 <div class="tick"><div class="lab" id="tlab">LIVE</div><div class="rail"><div class="run" id="run"><span>Loading today's card…</span></div></div></div>
 
@@ -157,6 +162,8 @@ footer b{color:#c9d2e3}
   <div class="board" id="stats"></div>
 </section>
 
+<div class="sh" id="settleh"><h2>Settle results</h2></div>
+<div class="settlewrap" id="settlewrap"><div id="settle">…</div><div class="bn">For when the results feed is behind: mark each pick that has run. Your settle stands until the official result arrives, then the feed's positions replace it.</div></div>
 <div class="sh"><h2>Hit rate</h2></div>
 <div class="boardwrap"><div class="board" id="board"></div><div class="bn">Lifetime from 10 Oct · picks of record only · WIN = first past the post · 1 IN = tips per winner, with tips since the last win (DUE when the gap is at or past the model's average) · £1 level stakes at the recorded price · tiers need 10+ picks: ELITE 45%+, STRONG 35%+, FAIR 25%+, WEAK below</div></div>
 <div class="sh"><h2 id="cardh">Today's card</h2></div>
@@ -213,6 +220,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
       const m = String(rc.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return; let hh = +m[1]; if (hh > 12) hh -= 12;
       const wr = (rc.runners || []).find(r => r && (r.won || String(r.pos) === '1')); const win = wr ? String(wr.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim() : null;
       POS[hh + ':' + m[2] + '|' + course(rc.course).toLowerCase()] = { pm, fn, win, winName: wr ? wr.h : null, hc: /handicap/i.test(String(rc.name || rc.type || '')) }; }); } catch {}
+  // results you settled by hand (SETTLE panel) stand until the official feed has the race; then the feed's positions take over
+  let MAN = {}; try { const rm = await fetch('/api/yearstate?k=manualres:v1&t=' + Date.now()); const jm = await rm.json(); MAN = (jm && jm.state && jm.state.days && jm.state.days[ukd]) || {}; } catch {}
+  const rk = (t, c) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12; return hh + ':' + m[2] + '|' + course(c).toLowerCase(); };
+  const hkey = (h) => String(h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
   const placeOf = (p) => { if (p.pl != null) return p.pl; const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
     const r = POS[hh + ':' + m[2] + '|' + course(p.c).toLowerCase()]; if (!r) return null; const pos = r.pm[String(p.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim()];
     if (pos == null || !/^\d+$/.test(String(pos))) return null; const places = r.fn < 5 ? 1 : r.fn < 8 ? 2 : (r.fn >= 16 && r.hc) ? 4 : 3; p.pos = p.pos || String(pos); p.fn = p.fn || r.fn; return Number(pos) <= places ? 1 : 0; };
@@ -224,7 +235,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const agg = (nm) => { let w = 0, n = 0; Object.entries(days).forEach(([d, dv]) => { if (!dv || d >= ukd) return;
       const arr = dv.tp && dv.tp[nm]; if (Array.isArray(arr) && arr.length) { arr.forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || (dv.restored && e.at) || dv.src === 'replay')) { n++; if (e.w) w++; } }); return; }
       const r = ((dv && dv.scan) || []).find(x => x && x.nm === nm); if (r) { w += r.w || 0; n += r.n || 0; } }); return { w, n }; };
-  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const PICKK = {};
+  let liveN = 0, wonN = 0, settledN = 0, totW = 0, totN = 0; const PICKK = {}; const RANQ = [];
   const D = { 'Σ': 'model score leader', 'TM': 'top weight-adjusted rating', 'MN': 'biggest steamer vs model price', 'PWR': 'POWER composite leader', 'MX': 'lowest score×price', 'JT': 'top jockey+trainer strike', 'FAV': 'clear favourite', 'OR': 'top official rating', 'PTS': 'print points leader', 'GRN': 'greenest painted', 'EDGE': 'rating leader thrown in vs OR', 'CD': 'course & distance winner', 'DRW': 'lowest stall', 'PUMP': 'biggest upward mover', 'LWT': 'lowest weight carried (flat only)' };
   const describe = (nm) => nm.split('+').map(k => D[k] || k).join(' + ');
   const wil = (w, n) => { if (!n) return 0; const z = 1.96, p = w / n; return (p + z * z / (2 * n) - z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)) / (1 + z * z / n); };
@@ -265,8 +276,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const settleOf = (p) => { const m = String(p.t || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return null; let hh = +m[1]; if (hh > 12) hh -= 12;
       const r = POS[hh + ':' + m[2] + '|' + course(p.c).toLowerCase()]; if (!r || !r.win) return null; const key = String(p.h).toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
       return { w: r.win === key ? 1 : 0, wn: r.winName, lk: p.lk || p.at || null }; };
+    const manualOf = (p) => { const r = MAN[rk(p.t, p.c)]; if (!r || !r.h) return null; const v = r.h[hkey(p.h)]; if (!v) return null;
+      const win = Object.entries(r.h).find(([, x]) => x === 'W'); return { w: v === 'W' ? 1 : 0, pl: v === 'P' ? 1 : 0, wn: win ? win[0] : null, lk: p.lk || p.fz || p.at || null, man: 1 }; };
     const tips = Object.values(byK).filter(p => p.w === null || p.lk || (today.restored && p.at) || today.src === 'replay').map(p => { const q = { ...p, ran: p.w === null && t2m(p.t) <= nowMin };
-      if (q.w === null && q.ran) { const st = settleOf(q); if (st) { Object.assign(q, st); q.ran = false; } }
+      if (q.w === null && q.ran) { const st = settleOf(q) || manualOf(q); if (st) { Object.assign(q, st); q.ran = false; } }
+      if (q.w === null && q.ran) RANQ.push({ k: rk(q.t, q.c), t: q.t, c: q.c, h: q.h, m: m.id });
       if (q.w === 0) q.pl = placeOf(q); return q; })
       .sort((a, b) => (a.w === null ? 0 : 1) - (b.w === null ? 0 : 1) || t2m(a.t) - t2m(b.t));
     tips.forEach(p => { if (p.w === null) liveN++; else { settledN++; if (p.w) wonN++; } });
@@ -292,7 +306,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
     const tier = life.length < 10 ? { k: 'new', t: 'NEW' } : winPc >= 45 ? { k: 'elite', t: 'ELITE' } : winPc >= 35 ? { k: 'strong', t: 'STRONG' } : winPc >= 25 ? { k: 'fair', t: 'FAIR' } : { k: 'weak', t: 'WEAK' };
     const form = life.length ? `<div class="form"><small>lifetime ${lifeW}/${life.length}</small>${life.slice(-60).map(p => `<i class="${p.w ? 'fw' : p.pl ? 'ff' : 'fl'}" title="${esc(p.d0)} ${esc(p.t)} ${esc(p.h)}">${p.w ? 'W' : p.pl ? 'F' : 'L'}</i>`).join('')}${life.length > 60 ? `<small>+${life.length - 60} earlier</small>` : ''}</div>` : '';
     const rows = tips.length ? tips.map(p => `<div class="tip ${p.w === null ? (p.ran ? 'ran' : p.fz ? 'fz' : 'p') : p.w ? 'w' : p.pl ? 'f' : 'l'}"><div class="t">${esc(p.t)}<small>${esc(course(p.c).slice(0, 11).toUpperCase())}</small></div>
-      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(frac(p.d))}</small>` : ''}<span class="sub">${p.w === null ? (p.fz ? 'LOCKED ' + esc(String(p.fz).slice(0, 5)) + ' · pick since ' + esc(String(p.at || p.fz).slice(0, 5)) : 'provisional · pick since ' + esc(String(p.at || '').slice(0, 5)) + ' · locks 5 min before the off') + (p.ran ? ' · result pending' : '') : p.lk ? 'locked ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
+      <div class="h">${esc(p.h)}${p.d != null ? `<small>${esc(frac(p.d))}</small>` : ''}<span class="sub">${p.w === null ? (p.fz ? 'LOCKED ' + esc(String(p.fz).slice(0, 5)) + ' · pick since ' + esc(String(p.at || p.fz).slice(0, 5)) : 'provisional · pick since ' + esc(String(p.at || '').slice(0, 5)) + ' · locks 5 min before the off') + (p.ran ? ' · result pending' : '') : p.lk ? 'locked ' + esc(String(p.lk).slice(0, 5)) + ' · before the off' + (p.man ? ' · settled by hand, awaiting official result' : '') + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '') : 'no posted time on record' + (p.w === 0 && p.pos ? ' · finished ' + esc(p.pos) + (p.fn ? '/' + esc(p.fn) : '') : '') + (p.w === 0 && p.wn ? ' · won by ' + esc(p.wn) : '')}</span></div>
       <div class="r">${p.w === null ? (p.ran ? 'RAN' : p.fz ? 'LOCKED' : 'LIVE') : p.w ? 'WON' : p.pl ? 'FRAME' : 'LOST'}</div></div>`).join('')
       : `<div class="none">No tip yet today — this model only speaks when its signals agree.</div>`;
     const tmRaw = ((tmrw.tm && tmrw.tm[m.nm]) || []).filter(p => p && p.h); const tmSeen = new Set();
@@ -312,6 +326,16 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   // HIT RATE board: lifetime, picks of record only, £1 level stakes at the recorded price
   { const rows = built.map(x => x.board).sort((a, b) => (b.n ? b.w / b.n : -1) - (a.n ? a.w / a.n : -1) || b.n - a.n);
     const el = document.getElementById('board'); if (el) el.innerHTML = `<div class="bh"><span>MODEL</span><span>WIN</span><span>1 IN</span><span>£1 P/L</span><span>TIER</span></div>` + rows.map(r => `<div class="br" style="--acc:${r.acc}"><span class="bm"><b>${esc(r.title)}</b><small>${esc(r.id)} · ${esc(r.nm)}</small></span><span class="bw">${r.n ? Math.round(r.w / r.n * 100) + '%' : '—'}<small>${r.w}/${r.n}</small></span><span>${r.oneIn != null ? r.oneIn : '—'}<small>${r.n ? r.since + ' since win' : ''}${r.due ? ' · DUE' : ''}</small></span><span class="${r.pnl > 0 ? 'pos' : r.pnl < 0 ? 'neg' : ''}">${r.n ? (r.pnl > 0 ? '+' : '') + r.pnl.toFixed(2) : '—'}<small>${r.n ? Math.round(r.pnl / r.n * 100) + '% ROI' : ''}</small></span><span><i class="tier ${r.tier.k}">${r.tier.t}</i></span></div>`).join(''); }
+  // SETTLE panel: every race that has run and still has an unsettled locked pick, with its horses - tap WON / PLACED / LOST
+  { const byR = {}; RANQ.forEach(r => { if (!r.k) return; const g = byR[r.k] = byR[r.k] || { t: r.t, c: r.c, hs: {} }; (g.hs[hkey(r.h)] = g.hs[hkey(r.h)] || { h: r.h, ms: [] }).ms.push(r.m); });
+    const sp = document.getElementById('settle'); const keys = Object.keys(byR).sort((a, b) => t2m(byR[a].t) - t2m(byR[b].t));
+    if (sp) sp.innerHTML = keys.length ? keys.map(k => `<div class="srace"><div class="srh"><b>${esc(byR[k].t)} ${esc(course(byR[k].c)).toUpperCase()}</b><span>awaiting result</span></div>${Object.values(byR[k].hs).map(x => `<div class="srow"><span class="sh2">${esc(x.h)}<small>${x.ms.join(' ')}</small></span><span class="sb"><button data-k="${esc(k)}" data-h="${esc(hkey(x.h))}" data-v="W">WON</button><button data-k="${esc(k)}" data-h="${esc(hkey(x.h))}" data-v="P">PLACED</button><button data-k="${esc(k)}" data-h="${esc(hkey(x.h))}" data-v="L">LOST</button></span></div>`).join('')}</div>`).join('') : '<div class="none">Nothing waiting — every pick that has run is settled.</div>';
+    document.querySelectorAll('#settle button').forEach(b => b.onclick = async () => { b.disabled = true; b.textContent = '…';
+      try { const r0 = await fetch('/api/yearstate?k=manualres:v1&t=' + Date.now()); const j0 = await r0.json(); const st0 = (j0 && j0.state) || { days: {} }; st0.days = st0.days || {};
+        const dd = st0.days[ukd] = st0.days[ukd] || {}; const rr = dd[b.dataset.k] = dd[b.dataset.k] || { h: {} }; rr.h[b.dataset.h] = b.dataset.v; rr.at = new Date().toISOString(); st0.ts = Date.now();
+        const rp = await fetch('/api/yearstate?k=manualres:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st0) }); const jp = await rp.json();
+        if (jp && jp.ok) { b.closest('.srow').querySelectorAll('button').forEach(x => { x.disabled = true; x.classList.remove('on'); }); b.classList.add('on'); b.textContent = { W: 'WON ✔', P: 'PLACED ✔', L: 'LOST ✔' }[b.dataset.v]; } else { b.disabled = false; b.textContent = 'retry'; } }
+      catch { b.disabled = false; b.textContent = 'retry'; } }); }
   { const h2 = document.getElementById('cardh'); if (h2) h2.textContent = VIEW ? fmtD(VIEW) + ' · results' : "Today's card";
     const arch = Object.keys(days).filter(d => d < realD).sort().reverse().slice(0, 14).map(d => { const dv = days[d] || {}; let w = 0, n = 0;
       ALL.forEach(m => ((dv.tp && dv.tp[m.nm]) || []).forEach(e => { if (e && e.w !== null && e.w !== undefined && (e.lk || (dv.restored && e.at) || dv.src === 'replay')) { n++; if (e.w) w++; } }));

@@ -10,7 +10,7 @@ function supa() {
   return { url: url.replace(/\/$/, ''), key };
 }
 
-const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1', 'termfreeze:v1', 'comboledger:v1', 'bankerlog:v1', 'tottset:v1'];
+const KEYS = ['yearstate:v1', 'mgstate:v1', 'mgstate:v2', 'yearstate:v2', 'mgstate:v3', 'hourstate:v1', 'pairstate:v1', 'wrstate:v1', 'horseform:v1', 'tipstate:v1', 'fitstate:v1', 'gapstate:v1', 'sigstate:v1', 'optstate:v1', 'trkstate:v1', 'trkstate:v2', 'alertstate:v1', 'printsarchive:v1', 'courseseq:v1', 'termdata:v1', 'termfreeze:v1', 'comboledger:v1', 'bankerlog:v1', 'tottset:v1', 'manualres:v1'];
 
 export default async function handler(req, res) {
   const size = (v) => { try { return JSON.stringify(v || null).length; } catch { return 0; } };
@@ -108,7 +108,7 @@ export default async function handler(req, res) {
     const r = await fetch(`${s.url}/rest/v1/rs_kv?k=eq.${encodeURIComponent(K)}&select=v`, { headers });
     if (!r.ok) { const body = await r.text().catch(() => ''); if (req.query.diag) return res.status(200).json({ ok: false, upstream: r.status, body: body.slice(0, 300) }); return res.status(200).json({ ok: true, state: null, upstream: r.status }); }
     const rows = await r.json();
-    const FAST = K === 'termdata:v1' || K === 'alertstate:v1' || K === 'termfreeze:v1' || K === 'comboledger:v1' || K === 'bankerlog:v1' || K === 'tottset:v1';
+    const FAST = K === 'termdata:v1' || K === 'alertstate:v1' || K === 'termfreeze:v1' || K === 'comboledger:v1' || K === 'bankerlog:v1' || K === 'tottset:v1' || K === 'manualres:v1';
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
     let out = (rows && rows[0] && rows[0].v) || null;
     // ?day=YYYY-MM-DD returns just that day; &tp=A,B,C narrows its picks to those combos (small payloads for consumers and checks)
