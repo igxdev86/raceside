@@ -64,6 +64,12 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', FAST ? 's-maxage=10, stale-while-revalidate=20' : 's-maxage=600, stale-while-revalidate=3600');
     let out = (rows && rows[0] && rows[0].v) || null;
     // ?day=YYYY-MM-DD returns just that day; &tp=A,B,C narrows its picks to those combos (small payloads for consumers and checks)
+    // ?stats=1 returns per-combo lifetime hit rates from picks of record (pre-off, restored, or rebuilt days), from 10 Oct
+    if (out && out.days && req.query.stats) { const st = {}; Object.entries(out.days).sort().forEach(([d, dv]) => { if (!dv || d < '2026-10-10') return;
+      Object.entries(dv.tp || {}).forEach(([nm, arr]) => (arr || []).forEach(e => { if (!e || e.w === null || e.w === undefined) return; if (!(e.lk || (dv.restored && e.at) || dv.src === 'replay')) return;
+        const g = st[nm] = st[nm] || { n: 0, w: 0, f: 0, pnl: 0, seq: '' }; g.n++; const d1 = Number(e.d) > 1 ? Number(e.d) : null;
+        if (e.w) { g.w++; g.seq += 'W'; g.pnl += d1 ? d1 - 1 : 0; } else { g.seq += e.pl ? 'F' : 'L'; g.pnl -= 1; } })); });
+      return res.status(200).json({ ok: true, ts: out.ts, stats: st }); }
     // ?index=1 returns a one-line-per-day summary instead of the data
     if (out && out.days && req.query.index) { const idx = {}; Object.entries(out.days).forEach(([d, dv]) => { if (!dv) { idx[d] = null; return; } let n = 0, settled = 0, locked = 0; Object.values(dv.tp || {}).forEach(arr => (arr || []).forEach(e => { if (!e) return; n++; if (e.w !== null && e.w !== undefined) { settled++; if (e.lk) locked++; } }));
       idx[d] = { v: dv.v, src: dv.src, preview: dv.preview || 0, restored: dv.restored || 0, combos: Object.keys(dv.tp || {}).length, picks: n, settled, settledWithTime: locked, tm: dv.tm ? Object.keys(dv.tm).length : 0, bytes: size(dv) }; });
