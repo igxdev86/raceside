@@ -244,7 +244,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
   const fixedNames = new Set(MODELS.map(m => m.nm));
   const XACC = ['#ff8a3d', '#3dd6ff', '#ff5fa8', '#c6ff3d', '#ffd23d', '#8a7bff', '#3dffc1', '#ff3d3d', '#9ad0ff', '#f0a0ff'];
   // FIXED ROSTER. Nothing is added or dropped automatically - the card shows exactly these models every day. Change the list here, nowhere else.
-  const XSET = ['Σ+PWR+MX', 'Σ+MX', 'Σ+MX+FAV', 'PWR+MX', 'PWR+MX+FAV', 'Σ+MN+PWR', 'MN+PWR+MX', 'MN+JT+FAV', 'MN+PWR+FAV', 'MX+FAV', 'CD', 'PWR+CD', 'JT+DRW+LWT', 'TM+CD'];
+  const XSET = ['Σ+PWR+MX', 'Σ+MX', 'Σ+MX+FAV', 'PWR+MX', 'PWR+MX+FAV', 'Σ+MN+PWR', 'MN+PWR+MX', 'MN+JT+FAV', 'MN+PWR+FAV', 'MX+FAV', 'CD', 'PWR+CD', 'JT+DRW+LWT', 'TM+CD', 'Σ+FAV', 'FAV+PTS', 'MN+FAV', 'Σ', 'FAV'];
   // model names: fixed for the core five, deterministic codename per combo for the rest (same combo = same name every day)
   const NAMES = ['HELIX', 'APEX', 'TITAN', 'ZENITH', 'FLUX', 'PRISM', 'VERTEX', 'CIPHER', 'KINETIC', 'LUMEN', 'NEXUS', 'ONYX', 'SABRE', 'TEMPO', 'VANTA', 'AURORA', 'COBALT', 'DRIFT', 'EMBER', 'FALCON', 'GRAVITY', 'HALO', 'IRIS', 'JET', 'KRYPTON', 'LASER', 'MERIDIAN', 'NIMBUS', 'OMEGA', 'PHOTON', 'QUASAR', 'RADIAN', 'SOLAR', 'TURBO', 'ULTRA', 'VOLT', 'WARP', 'XENON', 'YIELD', 'ZERO'];
   const codename = (nm) => { let h = 0; for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0; return NAMES[h % NAMES.length] + ' ' + (nm.split('+').length) + '.' + (h % 9 + 1); };
