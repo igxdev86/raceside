@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EXCHANGE — racing betting exchange</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,900&family=Barlow:wght@500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07090e;--panel:#0f131b;--line:rgba(255,255,255,.08);--ink:#fff;--muted:#8d97a8;--back:#7fc3ff;--backd:#163a5e;--lay:#ffa3b8;--layd:#5c1f2e;--gold:#ffc53d;--win:#1fd36a;--red:#ff3b4e;--disp:'Barlow Condensed',sans-serif;--sans:'Barlow',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}html,body{background:var(--bg)}body{color:var(--ink);font:500 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased;padding-bottom:90px}
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:linear-gradient(180deg,#151a26,#0b0e16);border-bottom:1px solid var(--line)}
+.logo{font:italic 900 22px/1 var(--disp);letter-spacing:.02em}.logo b{color:var(--gold)}
+.wallet{display:flex;gap:10px;font:800 11px/1 var(--mono)}.wallet span{display:flex;flex-direction:column;gap:3px;align-items:flex-end}.wallet small{color:var(--muted);font-size:9px;letter-spacing:.1em}
+.wrap{padding:12px 14px}
+.races{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}.races button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:#dfe6f3;border-radius:10px;padding:8px 10px;font:800 13px/1 var(--disp);text-align:left}.races button b{display:block;font-size:16px}.races button small{color:var(--muted);font:700 9px/1 var(--mono)}.races button.on{border-color:var(--gold);color:var(--gold)}.races button.closed{opacity:.45}
+.mh{display:flex;justify-content:space-between;align-items:flex-end;padding:10px 0 8px}.mh h1{font:italic 900 26px/1 var(--disp)}.mh .st{font:800 10px/1 var(--mono);letter-spacing:.12em;color:var(--muted)}.mh .st.open{color:var(--win)}.mh .st.suspended{color:var(--red)}
+.grid{display:grid;grid-template-columns:1fr repeat(3,52px) repeat(3,52px);gap:3px;align-items:stretch}
+.gh{font:800 9px/1 var(--mono);letter-spacing:.1em;color:var(--muted);text-align:center;padding:4px 0}.gh.b{color:var(--back)}.gh.l{color:var(--lay)}
+.rn{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:4px 6px;background:var(--panel);border-radius:6px;min-height:44px}.rn b{font:800 15px/1.05 var(--disp);text-transform:uppercase}.rn small{font:700 9px/1 var(--mono);color:var(--muted)}.rn .pl{font:800 11px/1 var(--mono)}.rn .pl.pos{color:var(--win)}.rn .pl.neg{color:var(--red)}
+.c{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;min-height:44px;font:800 13px/1 var(--mono);border:0;color:#fff;cursor:pointer}.c small{font-size:9px;opacity:.75;margin-top:3px}.c.b{background:var(--backd)}.c.b.best{background:#2a6cab}.c.l{background:var(--layd)}.c.l.best{background:#a3334e}.c.e{background:rgba(255,255,255,.04);color:var(--muted)}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:#121724;border-top:1px solid var(--line);padding:12px 14px 20px;transform:translateY(110%);transition:transform .2s;z-index:20}.sheet.on{transform:none}
+.sheet h3{font:italic 900 18px/1 var(--disp);margin-bottom:8px}.sheet h3.b{color:var(--back)}.sheet h3.l{color:var(--lay)}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}.row label{font:800 9px/1 var(--mono);color:var(--muted);letter-spacing:.1em;width:46px}.row input{flex:1;background:#0b0e16;border:1px solid var(--line);color:#fff;border-radius:8px;padding:10px;font:800 16px/1 var(--mono)}.row button.t{background:#1b2232;border:0;color:#fff;border-radius:8px;width:40px;height:40px;font:800 18px/1 var(--mono)}
+.chips{display:flex;gap:6px}.chips button{flex:1;background:#1b2232;border:0;color:#dfe6f3;border-radius:8px;padding:9px 0;font:800 12px/1 var(--mono)}
+.sum{display:flex;justify-content:space-between;font:700 12px/1.4 var(--sans);color:#c9d2e3;margin:8px 0}.sum b{color:#fff}
+.go{display:flex;gap:8px}.go button{flex:1;border:0;border-radius:10px;padding:14px;font:italic 900 16px/1 var(--disp);letter-spacing:.08em}.go .place{background:var(--gold);color:#2a1800}.go .place.l{background:var(--lay);color:#2a0010}.go .place.b{background:var(--back);color:#001a33}.go .x{background:#1b2232;color:#fff;flex:0 0 80px}
+.sec{margin-top:16px}.sec h2{font:italic 900 16px/1 var(--disp);letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.o{display:grid;grid-template-columns:40px 1fr auto auto;gap:8px;align-items:center;padding:8px 10px;background:var(--panel);border-radius:8px;margin-bottom:5px;font:700 12px/1.2 var(--sans)}.o .sd{font:900 12px/1 var(--disp);padding:5px 6px;border-radius:5px;text-align:center}.o .sd.B{background:var(--backd);color:var(--back)}.o .sd.L{background:var(--layd);color:var(--lay)}.o small{color:var(--muted);font:700 10px/1.2 var(--mono)}.o button{background:#2a3242;border:0;color:#fff;border-radius:6px;padding:6px 8px;font:800 10px/1 var(--mono)}
+.bar{display:flex;gap:8px;margin:10px 0}.bar button{flex:1;background:#1b2232;border:1px solid var(--line);color:#dfe6f3;border-radius:8px;padding:9px;font:800 11px/1 var(--mono)}.bar button.warn{border-color:var(--red);color:var(--red)}
+.note{font:600 11px/1.5 var(--sans);color:var(--muted);margin-top:10px}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1fd36a;color:#04210f;font:800 12px/1 var(--mono);padding:10px 14px;border-radius:999px;z-index:30;display:none}.toast.err{background:var(--red);color:#fff}
+</style></head>
+<body>
+<div class="top"><div class="logo">EX<b>CHANGE</b></div><div class="wallet"><span><b id="bal">£0.00</b><small>BALANCE</small></span><span><b id="avail">£0.00</b><small>AVAILABLE</small></span><span><b id="exp">£0.00</b><small>EXPOSURE</small></span></div></div>
+<div class="wrap">
+  <div class="races" id="races"></div>
+  <div class="mh"><h1 id="mname">—</h1><div class="st" id="mst"></div></div>
+  <div class="grid" id="grid"></div>
+  <div class="bar"><button id="liq">ADD LIQUIDITY (BOTS)</button><button id="susp">SUSPEND / REOPEN</button><button id="settle" class="warn">SETTLE WINNER…</button></div>
+  <div class="sec"><h2>MY BETS · THIS MARKET</h2><div id="mine"></div></div>
+  <div class="sec"><h2>LEDGER</h2><div id="ledger"></div></div>
+  <div class="note">Prototype: the matching engine runs in this page, state is kept on this device. Prices are decimal; a back cell shows the best price you can BACK (someone is laying it); a lay cell shows the best price you can LAY (someone wants to back it). Tap a cell to place. Commission 5% on net winnings per market. Min stake £2.</div>
+</div>
+<div class="sheet" id="sheet"><h3 id="sh"></h3>
+  <div class="row"><label>PRICE</label><button class="t" id="pdn">−</button><input id="price" inputmode="decimal"><button class="t" id="pup">+</button></div>
+  <div class="row"><label>STAKE £</label><input id="stake" inputmode="decimal" value="2"></div>
+  <div class="chips"><button data-s="2">£2</button><button data-s="5">£5</button><button data-s="10">£10</button><button data-s="25">£25</button><button data-s="50">£50</button></div>
+  <div class="sum"><span>Liability <b id="liab">—</b></span><span>Profit if wins <b id="prof">—</b></span></div>
+  <div class="go"><button class="x" id="cancel">CANCEL</button><button class="place" id="place">PLACE</button></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="engine.js"></script>
+<script>
+const { Exchange, pence, gbp, tickUp, tickDown, nearestTick, isTick } = window.Exchange;
+const $ = (id) => document.getElementById(id); const money = (p) => (p < 0 ? '-' : '') + '£' + (Math.abs(p) / 100).toFixed(2);
+const ME = 'you'; const BOTS = ['bot_a', 'bot_b', 'bot_c'];
+let x; const KEY = 'exchange:v1';
+function save() { try { localStorage.setItem(KEY, JSON.stringify(x.toJSON())); } catch {} }
+function load() { try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (j) return Exchange.fromJSON(j); } catch {} const e = new Exchange({ commission: 0.05, minStake: 200 }); e.openAccount(ME, { name: 'You' }); e.deposit(ME, pence(1000), 'opening credit'); BOTS.forEach(b => { e.openAccount(b); e.deposit(b, pence(100000)); }); return e; }
+const toast = (m, err) => { const t = $('toast'); t.textContent = m; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 1800); };
+let cur = null, sel = null;
+
+// today's GB/IRE card -> one market per race (created once, kept on device)
+async function loadCard() { try { const r = await fetch('/api/upcoming?t=' + Math.floor(Date.now() / 300000)); const j = await r.json(); const races = {};
+    (j.rides || []).filter(r => r.day === 'today').forEach(r => { const k = r.t + '|' + r.course; (races[k] = races[k] || { t: r.t, course: r.course, rs: [] }).rs.push(r); });
+    Object.values(races).forEach(rc => { const id = 'M_' + (rc.t + '_' + rc.course).replace(/[^a-z0-9]/gi, '_').toLowerCase(); if (x.markets.has(id)) return; if (rc.rs.length < 2) return;
+      x.createMarket({ id, name: rc.t + ' ' + String(rc.course).replace(/\s*\([^)]*\)/g, ''), venue: rc.course, start: rc.t, runners: rc.rs.map(r => ({ id: 'R_' + String(r.h).replace(/[^a-z0-9]/gi, '_').toLowerCase(), name: r.h, sp: Number(r.d) > 1 ? Number(r.d) : null })) }); }); save(); } catch {} }
+
+function t2m(t) { const m = String(t).match(/(\d{1,2})[:.](\d{2})/); if (!m) return 0; let h = +m[1]; if (h < 10) h += 12; return h * 60 + +m[2]; }
+function renderRaces() { const ms = [...x.markets.values()].sort((a, b) => t2m(a.start) - t2m(b.start)); if (!cur && ms.length) cur = ms.find(m => m.status !== 'closed') || ms[0];
+  $('races').innerHTML = ms.map(m => `<button class="${m === cur ? 'on' : ''} ${m.status}" data-id="${m.id}"><b>${m.start}</b>${String(m.venue).replace(/\s*\([^)]*\)/g, '').toUpperCase()}<br><small>${m.status === 'closed' ? 'SETTLED' : money(m.trades.reduce((a, t) => a + t.stake, 0)) + ' matched'}</small></button>`).join('');
+  document.querySelectorAll('#races button').forEach(b => b.onclick = () => { cur = x.market(b.dataset.id); render(); }); }
+
+function render() { renderRaces(); $('bal').textContent = money(x.account(ME).balance); $('avail').textContent = money(x.available(ME)); $('exp').textContent = money(x.exposure(ME));
+  if (!cur) { $('mname').textContent = 'No races loaded'; return; } const v = x.view(cur.id, ME);
+  $('mname').textContent = v.name; const st = $('mst'); st.textContent = v.status.toUpperCase() + (v.inPlay ? ' · IN PLAY' : '') + (cur.result ? ' · WON BY ' + cur.runner(cur.result).name.toUpperCase() : ''); st.className = 'st ' + v.status;
+  const cell = (r, side, i, row) => { if (!row) return `<button class="c e" data-r="${r.id}" data-side="${side}" data-p="">—</button>`; return `<button class="c ${side === 'B' ? 'b' : 'l'}${i === 0 ? ' best' : ''}" data-r="${r.id}" data-side="${side}" data-p="${row.price}">${row.price}<small>${money(row.stake)}</small></button>`; };
+  $('grid').innerHTML = `<div class="gh">RUNNER</div><div class="gh b" style="grid-column:span 3">BACK</div><div class="gh l" style="grid-column:span 3">LAY</div>` + v.runners.map(r => { const pl = v.pnl ? v.pnl[r.id] : 0; const backs = r.backs.slice().reverse(); while (backs.length < 3) backs.unshift(null); const lays = r.lays.slice(); while (lays.length < 3) lays.push(null);
+    return `<div class="rn"><b>${r.name}</b><small>${r.status !== 'active' ? r.status.toUpperCase() : 'last ' + (r.last || '—') + ' · ' + money(r.traded)}</small>${pl ? `<span class="pl ${pl > 0 ? 'pos' : 'neg'}">${money(pl)}</span>` : ''}</div>` + backs.map((row, i) => cell(r, 'B', 2 - i, row)).join('') + lays.map((row, i) => cell(r, 'L', i, row)).join(''); }).join('');
+  document.querySelectorAll('#grid .c').forEach(b => b.onclick = () => openSheet(b.dataset.r, b.dataset.side, b.dataset.p ? Number(b.dataset.p) : null));
+  $('mine').innerHTML = v.mine.length ? v.mine.slice().reverse().map(o => `<div class="o"><span class="sd ${o.side}">${o.side === 'B' ? 'BACK' : 'LAY'}</span><span>${cur.runner(o.runnerId).name}<br><small>${o.status.toUpperCase()} · asked ${o.price}${o.matched ? ' · matched ' + money(o.matched) + ' @ ' + (o.avg || 0).toFixed(2) : ''}${o.remaining ? ' · ' + money(o.remaining) + ' waiting' : ''}</small></span><span><small>${money(o.stake)}</small></span>${o.remaining ? `<button data-c="${o.id}">CANCEL</button>` : '<span></span>'}</div>`).join('') : '<div class="note">No bets in this market yet.</div>';
+  document.querySelectorAll('#mine button[data-c]').forEach(b => b.onclick = () => { try { x.cancel(b.dataset.c, ME); save(); render(); toast('Cancelled'); } catch (e) { toast(e.code, true); } });
+  $('ledger').innerHTML = x.account(ME).ledger.slice(-8).reverse().map(l => `<div class="o"><span class="sd" style="background:#1b2232">${l.type.toUpperCase().slice(0, 4)}</span><span>${l.note || l.ref || ''}<br><small>${new Date(l.t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</small></span><span style="color:${l.amount < 0 ? 'var(--red)' : 'var(--win)'}">${money(l.amount)}</span><span><small>${money(l.balance)}</small></span></div>`).join(''); }
+
+function openSheet(rid, side, price) { if (!cur || cur.status !== 'open') return toast('Market ' + (cur ? cur.status : 'missing'), true); sel = { rid, side }; const r = cur.runner(rid); const sh = $('sh'); sh.textContent = (side === 'B' ? 'BACK ' : 'LAY ') + r.name; sh.className = side === 'B' ? 'b' : 'l';
+  $('price').value = price || (side === 'B' ? (r.book.bestBack() || nearestTick(r.sp || 5)) : (r.book.bestLay() || nearestTick(r.sp || 5))); $('place').className = 'place ' + (side === 'B' ? 'b' : 'l'); $('place').textContent = side === 'B' ? 'PLACE BACK' : 'PLACE LAY'; calc(); $('sheet').classList.add('on'); }
+function calc() { const p = Number($('price').value), s = pence($('stake').value); if (!sel || !(p > 1) || !(s > 0)) { $('liab').textContent = '—'; $('prof').textContent = '—'; return; } const win = Math.round(s * (p - 1)); $('liab').textContent = money(sel.side === 'B' ? s : win); $('prof').textContent = money(sel.side === 'B' ? win : s); }
+$('pup').onclick = () => { $('price').value = tickUp(nearestTick(Number($('price').value) || 2)); calc(); }; $('pdn').onclick = () => { $('price').value = tickDown(nearestTick(Number($('price').value) || 2)); calc(); };
+$('price').oninput = calc; $('stake').oninput = calc; document.querySelectorAll('.chips button').forEach(b => b.onclick = () => { $('stake').value = b.dataset.s; calc(); });
+$('cancel').onclick = () => $('sheet').classList.remove('on');
+$('place').onclick = () => { try { const p = nearestTick(Number($('price').value)); const o = x.place({ account: ME, marketId: cur.id, runnerId: sel.rid, side: sel.side, price: p, stake: pence($('stake').value) }); save(); $('sheet').classList.remove('on'); render(); toast(o.status === 'matched' ? 'Matched ' + money(o.matchedStake) + ' @ ' + o.avgPrice.toFixed(2) : o.status === 'part' ? 'Part matched ' + money(o.matchedStake) + ', ' + money(o.remaining) + ' waiting' : 'Unmatched — waiting at ' + p); } catch (e) { toast({ INSUFFICIENT_FUNDS: 'Not enough available funds', MIN_STAKE: 'Minimum stake £2', BAD_PRICE: 'Price not on the ladder' }[e.code] || e.code, true); } };
+
+// liquidity bots: seed both sides of every runner around its SP, a few ticks apart, random stakes
+$('liq').onclick = () => { if (!cur || cur.status !== 'open') return toast('Market not open', true); let n = 0; cur.runners.forEach(r => { if (r.status !== 'active') return; const mid = nearestTick(r.sp || (r.book.lastTraded() || 6));
+    for (let i = 0; i < 3; i++) { const bot = BOTS[(n + i) % BOTS.length]; try { x.place({ account: bot, marketId: cur.id, runnerId: r.id, side: 'L', price: tickUp(mid, i), stake: pence(5 + Math.floor(Math.random() * 40)) }); n++; } catch {}
+      try { x.place({ account: BOTS[(n + i + 1) % BOTS.length], marketId: cur.id, runnerId: r.id, side: 'B', price: tickDown(mid, i + 1), stake: pence(5 + Math.floor(Math.random() * 40)) }); n++; } catch {} } }); save(); render(); toast(n + ' bot orders added'); };
+$('susp').onclick = () => { if (!cur || cur.status === 'closed') return; if (cur.status === 'open') cur.suspend('manual'); else cur.reopen(); save(); render(); };
+$('settle').onclick = () => { if (!cur || cur.status === 'closed') return; const names = [...cur.runners.values()].filter(r => r.status === 'active').map((r, i) => (i + 1) + '. ' + r.name).join('\n'); const pick = prompt('Winner? Enter the number:\n' + names); const idx = parseInt(pick, 10) - 1; const rs = [...cur.runners.values()].filter(r => r.status === 'active'); if (!(idx >= 0 && idx < rs.length)) return; const net = x.settle(cur.id, rs[idx].id); save(); render(); const me = net[ME]; toast(me ? 'Settled: ' + money(me.net) + ' net' : 'Settled'); };
+
+(async () => { x = load(); await loadCard(); render(); })();
+</script></body></html>
