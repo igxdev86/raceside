@@ -72,8 +72,10 @@ function load() { try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'
 const rnd = (a, b) => a + Math.random() * (b - a); const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]; const bot = () => pick(BOTS);
 // signals: today's live picks per model from the RACESIDE ledger, and each model's lifetime win rate
 let SIG = {}, WINRATE = {}; const hn = (h) => String(h || '').toLowerCase().replace(/\s*\([a-z]{2,3}\)\s*$/i, '').trim();
+let SIGOFF = 0;   // store down: back off (skip polls) so this page adds no load while it recovers
 async function loadSignals() { const ukd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
-  try { const r = await fetch('/api/yearstate?k=comboledger:day:' + ukd + '&t=' + Math.floor(Date.now() / 60000)); const j = await r.json(); const tp = (j && j.state && j.state.tp) || {}; const sig = {};
+  if (SIGOFF > 0) { SIGOFF--; return; }
+  try { const r = await fetch('/api/yearstate?k=comboledger:day:' + ukd + '&t=' + Math.floor(Date.now() / 60000)); const j = await r.json(); if (!r.ok || (j && j.upstream)) { SIGOFF = 5; return; } const tp = (j && j.state && j.state.tp) || {}; const sig = {};
     MODELS.forEach(m => (tp[m] || []).forEach(e => { if (!e || !e.h || e.w !== null) return; const k = e.t + '|' + String(e.c).replace(/\s*\([^)]*\)/g, '').toLowerCase(); const row = sig[k] = sig[k] || {}; row[hn(e.h)] = (row[hn(e.h)] || []).concat(m); })); SIG = sig; } catch {}
   try { const r = await fetch('/api/yearstate?k=comboledger:v1&stats=1&t=' + Math.floor(Date.now() / 600000)); const j = await r.json(); const st = (j && j.stats) || {}; const wr = {}; MODELS.forEach(m => { const g = st[m]; wr[m] = g && g.n >= 5 ? g.w / g.n : 0.3; }); WINRATE = wr; } catch {} }
 const raceKey = (m) => m.start + '|' + String(m.venue).replace(/\s*\([^)]*\)/g, '').toLowerCase();
