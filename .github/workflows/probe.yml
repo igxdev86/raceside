@@ -4,7 +4,12 @@ on:
     inputs:
       url:
         description: URL to fetch
-        required: true
+        required: false
+        default: ''
+      script:
+        description: node script in scripts/ to run instead (its stdout becomes out.json)
+        required: false
+        default: ''
 permissions:
   contents: write
 concurrency:
@@ -18,8 +23,12 @@ jobs:
         with:
           ref: main
       - name: fetch and publish to probe branch
+        env:
+          ARG: ${{ github.event.inputs.url }}
         run: |
-          mkdir -p /tmp/p && curl -sS --max-time 60 "${{ github.event.inputs.url }}" -o /tmp/p/out.json || echo '{"probe":"fetch-failed"}' > /tmp/p/out.json
+          mkdir -p /tmp/p
+          if [ -n "${{ github.event.inputs.script }}" ]; then node "scripts/${{ github.event.inputs.script }}" > /tmp/p/out.json 2>/tmp/p/err.txt || { echo '{"probe":"script-failed"}' > /tmp/p/out.json; cat /tmp/p/err.txt; }
+          else curl -sS --max-time 60 "${{ github.event.inputs.url }}" -o /tmp/p/out.json || echo '{"probe":"fetch-failed"}' > /tmp/p/out.json; fi
           git config user.name probe && git config user.email probe@users.noreply.github.com
           git checkout --orphan probe && git rm -rf -q . && cp /tmp/p/out.json out.json && date -u > fetched_at.txt
           git add out.json fetched_at.txt && git commit -q -m "probe $(date -u +%FT%TZ)" && git push -f origin probe
