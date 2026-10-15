@@ -50,10 +50,12 @@
 <script>
 const { Exchange, pence, gbp, tickUp, tickDown, nearestTick, isTick } = window.Exchange;
 const $ = (id) => document.getElementById(id); const money = (p) => (p < 0 ? '-' : '') + '£' + (Math.abs(p) / 100).toFixed(2);
-const ME = 'you'; const BOTS = ['bot_a', 'bot_b', 'bot_c'];
+const ME = 'you'; const BOTS = ['ab_racing','syndicate_x','lay_lord','bigjim','quietmoney','trader_m','greenbook','form_guru','ebbtide','punter99','coldhands','mrs_t'];
 let x; const KEY = 'exchange:v1';
 function save() { try { localStorage.setItem(KEY, JSON.stringify(x.toJSON())); } catch {} }
-function load() { try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (j) return Exchange.fromJSON(j); } catch {} const e = new Exchange({ commission: 0.05, minStake: 200 }); e.openAccount(ME, { name: 'You' }); e.deposit(ME, pence(1000), 'opening credit'); BOTS.forEach(b => { e.openAccount(b); e.deposit(b, pence(100000)); }); return e; }
+function load() { try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (j) return Exchange.fromJSON(j); } catch {} const e = new Exchange({ commission: 0.05, minStake: 200 }); e.openAccount(ME, { name: 'You' }); e.deposit(ME, pence(1000), 'opening credit'); BOTS.forEach(b => { e.openAccount(b); e.deposit(b, pence(250000)); }); return e; }
+const rnd = (a, b) => a + Math.random() * (b - a); const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]; const bot = () => pick(BOTS);
+const stakeFor = (p) => pence(Math.round(rnd(2, p < 3 ? 400 : p < 8 ? 150 : 40)));
 const toast = (m, err) => { const t = $('toast'); t.textContent = m; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 1800); };
 let cur = null, sel = null;
 
@@ -87,12 +89,26 @@ $('price').oninput = calc; $('stake').oninput = calc; document.querySelectorAll(
 $('cancel').onclick = () => $('sheet').classList.remove('on');
 $('place').onclick = () => { try { const p = nearestTick(Number($('price').value)); const o = x.place({ account: ME, marketId: cur.id, runnerId: sel.rid, side: sel.side, price: p, stake: pence($('stake').value) }); save(); $('sheet').classList.remove('on'); render(); toast(o.status === 'matched' ? 'Matched ' + money(o.matchedStake) + ' @ ' + o.avgPrice.toFixed(2) : o.status === 'part' ? 'Part matched ' + money(o.matchedStake) + ', ' + money(o.remaining) + ' waiting' : 'Unmatched — waiting at ' + p); } catch (e) { toast({ INSUFFICIENT_FUNDS: 'Not enough available funds', MIN_STAKE: 'Minimum stake £2', BAD_PRICE: 'Price not on the ladder' }[e.code] || e.code, true); } };
 
-// liquidity bots: seed both sides of every runner around its SP, a few ticks apart, random stakes
-$('liq').onclick = () => { if (!cur || cur.status !== 'open') return toast('Market not open', true); let n = 0; cur.runners.forEach(r => { if (r.status !== 'active') return; const mid = nearestTick(r.sp || (r.book.lastTraded() || 6));
-    for (let i = 0; i < 3; i++) { const bot = BOTS[(n + i) % BOTS.length]; try { x.place({ account: bot, marketId: cur.id, runnerId: r.id, side: 'L', price: tickUp(mid, i), stake: pence(5 + Math.floor(Math.random() * 40)) }); n++; } catch {}
-      try { x.place({ account: BOTS[(n + i + 1) % BOTS.length], marketId: cur.id, runnerId: r.id, side: 'B', price: tickDown(mid, i + 1), stake: pence(5 + Math.floor(Math.random() * 40)) }); n++; } catch {} } }); save(); render(); toast(n + ' bot orders added'); };
+// liquidity: seed both sides of every runner around its SP, five levels deep, stakes scaled to the price
+function seed(m) { let n = 0; m.runners.forEach(r => { if (r.status !== 'active') return; const mid = nearestTick(r.sp || r.book.lastTraded() || 8);
+    // resting lays sit at and below the mid (what a backer can take), resting backs a tick and more above it (what a layer can take) - a spread, never a cross
+    for (let i = 0; i < 5; i++) { try { x.place({ account: bot(), marketId: m.id, runnerId: r.id, side: 'L', price: tickDown(mid, i), stake: stakeFor(mid) }); n++; } catch {}
+      try { x.place({ account: bot(), marketId: m.id, runnerId: r.id, side: 'B', price: tickUp(mid, i + 1), stake: stakeFor(mid) }); n++; } catch {} } }); return n; }
+function seedAll() { let n = 0; x.markets.forEach(m => { if (m.status === 'open' && m.orders.size === 0) n += seed(m); }); if (n) save(); return n; }
+// market life: every beat a few bots act - take a price, post a new offer a tick off, pull an old one - so ladders move and money matches
+let beat = 0;
+function life() { beat++; const open = [...x.markets.values()].filter(m => m.status === 'open'); if (!open.length) return; let changed = false;
+  for (let k = 0; k < 3; k++) { const m = (cur && cur.status === 'open' && Math.random() < 0.6) ? cur : pick(open); const rs = [...m.runners.values()].filter(r => r.status === 'active'); if (!rs.length) continue;
+    const r = pick(rs); const bb = r.book.bestBack(), bl = r.book.bestLay(); const roll = Math.random();
+    try { if (roll < 0.35 && bb) { x.place({ account: bot(), marketId: m.id, runnerId: r.id, side: 'B', price: bb, stake: pence(Math.round(rnd(2, bb < 3 ? 120 : 40))) }); changed = true; }
+      else if (roll < 0.6 && bl) { x.place({ account: bot(), marketId: m.id, runnerId: r.id, side: 'L', price: bl, stake: pence(Math.round(rnd(2, bl < 3 ? 120 : 40))) }); changed = true; }
+      else if (roll < 0.85) { const mid = bb || bl || nearestTick(r.sp || 8); const side = Math.random() < 0.5 ? 'L' : 'B'; const off = Math.floor(rnd(0, 3)); x.place({ account: bot(), marketId: m.id, runnerId: r.id, side, price: side === 'L' ? tickDown(bb || mid, off) : tickUp(bl || mid, off), stake: stakeFor(mid) }); changed = true; }
+      else { const resting = [...m.orders.values()].filter(o => o.remaining > 0 && BOTS.includes(o.account)); if (resting.length) { x.cancel(pick(resting).id); changed = true; } } } catch {} }
+  if (changed) { if (beat % 4 === 0) save(); render(); } }
+setInterval(life, 1500);
+$('liq').onclick = () => { if (!cur || cur.status !== 'open') return toast('Market not open', true); const n = seed(cur); save(); render(); toast(n + ' orders added'); };
 $('susp').onclick = () => { if (!cur || cur.status === 'closed') return; if (cur.status === 'open') cur.suspend('manual'); else cur.reopen(); save(); render(); };
 $('settle').onclick = () => { if (!cur || cur.status === 'closed') return; const names = [...cur.runners.values()].filter(r => r.status === 'active').map((r, i) => (i + 1) + '. ' + r.name).join('\n'); const pick = prompt('Winner? Enter the number:\n' + names); const idx = parseInt(pick, 10) - 1; const rs = [...cur.runners.values()].filter(r => r.status === 'active'); if (!(idx >= 0 && idx < rs.length)) return; const net = x.settle(cur.id, rs[idx].id); save(); render(); const me = net[ME]; toast(me ? 'Settled: ' + money(me.net) + ' net' : 'Settled'); };
 
-(async () => { x = load(); await loadCard(); render(); })();
+(async () => { x = load(); await loadCard(); const n = seedAll(); render(); if (n) toast(n + ' orders in the book'); })();
 </script></body></html>
