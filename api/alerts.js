@@ -57,6 +57,8 @@ export default async function handler(req, res) {
   try { await fetch(`https://${req.headers.host}/api/snapshot`, {
     headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
     signal: AbortSignal.timeout(6000) }); } catch {}
+  // ALERTS_PAUSED=1 (Vercel env) stops every email while the cron keeps feeding the snapshot capture above
+  if (process.env.ALERTS_PAUSED === '1') return res.status(200).json({ ok: true, paused: true });
   if (!key || !to) return res.status(200).json({ ok: false, error: 'set RESEND_API_KEY and EMAIL_TO' });
   const base = process.env.ALERT_BASE || 'https://raceside.vercel.app';
   const gj = async (p) => { const r = await fetch(base + p); return r.json(); };
