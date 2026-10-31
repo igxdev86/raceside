@@ -82,6 +82,33 @@ td.n{color:var(--mut);width:28px}td.o{text-align:right;white-space:nowrap;font-w
 </section>
 
 <section>
+<h2>Keeneland combos &amp; biases <small>who wins here, how races are run, who's cold</small></h2>
+<div class="tile open"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="t">How Keeneland races are run</span><span class="m">last two meets</span></div><div class="bd"><table>
+<tr><th>Surface</th><th>Speed</th><th>Stalkers</th><th>Closers</th><th>Posts</th></tr>
+<tr><td><span class="sf dirt"></span> Dirt sprints</td><td class="o">46%</td><td class="o">40%</td><td class="o">15%</td><td class="n">fair</td></tr>
+<tr><td><span class="sf dirt"></span> Dirt routes</td><td class="o">43%</td><td class="o">40%</td><td class="o">17%</td><td class="n">fair</td></tr>
+<tr><td><span class="sf turf"></span> Turf routes</td><td class="o">20%</td><td class="o">46%</td><td class="o">36%</td><td class="n">fair</td></tr>
+<tr><td><span class="sf turf"></span> Turf sprints</td><td class="o">41%</td><td class="o">31%</td><td class="o">28%</td><td class="n">7+ worse</td></tr>
+</table><div class="pick" style="border-top:1px solid var(--line)">Read: on dirt today (F&amp;M Sprint, Dirt Mile, Sprint, Distaff, Classic) be on or within four lengths of the lead — deep closers win about 1 in 6. On the turf routes (F&amp;M Turf, Mile, Turf) it flips: lone speed wins 1 in 5, stalkers and closers take 4 in 5. Turf Sprint: speed, and the gate matters — posts 7+ are a small minus (Comanche Brave 7, Cy Fair 10, Starlust 13, Miss Yechance 14); Shisospicy 2 and Bacio 3 have the draw.</div></div></div>
+<div class="tile open"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="t">Hot combos running today</span><span class="m">tap a horse to jump to the race</span></div><div class="bd"><div id="combos"></div></div></div>
+<div class="tile"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="t">Trainer &amp; jockey strike rates at Keeneland</span><span class="m">fall 2025 · fall 2026 title</span></div><div class="bd"><table>
+<tr><th>Who</th><th>Keeneland fall</th><th>Today</th></tr>
+<tr><td><b>Steve Asmussen</b></td><td>2026 fall title, 12 wins (was 18% in 2025; 2-for-38 in 2024)</td><td class="n">Magnitude, Stradale</td></tr>
+<tr><td><b>Brendan Walsh</b></td><td>11 wins 2026 (2nd); 22% in 2025. Won Fri Juv Fillies</td><td class="n">Lush Lips, Expensive Queen</td></tr>
+<tr><td><b>Brad Cox</b></td><td>28% fall 2025, 38% fall 2024; every fall title 2020–25</td><td class="n">Further Ado, Stellify, Bless the Broken, Immersive</td></tr>
+<tr><td><b>Wesley Ward</b></td><td>26% fall 2025; turf-sprint specialist</td><td class="n">Bacio, Nakatomi, Eccentric</td></tr>
+<tr><td><b>Todd Pletcher</b></td><td>33% fall 2025 (small sample)</td><td class="n">—</td></tr>
+<tr><td><b>Chad Brown</b></td><td>10% win but 45% exacta fall 2025 — a place/exacta barn here</td><td class="n">Ways and Means, Kathynmarissa, Zulu Kingdom, Fully Subscribed</td></tr>
+<tr><td><b>Tyler Gaffalione</b></td><td>2026 fall champion, 22 wins (9th title). Won Fri on Emphatic</td><td class="n">R Disaster, Iron Man Cal, Lush Lips, Nakatomi</td></tr>
+<tr><td><b>Luis Saez</b></td><td>21 wins 2026 fall (2nd)</td><td class="n">Shisospicy, Expensive Queen, Knightsbridge, Owen Almighty, Built, Scottish Lassie, Evanescence</td></tr>
+<tr><td><b>Flavien Prat</b></td><td>15% here but 30% at Churchill in Sept; won Fri Juvenile</td><td class="n">Ways and Means, Further Ado, Fully Subscribed, Magnitude, Stellify</td></tr>
+<tr><td><b>John Velazquez</b></td><td>Three winners on 2026 closing day</td><td class="n">Cy Fair, Bracket Buster, Formidable Man, Napoleon Solo</td></tr>
+<tr><td style="color:#ff7a90"><b>Cold barns</b></td><td>Joe Sharp 1-for-29, Brian Lynch 1-for-20, Whit Beckman 1-for-17, Dallas Stewart 0-for-15 (fall 2025)</td><td class="n">Possiblemente · Owen Almighty · Regaled · —</td></tr>
+</table></div></div>
+<div class="note">Running-style and strike-rate figures from America's Best Racing (fall 2025 + spring 2026 meets) and Keeneland fall 2026 meet reports; Breeders' Cup combo records from 2022 (here) and Friday.</div>
+</section>
+
+<section>
 <h2>Today's races <small>tap to open · angles tagged · RACESIDE pick in green</small></h2>
 <div id="today"></div>
 </section>
@@ -170,6 +197,20 @@ const nowUK = () => { const s = new Intl.DateTimeFormat('en-GB', { timeZone: 'Eu
 const draw = () => { const n = nowUK(); let nextDone = false;
   sched.innerHTML = TODAY.map((r, i) => { const m = (+r.uk.slice(0, 2)) * 60 + (+r.uk.slice(3, 5)); const gone = m + 3 < n; const isNext = !gone && !nextDone; if (isNext) nextDone = true;
     return `<a class="srow${isNext ? ' next' : ''}" style="color:inherit;text-decoration:none${gone ? ';opacity:.45' : ''}" href="#r${i}" onclick="document.getElementById('r${i}').classList.add('open')"><span class="uk">${r.uk}</span><span class="et">${r.et} ET</span><span class="sf ${r.sf}"></span><span class="nm">${esc(r.nm)}</span><span class="chip">${isNext ? 'NEXT' : gone ? 'RUN' : r.d}</span></a>`; }).join(''); };
+const COMBOS = [
+ {k:'O\'Brien · Moore',why:'3-for-3 here in 2022 (Meditate, Victoria Road, Tuesday); Sun Goddess Friday. The best turf combo in Cup history.',m:(j,t)=>/Moore/.test(j)&&/A O'Brien/.test(t)},
+ {k:'O\'Brien · other riders',why:'Haffner won Friday for Soumillon; the stable wins with its second string here.',m:(j,t)=>!/Moore/.test(j)&&/A O'Brien/.test(t)},
+ {k:'Appleby · Buick',why:'Won the Mile (Modern Games) and Turf (Rebel\'s Romance) here in 2022; Notable Speech won the Mile last year.',m:(j,t)=>/Buick/.test(j)&&/Appleby/.test(t)},
+ {k:'Yahagi / Japan · Sakai',why:'Forever Young won the Classic last year under Sakai; Sakai also rides the Japanese Sprint hope.',m:(j,t)=>/Sakai/.test(j)},
+ {k:'Prat · Cox',why:'Cox 28–38% at Keeneland fall meets; Prat 30% at Churchill in September. The top domestic combo on the card.',m:(j,t)=>/Prat/.test(j)&&/Cox/.test(t)},
+ {k:'Prat · Brown',why:'Brown is 45% exacta here — Prat\'s Brown mounts are each-way/exacta plays as much as win bets.',m:(j,t)=>/Prat/.test(j)&&/Brown/.test(t)},
+ {k:'Gaffalione · Walsh',why:'Meet-leading rider and runner-up trainer; won Friday\'s Juvenile Fillies together (Emphatic, also the Alcibiades here).',m:(j,t)=>/Gaffalione/.test(j)&&/Walsh/.test(t)},
+ {k:'Prat / Asmussen',why:'Asmussen took the 2026 fall title (12 wins). Magnitude is his live one.',m:(j,t)=>/Asmussen/.test(t)},
+ {k:'Ward · Hernandez',why:'Ward 26% here and the Keeneland turf-sprint specialist. Speed wins the 5½f.',m:(j,t)=>/Ward/.test(t)&&/Hernandez/.test(j)},
+ {k:'Mott · Alvarado / Saez',why:'Mott pair in the Classic; Alvarado was Sovereignty\'s Derby rider.',m:(j,t)=>/Mott/.test(t)}
+];
+document.getElementById('combos').innerHTML = COMBOS.map(c => { const hs = []; TODAY.forEach((r, i) => r.f.forEach(x => { if (c.m(x[2], x[3])) hs.push(`<a href="#r${i}" onclick="document.getElementById('r${i}').classList.add('open')" style="text-decoration:none"><span class="tag" style="color:var(--txt)">${esc(x[1])} <span style="color:var(--mut)">${r.uk} · ${x[4]}</span></span></a>`); }));
+  return hs.length ? `<div class="pick" style="border-top:1px solid var(--line)"><b style="color:var(--cyan)">${c.k}</b> <span class="note" style="margin:0">${esc(c.why)}</span><br>${hs.join('')}</div>` : ''; }).join('');
 draw(); setInterval(draw, 30000);
 </script>
 </body></html>
