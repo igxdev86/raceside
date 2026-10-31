@@ -20,5 +20,11 @@
       "path": "/api/alerts",
       "schedule": "*/5 * * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/tips/:model",
+      "destination": "/topofthetips.html?model=:model"
+    }
   ]
 }
