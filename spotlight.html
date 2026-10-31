@@ -46,7 +46,7 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
 <div class="hero">
   <div class="k">KEENELAND · SAT 31 OCT · 21:36 UK</div>
   <h2>Longines Breeders' Cup Turf</h2>
-  <p>Grade 1 · 1m4f turf · 3yo+ · $5m · firm. Every Racing Post figure, the course/distance/going form, trainer and jockey records at this track and ten years of winners — scored into one order.</p>
+  <p>Grade 1 · 1m4f turf · 3yo+ · $5m · firm · 14 run (Test Score non-runner). Every Racing Post figure, the course/distance/going form, trainer and jockey records at this track and ten years of winners — scored into one order.</p>
 </div>
 
 <section>
@@ -54,6 +54,12 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
 <h3>Spotlight order <small>composite of figures, form fit and connections</small></h3>
 <div class="card rank" id="rank"></div>
 <div class="note">Score = adjusted RPR (40%) + best Topspeed (20%) + course/distance/going fit (20%) + trainer and jockey records at Keeneland (20%). Shown out of 100. It ranks the evidence; it is not a price.</div>
+</section>
+
+<section>
+<h3>Company kept <small>last six runs, most tested first</small></h3>
+<div class="card rank" id="company"></div>
+<div class="note">Ranked on the strength of the opposition met, not the results. The three European 3yo/4yo Group 1 horses have raced Daryz, Ombudsman, Kalpana and Calandagan; the US form is one pool of six horses beating each other, and Survie, Tiffany and Ethical Diamond have already beaten that pool this autumn.</div>
 </section>
 
 <section>
@@ -69,7 +75,7 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
   <p><b>Favourites 4 of 10</b> (Enable, Bricks And Mortar, Auguste Rodin, Rebel's Romance). The other six went 3/1, 7/2, 17/2, 14/1, 6/1 and <b>28/1 last year</b> (Ethical Diamond, drawn 14).</p>
   <p><b>Winning RPR 114–125.</b> Only four runners today have a best RPR of 122+: Bay City Roller 125, Diamond Necklace 123, Benvenuto Cellini 123, Ethical Diamond 122.</p>
   <p><b>Draw is not a factor</b> — winners from stalls 1, 2, 3, 4, 5, 8, 9, 11, 12 and 14 in ten years.</p>
-  <p><b>Two of the last ten winners were 3yos</b> (Auguste Rodin 2023, Yibir 2021) — the rest were 4, 5 or 6 — and they get 4lb. Three today: Diamond Necklace and Johanna Walsh (8-7), Benvenuto Cellini (8-10).</p>
+  <p><b>Two of the last ten winners were 3yos</b> (Auguste Rodin 2023, Yibir 2021) — the rest were 4, 5 or 6 — and they get 6lb from older horses here. <b>European winner in 10 of the last 11.</b> Three today: Diamond Necklace and Johanna Walsh (8-7), Benvenuto Cellini (8-10).</p>
   <p><b>Keeneland turf route profile:</b> stalkers 46%, closers 36%, lone speed 20% (last two meets). Keep that against any front-runner.</p>
 </div>
 </section>
@@ -77,7 +83,7 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
 <section>
 <h3>The figures <small>Racing Post</small></h3>
 <div class="card"><table id="figs"></table></div>
-<div class="note">ADJ = Racing Post's rating adjusted to today's weight (3yos get 4lb, fillies 3lb). BEST = best RPR; LAST = last run; TS = best Topspeed; OR = official rating (Ethical Diamond's 104 is his flat mark — he is rated 120+ over hurdles).</div>
+<div class="note">ADJ = Racing Post's rating adjusted to today's weight (3yos get 6lb, fillies 3lb). Prices are Racing Post best odds at 17:50. BEST = best RPR; LAST = last run; TS = best Topspeed; OR = official rating (Ethical Diamond's 104 is his flat mark — he is rated 120+ over hurdles).</div>
 </section>
 
 <section>
@@ -101,22 +107,22 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
 <script>
 // name, trainer, jockey, wgt, ML, ADJ, bestRPR, lastRPR, TS, OR, going w-r, dist w-r, course w-r, age
 const R = [
- ['Bay City Roller (GB)','George Scott','Oisin Murphy','9-0','5-1',138,125,123,123,117,'0-0','2-5','0-0',3],
- ['Diamond Necklace (IRE)','A P O\'Brien','Christophe Soumillon','8-7','3-1',138,123,119,118,112,'0-0','0-1','0-0',3],
- ['Ethical Diamond (IRE)','W P Mullins','Dylan Browne McMonagle','9-0','10-1',136,122,117,109,104,'1-2','4-8','0-0',5],
- ['Deep Monster (JPN)','Yasutoshi Ikee','Tom Marquand','9-0','30-1',135,121,117,null,null,'0-0','2-6','0-0',6],
- ['Hotazhell (GB)','Mrs John Harrington','Shane Foley','9-0','15-1',135,121,114,118,117,'0-1','0-1','0-0',4],
- ['Minaret Station','William Walden','Jose L Ortiz','9-0','15-1',135,121,121,null,null,'4-8','1-2','1-1',4],
- ['Benvenuto Cellini (IRE)','A P O\'Brien','Ryan Moore','8-10','6-1',135,123,118,119,112,'0-0','2-6','0-0',3],
- ['Johanna Walsh (IRE)','Joseph Patrick O\'Brien','Mickael Barzalona','8-7','12-1',135,120,106,111,108,'0-0','1-3','0-0',3],
- ['Tiffany (IRE)','Sir Mark Prescott Bt','Luke Morris','8-11','10-1',134,117,117,98,111,'1-1','3-10','0-0',4],
- ['Far Bridge','Miguel Clement','John R Velazquez','9-0','20-1',134,120,120,null,null,'7-16','4-8','0-0',6],
- ['Test Score','H Graham Motion','Manuel Franco','9-0','30-1',134,120,118,null,null,'5-15','0-0','2-2',4],
- ['Survie','George Boughey','Flavien Prat','8-11','15-1',133,116,88,105,112,'1-1','3-7','0-0',4],
- ['El Cordobes (GB)','Charlie Appleby','William Buick','9-0','15-1',132,120,116,72,108,'1-4','3-9','0-0',4],
- ['Burnham Square','Ian R Wilkes','Brian Joseph Hernandez Jr','9-0','8-1',132,118,104,null,null,'3-6','2-3','2-2',4],
- ['Map Of Stars','?','?','9-0','AE',132,118,115,103,115,'0-0','0-3','0-0',4],
- ['Telescopic','?','?','9-0','AE',127,113,113,null,null,'2-6','1-1','0-1',4]
+ ['Bay City Roller (IRE)','George Scott','Oisin Murphy','9-0','17/2',138,125,123,123,117,'0-0','2-5','0-0',4],
+ ['Diamond Necklace (IRE)','A P O\'Brien','Christophe Soumillon','8-7','11/4',138,123,119,118,112,'0-0','0-1','0-0',3],
+ ['Ethical Diamond (IRE)','W P Mullins','Dylan Browne McMonagle','9-0','11/1',136,122,117,109,104,'1-2','4-8','0-0',5],
+ ['Deep Monster (JPN)','Yasutoshi Ikee','Tom Marquand','9-0','50/1',135,121,117,null,null,'0-0','2-6','0-0',6],
+ ['Hotazhell (GB)','Mrs John Harrington','Shane Foley','9-0','18/1',135,121,114,118,117,'0-1','0-1','0-0',4],
+ ['Minaret Station','William Walden','Jose L Ortiz','9-0','40/1',135,121,121,null,null,'4-8','1-2','1-1',4],
+ ['Benvenuto Cellini (IRE)','A P O\'Brien','Ryan Moore','8-10','4/1',135,123,118,119,112,'0-0','2-6','0-0',3],
+ ['Johanna Walsh (IRE)','Joseph Patrick O\'Brien','Mickael Barzalona','8-7','12/1',135,120,106,111,108,'0-0','1-3','0-0',3],
+ ['Tiffany (IRE)','Sir Mark Prescott Bt','Luke Morris','8-11','10/1',134,117,117,98,111,'1-1','3-10','0-0',6],
+ ['Far Bridge','Miguel Clement','John R Velazquez','9-0','80/1',134,120,120,null,null,'7-16','4-8','0-0',6],
+ ['Test Score','H Graham Motion','Manuel Franco','9-0','NR',134,120,118,null,null,'5-15','0-0','2-2',4],
+ ['Survie','George Boughey','Flavien Prat','8-11','18/1',133,116,88,105,112,'1-1','3-7','0-0',5],
+ ['El Cordobes (GB)','Charlie Appleby','William Buick','9-0','22/1',132,120,116,72,108,'1-4','3-9','0-0',5],
+ ['Burnham Square','Ian R Wilkes','Brian Joseph Hernandez Jr','9-0','22/1',132,118,104,null,null,'3-6','2-3','2-2',4],
+ ['Map Of Stars (GB)','F-H Graffard','James Doyle','9-0','22/1',132,118,115,103,115,'0-0','0-3','0-0',5],
+ ['Telescopic','Victoria H Oliver','—','9-0','RES',127,113,113,null,null,'2-6','1-1','0-1',4]
 ];
 // trainer: 14d w-r, 14d ret, course w-r, course ret ; jockey same
 const TR = {'A P O\'Brien':['18-56','+7.22','5-13','+8.43'],'George Boughey':['8-31','+19.38','1-2','+0.88'],'Charlie Appleby':['5-23','-2.26','6-23','+6.65'],'Mrs John Harrington':['3-29','-1.75','0-3','-3.00'],'F-H Graffard':['3-28','-15.40','0-7','-7.00'],'Miguel Clement':['3-16','-4.10','1-9','-5.25'],'William Walden':['3-6','+16.26','10-38','+52.56'],'Joseph Patrick O\'Brien':['2-40','-8.50','0-6','-6.00'],'Sir Mark Prescott Bt':['2-20','-10.50','0-0','0.00'],'George Scott':['1-17','-13.25','0-0','0.00'],'Ian R Wilkes':['0-8','-8.00','9-84','-33.95'],'W P Mullins':['0-7','-7.00','0-0','0.00'],'H Graham Motion':['0-6','-6.00','15-64','+16.90'],'Victoria H Oliver':['0-6','-6.00','10-85','+43.40'],'Yasutoshi Ikee':['0-2','-2.00','0-0','0.00']};
@@ -127,7 +133,7 @@ const wr = s => { const m = String(s).match(/^(\d+)-(\d+)$/); return m ? [+m[1],
 const pc = s => { const [w, r] = wr(s); return r ? w / r : null; };
 const ret = s => { const v = parseFloat(String(s).replace('+', '')); return isNaN(v) ? 0 : v; };
 // scoring
-const runners = R.filter(r => r[4] !== 'AE');
+const runners = R.filter(r => !/^(AE|NR|RES)$/.test(r[4]));
 const mx = (i) => Math.max(...runners.map(r => r[i] || 0)), mn = (i) => Math.min(...runners.map(r => r[i] || 999));
 const scored = runners.map(r => {
   const adj = (r[5] - mn(5)) / (mx(5) - mn(5));                        // 132..138
@@ -143,7 +149,7 @@ const scored = runners.map(r => {
   if (r[5] >= 138) tags.push(['TOP FIGURE', 'y']); if (r[6] >= 122) tags.push(['RPR 122+', 'y']); if (r[8] >= 118) tags.push(['TOPSPEED', 'b']);
   if (pc(r[11]) >= 0.4 && wr(r[11])[1] >= 3) tags.push(['DISTANCE', 'g']); if (pc(r[10]) >= 0.4 && wr(r[10])[1] >= 3) tags.push(['FIRM', 'g']); if (wr(r[12])[0] >= 1) tags.push(['COURSE WINNER', 'g']);
   if (/Appleby/.test(r[1])) tags.push(['4 OF LAST 5', 'y']); if (/A P O'Brien/.test(r[1])) tags.push(["O'BRIEN 38% HERE", 'b']); if (/Moore/.test(r[2])) tags.push(['MOORE 5-9 HERE', 'b']); if (/Walden/.test(r[1])) tags.push(['WALDEN +52 HERE', 'g']); if (/Velazquez/.test(r[2])) tags.push(['VELAZQUEZ +60 HERE', 'g']);
-  if (r[0].startsWith('Ethical')) tags.push(['WON 2025', 'y']); if (r[13] === 3) tags.push(['3YO +4LB', 'b']);
+  if (r[0].startsWith('Ethical')) tags.push(['WON 2025', 'y']); if (r[13] === 3) tags.push(['3YO +6LB', 'b']);
   if (pc(t[0]) != null && pc(t[0]) < 0.08 && wr(t[0])[1] >= 10) tags.push(['TRAINER COLD', 'r']); if (pc(j[0]) != null && pc(j[0]) < 0.08 && wr(j[0])[1] >= 15) tags.push(['JOCKEY COLD', 'r']);
   return { r, score, adj, ts, ff, conn, tags };
 }).sort((a, b) => b.score - a.score);
@@ -151,9 +157,9 @@ const topS = scored[0].score;
 document.getElementById('rank').innerHTML = scored.map((x, i) => `<div class="row"><div class="n">${i + 1}</div><div class="h"><b>${esc(x.r[0])} <span style="font-weight:600;color:var(--mut)">${esc(x.r[4])}</span></b><span>${esc(x.r[2])} · ${esc(x.r[1])} · ${esc(x.r[3])}</span><div class="bar"><i style="width:${Math.round(x.score / topS * 100)}%"></i></div><div class="tags">${x.tags.map(t => `<span class="tag ${t[1]}">${t[0]}</span>`).join('')}</div></div><div class="s">${x.score}</div></div>`).join('');
 const vx = scored[0], v2 = scored[1], v3 = scored[2];
 document.getElementById('verdict').innerHTML = `<div class="v">SPOTLIGHT VERDICT</div><h4>${esc(vx.r[0])}</h4>
-<p>Tops both the adjusted rating (138) and Topspeed (123) with an official mark of 117 that puts him 5lb clear of anything else on the book; the Group 1 form (best RPR 125, last run 123) is the strongest in the field and he gets a 3yo's 4lb. The question is connections — George Scott is 1-17 in the last fortnight and has never had a runner here — and the Keeneland profile, where lone speed wins one turf route in five.</p>
-<p><b>Against him:</b> <b>Diamond Necklace</b> is the same 138 figure with O'Brien (38% here) and the race's stalker profile; <b>Benvenuto Cellini</b> gives O'Brien a second string under Moore (5-9 here) with a 123 RPR. The price angle is <b>Minaret Station</b> (15-1): unexposed, RPR 121 last time, 4-8 on firm, a Keeneland winner, and Walden is 10-38 +£52 here and 3-6 this fortnight. <b>Ethical Diamond</b> won it at 28/1 last year with a 122 and is 4-8 at the trip — the record says don't dismiss him, Mullins 0-7 this fortnight says the yard is quiet. <b>El Cordobes</b> is the Appleby trend runner but the figures (120) are 5lb short.</p>
-<div class="alt"><span class="tag y">1 ${esc(vx.r[0])}</span><span class="tag b">2 ${esc(v2.r[0])}</span><span class="tag b">3 ${esc(v3.r[0])}</span><span class="tag g">VALUE Minaret Station</span><span class="tag g">EW Ethical Diamond</span></div>`;
+<p>Tops both the adjusted rating (138) and Topspeed (123) with an official mark of 117 that puts him 5lb clear of anything else on the book, and the hardest form in the race: 2nd in the Arc (a neck in front of Diamond Necklace) and 3rd in the Champion Stakes two weeks ago. Three questions: those two races inside four weeks; he's the only likely leader, and lone speed wins one Keeneland turf route in five; and George Scott is 1-17 this fortnight with no Keeneland runner before. At 17/2 against the filly's 11/4, the market has priced all three in.</p>
+<p><b>Against him:</b> <b>Diamond Necklace</b> is the same 138 figure with O'Brien (38% here) and the race's stalker profile; <b>Benvenuto Cellini</b> gives O'Brien a second string under Moore (5-9 here) with a 123 RPR. The price angle is <b>Minaret Station</b> (40/1): unexposed, Joe Hirsch winner with a 121, 4-8 on firm, a Keeneland winner, Walden 10-38 +£52 here — but Survie came from last to beat him at Saratoga, so the Europeans have his measure. <b>Ethical Diamond</b> won it at 28/1 last year with a 122 and needs a strong pace to close into — with Bay City Roller the only front-runner he may not get one. <b>Tiffany</b> (10/1) beat him at Kentucky Downs and is in the form of her life; Racing Post's own verdict goes for <b>Survie</b> (18/1), the last-to-first Saratoga winner who needs the breaks.</p>
+<div class="alt"><span class="tag y">1 ${esc(vx.r[0])}</span><span class="tag b">2 ${esc(v2.r[0])}</span><span class="tag b">3 ${esc(v3.r[0])}</span><span class="tag g">EW Tiffany</span><span class="tag g">EW Hotazhell</span></div>`;
 const L6 = {'Bay City Roller':[118,120,125,120,123,123],'Diamond Necklace':[114,116,117,123,112,119],'Ethical Diamond':[117,122,109,107,114,117],'Deep Monster':[107,112,109,121,112,117],'Hotazhell':[118,114,106,109,114,121],'Minaret Station':[106,null,111,112,116,121],'Benvenuto Cellini':[114,74,123,123,109,118],'Johanna Walsh':[72,76,90,109,120,106],'Tiffany':[109,109,107,105,110,117],'Far Bridge':[120,121,108,111,118,120],'Test Score':[112,117,82,120,111,118],'Survie':[97,92,106,112,116,88],'El Cordobes':[115,120,115,118,114,116],'Burnham Square':[111,118,117,118,117,104]};
 const tr = Object.entries(L6).map(([h, a]) => { const v = a.filter(x => x != null); const last = v[v.length - 1]; const prev = v.slice(-4, -1); const avg = prev.reduce((x, y) => x + y, 0) / prev.length; const best = Math.max(...v);
   const rise = v.length >= 3 && v[v.length-1] > v[v.length-2] && v[v.length-2] > v[v.length-3];
@@ -161,6 +167,23 @@ const tr = Object.entries(L6).map(([h, a]) => { const v = a.filter(x => x != nul
   return { h, a, last, trend, peak, best, lab }; }).sort((x, y) => (y.lab[1] === 'g') - (x.lab[1] === 'g') || y.trend - x.trend);
 const mxv = 125, mnv = 70;
 document.getElementById('traj').innerHTML = `<table style="font-size:12px"><tr><th>Horse</th><th style="text-align:left">Last 6</th><th>Trend</th><th>Peak</th></tr>` + tr.map(x => `<tr><td style="white-space:normal"><b>${esc(x.h)}</b><br><span class="tag ${x.lab[1]}">${x.lab[0]}</span></td><td style="text-align:left;white-space:normal;line-height:1.1"><svg width="92" height="26" viewBox="0 0 92 26"><polyline fill="none" stroke="${x.lab[1] === 'g' ? '#4ade80' : x.lab[1] === 'r' ? '#ff5c8a' : '#e9c46a'}" stroke-width="2" points="${x.a.map((v, i) => v == null ? null : `${4 + i * 16.8},${24 - (v - mnv) / (mxv - mnv) * 22}`).filter(Boolean).join(' ')}"/></svg><br><span style="color:var(--mut);font-size:10px">${x.a.map(v => v == null ? '–' : v).join(' ')}</span></td><td class="${x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : ''}">${x.trend > 0 ? '+' : ''}${x.trend}</td><td class="${x.peak === 0 ? 'pos' : x.peak <= -10 ? 'neg' : ''}">${x.peak === 0 ? 'BEST' : x.peak}</td></tr>`).join('') + `</table>`;
+const FORM = {
+ 'Bay City Roller':['3rd Champion Stakes (Ombudsman) 17 Oct','2nd Arc (Daryz, nk ahead of Diamond Necklace)','2nd Prix Foy (Daryz)','WON Coronation Cup by 10l (Jan Brueghel)','2nd Tattersalls Gold Cup (Almaqam)','2nd Huxley (Lambourn)'],
+ 'Diamond Necklace':['3rd Arc (1½l, Daryz)','2nd Deauville G1 (Aventure)','WON Nassau (Friendly Soul)','WON Prix de Diane','WON Pouliches','WON Marcel Boussac'],
+ 'Benvenuto Cellini':['9th Arc (4¼l, slow start)','5th Prix Niel (Varandir)','3rd King George (Kalpana)','WON Irish Derby (Christmas Day)','WON Chester Vase','3rd Futurity (Hawk Mountain)'],
+ 'Tiffany':['WON Kentucky Turf Cup G2 (Ethical Diamond 2nd, Burnham Square 7th)','WON Gr Preis von Berlin G1','2nd Princess of Wales\'s (Tattycoram)','2nd Listed Chantilly','2nd Munich G1 (7l, Bay City Roller)','2nd Cologne G1 (Sibayan)'],
+ 'Ethical Diamond':['2nd Kentucky Turf Cup (Tiffany)','WON Leopardstown G3','9th Hardwicke (Giavellotto)','5th Sheema Classic (Calandagan)','WON Breeders\' Cup Turf (Rebel\'s Romance, El Cordobes 3rd)','WON Ebor'],
+ 'Johanna Walsh':['6th Yorkshire Oaks (Kalpana)','WON Irish Oaks by 4l','2nd Ribblesdale (hd, Earth Shot)','WON maiden','3rd maiden','3rd maiden'],
+ 'Hotazhell':['WON Irish Champion (nse, Wimbledon Hawkeye) at 50/1','WON Munich G1 (nse)','3rd Curragh G3','3rd Navan Listed','10th 2025 Arc (Daryz)','4th 2025 Irish Champion (Delacroix)'],
+ 'Survie':['10th Vermeille (no room)','WON Saratoga G1 (Minaret Station 2nd, last to first)','WON Saratoga G2','6th Royal Ascot Listed (Map Of Stars)','3rd Dahlia (Jancis)','4th Kempton Listed'],
+ 'El Cordobes':['3rd Joe Hirsch G1 (Minaret Station, hampered)','5th Doha G2 (Deep Monster)','3rd BC Turf 2025 (Ethical Diamond)','3rd Belmont G1 (Rebel\'s Romance)','WON Sword Dancer G1 (Far Bridge 6th)','WON Princess of Wales\'s'],
+ 'Burnham Square':['7th Kentucky Turf Cup (Tiffany) at 6/4f','WON Arlington Million G1 (Test Score 6th)','WON Churchill Listed','WON Churchill G3','WON Keeneland G2 by 9¾l','2nd Gulfstream claimer'],
+ 'Map Of Stars':['2nd Deauville G3 (Wimbledon Hawkeye)','WON Royal Ascot Listed (Wimbledon Hawkeye, Survie 6th)','5th Longchamp G3 (17l)','3rd Longchamp Listed','7th Longchamp G2','2nd Munich G1 (Tornado Alert)'],
+ 'Minaret Station':['WON Joe Hirsch G1 (Far Bridge ½l, El Cordobes 3rd)','2nd Saratoga G1 (Survie)','3rd Saratoga G2','2nd Churchill G3','4th Churchill Listed','WON Churchill Listed 2025'],
+ 'Deep Monster':['4th Kyoto G2 (18 ran)','3rd QEII Cup HK (Romantic Warrior)','WON Doha G2 (Goliath, El Cordobes 5th)','11th Japan Cup (Calandagan)','WON Kyoto G2','3rd Niigata G3'],
+ 'Far Bridge':['2nd Joe Hirsch G1 (Minaret Station)','WON Gulfstream G3','4th Belmont G1 (Rebel\'s Romance)','6th Sword Dancer (El Cordobes)','WON Saratoga G2','3rd Saratoga G1 (Deterministic)']};
+const TESTED = ['Bay City Roller','Diamond Necklace','Benvenuto Cellini','Hotazhell','Johanna Walsh','Ethical Diamond','Deep Monster','Tiffany','Survie','Minaret Station','Far Bridge','El Cordobes','Burnham Square','Map Of Stars'];
+document.getElementById('company').innerHTML = TESTED.map((h, i) => `<div class="row" style="grid-template-columns:30px 1fr"><div class="n">${i + 1}</div><div class="h"><b>${esc(h)}</b><span>${FORM[h].map((f, j) => `<span style="${/WON/.test(f) ? 'color:var(--mint)' : ''}">${esc(f)}</span>`).join(' · ')}</span></div></div>`).join('');
 // figures table
 const col = (i, dir) => { const v = runners.map(r => r[i]).filter(v => v != null); return dir === 'max' ? Math.max(...v) : Math.min(...v); };
 document.getElementById('figs').innerHTML = `<tr><th>Horse</th><th>Adj</th><th>Best</th><th>Last</th><th>TS</th><th>OR</th></tr>` + R.map(r => `<tr><td><b>${esc(r[0].replace(/\s*\(.*?\)/, ''))}</b> <span style="color:var(--mut)">${esc(r[3])}</span></td><td class="${r[5] === col(5, 'max') ? 'top' : ''}">${r[5]}</td><td class="${r[6] === col(6, 'max') ? 'top' : ''}">${r[6]}</td><td>${esc(r[7])}</td><td class="${r[8] != null && r[8] === col(8, 'max') ? 'top' : ''}">${esc(r[8])}</td><td class="${r[9] != null && r[9] === col(9, 'max') ? 'top' : ''}">${esc(r[9])}</td></tr>`).join('');
