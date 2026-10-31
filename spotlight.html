@@ -57,13 +57,19 @@ td.top{color:var(--gold);font-weight:900}td.pos{color:var(--mint);font-weight:80
 </section>
 
 <section>
+<h3>Improving or declining <small>last six RPRs, oldest → latest</small></h3>
+<div class="card" id="traj"></div>
+<div class="note">TREND = last run against the average of the previous three. PEAK = last run against career best. An unexposed horse still climbing (Minaret Station) and a horse back to a career best (Hotazhell, Tiffany) are the improvers; a horse 10lb+ below its own best last time (Burnham Square, Survie, Johanna Walsh) is the decliner unless there is an excuse.</div>
+</section>
+
+<section>
 <h3>What the record says <small>Breeders' Cup Turf 2016–25</small></h3>
 <div class="card ins" style="padding:4px 12px">
   <p><b>Appleby has won 4 of the last 5</b> (Yibir 2021, Rebel's Romance 2022 here at Keeneland and 2024, with Auguste Rodin for O'Brien in 2023). Today: <b>El Cordobes</b> (Appleby/Buick, 15-1) — the one runner on the strongest trainer trend in the race.</p>
   <p><b>Favourites 4 of 10</b> (Enable, Bricks And Mortar, Auguste Rodin, Rebel's Romance). The other six went 3/1, 7/2, 17/2, 14/1, 6/1 and <b>28/1 last year</b> (Ethical Diamond, drawn 14).</p>
   <p><b>Winning RPR 114–125.</b> Only four runners today have a best RPR of 122+: Bay City Roller 125, Diamond Necklace 123, Benvenuto Cellini 123, Ethical Diamond 122.</p>
   <p><b>Draw is not a factor</b> — winners from stalls 1, 2, 3, 4, 5, 8, 9, 11, 12 and 14 in ten years.</p>
-  <p><b>3yos win it</b> (Auguste Rodin, Yibir) getting 4lb. Three today: Diamond Necklace and Johanna Walsh (8-7), Benvenuto Cellini (8-10).</p>
+  <p><b>Two of the last ten winners were 3yos</b> (Auguste Rodin 2023, Yibir 2021) — the rest were 4, 5 or 6 — and they get 4lb. Three today: Diamond Necklace and Johanna Walsh (8-7), Benvenuto Cellini (8-10).</p>
   <p><b>Keeneland turf route profile:</b> stalkers 46%, closers 36%, lone speed 20% (last two meets). Keep that against any front-runner.</p>
 </div>
 </section>
@@ -148,6 +154,13 @@ document.getElementById('verdict').innerHTML = `<div class="v">SPOTLIGHT VERDICT
 <p>Tops both the adjusted rating (138) and Topspeed (123) with an official mark of 117 that puts him 5lb clear of anything else on the book; the Group 1 form (best RPR 125, last run 123) is the strongest in the field and he gets a 3yo's 4lb. The question is connections — George Scott is 1-17 in the last fortnight and has never had a runner here — and the Keeneland profile, where lone speed wins one turf route in five.</p>
 <p><b>Against him:</b> <b>Diamond Necklace</b> is the same 138 figure with O'Brien (38% here) and the race's stalker profile; <b>Benvenuto Cellini</b> gives O'Brien a second string under Moore (5-9 here) with a 123 RPR. The price angle is <b>Minaret Station</b> (15-1): unexposed, RPR 121 last time, 4-8 on firm, a Keeneland winner, and Walden is 10-38 +£52 here and 3-6 this fortnight. <b>Ethical Diamond</b> won it at 28/1 last year with a 122 and is 4-8 at the trip — the record says don't dismiss him, Mullins 0-7 this fortnight says the yard is quiet. <b>El Cordobes</b> is the Appleby trend runner but the figures (120) are 5lb short.</p>
 <div class="alt"><span class="tag y">1 ${esc(vx.r[0])}</span><span class="tag b">2 ${esc(v2.r[0])}</span><span class="tag b">3 ${esc(v3.r[0])}</span><span class="tag g">VALUE Minaret Station</span><span class="tag g">EW Ethical Diamond</span></div>`;
+const L6 = {'Bay City Roller':[118,120,125,120,123,123],'Diamond Necklace':[114,116,117,123,112,119],'Ethical Diamond':[117,122,109,107,114,117],'Deep Monster':[107,112,109,121,112,117],'Hotazhell':[118,114,106,109,114,121],'Minaret Station':[106,null,111,112,116,121],'Benvenuto Cellini':[114,74,123,123,109,118],'Johanna Walsh':[72,76,90,109,120,106],'Tiffany':[109,109,107,105,110,117],'Far Bridge':[120,121,108,111,118,120],'Test Score':[112,117,82,120,111,118],'Survie':[97,92,106,112,116,88],'El Cordobes':[115,120,115,118,114,116],'Burnham Square':[111,118,117,118,117,104]};
+const tr = Object.entries(L6).map(([h, a]) => { const v = a.filter(x => x != null); const last = v[v.length - 1]; const prev = v.slice(-4, -1); const avg = prev.reduce((x, y) => x + y, 0) / prev.length; const best = Math.max(...v);
+  const rise = v.length >= 3 && v[v.length-1] > v[v.length-2] && v[v.length-2] > v[v.length-3];
+  const trend = Math.round(last - avg), peak = last - best; const lab = rise && last === best ? ['CLIMBING', 'g'] : last === best ? ['CAREER BEST', 'g'] : trend >= 4 ? ['IMPROVING', 'g'] : trend <= -6 || peak <= -10 ? ['DECLINING', 'r'] : ['HOLDING', 'y'];
+  return { h, a, last, trend, peak, best, lab }; }).sort((x, y) => (y.lab[1] === 'g') - (x.lab[1] === 'g') || y.trend - x.trend);
+const mxv = 125, mnv = 70;
+document.getElementById('traj').innerHTML = `<table><tr><th>Horse</th><th style="text-align:left">Last 6</th><th>Trend</th><th>Peak</th><th></th></tr>` + tr.map(x => `<tr><td><b>${esc(x.h)}</b></td><td style="text-align:left"><svg width="92" height="26" viewBox="0 0 92 26"><polyline fill="none" stroke="${x.lab[1] === 'g' ? '#4ade80' : x.lab[1] === 'r' ? '#ff5c8a' : '#e9c46a'}" stroke-width="2" points="${x.a.map((v, i) => v == null ? null : `${4 + i * 16.8},${24 - (v - mnv) / (mxv - mnv) * 22}`).filter(Boolean).join(' ')}"/></svg><span style="color:var(--mut);font-size:11px"> ${x.a.map(v => v == null ? '–' : v).join(' ')}</span></td><td class="${x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : ''}">${x.trend > 0 ? '+' : ''}${x.trend}</td><td class="${x.peak === 0 ? 'pos' : x.peak <= -10 ? 'neg' : ''}">${x.peak === 0 ? 'AT BEST' : x.peak}</td><td><span class="tag ${x.lab[1]}">${x.lab[0]}</span></td></tr>`).join('') + `</table>`;
 // figures table
 const col = (i, dir) => { const v = runners.map(r => r[i]).filter(v => v != null); return dir === 'max' ? Math.max(...v) : Math.min(...v); };
 document.getElementById('figs').innerHTML = `<tr><th>Horse</th><th>Adj</th><th>Best</th><th>Last</th><th>TS</th><th>OR</th></tr>` + R.map(r => `<tr><td><b>${esc(r[0].replace(/\s*\(.*?\)/, ''))}</b> <span style="color:var(--mut)">${esc(r[3])}</span></td><td class="${r[5] === col(5, 'max') ? 'top' : ''}">${r[5]}</td><td class="${r[6] === col(6, 'max') ? 'top' : ''}">${r[6]}</td><td>${esc(r[7])}</td><td class="${r[8] != null && r[8] === col(8, 'max') ? 'top' : ''}">${esc(r[8])}</td><td class="${r[9] != null && r[9] === col(9, 'max') ? 'top' : ''}">${esc(r[9])}</td></tr>`).join('');
