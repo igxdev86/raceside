@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BREEDERS — RACESIDE</title>
+<meta name="description" content="Breeders' Cup 2026 at Keeneland: last year's results, the last Keeneland Cup, Friday's lessons and today's nine races with angles.">
+<style>
+:root{--bg:#06080d;--panel:#0d1119;--line:#1f2736;--txt:#f2f5fa;--mut:#8d97a8;--red:#ff2d55;--cyan:#22d3ee;--gold:#f5c542;--grn:#1fd36a;--turf:#2fbf71;--dirt:#c98a4b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+a{color:var(--cyan)}
+.top{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0b0f17,#06080d);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.top .brand{font-weight:900;letter-spacing:.14em;font-size:12px;color:var(--red)}
+.top h1{margin:0;font-size:18px;font-weight:900;letter-spacing:.02em;flex:1}
+.chip{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;background:#151b27;color:var(--mut);border:1px solid var(--line)}
+.chip.live{background:var(--red);color:#fff;border-color:var(--red)}
+.hero{padding:16px 14px 6px;background:radial-gradient(1200px 300px at 20% -20%,#2a1230 0%,transparent 60%)}
+.hero .big{font-size:28px;font-weight:900;line-height:1.05;letter-spacing:-.01em}
+.hero .sub{color:var(--mut);margin-top:6px;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+.kpi b{display:block;font-size:22px;font-weight:900}.kpi span{font-size:11px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+section{padding:10px 14px}
+h2{margin:14px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:900;display:flex;align-items:center;gap:8px}
+h2 small{color:var(--mut);letter-spacing:0;text-transform:none;font-weight:600}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:10px}
+.tile .hd{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;user-select:none}
+.tile .hd .t{font-weight:900;font-size:15px;flex:1}
+.tile .hd .m{font-size:11px;color:var(--mut);font-weight:700}
+.tile .bd{display:none;border-top:1px solid var(--line)}
+.tile.open .bd{display:block}
+.sf{width:8px;height:8px;border-radius:50%;flex:none}.sf.turf{background:var(--turf)}.sf.dirt{background:var(--dirt)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-weight:800}
+td{padding:7px 10px;border-bottom:1px solid #141a26;vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n{color:var(--mut);width:28px}td.o{text-align:right;white-space:nowrap;font-weight:800}
+.won td{background:linear-gradient(90deg,rgba(31,211,106,.14),transparent)}
+.win{color:var(--grn);font-weight:900}
+.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:1px 6px;margin:2px 4px 0 0;background:#151b27;color:var(--mut);border:1px solid var(--line)}
+.tag.rep{background:#2a1f05;color:var(--gold);border-color:#4a3608}.tag.ob{background:#0a2a2a;color:var(--cyan);border-color:#0f4040}.tag.fav{background:#2a0a12;color:#ff7a90;border-color:#4a1020}.tag.jp{background:#20102a;color:#d9a3ff;border-color:#3a1c4a}.tag.ap{background:#0a1f2a;color:#7ad9ff;border-color:#0f3a4a}.tag.pick{background:var(--grn);color:#04210f;border-color:var(--grn)}
+.pick{padding:10px 12px;border-top:1px dashed var(--line);font-size:13px}
+.pick b{color:var(--grn)}
+.ins{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 12px}
+.ins p{margin:9px 0;padding-left:14px;position:relative}.ins p:before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.ins p b{color:var(--txt)}
+.note{color:var(--mut);font-size:12px;margin:8px 0}
+.sched{display:grid;grid-template-columns:1fr;gap:6px}
+.srow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px}
+.srow .uk{font-weight:900;width:52px}.srow .et{color:var(--mut);font-size:11px;width:62px}.srow .nm{flex:1;font-weight:700}
+.srow.next{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset}
+.foot{padding:20px 14px 40px;color:var(--mut);font-size:12px}
+.foot a{display:block;margin:4px 0}
+</style></head>
+<body>
+<div class="top"><span class="brand">RACESIDE</span><h1>BREEDERS</h1><span class="chip live" id="liveChip">SAT · DAY 2</span></div>
+
+<div class="hero">
+  <div class="big">Breeders' Cup 2026<br>Keeneland · Day 2</div>
+  <div class="sub">Nine Grade 1s today, first off 17:10 UK (1:10 pm ET). Last year was Del Mar; the last Cup here was 2022 — both are below, with Friday's five already run.</div>
+</div>
+<div class="kpis">
+  <div class="kpi"><b>4/5</b><span>Favs won Fri</span></div>
+  <div class="kpi"><b>6/7</b><span>Turf to Europe · KEE 2022</span></div>
+  <div class="kpi"><b>5/14</b><span>Favs won · KEE 2022</span></div>
+</div>
+
+<section>
+<h2>Today · UK times <small>auto-highlights the next race</small></h2>
+<div class="sched" id="sched"></div>
+</section>
+
+<section>
+<h2>Insights <small>what the record says before today's nine</small></h2>
+<div class="ins">
+  <p><b>Favourites are landing.</b> Friday went 4/5 to the market leader (Libertango 6/4, Emphatic 9/5, Sun Goddess 4/5, Hughes 4/5); the only miss was the Juvenile Turf, where the favourite Great Barrier Reef was scratched and the stable's second string Haffner won. Keeneland 2022 was 5/14 for favourites, so expect a couple of jollies to go down today — the record says it's the turf sprints and the fillies' turf where they fall.</p>
+  <p><b>Europe owns the Keeneland turf.</b> 2022 here: six of seven turf races to Irish-breds, O'Brien 3 and Appleby 3, Moore rode all three Coolmore winners. Friday: O'Brien/Moore won both juvenile turf miles. Today's turf: Precise (O'Brien/Moore) F&M Turf, Diamond Necklace and Benvenuto Cellini (O'Brien) Turf, Notable Speech (Appleby/Buick) Mile, El Cordobes (Appleby) Turf, True Love and Puerto Rico (O'Brien) Mile.</p>
+  <p><b>Long home straight rewards closers on grass</b> — Keeneland's turf stretch is one of the longest in North America. 2022 Juvenile and Juvenile Fillies were won from behind. Go against lone-speed types in the 1m–1½m turf races; the exception is the 5½f Turf Sprint, which favours early pace (Caravel bolted up at 42-1 in 2022).</p>
+  <p><b>Repeat bidders.</b> Six of last year's winners are back: Forever Young (Classic, 2-1), Notable Speech (Mile, 7-5), Ethical Diamond (Turf, 10-1), Shisospicy (Turf Sprint, 15-1), Cy Fair (Turf Sprint, 8-1), Super Corredora (Distaff, 15-1). Splendora was scratched from the Distaff. Repeat Cup winners are rare but the Mile is the race it happens most (Goldikova ×3, Wise Dan ×2, Modern Games/Notable Speech lineage for Appleby) — Notable Speech is the live one.</p>
+  <p><b>Japan on dirt.</b> Forever Young won last year's Classic (Yahagi/Sakai) and is favourite to repeat; T O Elvis (7-2, Sprint) and Lord Fons (Dirt Mile) carry the same angle. Racing Post noted no European runners on dirt again, so dirt is USA v Japan.</p>
+  <p><b>Prices run big on this card.</b> 2025 Del Mar average winning odds were ~7/1 with 20-1 and 27-1 winners in the Juvenile Fillies Turf and Turf; 2022 Keeneland threw a 42-1 Turf Sprint winner. Each-way or place-only on 8-1+ turf runners has paid at both venues.</p>
+  <p><b>Short ones to trust, if the pattern holds:</b> Englishman 4/5 (Sprint, 4-for-4 this year), Nitrogen 6/5 v Fully Subscribed 8/5 (Distaff — two-horse race), Further Ado 2-1 (Dirt Mile, Cox). Friday's dirt favourites both won by 1½–2¼ lengths.</p>
+</div>
+<div class="note">Odds are morning lines, US fractional. Angles are from the records below, not a model — RACESIDE's models don't run on US racing.</div>
+</section>
+
+<section>
+<h2>Today's races <small>tap to open · angles tagged · RACESIDE pick in green</small></h2>
+<div id="today"></div>
+</section>
+
+<section>
+<h2>Friday · already run <small>Keeneland, 30 Oct 2026</small></h2>
+<div id="fri"></div>
+</section>
+
+<section>
+<h2>Last year · Del Mar 2025 <small>31 Oct – 1 Nov 2025 · 14 Grade 1s</small></h2>
+<div class="tile open"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="t">Results</span><span class="m">winner · odds · margin</span></div><div class="bd"><table id="t25"></table></div></div>
+<div class="note">Fav-priced winners (≤2.00): Nysos 0.70, Ted Noffey 0.80, Gstaad 1.20, Bentornato 1.70. Six of 14 bred outside the US; Europe took 4 of the 7 turf races plus the Mile.</div>
+</section>
+
+<section>
+<h2>Last Cup here · Keeneland 2022 <small>4–5 Nov 2022</small></h2>
+<div class="tile"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="t">Results</span><span class="m">winner · odds · margin</span></div><div class="bd"><table id="t22"></table></div></div>
+<div class="note">Favourites 5/14. O'Brien 3, Appleby 3. Flightline won the Classic by a record 8¼ lengths at 0.44.</div>
+</section>
+
+<div class="foot">
+  Sources<br>
+  <a href="https://en.wikipedia.org/wiki/2025_Breeders%27_Cup">2025 Breeders' Cup (Del Mar)</a>
+  <a href="https://en.wikipedia.org/wiki/2022_Breeders%27_Cup">2022 Breeders' Cup (Keeneland)</a>
+  <a href="https://www.fanduel.com/breeders-cup-odds">2026 entries, posts and morning lines</a>
+  <a href="https://sports.yahoo.com/articles/breeders-cup-race-results-today-170059685.html">Friday 2026 results</a>
+  <a href="https://www.sportinglife.com/racing/results/2026-10-30/keeneland/946393/race-6-breeders-cup-juvenile-turf-sprint-grade-1">Juvenile Turf Sprint full result</a>
+  <a href="https://www.sportinglife.com/racing/fast-results">Fast results</a>
+</div>
+
+<script>
+// UK = ET + 4 today (BST ended 25 Oct; US clocks change 1 Nov)
+const TODAY = [
+ {et:'1:10',uk:'17:10',nm:'Filly & Mare Sprint',sf:'dirt',d:'7f dirt',pick:'Ways and Means',alt:'Explora',why:'Chad Brown filly is the clear form pick in a race where the dirt favourites are holding; Explora (Baffert) the one to beat her on the inside speed.',
+  f:[[1,'Look Forward','U Rispoli','M McCarthy','20-1'],[2,'Ways and Means','F Prat','C Brown','7-5'],[4,'R Disaster','T Gaffalione','S Joseph Jr','8-1'],[5,'Foie Gras','R Santana Jr','M Maker','20-1'],[6,'Majestic Oops','F Arrieta','P D\'Amato','15-1'],[7,'Evanescence','L Saez','E Kenneally','15-1'],[8,'Kerry\'s Kiss','E Gonzalez','S Joseph Jr','20-1'],[9,'Sweet Azteca','J Hernandez','R Baltas','8-1'],[10,'Simply Joking','M Franco','M McCarthy','30-1'],[11,'Explora','J Ortiz','B Baffert','4-1'],[12,'Kilwin','J Castellano','G Arnold II','8-1']], scr:['Praying','Nooni']},
+ {et:'1:48',uk:'17:48',nm:'Turf Sprint',sf:'turf',d:'5½f turf',pick:'Bacio',alt:'Shisospicy',why:'Speed wins the 5½f here (Caravel 2022). Wesley Ward\'s Bacio has the gate speed; Shisospicy won this last year and is 15-1 — each-way.',
+  f:[[1,'John the Beer Man','K Carmouche','R Atras','30-1'],[2,'Shisospicy','L Saez','J D\'Angelo','15-1'],[3,'Bacio','J Hernandez','W Ward','5-2'],[4,'Roja','M Franco','G Motion','30-1'],[5,'Time to Dazzle','O Murphy','M Casse','20-1'],[6,'Yellow Card','F Prat','M McCarthy','8-1'],[7,'Comanche Brave (IRE)','B Loughnane','D O\'Brien','3-1'],[8,'Possiblemente','J Ortiz','J Sharp','12-1'],[9,'In Our Time','M Husbands','S Joseph Jr','20-1'],[10,'Cy Fair','J Velazquez','G Weaver','8-1'],[11,'Joe Shiesty','F De La Cruz','E Foster','10-1'],[12,'Sorrento Sky (IRE)','U Rispoli','P D\'Amato','12-1'],[13,'Starlust (GB)','R Ryan','R Beckett','20-1'],[14,'Miss Yechance (IRE)','J Nicholls','K Burke','15-1']]},
+ {et:'2:26',uk:'18:26',nm:'Dirt Mile',sf:'dirt',d:'1m dirt',pick:'Further Ado',alt:'Bracket Buster',why:'Cox favourite; Nysos won this at 0.70 last year and the race usually goes to the class horse. Bracket Buster the stalker if the pace collapses.',
+  f:[[1,'Further Ado','F Prat','B Cox','2-1'],[2,'T Kraft','J Alvarado','B Mott','15-1'],[3,'Full Serrano (ARG)','J Rosario','J Sadler','10-1'],[4,'Chunk of Gold','J Torres','E West','8-1'],[5,'Coal Battle','J Vargas','L Briley','6-1'],[6,'Lord Fons (JPN)','K Yokoyama','S Yasuda','15-1'],[7,'Bracket Buster','J Velazquez','V Oliver','7-2'],[8,'Moonlight','M Franco','P Miller','15-1'],[9,'Forged Steel','E Gonzalez','S Joseph Jr','15-1'],[10,'Owen Almighty','L Saez','B Lynch','10-1'],[11,'Iron Man Cal','T Gaffalione','P D\'Amato','12-1']]},
+ {et:'3:04',uk:'19:04',nm:'Filly & Mare Turf',sf:'turf',d:'1m 3f turf',pick:'Precise (IRE)',alt:'Blue Bolt (GB)',why:'O\'Brien/Moore won this race here in 2022 (Tuesday) and both juvenile turf miles on Friday. Blue Bolt is the favourite and Balding\'s best chance of the week.',
+  f:[[1,'Gimme a Nother (SAF)','J Velazquez','G Motion','10-1'],[2,'Evershed','M Barzalona','A Delacour','30-1'],[3,'Classic Q','J Castellano','M Casse','20-1'],[4,'Red Letter (IRE)','D B McMonagle','G Lyons','12-1'],[5,'Kathynmarissa','J Ortiz','C Brown','5-1'],[6,'Thought Process','M Franco','P D\'Amato','15-1'],[7,'Bless the Broken','O Murphy','B Cox','20-1'],[8,'Jancis (IRE)','B Lee','W McCreery','20-1'],[9,'Eccentric (CHL)','W Rodriguez','W Ward','30-1'],[10,'Expensive Queen','L Saez','B Walsh','15-1'],[11,'Precise (IRE)','R Moore','A O\'Brien','7-2'],[12,'Blue Bolt (GB)','C Keane','A Balding','5-2'],[13,'Lush Lips','T Gaffalione','B Walsh','12-1'],[14,'Stellify','F Prat','B Cox','12-1']]},
+ {et:'3:42',uk:'19:42',nm:'Sprint',sf:'dirt',d:'6f dirt',pick:'Englishman',alt:'T O Elvis (JPN)',why:'Unbeaten in four sprints this year and dirt favourites are holding. T O Elvis is the Japanese angle at 7-2 if the jolly bounces.',
+  f:[[1,'Mad House','P Lopez','D Van Winkle','30-1'],[2,'Dark Saffron (ARE)','C Beasley','A bin Harmash','20-1'],[3,'Liam Smith','M Franco','P Miller','20-1'],[4,'Hymn','R Santana Jr','R Moquett','15-1'],[5,'Listenupshance','E Jaramillo','D O\'Neill','12-1'],[6,'American Stage (JPN)','O Murphy','Y Yahagi','30-1'],[7,'Built','L Saez','W Catalano','10-1'],[8,'Little Thunder','J Velazquez','T Hamm','30-1'],[9,'Nakatomi','T Gaffalione','W Ward','12-1'],[10,'Roll On Big Joe','J Leparoux','R Hess Jr','30-1'],[11,'T O Elvis (JPN)','R Sakai','D Takayanagi','7-2'],[12,'Stradale','F Prat','S Asmussen','20-1'],[13,'Englishman','J Ortiz','C DeVaux','4-5']]},
+ {et:'4:20',uk:'20:20',nm:'Mile',sf:'turf',d:'1m turf',pick:'Notable Speech (GB)',alt:'Puerto Rico (IRE)',why:'Won it last year; Appleby won the Mile here in 2022 with Modern Games. The Mile is the Cup race repeat winners happen in. Puerto Rico (O\'Brien/Moore) the each-way.',
+  f:[[1,'Deterministic','K Carmouche','M Clement','8-1'],[2,'Lake Forest (GB)','C Fallon','W Haggas','6-1'],[3,'Facteur Cheval','M Franco','M Casse','30-1'],[4,'Cabo Spirit','M Smith','G Papaprodromou','30-1'],[5,'Ask Ikigomi (JPN)','R Sakai','H Fujiwara','20-1'],[6,'Zulu Kingdom','F Prat','C Brown','15-1'],[7,'Qirat (GB)','C Keane','R Beckett','30-1'],[8,'Notable Speech (GB)','W Buick','C Appleby','7-5'],[9,'Rhetorical','J Ortiz','W Walden','8-1'],[10,'Lugal (JPN)','O Murphy','H Sugiyama','30-1'],[11,'Formidable Man','J Velazquez','M McCarthy','15-1'],[12,'True Love (IRE)','W Lordan','A O\'Brien','8-1'],[13,'Brilliant Berti','B Hernandez Jr','C DeVaux','30-1'],[14,'Puerto Rico (IRE)','R Moore','A O\'Brien','10-1']]},
+ {et:'4:58',uk:'20:58',nm:'Distaff',sf:'dirt',d:'1m 1f dirt',pick:'Nitrogen',alt:'Fully Subscribed',why:'Two-horse race on the market with last year\'s F&M Sprint winner Splendora scratched. Nitrogen marginally preferred; Super Corredora (won the Juvenile Fillies last year at 8.80) is the big-price stalker.',
+  f:[[1,'Immersive','J Alvarado','B Cox','30-1'],[2,'Nitrogen','J Ortiz','M Casse','6-5'],[3,'Regaled','J Ramos','W Beckman','20-1'],[4,'Fully Subscribed','F Prat','C Brown','8-5'],[5,'Scottish Lassie','L Saez','J Abreu','15-1'],[6,'Measure','M Franco','M Casse','20-1'],[7,'Super Corredora','J Rosario','J Sadler','15-1'],[9,'Eunomia','M Husbands','S Joseph Jr','30-1']], scr:['Splendora']},
+ {et:'5:36',uk:'21:36',nm:'Turf',sf:'turf',d:'1m 4f turf',pick:'Diamond Necklace (IRE)',alt:'Ethical Diamond (IRE)',why:'Long straight, 1½m — the closers\' race. Coolmore\'s filly is the class; Ethical Diamond won it at 27.70 last year for Mullins and is 10-1 again. El Cordobes (Appleby, 15-1) — Appleby won this here in 2022 with Rebel\'s Romance.',
+  f:[[1,'Ethical Diamond (IRE)','D B McMonagle','W Mullins','10-1'],[2,'Benvenuto Cellini (IRE)','R Moore','A O\'Brien','6-1'],[3,'Minaret Station','J Ortiz','W Walden','15-1'],[4,'Far Bridge','J Velazquez','M Clement','20-1'],[5,'El Cordobes (GB)','W Buick','C Appleby','15-1'],[6,'Burnham Square','B Hernandez Jr','I Wilkes','8-1'],[7,'Hotazhell (GB)','S Foley','J Harrington','15-1'],[8,'Test Score','M Franco','G Motion','30-1'],[9,'Johanna Walsh (IRE)','M Barzalona','J P O\'Brien','12-1'],[10,'Tiffany (IRE)','L Morris','Sir M Prescott','10-1'],[11,'Survie','F Prat','G Boughey','15-1'],[12,'Diamond Necklace (IRE)','C Soumillon','A O\'Brien','3-1'],[13,'Bay City Roller (GB)','O Murphy','G Scott','5-1'],[14,'Deep Monster (JPN)','T Marquand','Y Ikee','30-1']]},
+ {et:'6:16',uk:'22:16',nm:'Classic',sf:'dirt',d:'1m 2f dirt',pick:'Forever Young (JPN)',alt:'Sovereignty',why:'Last year\'s winner, 2-1 to repeat, and Yahagi\'s team is the best dirt operation outside the US. Sovereignty (Derby winner) and stablemate Knightsbridge are the Mott pair against him; eight runners, small field suits the proven ones.',
+  f:[[1,'T O Password (JPN)','K Kimura','D Takayanagi','30-1'],[2,'Sovereignty','J Alvarado','B Mott','5-2'],[3,'Golden Tempo','J Ortiz','C DeVaux','5-1'],[4,'The Puma','J Castellano','G Delgado','10-1'],[5,'Forever Young (JPN)','R Sakai','Y Yahagi','2-1'],[6,'Magnitude','F Prat','S Asmussen','6-1'],[7,'Knightsbridge','L Saez','B Mott','9-2'],[8,'Napoleon Solo','J Velazquez','C Summers','15-1']]}
+];
+const REPEAT = ['Forever Young','Notable Speech','Ethical Diamond','Shisospicy','Cy Fair','Super Corredora'];
+const FRI = [
+ {nm:'Juvenile Turf Sprint',sf:'turf',w:'Libertango (GB)',sp:'6/4f',jt:'B Loughnane · G Boughey',p:'Hell of a Spin 33/1, Mussab 10/1',note:'Favourite won from off the pace; 3rd placed Harper\'s Corner thrown out after an objection.'},
+ {nm:'Juvenile Fillies',sf:'dirt',w:'Emphatic',sp:'$7.92 (≈3/1)',jt:'T Gaffalione · B Walsh',p:'Miss Monica 2-1, Manuka Honey',note:'Stalked the leader Lexi\'s Charm, who faded; won by 1½. 1:42.29.'},
+ {nm:'Juvenile Fillies Turf',sf:'turf',w:'Sun Goddess (IRE)',sp:'4/5f',jt:'R Moore · A O\'Brien',p:'—',note:'Stalked, led, pulled away. O\'Brien/Moore.'},
+ {nm:'Juvenile',sf:'dirt',w:'Hughes',sp:'$3.64 (≈4/5f)',jt:'F Prat · B Baffert',p:'American History, Salahudin',note:'Favourite won by 2¼. 1:42.27 — a tick faster than the fillies.'},
+ {nm:'Juvenile Turf',sf:'turf',w:'Haffner',sp:'8-1 ML',jt:'C Soumillon · A O\'Brien',p:'Folsom Blues 7/2, Avec Toi',note:'Favourite Great Barrier Reef scratched; O\'Brien won with the second string anyway.'}
+];
+const R25 = [['Juvenile Turf Sprint','turf','Cy Fair (USA)',5.00,'¾'],['Juvenile Fillies','dirt','Super Corredora (USA)',8.80,'¾'],['Juvenile Fillies Turf','turf','Balantina (IRE)',20.60,'1¼'],['Juvenile','dirt','Ted Noffey (USA)',0.80,'1'],['Juvenile Turf','turf','Gstaad (GB)',1.20,'¾'],['Filly & Mare Sprint','dirt','Splendora (USA)',2.90,'4¾'],['Turf Sprint','turf','Shisospicy (USA)',5.30,'2½'],['Sprint','dirt','Bentornato (USA)',1.70,'2¼'],['Distaff','dirt','Scylla (USA)',7.60,'5½'],['Turf','turf','Ethical Diamond (IRE)',27.70,'1¼'],['Classic','dirt','Forever Young (JPN)',3.50,'½'],['Mile','turf','Notable Speech (GB)',2.60,'1½'],['Dirt Mile','dirt','Nysos (USA)',0.70,'hd'],['Filly & Mare Turf','turf','Gezora (FR)',9.10,'½']];
+const R22 = [['Juvenile Turf Sprint','turf','Mischief Magic (IRE) · Appleby',6.92,'1'],['Juvenile Fillies','dirt','Wonder Wheel (USA)',6.50,'3'],['Juvenile Fillies Turf','turf','Meditate (IRE) · O\'Brien/Moore',2.04,'2½'],['Juvenile','dirt','Forte (USA)',5.02,'1½'],['Juvenile Turf','turf','Victoria Road (IRE) · O\'Brien/Moore',5.57,'nse'],['Filly & Mare Sprint','dirt','Goodnight Olive (USA)',1.85,'2½'],['Turf Sprint','turf','Caravel (USA)',42.89,'½'],['Dirt Mile','dirt','Cody\'s Wish (USA)',2.16,'hd'],['Filly & Mare Turf','turf','Tuesday (IRE) · O\'Brien/Moore',4.19,'1'],['Sprint','dirt','Elite Power (USA)',5.55,'1¼'],['Mile','turf','Modern Games (IRE) · Appleby',1.38,'¾'],['Distaff','dirt','Malathaat (USA)',2.88,'nse'],['Turf','turf','Rebel\'s Romance (IRE) · Appleby',5.96,'2¼'],['Classic','dirt','Flightline (USA)',0.44,'8¼']];
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toFrac = o => { const pairs=[[0.44,'4/9'],[0.7,'7/10'],[0.8,'4/5'],[1.2,'6/5'],[1.38,'11/8'],[1.7,'7/4'],[1.85,'15/8'],[2.04,'2/1'],[2.16,'2/1'],[2.6,'5/2'],[2.88,'3/1'],[2.9,'3/1'],[3.5,'7/2'],[4.19,'4/1'],[5,'5/1'],[5.02,'5/1'],[5.3,'5/1'],[5.55,'11/2'],[5.57,'11/2'],[5.96,'6/1'],[6.5,'13/2'],[6.92,'7/1'],[7.6,'15/2'],[8.8,'9/1'],[9.1,'9/1'],[20.6,'20/1'],[27.7,'28/1'],[42.89,'43/1']]; const f=pairs.find(p=>p[0]===o); return f?f[1]:o+'/1'; };
+const tbl = (rows) => `<tr><th>Race</th><th>Winner</th><th style="text-align:right">Odds</th><th>Mgn</th></tr>` + rows.map(r => `<tr${r[3] <= 2 ? ' class="won"' : ''}><td><span class="sf ${r[1]}"></span> ${esc(r[0])}</td><td>${esc(r[2])}</td><td class="o">${toFrac(r[3])}</td><td class="n">${r[4]}</td></tr>`).join('');
+document.getElementById('t25').innerHTML = tbl(R25); document.getElementById('t22').innerHTML = tbl(R22);
+
+document.getElementById('fri').innerHTML = FRI.map(r => `<div class="tile"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="sf ${r.sf}"></span><span class="t">${esc(r.nm)}</span><span class="m"><span class="win">${esc(r.w)}</span> ${esc(r.sp)}</span></div><div class="bd"><div class="pick" style="border-top:0">${esc(r.jt)}<br><span class="note">Placed: ${esc(r.p)}</span><br>${esc(r.note)}</div></div></div>`).join('');
+
+const tagsFor = (h, jk, tr, ml, nm) => { const t = []; const base = h.replace(/\s*\(.*?\)/, '');
+  if (REPEAT.includes(base)) t.push('<span class="tag rep">WON 2025</span>');
+  if (/O'Brien/.test(tr) && !/D O'Brien|J P O'Brien/.test(tr)) t.push('<span class="tag ob">O\'BRIEN</span>');
+  if (/Appleby/.test(tr)) t.push('<span class="tag ap">APPLEBY</span>');
+  if (/\(JPN\)/.test(h)) t.push('<span class="tag jp">JAPAN</span>');
+  if (nm.favML === ml) t.push('<span class="tag fav">FAV</span>');
+  return t.join(''); };
+const mlNum = s => { const [a, b] = s.split('-').map(Number); return a / b; };
+document.getElementById('today').innerHTML = TODAY.map((r, i) => { r.favML = r.f.slice().sort((a, b) => mlNum(a[4]) - mlNum(b[4]))[0][4];
+  const rows = r.f.map(x => `<tr${x[1] === r.pick ? ' class="won"' : ''}><td class="n">${x[0]}</td><td><b>${esc(x[1])}</b>${x[1] === r.pick ? ' <span class="tag pick">PICK</span>' : ''}${x[1] === r.alt ? ' <span class="tag">ALT</span>' : ''}<br><span class="note" style="margin:0">${esc(x[2])} · ${esc(x[3])}</span><br>${tagsFor(x[1], x[2], x[3], x[4], r)}</td><td class="o">${x[4]}</td></tr>`).join('');
+  return `<div class="tile" id="r${i}"><div class="hd" onclick="this.parentNode.classList.toggle('open')"><span class="sf ${r.sf}"></span><span class="t">${r.uk} ${esc(r.nm)}</span><span class="m">${r.d} · ${r.f.length} run</span></div><div class="bd"><table><tr><th>PP</th><th>Horse</th><th style="text-align:right">ML</th></tr>${rows}</table><div class="pick"><b>PICK ${esc(r.pick)}</b> · alt ${esc(r.alt)}<br>${esc(r.why)}${r.scr ? '<br><span class="note">Scratched: ' + esc(r.scr.join(', ')) + '</span>' : ''}</div></div></div>`; }).join('');
+
+const sched = document.getElementById('sched');
+const nowUK = () => { const s = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()); return (+s.slice(0, 2)) * 60 + (+s.slice(3, 5)); };
+const draw = () => { const n = nowUK(); let nextDone = false;
+  sched.innerHTML = TODAY.map((r, i) => { const m = (+r.uk.slice(0, 2)) * 60 + (+r.uk.slice(3, 5)); const gone = m + 3 < n; const isNext = !gone && !nextDone; if (isNext) nextDone = true;
+    return `<a class="srow${isNext ? ' next' : ''}" style="color:inherit;text-decoration:none${gone ? ';opacity:.45' : ''}" href="#r${i}" onclick="document.getElementById('r${i}').classList.add('open')"><span class="uk">${r.uk}</span><span class="et">${r.et} ET</span><span class="sf ${r.sf}"></span><span class="nm">${esc(r.nm)}</span><span class="chip">${isNext ? 'NEXT' : gone ? 'RUN' : r.d}</span></a>`; }).join(''); };
+draw(); setInterval(draw, 30000);
+</script>
+</body></html>
