@@ -137,17 +137,44 @@ function parseCard(txt) {
     i = j; }
   race.runnersList = runners; return race;
 }
+// ---------- MOBILE CARD PARSER (racingpost.com on a phone: values before labels, form rows over three lines) ----------
+function parseCardMobile(txt) {
+  const L = txt.split(/\r?\n/).map(s => s.replace(/ /g, ' ').trim()); const race = {};
+  for (let i = 0; i < L.length; i++) { const s = L[i]; let m = s.match(/^(\d{1,2}):(\d{2})$/); if (m && !race.time && L[i + 1] && /^[A-Z][A-Za-z' ()-]+$/.test(L[i + 1]) && L[i + 2] && /\(/.test(L[i + 2])) { race.time = s; race.course = L[i + 1]; race.name = L[i + 2]; }
+    m = s.match(/^Going:\s*(.+)$/); if (m) race.going = m[1]; m = s.match(/^Runners:\s*(\d+)/); if (m) race.runners = +m[1]; if (/^VERDICT$/.test(s) && /^by /.test(L[i + 1] || '')) race.verdict = L[i + 2] || ''; m = s.match(/^Betting Forecast(.*)$/); if (m) race.forecast = m[1]; }
+  if (race.name) { const m = race.name.match(/^([\d½¼¾]+[mfy]\S*(?:\s*\([^)]*\))?)\s+(.*)$/); if (m) { race.dist = m[1]; race.title = m[2]; } const sm = race.name.match(/\((Turf|Dirt|AW|Fibresand|Polytrack|Tapeta)\)/i); race.surface = sm ? sm[1] : (/hurdle|chase|nh flat|bumper/i.test(race.name) ? 'Jumps' : ''); }
+  race.distF = (() => { const d = String(race.dist || ''); let f = 0; const par = d.match(/\((\d+)m(\d+)f(\d+)y\)/); if (par) return +par[1] * 8 + +par[2] + +par[3] / 220; const mm = d.match(/(\d+)m/); if (mm) f += +mm[1] * 8; const ff = d.match(/(\d+)(½|¼|¾)?f/); if (ff) f += +ff[1] + (ff[2] === '½' ? .5 : ff[2] === '¼' ? .25 : ff[2] === '¾' ? .75 : 0); return f || null; })();
+  const runners = []; const isSex = s => /^(b|br|ch|gr|bl|ro|bb|rg|dkb|dkbr|wh)\s?(g|c|f|m|h|r)$/i.test(s); const junk = s => !s || /^[\dPFURBO\-()wvtphbe\/ ]{1,14}$/.test(s) || /^\d/.test(s) || /^(h|t|v|b|p|e|w|ht|tp|bt|vt|tv|hv|hp|wh)\d?$/i.test(s);
+  for (let i = 0; i < L.length; i++) { if (L[i] !== 'J:') continue; const b = {};
+    // walk back: weight, age, colour/sex, then skip ratings/headgear/form-figure lines to the name
+    let k = i - 1; if (/^\d+st \d+lb$/.test(L[k] || '')) { b.wgt = L[k]; k--; } if (/^\d+yo$/.test(L[k] || '')) { b.age = parseInt(L[k]); k--; } if (isSex(L[k] || '')) k--;
+    while (k > 0 && junk(L[k])) k--; const nm = L[k] || ''; if (!nm || /^(Silk|Exclude|Form)$/.test(nm)) continue;
+    b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || '';
+    b.jockey = (L[i + 1] || '').replace(/^\d+/, '').replace(/\(\d+\)$/, '').trim(); let j = i + 2; if (L[j] === 'T:') { b.trainer = (L[j + 1] || '').replace(/^\d+/, '').replace(/\s+\d+%$/, '').replace(/\s+\([A-Z]+\)$/, '').trim(); j += 2; }
+    for (; j < i + 40 && j < L.length; j++) { const s = L[j]; if (!b.odds && /^(\d+\/\d+|Evs|EVS)$/.test(s)) b.odds = s; if (/^NON-RUNNER$/i.test(s)) b.nr = true;
+      if (s === 'RPR' && L[j - 2] === 'TS' && L[j - 4] === 'OR') { b.rprAdj = num(L[j - 1]); b.tsAdj = num(L[j - 3]); b.or = num(L[j - 5]); } if (/^WGT\tPOS\tSP/.test(s)) { j++; break; } }
+    b.form = []; for (; j < L.length; j++) { const s = L[j]; if (!/^\d{2}[A-Z][a-z]{2}\d{2}$/.test(s)) { if (s === '' || /^Show all|^Betting Forecast/.test(s)) break; if (s === 'J:') break; continue; }
+      const cond = L[j + 1] || '', tab = (L[j + 2] || '').split('\t'); const row = { date: s, cond, wgt: tab[0], out: tab[1], sp: tab[2], or: num(tab[3]), ts: num(tab[4]), rpr: num(tab[5]) };
+      const cm = cond.match(/^(\S+)\s+([\d½¼¾.]+)\s+(\S+)\s*(.*)$/); if (cm) { row.crs = cm[1]; row.distF = parseFloat(cm[2].replace('½', '.5').replace('¼', '.25').replace('¾', '.75')); row.going = cm[3]; row.cls = cm[4]; }
+      const om = String(row.out || '').match(/^(\d+)\/(\d+)/); if (om) { row.pos = +om[1]; row.ran = +om[2]; } row.won = row.pos === 1; b.form.push(row); j += 2; }
+    b.form.reverse(); if (b.nr) (race.nonRunners = race.nonRunners || []).push(b.name); else runners.push(b); }
+  race.runnersList = runners; return race;
+}
+function parseAnyCard(txt) { const d = parseCard(txt); if (d.runnersList.length) return d; const m = parseCardMobile(txt); if (!m.runnersList.length) return d; return m; }
 // ---------- STATS PARSER ----------
 function parseStats(txt) {
   const L = txt.split(/\r?\n/).map(s => s.replace(/ /g, ' ').trim()); const st = { trainer: {}, jockey: {}, horse: {}, past: [] };
   const idx = (re) => L.findIndex(s => re.test(s));
   const sec = (start, end) => { const a = idx(start); if (a < 0) return []; let b = L.length; for (let k = a + 1; k < L.length; k++) if (end.test(L[k])) { b = k; break; } return L.slice(a + 1, b); };
   const isNum6 = s => /^(\d+-\d+|-)$/.test(s);
+  const isVal = s => /^(\d+-\d+|-|\d+%|[+-]?\d+\.\d+|0\.00)$/.test(s);
   const grab = (lines, into) => { for (let k = 0; k < lines.length; k++) { const s = lines[k]; if (!s || /^(LAST 14 DAYS|LAST 5 YEARS|WINS-TOTAL|STRIKE RATE|RETURN)$/.test(s)) continue;
-      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { into[s] = { d14: lines[k + 1], d14pc: lines[k + 2], d14ret: lines[k + 3], c5: lines[k + 4], c5pc: lines[k + 5], c5ret: lines[k + 6] }; k += 6; } } };
+      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { const v = []; let q = k + 1; while (q < lines.length && isVal(lines[q]) && v.length < 6) v.push(lines[q++]);
+        into[s] = v.length >= 6 ? { d14: v[0], d14pc: v[1], d14ret: v[2], c5: v[3], c5pc: v[4], c5ret: v[5] } : { d14: v[0], d14pc: v[1], d14ret: v[2] }; k = q - 1; } } };
   grab(sec(/^BY TRAINER$/, /^BY JOCKEY$/), st.trainer); grab(sec(/^BY JOCKEY$/, /^BY HORSE$/), st.jockey);
   { const lines = sec(/^BY HORSE$/, /^Statistical breakdown/); for (let k = 0; k < lines.length; k++) { const s = lines[k]; if (!s || /^(GOING|DISTANCE|COURSE|WINS-TOTAL|STRIKE RATE)$/.test(s)) continue;
-      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { st.horse[s] = { going: lines[k + 1], dist: lines[k + 3], course: lines[k + 5] }; k += 6; } } }
+      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { const v = []; let q = k + 1; while (q < lines.length && isVal(lines[q]) && v.length < 6) v.push(lines[q++]);
+        st.horse[s] = { going: v[0], dist: v.length >= 4 ? v[2] : undefined, course: v.length >= 6 ? v[4] : undefined }; k = q - 1; } } }
   { const lines = sec(/PAST WINNERS$/, /^OFFICIAL RATINGS$/).filter(s => s && !/^(Racing Post\+|YEAR|WINNER \[DRAW\]|AGE|WGT|S\/P|JOCKEY|TRAINER|RPR)$/.test(s));
     for (let k = 0; k + 7 < lines.length; k += 8) { if (!/^\d{4}$/.test(lines[k])) { k -= 7; continue; } st.past.push({ year: +lines[k], winner: lines[k + 1], age: +lines[k + 2], wgt: lines[k + 3], sp: lines[k + 4], jk: lines[k + 5], tr: lines[k + 6], rpr: num(lines[k + 7]) }); } }
   return st;
@@ -155,7 +182,8 @@ function parseStats(txt) {
 // ---------- SIGNALS ----------
 function analyse(race, st) {
   const past = st.past.filter(p => p.rpr); const rprs = past.map(p => p.rpr).sort((a, b) => a - b);
-  const mark = rprs.length ? rprs[Math.floor(rprs.length / 2)] : null; const lo = rprs[0], hi = rprs[rprs.length - 1];
+  let markSrc = 'past winners'; let mark = rprs.length ? rprs[Math.floor(rprs.length / 2)] : null; const lo = rprs[0], hi = rprs[rprs.length - 1];
+  if (mark == null) { const bests = race.runnersList.map(r => Math.max(...r.form.map(f => f.rpr).filter(v => v != null), 0)).filter(v => v > 0).sort((a, b) => b - a); if (bests.length >= 2) { mark = bests[1]; markSrc = 'the field (2nd-best RPR in it)'; } }
   const favW = past.filter(p => /F$/.test(p.sp)).length, y3 = past.filter(p => p.age === 3).length;
   const gk = goingKey(race.going); const name0 = n => String(n).replace(/\s*\(.*?\)/, '').trim();
   const out = race.runnersList.map(r => { const seq = r.form.map(f => f.rpr).filter(v => v != null); const last = seq[seq.length - 1]; const best = seq.length ? Math.max(...seq) : null; const prev = seq.slice(-4, -1); const avgPrev = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : null;
@@ -188,14 +216,14 @@ function analyse(race, st) {
     const score = Math.round((fig * .45 + sig * .25 + fitS * .15 + conn * .15) * 100);
     return { r, seq, last, best, trend, improver, bounce, nearMark, declining, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
   out.sort((a, b) => b.score - a.score);
-  return { mark, lo, hi, favW, y3, past, out, gk };
+  return { mark, markSrc, lo, hi, favW, y3, past, out, gk };
 }
 // ---------- RENDER ----------
 function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...seq), mn = Math.min(...seq) - 2; const w = 84, h = 22; return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="2" points="${seq.map((v, i) => `${3 + i * (w - 6) / Math.max(1, seq.length - 1)},${h - 2 - (v - mn) / Math.max(1, mx - mn) * (h - 4)}`).join(' ')}"/></svg>`; }
 function render(race, st, A) {
   document.getElementById('out').style.display = 'block';
   const nr = race.nonRunners && race.nonRunners.length ? ' · NR: ' + race.nonRunners.join(', ') : '';
-  document.getElementById('kv').innerHTML = `<div><b>${A.mark ?? '—'}</b><span>the mark (median winning RPR)</span></div><div><b>${A.favW}/${A.past.length}</b><span>favourites won</span></div><div><b>${A.y3}/${A.past.length}</b><span>3yo winners</span></div>`;
+  document.getElementById('kv').innerHTML = `<div><b>${A.mark ?? '—'}</b><span>the mark · ${esc(A.markSrc)}</span></div><div><b>${A.favW}/${A.past.length}</b><span>favourites won</span></div><div><b>${A.y3}/${A.past.length}</b><span>3yo winners</span></div>`;
   const at = A.out.filter(x => x.nearMark), imp = A.out.filter(x => x.improver), bb = A.out.filter(x => x.bounce), dec = A.out.filter(x => x.declining);
   const nm = x => `<b>${esc(x.r.name)}</b>${x.r.odds ? ' <span style="color:var(--mut)">' + esc(x.r.odds) + '</span>' : ''}`;
   const strongestImp = imp.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
@@ -212,14 +240,14 @@ function render(race, st, A) {
   const rc = s => `<span class="${(num(s) || 0) > 0 ? 'pos' : (num(s) || 0) < 0 ? 'neg' : ''}" style="${(num(s) || 0) > 0 ? 'color:var(--mint)' : (num(s) || 0) < 0 ? 'color:var(--rose)' : ''}">${esc(s || '')}</span>`;
   document.getElementById('conn').innerHTML = `<tr><th>Runner · connections</th><th>Trainer here</th><th>Tr 14d</th><th>Jockey here</th><th>Jk 14d</th></tr>` + A.out.map(x => `<tr><td style="white-space:normal"><b>${esc(x.r.name)}</b><br><span style="color:var(--mut)">${esc(x.r.trainer)} · ${esc(x.r.jockey)}</span></td><td>${esc(x.tr.c5 || '—')} ${rc(x.tr.c5ret)}</td><td>${esc(x.tr.d14 || '—')}</td><td>${esc(x.jk.c5 || '—')} ${rc(x.jk.c5ret)}</td><td>${esc(x.jk.d14 || '—')}</td></tr>`).join('');
   document.getElementById('past').innerHTML = `<tr><th>Year</th><th style="text-align:left">Winner [draw]</th><th>Age</th><th>SP</th><th>Trainer</th><th>RPR</th></tr>` + A.past.map(p => `<tr><td style="text-align:left">${p.year}</td><td style="text-align:left;white-space:normal">${esc(p.winner)}</td><td>${p.age}</td><td class="${/F$/.test(p.sp) ? 'top' : ''}">${esc(p.sp)}</td><td style="white-space:normal">${esc(p.tr)}</td><td>${p.rpr ?? '—'}</td></tr>`).join('');
-  document.getElementById('pastnote').textContent = A.past.length ? `Winning RPR ${A.lo}–${A.hi}, median ${A.mark}. Favourites ${A.favW}/${A.past.length}. 3yos ${A.y3}/${A.past.length}.` : 'No past-winners table found in the stats page.';
+  document.getElementById('pastnote').textContent = A.past.length ? `Winning RPR ${A.lo}–${A.hi}, median ${A.mark}. Favourites ${A.favW}/${A.past.length}. 3yos ${A.y3}/${A.past.length}.` : 'No past winners for this race - the mark is set from the field instead.';
   const flagged = A.out.filter(x => x.nearMark || x.improver || x.bounce).slice(0, 8);
   document.getElementById('notes').innerHTML = flagged.length ? flagged.map(x => `<div style="padding:10px 12px;border-top:1px solid var(--line);font-size:13px"><b>${esc(x.r.name)}</b> <span style="color:var(--mut)">${esc(x.r.odds || '')}</span><br>${esc(x.r.spot || '—')}</div>`).join('') : '<div class="note" style="padding:10px 12px">Nothing flagged.</div>';
 }
 // ---------- WIRING ----------
 const $ = id => document.getElementById(id);
 function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\n' + b; $('err').textContent = '';
-  try { const race = parseCard(both); const st = parseStats(both);
+  try { const race = parseAnyCard(both); const st = parseStats(both);
     if (!race.runnersList.length) { $('err').textContent = 'No runners found — paste the Pro Card page (the one with the form lines under each horse).'; return; }
     if (!st.past.length && !Object.keys(st.trainer).length) $('err').textContent = 'Stats page not found (no By Trainer / Past Winners) — signals still run on the form lines; connections and the mark will be blank.';
     const A = analyse(race, st); render(race, st, A); $('status').textContent = `${race.runnersList.length} runners · ${st.past.length} past winners · ${Object.keys(st.trainer).length} trainers`;
@@ -234,6 +262,6 @@ document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => {
 const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
 $('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
 savedList();
-window.__rp = { parseCard, parseStats, analyse };
+window.__rp = { parseCard, parseCardMobile, parseAnyCard, parseStats, analyse };
 </script>
 </body></html>
