@@ -44,11 +44,22 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 
 <section>
 <h3>Paste Racing Post <small>pro card (with form lines) and the stats page — either order, one box each or both in one</small></h3>
-<textarea id="t1" placeholder="Pro Card page: select all → copy → paste here"></textarea>
-<textarea id="t2" placeholder="Stats page (By trainer / By jockey / By horse / Past winners): paste here" style="margin-top:8px"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="note" style="margin:0;flex:1">1 · Pro Card (with form lines)</span><button class="btn g" data-paste="t1">PASTE</button></div><textarea id="t1" placeholder="Pro Card page text"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin:10px 0 6px"><span class="note" style="margin:0;flex:1">2 · Stats (trainer / jockey / horse / past winners)</span><button class="btn g" data-paste="t2">PASTE</button></div><textarea id="t2" placeholder="Stats page text"></textarea>
 <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="btn" id="go">ANALYSE</button><button class="btn g" id="clr">CLEAR</button><span class="note" id="status" style="margin:0"></span></div>
 <div class="saved" id="saved"></div>
 <div class="err" id="err"></div>
+<details style="margin-top:12px"><summary style="cursor:pointer;color:var(--mut);font-size:13px">One-tap copy on iPhone (set up once)</summary>
+<div class="note" style="margin-top:8px">A Safari bookmark that copies the whole page in one tap, so you never select-all again.</div>
+<ol class="note" style="padding-left:18px;margin:6px 0">
+<li>Tap <b>COPY BOOKMARK CODE</b> below.</li>
+<li>In Safari, on any page: Share → <b>Add Bookmark</b> → name it <b>COPY PAGE</b> → Save.</li>
+<li>Open Bookmarks → <b>Edit</b> → tap COPY PAGE → delete the address and <b>paste</b> the code → Done.</li>
+<li>From now on: on a Racing Post page tap Bookmarks → COPY PAGE. It says “copied”. Open Spotlight, tap PASTE.</li>
+</ol>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn g" id="bmcopy">COPY BOOKMARK CODE</button><span class="note" id="bmst" style="margin:0"></span></div>
+<textarea id="bmcode" readonly style="min-height:60px;margin-top:8px;font-size:11px"></textarea>
+</details>
 </section>
 
 <div id="out" style="display:none">
@@ -218,7 +229,10 @@ function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\
 function savedList() { let ks = []; try { ks = Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).sort((x, y) => (JSON.parse(localStorage.getItem(y)).at || 0) - (JSON.parse(localStorage.getItem(x)).at || 0)).slice(0, 12); } catch {}
   $('saved').innerHTML = ks.map(k => `<a class="chip" href="#" data-k="${esc(k)}">${esc(k.slice(7))}</a>`).join('');
   $('saved').querySelectorAll('a').forEach(el => el.onclick = (ev) => { ev.preventDefault(); try { const v = JSON.parse(localStorage.getItem(el.dataset.k)); $('t1').value = v.a; $('t2').value = v.b; run(); } catch {} }); }
-$('go').onclick = run; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
+$('go').onclick = run;
+document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => { try { const t = await navigator.clipboard.readText(); if (!t) { $('err').textContent = 'Clipboard is empty.'; return; } $(b.dataset.paste).value = t; $('err').textContent = ''; if ($('t1').value && ($('t2').value || /BY TRAINER/.test(t))) run(); } catch { $('err').textContent = 'Safari would not share the clipboard - long-press the box and tap Paste instead.'; } });
+const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
+$('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
 savedList();
 window.__rp = { parseCard, parseStats, analyse };
 </script>
