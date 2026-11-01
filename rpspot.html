@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPOTLIGHT ANY RACE — RACESIDE</title>
+<meta name="description" content="Paste a Racing Post pro card and stats page; get the mark, who is at it, the consistent improvers, bounce-backs and decliners, form fit and connections.">
+<style>
+:root{--bg:#07070b;--ink:#f4f1ea;--mut:#9a9aa8;--line:#1e1e28;--panel:#0f0f16;--gold:#e9c46a;--rose:#ff5c8a;--mint:#4ade80;--sky:#60a5fa;--vio:#a78bfa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+a{color:var(--sky)}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(7,7,11,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .brand{font-weight:900;letter-spacing:.14em;font-size:11px;color:var(--rose)}.top h1{margin:0;flex:1;font-size:14px;font-weight:900;letter-spacing:.03em;white-space:nowrap}.top .chip{white-space:nowrap}
+.chip{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:.06em;background:#17171f;color:var(--mut);border:1px solid var(--line);text-decoration:none}
+section{padding:8px 14px}
+h3{margin:16px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:900}
+h3 small{color:var(--mut);letter-spacing:0;text-transform:none;font-weight:600;margin-left:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:10px}
+textarea{width:100%;min-height:110px;background:#0b0b11;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+.btn{display:inline-block;background:var(--gold);color:#1a1200;font-weight:900;letter-spacing:.08em;border:0;border-radius:999px;padding:11px 18px;font-size:13px;cursor:pointer}
+.btn.g{background:#17171f;color:var(--mut);border:1px solid var(--line)}
+.row{display:grid;grid-template-columns:30px 1fr 64px;gap:10px;align-items:center;padding:11px 12px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}.row .n{font-weight:900;color:var(--mut);font-size:13px}
+.row .h b{display:block;font-size:15px;font-weight:900}.row .h span{font-size:12px;color:var(--mut)}
+.row .s{text-align:right;font-weight:900;font-size:17px}
+.tags{margin-top:4px}.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:1px 6px;margin:2px 4px 0 0;background:#17171f;color:var(--mut);border:1px solid var(--line)}
+.tag.g{color:var(--mint);border-color:#14532d}.tag.r{color:var(--rose);border-color:#4a1020}.tag.y{color:var(--gold);border-color:#4a3608}.tag.b{color:var(--sky);border-color:#1e3a5f}.tag.v{color:var(--vio);border-color:#3b2a6b}
+.verdict{padding:14px;background:linear-gradient(135deg,rgba(233,196,106,.12),rgba(255,92,138,.08));border:1px solid rgba(233,196,106,.35);border-radius:16px;margin-bottom:10px}
+.verdict .v{font-size:11px;letter-spacing:.2em;font-weight:900;color:var(--gold)}
+.verdict h4{margin:4px 0 6px;font-size:22px;font-weight:900}
+.verdict p{margin:6px 0;font-size:14px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.kv div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}.kv b{display:block;font-size:20px;font-weight:900}.kv span{font-size:10px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:right;padding:8px;border-bottom:1px solid var(--line);font-weight:800}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 8px;border-bottom:1px solid #15151d;text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:var(--gold);font-weight:900}
+.note{color:var(--mut);font-size:12px;margin:6px 0 10px}
+.spark{vertical-align:middle}
+.err{color:var(--rose);font-size:13px;padding:8px 0}
+.saved{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+</style></head>
+<body>
+<div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT · ANY RACE</h1><a class="chip" href="/spotlight.html">BC TURF</a><a class="chip" href="/breeders.html">BREEDERS</a></div>
+
+<section>
+<h3>Paste Racing Post <small>pro card (with form lines) and the stats page — either order, one box each or both in one</small></h3>
+<textarea id="t1" placeholder="Pro Card page: select all → copy → paste here"></textarea>
+<textarea id="t2" placeholder="Stats page (By trainer / By jockey / By horse / Past winners): paste here" style="margin-top:8px"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="btn" id="go">ANALYSE</button><button class="btn g" id="clr">CLEAR</button><span class="note" id="status" style="margin:0"></span></div>
+<div class="saved" id="saved"></div>
+<div class="err" id="err"></div>
+</section>
+
+<div id="out" style="display:none">
+<section>
+<div class="kv" id="kv"></div>
+<div class="verdict" id="verdict"></div>
+<h3>Signals <small>the mark is what this race takes to win; signals read each horse's last six against it</small></h3>
+<div class="card" id="rank"></div>
+<div class="note">AT THE MARK = has run within 2lb of the mark in its last three. CONSISTENT IMPROVER = every run in the last four within 3lb of the one before, no single leap over 10lb in the last two steps, net climbing, best two figures the two most recent. BOUNCE-BACK = has run the mark at least twice, last run 3–9lb below it. DECLINING = last run 10lb+ below its best, or two runs down in a row. The score ranks the evidence, not the price.</div>
+</section>
+<section>
+<h3>Last six <small>oldest → latest, Racing Post RPR</small></h3>
+<div class="card"><table id="traj"></table></div>
+</section>
+<section>
+<h3>Form fit <small>wins–runs: today's going · distance · course</small></h3>
+<div class="card"><table id="fit"></table></div>
+</section>
+<section>
+<h3>Connections <small>trainer and jockey: at this course last 5 seasons · last 14 days</small></h3>
+<div class="card"><table id="conn"></table></div>
+</section>
+<section>
+<h3>Past winners</h3>
+<div class="card"><table id="past"></table></div>
+<div class="note" id="pastnote"></div>
+</section>
+<section>
+<h3>Spotlight notes <small>Racing Post comments, for the horses the signals flag</small></h3>
+<div class="card" id="notes"></div>
+</section>
+</div>
+
+<script>
+const esc = s => String(s == null ? '—' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = s => { const v = parseFloat(String(s).replace(/[^\d.\-]/g, '')); return isNaN(v) ? null : v; };
+const wr = s => { const m = String(s || '').match(/^(\d+)-(\d+)$/); return m ? [+m[1], +m[2]] : [0, 0]; };
+const oddsNum = s => { const m = String(s || '').match(/^(\d+)\/(\d+)/); return m ? +m[1] / +m[2] : (/^evs$/i.test(s) ? 1 : null); };
+const GO = { Fm: 'firm', GF: 'good to firm', Gd: 'good', GS: 'good to soft', Sft: 'soft', Hy: 'heavy', VSft: 'very soft', Fs: 'fast', St: 'standard', 'St/Slw': 'standard to slow', S: 'sloppy', Y: 'yielding', 'Gd/Y': 'good to yielding', Slw: 'slow' };
+const goingKey = g => { g = String(g || '').toLowerCase(); if (/fast|firm|fm|fs/.test(g)) return 'fast'; if (/good to firm|gf/.test(g)) return 'gf'; if (/good to soft|gs|yield|gd\/y/.test(g)) return 'gs'; if (/soft|heavy|sloppy|^s$/.test(g)) return 'soft'; if (/standard|st/.test(g)) return 'st'; return 'good'; };
+
+// ---------- CARD PARSER ----------
+function parseCard(txt) {
+  const L = txt.split(/\r?\n/).map(s => s.replace(/ /g, ' ').trimEnd());
+  const race = {};
+  for (let i = 0; i < L.length; i++) { const s = L[i].trim();
+    let m = s.match(/^(\d{1,2}):(\d{2})$/); if (m && !race.time && L[i + 1] && /^[A-Z][A-Za-z' ()-]+$/.test(L[i + 1].trim()) && L[i + 2] && /\(/.test(L[i + 2])) { race.time = s; race.course = L[i + 1].trim(); race.name = L[i + 2].trim(); }
+    m = s.match(/^Going:\s*(.+)$/); if (m) race.going = m[1].trim();
+    m = s.match(/^Runners:\s*(\d+)/); if (m) race.runners = +m[1];
+    m = s.match(/^VERDICT$/); if (m && L[i + 1] && /^by /.test(L[i + 1])) race.verdict = (L[i + 2] || '').trim();
+    m = s.match(/^Betting Forecast(.*)$/); if (m) race.forecast = m[1].trim(); }
+  if (race.name) { const m = race.name.match(/^([\d½¼¾]+[mfy]\S*(?:\s*\([^)]*\))?)\s+(.*)$/); if (m) { race.dist = m[1]; race.title = m[2]; } const sm = race.name.match(/\((Turf|Dirt|AW|Fibresand|Polytrack|Tapeta)\)/i); race.surface = sm ? sm[1] : ''; }
+  race.distF = (() => { const d = String(race.dist || ''); let f = 0; const mm = d.match(/(\d+)m/); if (mm) f += +mm[1] * 8; const ff = d.match(/(\d+)(½|¼|¾)?f/); if (ff) f += +ff[1] + (ff[2] === '½' ? .5 : ff[2] === '¼' ? .25 : ff[2] === '¾' ? .75 : 0); const par = d.match(/\((\d+)m(\d+)f(\d+)y\)/); if (par) f = +par[1] * 8 + +par[2] + +par[3] / 220; return f || null; })();
+  // runners
+  const runners = []; let i = 0;
+  while (i < L.length) { if (L[i].trim() !== 'Silk') { i++; continue; }
+    const b = { }; let j = i + 1; const no = L[j] && L[j].trim(); if (!/^(\d+|NR)$/.test(no || '')) { i++; continue; } b.no = no; j++;
+    if (L[j] && /^\(\d+\)$/.test(L[j].trim())) { b.draw = L[j].trim().slice(1, -1); j++; } else { i++; continue; }   // the page-top odds panel is also 'Silk / number / name' but has no draw: skip it
+    const nm = (L[j] || '').trim(); if (!nm || /^(Silk|Show all)/.test(nm)) { i = j; continue; } b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || ''; j++;
+    for (; j < i + 90 && j < L.length; j++) { const s = L[j].trim();
+      if (/^\d+yo$/.test(s)) b.age = +s; else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { b.trainer = (L[j + 1] || '').trim().replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
+      else if (/^\d+st \d+lb$/.test(s)) b.wgt = s; else if (/^NON-RUNNER$/.test(s)) b.nr = true;
+      else if (!b.odds && b.trainer && /^(\d+\/\d+|Evs|EVS|\d+\.\d+)$/.test(s)) b.odds = s;
+      else if (/^RPR:$/.test(s)) { b.rprAdj = num(L[j + 1]); } else if (/^(SH|EXT)$/.test(s) && L[j - 1] && /^(SH|Spotlight)$/.test(L[j - 1].trim()) && s === 'EXT') { b.spot = (L[j + 1] || '').trim(); }
+      else if (/^FORM$/.test(s)) break; }
+    // form rows
+    b.form = []; for (; j < L.length; j++) { const s = L[j]; if (/^Silk$/.test(s.trim()) || /^Show all racecards/.test(s.trim()) || /^Betting Forecast/.test(s.trim())) break;
+      if (/^\d{2}[A-Z][a-z]{2}\d{2}\t/.test(s)) { const c = s.split('\t'); const row = { date: c[0], cond: c[1], wgt: c[2], out: c[3], jk: c[4] };
+        const tail = c.slice(5).map(x => x.trim()); row.rpr = num(tail[tail.length - 1]); row.ts = num(tail[tail.length - 2]); row.or = num(tail[tail.length - 3]);
+        const cm = String(row.cond).match(/^(\S+)\s+([\d½¼¾.]+)\s+(\S+)\s*(.*)$/); if (cm) { row.crs = cm[1]; row.distF = parseFloat(cm[2].replace('½', '.5').replace('¼', '.25').replace('¾', '.75')); row.going = cm[3]; row.cls = cm[4]; }
+        const om = String(row.out).match(/^(\d+)\/(\d+)/); if (om) { row.pos = +om[1]; row.ran = +om[2]; } row.won = row.pos === 1; row.sp = (String(row.out).match(/\s([\d\/]+F?|Evs F?)\s*$/) || [])[1];
+        b.form.push(row); } }
+    b.form.reverse();   // oldest → latest
+    if (b.name && !/^(NR|RES)$/.test(b.no) && !b.nr) runners.push(b); else if (b.name) (race.nonRunners = race.nonRunners || []).push(b.name);
+    i = j; }
+  race.runnersList = runners; return race;
+}
+// ---------- STATS PARSER ----------
+function parseStats(txt) {
+  const L = txt.split(/\r?\n/).map(s => s.replace(/ /g, ' ').trim()); const st = { trainer: {}, jockey: {}, horse: {}, past: [] };
+  const idx = (re) => L.findIndex(s => re.test(s));
+  const sec = (start, end) => { const a = idx(start); if (a < 0) return []; let b = L.length; for (let k = a + 1; k < L.length; k++) if (end.test(L[k])) { b = k; break; } return L.slice(a + 1, b); };
+  const isNum6 = s => /^(\d+-\d+|-)$/.test(s);
+  const grab = (lines, into) => { for (let k = 0; k < lines.length; k++) { const s = lines[k]; if (!s || /^(LAST 14 DAYS|LAST 5 YEARS|WINS-TOTAL|STRIKE RATE|RETURN)$/.test(s)) continue;
+      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { into[s] = { d14: lines[k + 1], d14pc: lines[k + 2], d14ret: lines[k + 3], c5: lines[k + 4], c5pc: lines[k + 5], c5ret: lines[k + 6] }; k += 6; } } };
+  grab(sec(/^BY TRAINER$/, /^BY JOCKEY$/), st.trainer); grab(sec(/^BY JOCKEY$/, /^BY HORSE$/), st.jockey);
+  { const lines = sec(/^BY HORSE$/, /^Statistical breakdown/); for (let k = 0; k < lines.length; k++) { const s = lines[k]; if (!s || /^(GOING|DISTANCE|COURSE|WINS-TOTAL|STRIKE RATE)$/.test(s)) continue;
+      if (!isNum6(s) && lines[k + 1] && isNum6(lines[k + 1])) { st.horse[s] = { going: lines[k + 1], dist: lines[k + 3], course: lines[k + 5] }; k += 6; } } }
+  { const lines = sec(/PAST WINNERS$/, /^OFFICIAL RATINGS$/).filter(s => s && !/^(Racing Post\+|YEAR|WINNER \[DRAW\]|AGE|WGT|S\/P|JOCKEY|TRAINER|RPR)$/.test(s));
+    for (let k = 0; k + 7 < lines.length; k += 8) { if (!/^\d{4}$/.test(lines[k])) { k -= 7; continue; } st.past.push({ year: +lines[k], winner: lines[k + 1], age: +lines[k + 2], wgt: lines[k + 3], sp: lines[k + 4], jk: lines[k + 5], tr: lines[k + 6], rpr: num(lines[k + 7]) }); } }
+  return st;
+}
+// ---------- SIGNALS ----------
+function analyse(race, st) {
+  const past = st.past.filter(p => p.rpr); const rprs = past.map(p => p.rpr).sort((a, b) => a - b);
+  const mark = rprs.length ? rprs[Math.floor(rprs.length / 2)] : null; const lo = rprs[0], hi = rprs[rprs.length - 1];
+  const favW = past.filter(p => /F$/.test(p.sp)).length, y3 = past.filter(p => p.age === 3).length;
+  const gk = goingKey(race.going); const name0 = n => String(n).replace(/\s*\(.*?\)/, '').trim();
+  const out = race.runnersList.map(r => { const seq = r.form.map(f => f.rpr).filter(v => v != null); const last = seq[seq.length - 1]; const best = seq.length ? Math.max(...seq) : null; const prev = seq.slice(-4, -1); const avgPrev = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : null;
+    const l4 = seq.slice(-4); let consistent = l4.length >= 3; for (let k = 1; k < l4.length; k++) { if (l4[k] < l4[k - 1] - 3) consistent = false; if (k >= l4.length - 2 && l4[k] - l4[k - 1] > 10) consistent = false; }   // steady steps: no dip over 3lb, and no single leap over 10lb in the last two steps (a step-change is a different signal)
+    const climbing = l4.length >= 3 && l4[l4.length - 1] > l4[0]; const top2 = seq.slice().sort((a, b) => b - a).slice(0, 2); const lastTwoBest = seq.length >= 3 && top2.every(v => seq.slice(-2).includes(v));
+    const improver = consistent && climbing && lastTwoBest; const nearMark = mark != null && seq.slice(-3).some(v => v >= mark - 2);
+    const timesAtMark = mark != null ? seq.filter(v => v >= mark - 1).length : 0; const bounce = timesAtMark >= 2 && last != null && best - last >= 3 && best - last <= 9;
+    const declining = last != null && best != null && ((best - last >= 10) || (seq.length >= 3 && seq[seq.length - 1] < seq[seq.length - 2] && seq[seq.length - 2] < seq[seq.length - 3]));
+    const trend = avgPrev != null ? Math.round(last - avgPrev) : null;
+    // fit
+    const h = st.horse[name0(r.name)] || {}; const fitG = wr(h.going), fitD = wr(h.dist), fitC = wr(h.course);
+    const tr = st.trainer[r.trainer] || Object.entries(st.trainer).find(([k]) => k.split(' ').pop() === String(r.trainer).split(' ').pop())?.[1] || {}; const jk = st.jockey[r.jockey] || {};
+    const pc = s => { const [w, n] = wr(s); return n ? w / n : null; }; const ret = s => num(s) || 0;
+    const tags = [];
+    if (nearMark) tags.push(['AT THE MARK', 'y']); if (improver) tags.push(['CONSISTENT IMPROVER', 'g']); if (bounce) tags.push(['BOUNCE-BACK', 'v']); if (declining) tags.push(['DECLINING', 'r']);
+    if (last != null && last === best && seq.length >= 2) tags.push(['CAREER BEST LAST', 'g']);
+    if (fitD[0] >= 2 && fitD[0] / fitD[1] >= .4) tags.push(['TRIP ' + fitD.join('-'), 'b']); if (fitG[0] >= 2 && fitG[0] / fitG[1] >= .4) tags.push(['GOING ' + fitG.join('-'), 'b']); if (fitC[0] >= 1) tags.push(['COURSE ' + fitC.join('-'), 'b']);
+    if (pc(tr.c5) >= .25 && wr(tr.c5)[1] >= 8) tags.push(['TRAINER ' + tr.c5pc + ' HERE', 'g']); if (ret(tr.c5ret) >= 15) tags.push(['TRAINER ' + tr.c5ret + ' HERE', 'g']);
+    if (pc(jk.c5) >= .25 && wr(jk.c5)[1] >= 8) tags.push(['JOCKEY ' + jk.c5pc + ' HERE', 'g']); if (ret(jk.c5ret) >= 15) tags.push(['JOCKEY ' + jk.c5ret + ' HERE', 'g']);
+    if (pc(tr.d14) != null && pc(tr.d14) < .08 && wr(tr.d14)[1] >= 10) tags.push(['TRAINER COLD', 'r']); if (pc(jk.d14) != null && pc(jk.d14) < .08 && wr(jk.d14)[1] >= 15) tags.push(['JOCKEY COLD', 'r']);
+    if (r.age === 3 && y3 >= 3) tags.push(['3YO · ' + y3 + '/' + past.length + ' WON', 'b']);
+    const gapRuns = (() => { const d = r.form[r.form.length - 1]; if (!d) return null; const m = String(d.date).match(/^(\d{2})([A-Z][a-z]{2})(\d{2})$/); if (!m) return null; const dt = new Date(`${m[1]} ${m[2]} 20${m[3]}`); return Math.round((Date.now() - dt) / 86400000); })();
+    if (gapRuns != null && gapRuns > 120) tags.push(['OFF ' + Math.round(gapRuns / 30) + ' MONTHS', 'r']);
+    // score: figures vs mark 45, signal 25, fit 15, connections 15
+    const fig = mark != null && best != null ? Math.max(0, Math.min(1, 1 - (mark - Math.max(last || 0, (seq.slice(-3).length ? Math.max(...seq.slice(-3)) : 0)) + 4) / 14)) : .4;
+    const sig = improver ? 1 : bounce ? .8 : nearMark ? .7 : declining ? .1 : .4;
+    const fitS = Math.min(1, (fitD[1] ? fitD[0] / fitD[1] * .5 + Math.min(fitD[0], 3) / 3 * .5 : .3) * .5 + (fitG[1] ? fitG[0] / fitG[1] * .5 + Math.min(fitG[0], 3) / 3 * .5 : .3) * .3 + (fitC[0] ? 1 : .3) * .2);
+    const cn = (s, rt) => { const [w, n] = wr(s); if (!n) return .3; return Math.min(1, w / n * 1.6 + (ret(rt) > 0 ? .15 : 0) + Math.min(n, 20) / 20 * .15); };
+    const conn = cn(tr.c5, tr.c5ret) * .35 + cn(tr.d14, tr.d14ret) * .15 + cn(jk.c5, jk.c5ret) * .35 + cn(jk.d14, jk.d14ret) * .15;
+    const score = Math.round((fig * .45 + sig * .25 + fitS * .15 + conn * .15) * 100);
+    return { r, seq, last, best, trend, improver, bounce, nearMark, declining, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
+  out.sort((a, b) => b.score - a.score);
+  return { mark, lo, hi, favW, y3, past, out, gk };
+}
+// ---------- RENDER ----------
+function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...seq), mn = Math.min(...seq) - 2; const w = 84, h = 22; return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="2" points="${seq.map((v, i) => `${3 + i * (w - 6) / Math.max(1, seq.length - 1)},${h - 2 - (v - mn) / Math.max(1, mx - mn) * (h - 4)}`).join(' ')}"/></svg>`; }
+function render(race, st, A) {
+  document.getElementById('out').style.display = 'block';
+  const nr = race.nonRunners && race.nonRunners.length ? ' · NR: ' + race.nonRunners.join(', ') : '';
+  document.getElementById('kv').innerHTML = `<div><b>${A.mark ?? '—'}</b><span>the mark (median winning RPR)</span></div><div><b>${A.favW}/${A.past.length}</b><span>favourites won</span></div><div><b>${A.y3}/${A.past.length}</b><span>3yo winners</span></div>`;
+  const at = A.out.filter(x => x.nearMark), imp = A.out.filter(x => x.improver), bb = A.out.filter(x => x.bounce), dec = A.out.filter(x => x.declining);
+  const nm = x => `<b>${esc(x.r.name)}</b>${x.r.odds ? ' <span style="color:var(--mut)">' + esc(x.r.odds) + '</span>' : ''}`;
+  const strongestImp = imp.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
+  document.getElementById('verdict').innerHTML = `<div class="v">${esc(race.time || '')} ${esc(race.course || '')} · ${esc(race.name || '')}</div><h4>${esc(race.going ? 'Going ' + race.going : '')}${race.runnersList.length ? ' · ' + race.runnersList.length + ' run' : ''}${esc(nr)}</h4>
+    <p><b>At the mark (${A.mark ?? '—'}):</b> ${at.length ? at.map(nm).join(', ') : 'nobody — the race may be won below its usual level.'}</p>
+    <p><b>Consistent improvers:</b> ${imp.length ? imp.map(nm).join(', ') : 'none by the strict rule.'}${strongestImp ? ` Strongest: <b>${esc(strongestImp.r.name)}</b> (last ${strongestImp.last}${A.mark != null ? ', ' + (strongestImp.last >= A.mark - 2 ? 'at the mark' : (A.mark - strongestImp.last) + 'lb short') : ''}).` : ''}</p>
+    <p><b>Bounce-backs:</b> ${bb.length ? bb.map(nm).join(', ') : 'none.'} &nbsp; <b>Declining:</b> ${dec.length ? dec.map(nm).join(', ') : 'none.'}</p>
+    ${race.verdict ? `<p style="color:var(--mut);font-size:13px"><b style="color:var(--ink)">Racing Post:</b> ${esc(race.verdict)}</p>` : ''}`;
+  const topS = A.out[0] ? A.out[0].score : 1;
+  document.getElementById('rank').innerHTML = A.out.map((x, i) => `<div class="row"><div class="n">${i + 1}</div><div class="h"><b>${esc(x.r.name)} <span style="font-weight:600;color:var(--mut)">${esc(x.r.odds || '')}</span></b><span>${esc(x.r.jockey)} · ${esc(x.r.trainer)} · ${x.r.age ? x.r.age + 'yo' : ''} · dr ${esc(x.r.draw)}</span><div class="tags">${x.tags.map(t => `<span class="tag ${t[1]}">${esc(t[0])}</span>`).join('')}</div></div><div class="s">${x.score}</div></div>`).join('');
+  document.getElementById('traj').innerHTML = `<tr><th>Horse</th><th style="text-align:left">Last 6</th><th>Last</th><th>Best</th><th>Trend</th></tr>` + A.out.map(x => `<tr><td><b>${esc(x.r.name)}</b></td><td style="text-align:left;white-space:normal;line-height:1.1">${spark(x.seq, x.improver ? '#4ade80' : x.declining ? '#ff5c8a' : x.bounce ? '#a78bfa' : '#e9c46a')}<br><span style="color:var(--mut);font-size:10px">${x.seq.join(' ')}</span></td><td class="${A.mark != null && x.last >= A.mark - 2 ? 'top' : ''}">${x.last ?? '—'}</td><td>${x.best ?? '—'}</td><td class="${x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : ''}">${x.trend == null ? '—' : (x.trend > 0 ? '+' : '') + x.trend}</td></tr>`).join('');
+  const cell = (a) => { const [w, n] = a; if (!n) return `<td style="color:var(--mut)">—</td>`; const p = w / n; return `<td class="${p >= .4 && n >= 2 ? 'pos' : p === 0 && n >= 3 ? 'neg' : ''}">${w}-${n} <span style="color:var(--mut)">${Math.round(p * 100)}%</span></td>`; };
+  document.getElementById('fit').innerHTML = `<tr><th>Horse</th><th>${esc(race.going || 'Going')}</th><th>${esc(race.dist || 'Trip')}</th><th>${esc(race.course || 'Course')}</th></tr>` + A.out.map(x => `<tr><td><b>${esc(x.r.name)}</b></td>${cell(x.fitG)}${cell(x.fitD)}${cell(x.fitC)}</tr>`).join('');
+  const rc = s => `<span class="${(num(s) || 0) > 0 ? 'pos' : (num(s) || 0) < 0 ? 'neg' : ''}" style="${(num(s) || 0) > 0 ? 'color:var(--mint)' : (num(s) || 0) < 0 ? 'color:var(--rose)' : ''}">${esc(s || '')}</span>`;
+  document.getElementById('conn').innerHTML = `<tr><th>Runner · connections</th><th>Trainer here</th><th>Tr 14d</th><th>Jockey here</th><th>Jk 14d</th></tr>` + A.out.map(x => `<tr><td style="white-space:normal"><b>${esc(x.r.name)}</b><br><span style="color:var(--mut)">${esc(x.r.trainer)} · ${esc(x.r.jockey)}</span></td><td>${esc(x.tr.c5 || '—')} ${rc(x.tr.c5ret)}</td><td>${esc(x.tr.d14 || '—')}</td><td>${esc(x.jk.c5 || '—')} ${rc(x.jk.c5ret)}</td><td>${esc(x.jk.d14 || '—')}</td></tr>`).join('');
+  document.getElementById('past').innerHTML = `<tr><th>Year</th><th style="text-align:left">Winner [draw]</th><th>Age</th><th>SP</th><th>Trainer</th><th>RPR</th></tr>` + A.past.map(p => `<tr><td style="text-align:left">${p.year}</td><td style="text-align:left;white-space:normal">${esc(p.winner)}</td><td>${p.age}</td><td class="${/F$/.test(p.sp) ? 'top' : ''}">${esc(p.sp)}</td><td style="white-space:normal">${esc(p.tr)}</td><td>${p.rpr ?? '—'}</td></tr>`).join('');
+  document.getElementById('pastnote').textContent = A.past.length ? `Winning RPR ${A.lo}–${A.hi}, median ${A.mark}. Favourites ${A.favW}/${A.past.length}. 3yos ${A.y3}/${A.past.length}.` : 'No past-winners table found in the stats page.';
+  const flagged = A.out.filter(x => x.nearMark || x.improver || x.bounce).slice(0, 8);
+  document.getElementById('notes').innerHTML = flagged.length ? flagged.map(x => `<div style="padding:10px 12px;border-top:1px solid var(--line);font-size:13px"><b>${esc(x.r.name)}</b> <span style="color:var(--mut)">${esc(x.r.odds || '')}</span><br>${esc(x.r.spot || '—')}</div>`).join('') : '<div class="note" style="padding:10px 12px">Nothing flagged.</div>';
+}
+// ---------- WIRING ----------
+const $ = id => document.getElementById(id);
+function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\n' + b; $('err').textContent = '';
+  try { const race = parseCard(both); const st = parseStats(both);
+    if (!race.runnersList.length) { $('err').textContent = 'No runners found — paste the Pro Card page (the one with the form lines under each horse).'; return; }
+    if (!st.past.length && !Object.keys(st.trainer).length) $('err').textContent = 'Stats page not found (no By Trainer / Past Winners) — signals still run on the form lines; connections and the mark will be blank.';
+    const A = analyse(race, st); render(race, st, A); $('status').textContent = `${race.runnersList.length} runners · ${st.past.length} past winners · ${Object.keys(st.trainer).length} trainers`;
+    try { const key = 'rpspot:' + (race.course || '') + ' ' + (race.time || '') + ' ' + (race.name || '').slice(0, 30); localStorage.setItem(key, JSON.stringify({ a, b, at: Date.now() })); savedList(); } catch {}
+    try { $('out').scrollIntoView({ behavior: 'smooth' }); } catch {} }
+  catch (e) { $('err').textContent = 'Could not read that: ' + e.message; } }
+function savedList() { let ks = []; try { ks = Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).sort((x, y) => (JSON.parse(localStorage.getItem(y)).at || 0) - (JSON.parse(localStorage.getItem(x)).at || 0)).slice(0, 12); } catch {}
+  $('saved').innerHTML = ks.map(k => `<a class="chip" href="#" data-k="${esc(k)}">${esc(k.slice(7))}</a>`).join('');
+  $('saved').querySelectorAll('a').forEach(el => el.onclick = (ev) => { ev.preventDefault(); try { const v = JSON.parse(localStorage.getItem(el.dataset.k)); $('t1').value = v.a; $('t2').value = v.b; run(); } catch {} }); }
+$('go').onclick = run; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
+savedList();
+window.__rp = { parseCard, parseStats, analyse };
+</script>
+</body></html>
