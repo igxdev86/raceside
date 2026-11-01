@@ -55,13 +55,18 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 .pw{display:grid;grid-template-columns:40px 1fr 52px 30px;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.pw:first-child{border-top:0}.pw .y{color:var(--mut);font-weight:800}.pw .w small{display:block;color:var(--mut);font-size:11px}.pw .top{color:var(--gold);font-weight:900}.pw b{text-align:right}
 #pastewrap.done > *:not(#bar){display:none}#pastewrap.done #bar{display:flex}
 #bar{display:none;align-items:center;gap:8px}
+.tr{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer}.tr.on{border-color:var(--gold)}.tr .t{font-weight:900;font-size:15px}.tr .c b{display:block;font-size:13px;font-weight:800}.tr .c span{font-size:11px;color:var(--mut)}.tr .p{font-size:11px;font-weight:800;color:var(--mint);text-align:right;max-width:120px}.tr .p small{display:block;color:var(--mut);font-weight:600}
 
 </style></head>
 <body>
 <div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT · ANY RACE</h1><a class="chip" href="/spotlight.html">BC TURF</a><a class="chip" href="/breeders.html">BREEDERS</a></div>
 
+<section id="todaywrap" style="padding-bottom:0">
+<h3 style="margin-top:12px">Today's races <small id="todayst">loading…</small></h3>
+<div id="today"></div>
+</section>
 <section id="pastewrap">
-<div id="bar"><span class="note" style="margin:0;flex:1" id="barst"></span><button class="btn g" id="newrace">NEW RACE</button></div>
+<div id="bar"><span class="note" style="margin:0;flex:1" id="barst"></span><button class="btn" id="newrace">+ NEW RACE</button></div>
 <h3 class="pl">Paste Racing Post <small>pro card (with form lines) and the stats page — either order, one box each or both in one</small></h3>
 <div class="pl" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="note" style="margin:0;flex:1">1 · Pro Card (with form lines)</span><button class="btn g" data-paste="t1">PASTE</button></div><textarea id="t1" placeholder="Pro Card page text"></textarea>
 <div class="pl" style="display:flex;gap:8px;align-items:center;margin:10px 0 6px"><span class="note" style="margin:0;flex:1">2 · Stats (trainer / jockey / horse / past winners)</span><button class="btn g" data-paste="t2">PASTE</button></div><textarea id="t2" placeholder="Stats page text"></textarea>
@@ -255,9 +260,27 @@ function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\
     if (!race.runnersList.length) { $('err').textContent = 'No runners found — paste the Pro Card page (the one with the form lines under each horse).'; return; }
     if (!st.past.length && !Object.keys(st.trainer).length) $('err').textContent = 'Stats page not found (no By Trainer / Past Winners) — signals still run on the form lines; connections and the mark will be blank.';
     const A = analyse(race, st); render(race, st, A); $('status').textContent = `${race.runnersList.length} runners · ${st.past.length} past winners · ${Object.keys(st.trainer).length} trainers`; $('barst').textContent = `${race.time || ''} ${race.course || ''} loaded`;
-    try { const key = 'rpspot:' + (race.course || '') + ' ' + (race.time || '') + ' ' + (race.name || '').slice(0, 30); localStorage.setItem(key, JSON.stringify({ a, b, at: Date.now() })); savedList(); } catch {}
+    const key = 'rpspot:' + (race.course || '') + ' ' + (race.time || '') + ' ' + (race.name || '').slice(0, 30); try { localStorage.setItem(key, JSON.stringify({ a, b, at: Date.now() })); savedList(); } catch {}
+    const top = A.out[0]; const sum = { time: race.time || '', course: race.course || '', name: race.title || race.name || '', n: race.runnersList.length, pick: top ? top.r.name : '', odds: top ? top.r.odds || '' : '', tags: top ? top.tags.slice(0, 2).map(t => t[0]) : [], mark: A.mark };
+    saveServer(key, { a, b, at: Date.now(), sum }); CUR = key; drawToday();
     try { $('out').scrollIntoView({ behavior: 'smooth' }); } catch {} }
   catch (e) { $('err').textContent = 'Could not read that: ' + e.message; } }
+const ukd = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+let DAY = { races: {} }, CUR = null; let DAYD = ukd();
+async function loadDay(d) { DAYD = d; try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Date.now()); const j = await r.json(); DAY = (j && j.state && j.state.races) ? j.state : { races: {} }; } catch { DAY = { races: {} }; }
+  // races analysed on this phone today before the server list existed: lift them in
+  let added = 0; try { const dayStart = new Date(d + 'T00:00:00').getTime(); Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).forEach(k => { if (DAY.races[k]) return; const v = JSON.parse(localStorage.getItem(k)); if (!v || !v.at || v.at < dayStart) return;
+      const race = parseAnyCard((v.a || '') + '\n' + (v.b || '')); if (!race.runnersList.length) return; const A = analyse(race, parseStats((v.a || '') + '\n' + (v.b || ''))); const top = A.out[0];
+      DAY.races[k] = { a: v.a, b: v.b, at: v.at, sum: { time: race.time || '', course: race.course || '', name: race.title || race.name || '', n: race.runnersList.length, pick: top ? top.r.name : '', odds: top ? top.r.odds || '' : '', tags: top ? top.tags.slice(0, 2).map(t => t[0]) : [], mark: A.mark } }; added++; }); } catch {}
+  if (added) { DAY.ts = Date.now(); try { await fetch('/api/yearstate?k=rpspot:day:' + DAYD, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DAY) }); } catch {} }
+  drawToday(); }
+async function saveServer(key, rec) { try { await loadDayQuiet(DAYD); DAY.races[key] = rec; DAY.ts = Date.now(); const r = await fetch('/api/yearstate?k=rpspot:day:' + DAYD, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DAY) }); if (!r.ok) $('todayst').textContent = 'saved on this phone only (server busy)'; } catch { $('todayst').textContent = 'saved on this phone only'; } }
+async function loadDayQuiet(d) { try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Date.now()); const j = await r.json(); if (j && j.state && j.state.races) DAY = j.state; } catch {} }
+const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
+function drawToday() { const ks = Object.keys(DAY.races || {}).sort((x, y) => t2m(DAY.races[x].sum && DAY.races[x].sum.time) - t2m(DAY.races[y].sum && DAY.races[y].sum.time));
+  $('todayst').textContent = ks.length ? ks.length + ' analysed · ' + DAYD : 'none yet · ' + DAYD;
+  $('today').innerHTML = ks.map(k => { const r = DAY.races[k], sm = r.sum || {}; return `<div class="tr${k === CUR ? ' on' : ''}" data-k="${esc(k)}"><span class="t">${esc(sm.time)}</span><span class="c"><b>${esc(sm.course)}</b><span>${esc(String(sm.name).replace(/\s*\(.*$/, '').slice(0, 40))}${sm.n ? ' · ' + sm.n + ' run' : ''}</span></span><span class="p">${esc(sm.pick)} ${esc(sm.odds)}<small>${esc((sm.tags || []).join(' · '))}</small></span></div>`; }).join('');
+  $('today').querySelectorAll('.tr').forEach(el => el.onclick = () => { const r = DAY.races[el.dataset.k]; if (!r) return; $('t1').value = r.a || ''; $('t2').value = r.b || ''; CUR = el.dataset.k; run(); }); }
 function savedList() { let ks = []; try { ks = Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).sort((x, y) => (JSON.parse(localStorage.getItem(y)).at || 0) - (JSON.parse(localStorage.getItem(x)).at || 0)).slice(0, 12); } catch {}
   $('saved').innerHTML = ks.map(k => `<a class="chip" href="#" data-k="${esc(k)}">${esc(k.slice(7))}</a>`).join('');
   $('saved').querySelectorAll('a').forEach(el => el.onclick = (ev) => { ev.preventDefault(); try { const v = JSON.parse(localStorage.getItem(el.dataset.k)); $('t1').value = v.a; $('t2').value = v.b; run(); } catch {} }); }
@@ -265,7 +288,7 @@ $('go').onclick = run; $('newrace').onclick = () => { $('pastewrap').classList.r
 document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => { try { const t = await navigator.clipboard.readText(); if (!t) { $('err').textContent = 'Clipboard is empty.'; return; } $(b.dataset.paste).value = t; $('err').textContent = ''; if ($('t1').value && ($('t2').value || /BY TRAINER/.test(t))) run(); } catch { $('err').textContent = 'Safari would not share the clipboard - long-press the box and tap Paste instead.'; } });
 const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
 $('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
-savedList();
+savedList(); loadDay(ukd());
 window.__rp = { parseCard, parseCardMobile, parseAnyCard, parseStats, analyse };
 </script>
 </body></html>
