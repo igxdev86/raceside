@@ -120,7 +120,7 @@ function parseCard(txt) {
     if (L[j] && /^\(\d+\)$/.test(L[j].trim())) { b.draw = L[j].trim().slice(1, -1); j++; } else { i++; continue; }   // the page-top odds panel is also 'Silk / number / name' but has no draw: skip it
     const nm = (L[j] || '').trim(); if (!nm || /^(Silk|Show all)/.test(nm)) { i = j; continue; } b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || ''; j++;
     for (; j < i + 90 && j < L.length; j++) { const s = L[j].trim();
-      if (/^\d+yo$/.test(s)) b.age = +s; else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { b.trainer = (L[j + 1] || '').trim().replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
+      if (/^\d+yo$/.test(s)) b.age = parseInt(s); else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { b.trainer = (L[j + 1] || '').trim().replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
       else if (/^\d+st \d+lb$/.test(s)) b.wgt = s; else if (/^NON-RUNNER$/.test(s)) b.nr = true;
       else if (!b.odds && b.trainer && /^(\d+\/\d+|Evs|EVS|\d+\.\d+)$/.test(s)) b.odds = s;
       else if (/^RPR:$/.test(s)) { b.rprAdj = num(L[j + 1]); } else if (/^(SH|EXT)$/.test(s) && L[j - 1] && /^(SH|Spotlight)$/.test(L[j - 1].trim()) && s === 'EXT') { b.spot = (L[j + 1] || '').trim(); }
