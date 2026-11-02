@@ -45,10 +45,12 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 .hh{display:grid;grid-template-columns:24px 1fr auto 40px;gap:8px;align-items:center;cursor:pointer}
 .hh .n{font-weight:900;color:var(--mut);font-size:12px}.hh .hn b{display:block;font-size:16px;font-weight:900;line-height:1.1}.hh .hn span{font-size:11px;color:var(--mut)}
 .hh .ho{font-weight:800;font-size:14px;color:var(--ink)}.hh .hs{text-align:right;font-weight:900;font-size:20px}
+.fg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px}.fg span{background:#0b0b11;border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:13px;font-weight:700;text-align:center}.fg small{display:block;font-size:9px;letter-spacing:.08em;color:var(--mut);font-weight:800}.fg b{color:var(--gold)}
+.fc em{font-style:normal;font-size:10px;color:var(--mut)}.cn u{text-decoration:none;color:var(--sky);font-weight:800}
 .hb{height:4px;border-radius:2px;background:#1b1b25;margin:8px 0 6px;overflow:hidden}.hb i{display:block;height:100%;background:linear-gradient(90deg,var(--vio),var(--sky))}
 .hl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--mut)}.hl .seq{font-size:11px}.hl .lb b{color:var(--ink)}.hl b.mk{color:var(--gold)}.hl b.pos{color:var(--mint)}.hl b.neg{color:var(--rose)}
 .hx{display:none;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.hr.open .hx{display:block}
-.fit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}.fc{background:#0b0b11;border:1px solid var(--line);border-radius:10px;padding:6px 8px;display:flex;flex-direction:column}.fc small{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fc b{font-size:14px}.fc b.pos,.cn .pos,.pos{color:var(--mint)}.fc b.neg,.cn .neg,.neg{color:var(--rose)}
+.fit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}@media(max-width:360px){.fit{grid-template-columns:1fr 1fr}}.fc{background:#0b0b11;border:1px solid var(--line);border-radius:10px;padding:6px 8px;display:flex;flex-direction:column}.fc small{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fc b{font-size:14px}.fc b.pos,.cn .pos,.pos{color:var(--mint)}.fc b.neg,.cn .neg,.neg{color:var(--rose)}
 .cn{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}.cn span{background:#0b0b11;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.cn small{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.cn em{font-style:normal;font-weight:700}
 .sp{font-size:13px;color:#c9c6bd;margin:10px 0 0}
 .fl{margin-top:10px;font-size:11px;color:var(--mut)}.fl div{display:grid;grid-template-columns:50px 1fr 70px 28px;gap:6px;padding:4px 0;border-top:1px solid #15151d}.fl b{color:var(--ink);text-align:right}
@@ -127,10 +129,10 @@ function parseCard(txt) {
     if (L[j] && /^\(\d+\)$/.test(L[j].trim())) { b.draw = L[j].trim().slice(1, -1); j++; } else { i++; continue; }   // the page-top odds panel is also 'Silk / number / name' but has no draw: skip it
     const nm = (L[j] || '').trim(); if (!nm || /^(Silk|Show all)/.test(nm)) { i = j; continue; } b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || ''; j++;
     for (; j < i + 90 && j < L.length; j++) { const s = L[j].trim();
-      if (/^\d+yo$/.test(s)) b.age = parseInt(s); else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { b.trainer = (L[j + 1] || '').trim().replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
+      if (/^\d+yo$/.test(s)) b.age = parseInt(s); else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { const tl = (L[j + 1] || '').trim(); b.rtf = (tl.match(/(\d+)%$/) || [])[1] || null; b.trainer = tl.replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
       else if (/^\d+st \d+lb$/.test(s)) b.wgt = s; else if (/^NON-RUNNER$/.test(s)) b.nr = true;
       else if (!b.odds && b.trainer && /^(\d+\/\d+|Evs|EVS|\d+\.\d+)$/.test(s)) b.odds = s;
-      else if (/^RPR:$/.test(s)) { b.rprAdj = num(L[j + 1]); } else if (/^(SH|EXT)$/.test(s) && L[j - 1] && /^(SH|Spotlight)$/.test(L[j - 1].trim()) && s === 'EXT') { b.spot = (L[j + 1] || '').trim(); }
+      else if (/^RPR:$/.test(s)) { b.rprAdj = num(L[j + 1]); } else if (/^OR:$/.test(s)) { b.or = num(L[j + 1]); } else if (/^TS:$/.test(s)) { b.tsAdj = num(L[j + 1]); } else if (/^(SH|EXT)$/.test(s) && L[j - 1] && /^(SH|Spotlight)$/.test(L[j - 1].trim()) && s === 'EXT') { b.spot = (L[j + 1] || '').trim(); }
       else if (/^FORM$/.test(s)) break; }
     // form rows
     b.form = []; for (; j < L.length; j++) { const s = L[j]; if (/^Silk$/.test(s.trim()) || /^Show all racecards/.test(s.trim()) || /^Betting Forecast/.test(s.trim())) break;
@@ -157,7 +159,7 @@ function parseCardMobile(txt) {
     let k = i - 1; if (/^\d+st \d+lb$/.test(L[k] || '')) { b.wgt = L[k]; k--; } if (/^\d+yo$/.test(L[k] || '')) { b.age = parseInt(L[k]); k--; } if (isSex(L[k] || '')) k--;
     while (k > 0 && junk(L[k])) k--; const nm = L[k] || ''; if (!nm || /^(Silk|Exclude|Form)$/.test(nm)) continue;
     b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || '';
-    b.jockey = (L[i + 1] || '').replace(/^\d+/, '').replace(/\(\d+\)$/, '').trim(); let j = i + 2; if (L[j] === 'T:') { b.trainer = (L[j + 1] || '').replace(/^\d+/, '').replace(/\s+\d+%$/, '').replace(/\s+\([A-Z]+\)$/, '').trim(); j += 2; }
+    b.jockey = (L[i + 1] || '').replace(/^\d+/, '').replace(/\(\d+\)$/, '').trim(); let j = i + 2; if (L[j] === 'T:') { const tl = (L[j + 1] || ''); b.rtf = (tl.match(/(\d+)%$/) || [])[1] || null; b.trainer = tl.replace(/^\d+/, '').replace(/\s+\d+%$/, '').replace(/\s+\([A-Z]+\)$/, '').trim(); j += 2; }
     for (; j < i + 40 && j < L.length; j++) { const s = L[j]; if (!b.odds && /^(\d+\/\d+|Evs|EVS)$/.test(s)) b.odds = s; if (/^NON-RUNNER$/i.test(s)) b.nr = true;
       if (s === 'RPR' && L[j - 2] === 'TS' && L[j - 4] === 'OR') { b.rprAdj = num(L[j - 1]); b.tsAdj = num(L[j - 3]); b.or = num(L[j - 5]); } if (/^WGT\tPOS\tSP/.test(s)) { j++; break; } }
     b.form = []; for (; j < L.length; j++) { const s = L[j]; if (!/^\d{2}[A-Z][a-z]{2}\d{2}$/.test(s)) { if (s === '' || /^Show all|^Betting Forecast/.test(s)) break; if (s === 'J:') break; continue; }
@@ -221,6 +223,7 @@ function analyse(race, st) {
     const cn = (s, rt) => { const [w, n] = wr(s); if (!n) return .3; return Math.min(1, w / n * 1.6 + (ret(rt) > 0 ? .15 : 0) + Math.min(n, 20) / 20 * .15); };
     const conn = cn(tr.c5, tr.c5ret) * .35 + cn(tr.d14, tr.d14ret) * .15 + cn(jk.c5, jk.c5ret) * .35 + cn(jk.d14, jk.d14ret) * .15;
     const score = Math.round((fig * .45 + sig * .25 + fitS * .15 + conn * .15) * 100);
+    if (r.or == null) { const lo = r.form.slice().reverse().find(f => f.or != null); if (lo) { r.or = lo.or; r.orNote = 'last run'; } }
     return { r, seq, last, best, trend, improver, bounce, nearMark, declining, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
   out.sort((a, b) => b.score - a.score);
   return { mark, markSrc, lo, hi, favW, y3, past, out, gk };
@@ -237,15 +240,18 @@ function render(race, st, A) {
   const strongestImp = imp.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
   document.getElementById('verdict').innerHTML = `<div class="vl"><b>AT THE MARK</b>${chips(at, 'y')}</div><div class="vl"><b>IMPROVERS</b>${chips(imp, 'g')}${strongestImp ? `<div class="note" style="margin:4px 0 0">Strongest: ${esc(strongestImp.r.name)} — last ${strongestImp.last}${A.mark != null ? (strongestImp.last >= A.mark - 2 ? ', at the mark' : ', ' + (A.mark - strongestImp.last) + 'lb short') : ''}</div>` : ''}</div><div class="vl"><b>BOUNCE-BACK</b>${chips(bb, 'v')}</div><div class="vl"><b>DECLINING</b>${chips(dec, 'r')}</div>${race.verdict ? `<details class="rpv"><summary>Racing Post verdict</summary><p>${esc(race.verdict)}</p></details>` : ''}`;
   const topS = A.out[0] ? A.out[0].score : 1;
-  const cell = (a, lab) => { const [w, n] = a; const p = n ? w / n : null; return `<span class="fc"><small>${lab}</small><b class="${p >= .4 && n >= 2 ? 'pos' : p === 0 && n >= 3 ? 'neg' : ''}">${n ? w + '-' + n : '—'}</b></span>`; };
+  const cell = (a, lab) => { const [w, n] = a; const p = n ? w / n : null; return `<span class="fc"><small>${lab}</small><b class="${p >= .4 && n >= 2 ? 'pos' : p === 0 && n >= 3 ? 'neg' : ''}">${n ? w + '-' + n : '—'}</b><em>${n ? Math.round(p * 100) + '% · ' + w + ' win' + (w === 1 ? '' : 's') + ' from ' + n : 'no runs'}</em></span>`; };
+  const ct = (lab, g) => `<span><small>${lab}</small>${g ? esc(g[0] || '—') : '—'}${g && g[1] ? ' <u>' + esc(g[1]) + '</u>' : ''} ${rc(g ? g[2] : '')}</span>`;
   const rc = s => { const v = num(s) || 0; return `<em class="${v > 0 ? 'pos' : v < 0 ? 'neg' : ''}">${esc(s || '')}</em>`; };
   document.getElementById('rank').innerHTML = A.out.map((x, i) => `<div class="hr" data-i="${i}">
     <div class="hh"><div class="n">${i + 1}</div><div class="hn"><b>${esc(x.r.name)}</b><span>${esc(x.r.jockey)} · ${esc(x.r.trainer)}${x.r.age ? ' · ' + x.r.age + 'yo' : ''}${x.r.draw ? ' · dr ' + esc(x.r.draw) : ''}</span></div><div class="ho">${esc(x.r.odds || '')}</div><div class="hs">${x.score}</div></div>
+    <div class="fg"><span><small>WGT</small>${esc(x.r.wgt ? x.r.wgt.replace('st ', '-').replace('lb', '') : '—')}</span><span><small>OR${x.r.orNote ? '*' : ''}</small>${x.r.or ?? '—'}</span><span><small>RPR</small><b>${x.r.rprAdj ?? '—'}</b></span><span><small>TS</small>${x.r.tsAdj ?? '—'}</span><span><small>RTF</small>${x.r.rtf != null ? x.r.rtf + '%' : '—'}</span></div>
     <div class="hb"><i style="width:${Math.round(x.score / topS * 100)}%"></i></div>
     <div class="hl">${spark(x.seq, x.improver ? '#4ade80' : x.declining ? '#ff5c8a' : x.bounce ? '#a78bfa' : '#e9c46a')}<span class="seq">${x.seq.join(' ')}</span><span class="lb">last <b class="${A.mark != null && x.last >= A.mark - 2 ? 'mk' : ''}">${x.last ?? '—'}</b> · best ${x.best ?? '—'}${x.trend != null ? ' · <b class="' + (x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : '') + '">' + (x.trend > 0 ? '+' : '') + x.trend + '</b>' : ''}</span></div>
     <div class="tags">${x.tags.map(t => `<span class="tag ${t[1]}">${esc(t[0])}</span>`).join('')}</div>
     <div class="hx"><div class="fit">${cell(x.fitG, esc(race.going || 'going'))}${cell(x.fitD, esc(race.dist || 'trip'))}${cell(x.fitC, esc(race.course || 'course'))}</div>
-      <div class="cn"><span><small>trainer here</small>${esc(x.tr.c5 || '—')} ${rc(x.tr.c5ret)}</span><span><small>14d</small>${esc(x.tr.d14 || '—')} ${rc(x.tr.d14ret)}</span><span><small>jockey here</small>${esc(x.jk.c5 || '—')} ${rc(x.jk.c5ret)}</span><span><small>14d</small>${esc(x.jk.d14 || '—')} ${rc(x.jk.d14ret)}</span></div>
+      <div class="cn">${ct('trainer · ' + esc(race.course || 'course') + ' 5yrs', x.tr.c5 ? [x.tr.c5, x.tr.c5pc, x.tr.c5ret] : null)}${ct('trainer · last 14 days', x.tr.d14 ? [x.tr.d14, x.tr.d14pc, x.tr.d14ret] : null)}${ct('jockey · ' + esc(race.course || 'course') + ' 5yrs', x.jk.c5 ? [x.jk.c5, x.jk.c5pc, x.jk.c5ret] : null)}${ct('jockey · last 14 days', x.jk.d14 ? [x.jk.d14, x.jk.d14pc, x.jk.d14ret] : null)}</div>
+      <div class="note" style="margin:6px 0 0">wins-runs · <u>strike rate</u> · £1 level-stakes return. OR* = rating at its last run where Racing Post shows none for today. Horse records above are at today's going, trip and course over the last five seasons.</div>
       ${x.r.spot ? `<p class="sp">${esc(x.r.spot)}</p>` : ''}
       ${x.r.form.length ? `<div class="fl">${x.r.form.slice().reverse().map(f => `<div><span>${esc(f.date)}</span><span>${esc(f.cond)}</span><span>${f.pos != null ? f.pos + '/' + f.ran : esc(f.out || '')}${f.sp ? ' · ' + esc(String(f.sp).replace(/\s*[A-Za-z]*$/, '')) : ''}</span><b>${f.rpr ?? '—'}</b></div>`).join('')}</div>` : ''}</div>
   </div>`).join('');
