@@ -48,6 +48,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 .fg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px}.fg span{background:#0b0b11;border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:13px;font-weight:700;text-align:center}.fg small{display:block;font-size:9px;letter-spacing:.08em;color:var(--mut);font-weight:800}.fg b{color:var(--gold)}.fg span.hi{background:linear-gradient(135deg,#0f3d2a,#14532d 60%,#166534);border-color:#22c55e;color:#dcfce7;box-shadow:0 0 10px rgba(34,197,94,.25)}.fg span.hi b,.fg span.hi small{color:#bbf7d0}
 .fc em{font-style:normal;font-size:10px;color:var(--mut)}.cn u{text-decoration:none;color:var(--sky);font-weight:800}
 .sr{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px;padding:9px 12px;border-top:1px solid var(--line);font-size:12px;align-items:center}.sr:first-child{border-top:0}.sr.h3c{grid-template-columns:1.2fr 1fr 1fr 1fr}.sn b{display:block;font-size:14px;font-weight:900}.sn span{font-size:11px;color:var(--mut)}.sv small{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sv u{text-decoration:none;color:var(--sky);font-weight:800}.sv u.g{color:var(--mint)}.sv u.r{color:var(--rose)}.sv i{color:var(--mut)}
+.rd{font-size:13px;color:#d6d3cb;margin:6px 0 2px;line-height:1.35}
 .hb{height:4px;border-radius:2px;background:#1b1b25;margin:8px 0 6px;overflow:hidden}.hb i{display:block;height:100%;background:linear-gradient(90deg,var(--vio),var(--sky))}
 .hl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--mut)}.hl .seq{font-size:11px}.hl .lb b{color:var(--ink)}.hl b.mk{color:var(--gold)}.hl b.pos{color:var(--mint)}.hl b.neg{color:var(--rose)}
 .hx{display:none;border-top:1px solid var(--line);margin-top:10px;padding-top:10px}.hr.open .hx{display:block}
@@ -237,6 +238,17 @@ function analyse(race, st) {
 }
 // ---------- RENDER ----------
 function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...seq), mn = Math.min(...seq) - 2; const w = 84, h = 22; return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="2" points="${seq.map((v, i) => `${3 + i * (w - 6) / Math.max(1, seq.length - 1)},${h - 2 - (v - mn) / Math.max(1, mx - mn) * (h - 4)}`).join(' ')}"/></svg>`; }
+// one plain line per horse: what the last six say, in words
+function readLine(x, A) { const n = x.seq.length; if (!n) return 'No ratings on record - unexposed, nothing to read.';
+  const gap = A.mark != null && x.last != null ? x.last - A.mark : null; const bestGap = A.mark != null && x.best != null ? x.best - A.mark : null;
+  const where = gap == null ? '' : gap >= -2 ? 'last run was at the mark' : `last run ${-gap}lb below the mark` + (bestGap >= -2 ? ', but has run it before' : bestGap != null ? ` and even its best is ${-bestGap}lb short` : '');
+  if (x.improver) return `Improving in steady steps${x.last === x.best ? ' to a career best' : ''}; ${where || 'climbing'}. The profile that wins.`;
+  if (x.bounce) return `Ran the mark ${x.seq.filter(v => v >= A.mark - 1).length} times, then ${x.best - x.last}lb below it last time - a bad day, not a lost level. Bounce-back candidate.`;
+  if (x.declining) return x.trend <= -15 ? `Collapsed last time (${x.trend} on its recent average) - needs an excuse in the form line, otherwise leave it.` : `Going the wrong way: ${x.trend < 0 ? x.trend + ' on its recent average' : 'two drops in a row'}; ${where || 'below its best'}.`;
+  if (x.nearMark && x.last === x.best) return `Career best last time and that is at the mark - has arrived, now has to repeat it.`;
+  if (x.nearMark) return `Holding at the mark (${where}); consistent rather than improving - trust for the win if nothing else is climbing.`;
+  if (x.trend > 3) return `Up ${x.trend} on its recent average but ${where || 'still short'}; a step forward, not yet a case.`;
+  return `Flat line around ${Math.round(x.seq.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, n))}; ${where || 'nothing to suggest a step up'}.`; }
 function render(race, st, A) {
   document.getElementById('out').style.display = 'block'; document.getElementById('pastewrap').classList.add('done');
   const nr = race.nonRunners && race.nonRunners.length ? 'NR ' + race.nonRunners.join(', ') : '';
@@ -257,6 +269,7 @@ function render(race, st, A) {
     <div class="fg"><span class="${MX.wgt != null && wlb(x.r.wgt) === MX.wgt ? 'hi' : ''}"><small>WGT</small>${esc(x.r.wgt ? x.r.wgt.replace('st ', '-').replace('lb', '') : '—')}</span><span class="${x.r.or != null && x.r.or === MX.or ? 'hi' : ''}"><small>OR${x.r.orNote ? '*' : ''}</small>${x.r.or ?? '—'}</span><span class="${x.r.rprAdj != null && x.r.rprAdj === MX.rpr ? 'hi' : ''}"><small>RPR</small><b>${x.r.rprAdj ?? '—'}</b></span><span class="${x.r.tsAdj != null && x.r.tsAdj === MX.ts ? 'hi' : ''}"><small>TS</small>${x.r.tsAdj ?? '—'}</span><span class="${x.r.rtf != null && +x.r.rtf === MX.rtf ? 'hi' : ''}"><small>RTF</small>${x.r.rtf != null ? x.r.rtf + '%' : '—'}</span></div>
     <div class="hb"><i style="width:${Math.round(x.score / topS * 100)}%"></i></div>
     <div class="hl">${spark(x.seq, x.improver ? '#4ade80' : x.declining ? '#ff5c8a' : x.bounce ? '#a78bfa' : '#e9c46a')}<span class="seq">${x.seq.join(' ')}</span><span class="lb">last <b class="${A.mark != null && x.last >= A.mark - 2 ? 'mk' : ''}">${x.last ?? '—'}</b> · best ${x.best ?? '—'}${x.trend != null ? ' · last v avg of 3 before <b class="' + (x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : '') + '">' + (x.trend > 0 ? '+' : '') + x.trend + '</b>' : ''}</span></div>
+    <div class="rd">${readLine(x, A)}</div>
     <div class="tags">${x.tags.map(t => `<span class="tag ${t[1]}">${esc(t[0])}</span>`).join('')}</div>
     <div class="hx"><div class="fit">${cell(x.fitG, esc(race.going || 'going'))}${cell(x.fitD, esc(race.dist || 'trip'))}${cell(x.fitC, esc(race.course || 'course'))}</div>
       <div class="cn">${ct('trainer · ' + esc(race.course || 'course') + ' 5yrs', x.tr.c5 ? [x.tr.c5, x.tr.c5pc, x.tr.c5ret] : null)}${ct('trainer · last 14 days', x.tr.d14 ? [x.tr.d14, x.tr.d14pc, x.tr.d14ret] : null)}${ct('jockey · ' + esc(race.course || 'course') + ' 5yrs', x.jk.c5 ? [x.jk.c5, x.jk.c5pc, x.jk.c5ret] : null)}${ct('jockey · last 14 days', x.jk.d14 ? [x.jk.d14, x.jk.d14pc, x.jk.d14ret] : null)}</div>
