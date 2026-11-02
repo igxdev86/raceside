@@ -242,7 +242,7 @@ function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...
 function readLine(x, A) { const n = x.seq.length; if (!n) return 'No ratings on record - unexposed, nothing to read.';
   const gap = A.mark != null && x.last != null ? x.last - A.mark : null; const bestGap = A.mark != null && x.best != null ? x.best - A.mark : null;
   const where = gap == null ? '' : gap >= -2 ? 'last run was at the mark' : `last run ${-gap}lb below the mark` + (bestGap >= -2 ? ', but has run it before' : bestGap != null ? ` and even its best is ${-bestGap}lb short` : '');
-  if (x.improver) return `Improving in steady steps${x.last === x.best ? ' to a career best' : ''}; ${where || 'climbing'}. The profile that wins.`;
+  if (x.improver) return `Improving in steady steps${x.last === x.best ? ' to a career best' : ''}; ${where || 'climbing'}. ${gap == null || gap >= -4 ? 'The profile that wins.' : 'Right profile, needs one more step of the same size.'}`;
   if (x.bounce) return `Ran the mark ${x.seq.filter(v => v >= A.mark - 1).length} times, then ${x.best - x.last}lb below it last time - a bad day, not a lost level. Bounce-back candidate.`;
   if (x.declining) return x.trend <= -15 ? `Collapsed last time (${x.trend} on its recent average) - needs an excuse in the form line, otherwise leave it.` : `Going the wrong way: ${x.trend < 0 ? x.trend + ' on its recent average' : 'two drops in a row'}; ${where || 'below its best'}.`;
   if (x.nearMark && x.last === x.best) return `Career best last time and that is at the mark - has arrived, now has to repeat it.`;
