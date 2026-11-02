@@ -59,7 +59,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 .pw{display:grid;grid-template-columns:40px 1fr 52px 30px;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.pw:first-child{border-top:0}.pw .y{color:var(--mut);font-weight:800}.pw .w small{display:block;color:var(--mut);font-size:11px}.pw .top{color:var(--gold);font-weight:900}.pw b{text-align:right}
 #pastewrap.done > *:not(#bar){display:none}#pastewrap.done #bar{display:flex}
 #bar{display:none;align-items:center;gap:8px}
-.tr{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer}.tr.on{border-color:var(--gold)}.tr .t{font-weight:900;font-size:15px}.tr .c b{display:block;font-size:13px;font-weight:800}.tr .c span{font-size:11px;color:var(--mut)}.tr .p{font-size:11px;font-weight:800;color:var(--mint);text-align:right;max-width:120px}.tr .p small{display:block;color:var(--mut);font-weight:600}
+.tr{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer}.tr.on{border-color:var(--gold)}.tr .t{font-weight:900;font-size:15px}.tr .c b{display:block;font-size:13px;font-weight:800}.tr .c span{font-size:11px;color:var(--mut)}.tr .p{font-size:11px;font-weight:800;color:var(--mint);text-align:right;max-width:120px}.tr .p small{display:block;color:var(--mut);font-weight:600}.tr .p small.won{color:var(--gold)}.tr .p a{color:var(--sky);text-decoration:none}
 
 </style></head>
 <body>
@@ -68,6 +68,10 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 <section id="todaywrap" style="padding-bottom:0">
 <h3 style="margin-top:12px">Today's races <small id="todayst">loading…</small></h3>
 <div id="today"></div>
+</section>
+<section id="recwrap" style="padding-top:0">
+<h3 style="margin-top:6px">Signal record <small>how often each tag sat on the winner · built from winners you log</small></h3>
+<div class="card" id="record"></div>
 </section>
 <section id="pastewrap">
 <div id="bar"><span class="note" style="margin:0;flex:1" id="barst"></span><button class="btn" id="newrace">+ NEW RACE</button></div>
@@ -199,14 +203,25 @@ function parseStats(txt) {
 // ---------- SIGNALS ----------
 function analyse(race, st) {
   const past = st.past.filter(p => p.rpr); const rprs = past.map(p => p.rpr).sort((a, b) => a - b);
-  let markSrc = 'past winners'; let mark = rprs.length ? rprs[Math.floor(rprs.length / 2)] : null; const lo = rprs[0], hi = rprs[rprs.length - 1];
-  if (mark == null) { const bests = race.runnersList.map(r => Math.max(...r.form.map(f => f.rpr).filter(v => v != null), 0)).filter(v => v > 0).sort((a, b) => b - a); if (bests.length >= 2) { mark = bests[1]; markSrc = 'the field (2nd-best RPR in it)'; } }
+  let markSrc = 'past winners'; let mark = rprs.length >= 3 ? rprs[Math.floor(rprs.length / 2)] : null; const lo = rprs[0], hi = rprs[rprs.length - 1];
+  const bests = race.runnersList.map(r => Math.max(...r.form.map(f => f.rpr).filter(v => v != null), 0)).filter(v => v > 0).sort((a, b) => b - a);
+  const fieldMark = () => bests[Math.floor((bests.length - 1) / 3)];   // upper third of the field's best figures: what it usually takes to win this field
+  if (mark == null && bests.length >= 2) { mark = fieldMark(); markSrc = 'the field (upper third of its best figures)'; }
+  // a mark nobody in the field has got near is the wrong yardstick: this race will be won below its usual level, so measure against the field
+  if (mark != null && bests.length >= 2 && bests[0] < mark - 3) { mark = fieldMark(); markSrc = 'the field (race history is above every runner here)'; }
   const favW = past.filter(p => /F$/.test(p.sp)).length, y3 = past.filter(p => p.age === 3).length;
   const gk = goingKey(race.going); const name0 = n => String(n).replace(/\s*\(.*?\)/, '').trim();
   const out = race.runnersList.map(r => { const seq = r.form.map(f => f.rpr).filter(v => v != null); const last = seq[seq.length - 1]; const best = seq.length ? Math.max(...seq) : null; const prev = seq.slice(-4, -1); const avgPrev = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : null;
     const l4 = seq.slice(-4); let consistent = l4.length >= 3; for (let k = 1; k < l4.length; k++) { if (l4[k] < l4[k - 1] - 3) consistent = false; if (k >= l4.length - 2 && l4[k] - l4[k - 1] > 10) consistent = false; }   // steady steps: no dip over 3lb, and no single leap over 10lb in the last two steps (a step-change is a different signal)
     const climbing = l4.length >= 3 && l4[l4.length - 1] > l4[0]; const top2 = seq.slice().sort((a, b) => b - a).slice(0, 2); const lastTwoBest = seq.length >= 3 && top2.every(v => seq.slice(-2).includes(v));
     const improver = consistent && climbing && lastTwoBest; const nearMark = mark != null && seq.slice(-3).some(v => v >= mark - 2);
+    // DISCOVERY: a big step up on the latest run that coincides with a change - new trip (±1f or more), new surface, or a jump from a long way below - is a new level, not a spike
+    const fr = r.form.filter(f => f.rpr != null); const lastF = fr[fr.length - 1], prevF = fr[fr.length - 2];
+    const surf = f => /^(St|St\/Slw|Slw|Fs|S)$/.test(String(f.going || '')) ? 'aw' : 'turf';
+    const changed = lastF && prevF && ((lastF.distF != null && prevF.distF != null && Math.abs(lastF.distF - prevF.distF) >= 1) || surf(lastF) !== surf(prevF));
+    const discovery = !!(lastF && prevF && changed && seq.length >= 3 && last - Math.max(...seq.slice(-3, -1)) >= 8 && last >= best - 6);
+    // WELL-IN (handicaps): best RPR well above today's official mark, and the mark has come down since the last run
+    const lastOr = r.form.slice().reverse().find(f => f.or != null); const wellIn = r.or != null && !r.orNote && best != null && best - r.or >= 6 && lastOr && r.or <= lastOr.or;
     const timesAtMark = mark != null ? seq.filter(v => v >= mark - 1).length : 0; const bounce = timesAtMark >= 2 && last != null && best - last >= 3 && best - last <= 9;
     const declining = last != null && best != null && ((best - last >= 10) || (seq.length >= 3 && seq[seq.length - 1] < seq[seq.length - 2] && seq[seq.length - 2] < seq[seq.length - 3]));
     const trend = avgPrev != null ? Math.round(last - avgPrev) : null;
@@ -215,26 +230,26 @@ function analyse(race, st) {
     const tr = st.trainer[r.trainer] || Object.entries(st.trainer).find(([k]) => k.split(' ').pop() === String(r.trainer).split(' ').pop())?.[1] || {}; const jk = st.jockey[r.jockey] || {};
     const pc = s => { const [w, n] = wr(s); return n ? w / n : null; }; const ret = s => num(s) || 0;
     const tags = [];
-    if (nearMark) tags.push(['AT THE MARK', 'y']); if (improver) tags.push(['CONSISTENT IMPROVER', 'g']); if (bounce) tags.push(['BOUNCE-BACK', 'v']); if (declining) tags.push(['DECLINING', 'r']);
+    if (nearMark) tags.push(['AT THE MARK', 'y']); if (improver) tags.push(['CONSISTENT IMPROVER', 'g']); if (discovery) tags.push(['DISCOVERY · ' + (surf(lastF) !== surf(prevF) ? 'NEW SURFACE' : 'NEW TRIP'), 'g']); if (wellIn) tags.push(['WELL-IN ' + (best - r.or) + 'LB', 'g']); if (bounce) tags.push(['BOUNCE-BACK', 'v']); if (declining) tags.push(['DECLINING', 'r']);
     if (last != null && last === best && seq.length >= 2) tags.push(['CAREER BEST LAST', 'g']);
     if (fitD[0] >= 2 && fitD[0] / fitD[1] >= .4) tags.push(['TRIP ' + fitD.join('-'), 'b']); if (fitG[0] >= 2 && fitG[0] / fitG[1] >= .4) tags.push(['GOING ' + fitG.join('-'), 'b']); if (fitC[0] >= 1) tags.push(['COURSE ' + fitC.join('-'), 'b']);
     if (pc(tr.c5) >= .25 && wr(tr.c5)[1] >= 8) tags.push(['TRAINER ' + tr.c5pc + ' HERE', 'g']); if (ret(tr.c5ret) >= 15) tags.push(['TRAINER ' + tr.c5ret + ' HERE', 'g']);
     if (pc(jk.c5) >= .25 && wr(jk.c5)[1] >= 8) tags.push(['JOCKEY ' + jk.c5pc + ' HERE', 'g']); if (ret(jk.c5ret) >= 15) tags.push(['JOCKEY ' + jk.c5ret + ' HERE', 'g']);
     if (pc(tr.d14) != null && pc(tr.d14) < .08 && wr(tr.d14)[1] >= 10) tags.push(['TRAINER COLD', 'r']); if (pc(jk.d14) != null && pc(jk.d14) < .08 && wr(jk.d14)[1] >= 15) tags.push(['JOCKEY COLD', 'r']);
-    if (r.age === 3 && y3 >= 3) tags.push(['3YO · ' + y3 + '/' + past.length + ' WON', 'b']);
+    if (r.age === 3 && y3 >= 3) tags.push(['3YO · ' + y3 + '/' + past.length + ' WON', 'b']); if (seq.length >= 5 && last === best && seq.slice(-2).every(v => v >= best - 2) === false && last - Math.max(...seq.slice(0, -1)) >= 2) tags.push(['EXPOSED · BEST LAST', 'b']);
     const gapRuns = (() => { const d = r.form[r.form.length - 1]; if (!d) return null; const m = String(d.date).match(/^(\d{2})([A-Z][a-z]{2})(\d{2})$/); if (!m) return null; const dt = new Date(`${m[1]} ${m[2]} 20${m[3]}`); return Math.round((Date.now() - dt) / 86400000); })();
     if (gapRuns != null && gapRuns > 120) tags.push(['OFF ' + Math.round(gapRuns / 30) + ' MONTHS', 'r']);
     // score: figures vs mark 45, signal 25, fit 15, connections 15
     const fig = mark != null && best != null ? Math.max(0, Math.min(1, 1 - (mark - Math.max(last || 0, (seq.slice(-3).length ? Math.max(...seq.slice(-3)) : 0)) + 4) / 14)) : .4;
-    const sig = improver ? 1 : bounce ? .8 : nearMark ? .7 : declining ? .1 : .4;
+    const sig = improver ? 1 : discovery ? .85 : bounce ? .8 : declining ? .15 : nearMark ? .7 : .4; const hcap = (/handicap|\bhc\b/i.test(String(race.name || '')) && wellIn ? .12 : 0) - (gapRuns != null && gapRuns > 120 ? .08 : 0) - (tags.some(t => t[0] === 'TRAINER COLD') ? .04 : 0);
     const fitS = Math.min(1, (fitD[1] ? fitD[0] / fitD[1] * .5 + Math.min(fitD[0], 3) / 3 * .5 : .3) * .5 + (fitG[1] ? fitG[0] / fitG[1] * .5 + Math.min(fitG[0], 3) / 3 * .5 : .3) * .3 + (fitC[0] ? 1 : .3) * .2);
     const cn = (s, rt) => { const [w, n] = wr(s); if (!n) return .3; return Math.min(1, w / n * 1.6 + (ret(rt) > 0 ? .15 : 0) + Math.min(n, 20) / 20 * .15); };
     const conn = cn(tr.c5, tr.c5ret) * .35 + cn(tr.d14, tr.d14ret) * .15 + cn(jk.c5, jk.c5ret) * .35 + cn(jk.d14, jk.d14ret) * .15;
-    const score = Math.round((fig * .45 + sig * .25 + fitS * .15 + conn * .15) * 100);
+    const score = Math.round(Math.min(1, fig * .45 + sig * .25 + fitS * .15 + conn * .15 + hcap) * 100);
     if (r.or == null) { const lo = r.form.slice().reverse().find(f => f.or != null); if (lo) { r.or = lo.or; r.orNote = 'last run'; } }
-    return { r, seq, last, best, trend, improver, bounce, nearMark, declining, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
+    return { r, seq, last, best, trend, improver, bounce, nearMark, declining, discovery, wellIn, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
   out.sort((a, b) => b.score - a.score);
-  return { mark, markSrc, lo, hi, favW, y3, past, out, gk };
+  const marketWeak = past.length >= 4 && favW <= Math.floor(past.length / 4); return { mark, markSrc, lo, hi, favW, y3, past, out, gk, marketWeak };
 }
 // ---------- RENDER ----------
 function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...seq), mn = Math.min(...seq) - 2; const w = 84, h = 22; return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="2" points="${seq.map((v, i) => `${3 + i * (w - 6) / Math.max(1, seq.length - 1)},${h - 2 - (v - mn) / Math.max(1, mx - mn) * (h - 4)}`).join(' ')}"/></svg>`; }
@@ -242,6 +257,7 @@ function spark(seq, color) { if (!seq.length) return ''; const mx = Math.max(...
 function readLine(x, A) { const n = x.seq.length; if (!n) return 'No ratings on record - unexposed, nothing to read.';
   const gap = A.mark != null && x.last != null ? x.last - A.mark : null; const bestGap = A.mark != null && x.best != null ? x.best - A.mark : null;
   const where = gap == null ? '' : gap >= -2 ? 'last run was at the mark' : `last run ${-gap}lb below the mark` + (bestGap >= -2 ? ', but has run it before' : bestGap != null ? ` and even its best is ${-bestGap}lb short` : '');
+  if (x.discovery) return `Stepped up ${x.last - Math.max(...x.seq.slice(-3, -1))}lb the first time it tried this trip/surface - a new level found, not a spike${x.wellIn ? ', and well-in on its mark' : ''}. ${where || ''}`;
   if (x.improver) return `Improving in steady steps${x.last === x.best ? ' to a career best' : ''}; ${where || 'climbing'}. ${gap == null || gap >= -4 ? 'The profile that wins.' : 'Right profile, needs one more step of the same size.'}`;
   if (x.bounce) return `Ran the mark ${x.seq.filter(v => v >= A.mark - 1).length} times, then ${x.best - x.last}lb below it last time - a bad day, not a lost level. Bounce-back candidate.`;
   if (x.declining) return x.trend <= -15 ? `Collapsed last time (${x.trend} on its recent average) - needs an excuse in the form line, otherwise leave it.` : `Going the wrong way: ${x.trend < 0 ? x.trend + ' on its recent average' : 'two drops in a row'}; ${where || 'below its best'}.`;
@@ -257,7 +273,7 @@ function render(race, st, A) {
   const at = A.out.filter(x => x.nearMark), imp = A.out.filter(x => x.improver), bb = A.out.filter(x => x.bounce), dec = A.out.filter(x => x.declining);
   const chips = (arr, cls) => arr.length ? arr.map(x => `<span class="tag ${cls}">${esc(x.r.name)}${x.r.odds ? ' <i>' + esc(x.r.odds) + '</i>' : ''}</span>`).join('') : '<span class="tag">none</span>';
   const strongestImp = imp.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-  document.getElementById('verdict').innerHTML = `<div class="vl"><b>AT THE MARK</b>${chips(at, 'y')}</div><div class="vl"><b>IMPROVERS</b>${chips(imp, 'g')}${strongestImp ? `<div class="note" style="margin:4px 0 0">Strongest: ${esc(strongestImp.r.name)} — last ${strongestImp.last}${A.mark != null ? (strongestImp.last >= A.mark - 2 ? ', at the mark' : ', ' + (A.mark - strongestImp.last) + 'lb short') : ''}</div>` : ''}</div><div class="vl"><b>BOUNCE-BACK</b>${chips(bb, 'v')}</div><div class="vl"><b>DECLINING</b>${chips(dec, 'r')}</div>${race.verdict ? `<details class="rpv"><summary>Racing Post verdict</summary><p>${esc(race.verdict)}</p></details>` : ''}`;
+  document.getElementById('verdict').innerHTML = `<div class="vl"><b>AT THE MARK</b>${chips(at, 'y')}</div><div class="vl"><b>IMPROVERS</b>${chips(imp, 'g')}${strongestImp ? `<div class="note" style="margin:4px 0 0">Strongest: ${esc(strongestImp.r.name)} — last ${strongestImp.last}${A.mark != null ? (strongestImp.last >= A.mark - 2 ? ', at the mark' : ', ' + (A.mark - strongestImp.last) + 'lb short') : ''}</div>` : ''}</div><div class="vl"><b>BOUNCE-BACK</b>${chips(bb, 'v')}</div><div class="vl"><b>DECLINING</b>${chips(dec, 'r')}</div>${A.marketWeak ? `<div class="note" style="margin:6px 0 0;color:var(--rose)">Favourites ${A.favW}/${A.past.length} in this race's history - the market is a poor guide here; exposed horses with a career-best last run win it at prices.</div>` : ''}${race.verdict ? `<details class="rpv"><summary>Racing Post verdict</summary><p>${esc(race.verdict)}</p></details>` : ''}`;
   const topS = A.out[0] ? A.out[0].score : 1;
   const wlb = w => { const m = String(w || '').match(/(\d+)st (\d+)lb/); return m ? +m[1] * 14 + +m[2] : null; }; const mx = arr => { const v = arr.filter(v => v != null && !isNaN(v)); return v.length ? Math.max(...v) : null; };
   const MX = { wgt: mx(A.out.map(x => wlb(x.r.wgt))), or: mx(A.out.map(x => x.r.or)), rpr: mx(A.out.map(x => x.r.rprAdj)), ts: mx(A.out.map(x => x.r.tsAdj)), rtf: mx(A.out.map(x => x.r.rtf != null ? +x.r.rtf : null)) };
@@ -319,8 +335,20 @@ async function loadDayQuiet(d) { try { const r = await fetch('/api/yearstate?k=r
 const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
 function drawToday() { const ks = Object.keys(DAY.races || {}).sort((x, y) => t2m(DAY.races[x].sum && DAY.races[x].sum.time) - t2m(DAY.races[y].sum && DAY.races[y].sum.time));
   $('todayst').textContent = ks.length ? ks.length + ' analysed · ' + DAYD : 'none yet · ' + DAYD;
-  $('today').innerHTML = ks.map(k => { const r = DAY.races[k], sm = r.sum || {}; return `<div class="tr${k === CUR ? ' on' : ''}" data-k="${esc(k)}"><span class="t">${esc(sm.time)}</span><span class="c"><b>${esc(sm.course)}</b><span>${esc(String(sm.name).replace(/\s*\(.*$/, '').slice(0, 40))}${sm.n ? ' · ' + sm.n + ' run' : ''}</span></span><span class="p">${esc(sm.pick)} ${esc(sm.odds)}<small>${esc((sm.tags || []).join(' · '))}</small></span></div>`; }).join('');
+  $('today').innerHTML = ks.map(k => { const r = DAY.races[k], sm = r.sum || {}; return `<div class="tr${k === CUR ? ' on' : ''}" data-k="${esc(k)}"><span class="t">${esc(sm.time)}</span><span class="c"><b>${esc(sm.course)}</b><span>${esc(String(sm.name).replace(/\s*\(.*$/, '').slice(0, 40))}${sm.n ? ' · ' + sm.n + ' run' : ''}</span></span><span class="p">${esc(sm.pick)} ${esc(sm.odds)}<small>${esc((sm.tags || []).join(' · '))}</small>${r.winner ? `<small class="won">WON: ${esc(r.winner.name)}${r.winner.rank ? ' · ranked ' + r.winner.rank + '/' + r.winner.n : ''}</small>` : `<small><a href="#" class="setw" data-k="${esc(k)}">log winner ›</a></small>`}</span></div>`; }).join('');
+  $('today').querySelectorAll('.setw').forEach(el => el.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); const r = DAY.races[el.dataset.k]; if (!r) return; const race = parseAnyCard((r.a || '') + '\n' + (r.b || '')); const A = analyse(race, parseStats((r.a || '') + '\n' + (r.b || '')));
+    const names = A.out.map((x, i) => (i + 1) + ' ' + x.r.name); const pick = prompt('Who won?\n' + names.join('\n') + '\n\nType the number:'); const ix = parseInt(pick) - 1; if (!(ix >= 0 && ix < A.out.length)) return; const x = A.out[ix];
+    r.winner = { name: x.r.name, rank: ix + 1, n: A.out.length, odds: x.r.odds || '', tags: x.tags.map(t => t[0].replace(/ ·.*$| \d+LB$| \d+-\d+$/, '')), score: x.score, allTags: A.out.map(y => y.tags.map(t => t[0].replace(/ ·.*$| \d+LB$| \d+-\d+$/, ''))) };
+    DAY.ts = Date.now(); fetch('/api/yearstate?k=rpspot:day:' + DAYD, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DAY) }).catch(() => {}); drawToday(); drawRecord(); });
   $('today').querySelectorAll('.tr').forEach(el => el.onclick = () => { const r = DAY.races[el.dataset.k]; if (!r) return; $('t1').value = r.a || ''; $('t2').value = r.b || ''; CUR = el.dataset.k; run(); }); }
+// SIGNAL RECORD: across every logged winner, how often each tag was on the winner vs how often it appeared
+async function drawRecord() { const days = []; for (let i = 0; i < 21; i++) { const d = new Date(Date.now() - i * 86400000); days.push(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(d)); }
+  const rows = await Promise.all(days.map(async d => { if (d === DAYD) return DAY; try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Math.floor(Date.now() / 600000)); const j = await r.json(); return j && j.state; } catch { return null; } }));
+  const T = {}; let races = 0, top1 = 0, top3 = 0; rows.forEach(dv => Object.values((dv && dv.races) || {}).forEach(r => { if (!r.winner) return; races++; if (r.winner.rank === 1) top1++; if (r.winner.rank <= 3) top3++;
+    const won = new Set(r.winner.tags || []); (r.winner.allTags || []).forEach(tags => new Set(tags).forEach(t => { const g = T[t] = T[t] || { n: 0, w: 0 }; g.n++; if (won.has(t)) g.w++; })); }));
+  const el = $('record'); if (!el) return; if (!races) { el.innerHTML = '<div class="note" style="padding:10px 12px">Log winners from the list above and the record of each signal builds here.</div>'; return; }
+  const list = Object.entries(T).filter(([, g]) => g.n >= 2).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n);
+  el.innerHTML = `<div class="sr" style="grid-template-columns:1fr 1fr 1fr"><div class="sn"><b>${races} races logged</b></div><div class="sv"><small>top pick won</small>${top1}/${races}</div><div class="sv"><small>winner in top 3</small>${top3}/${races}</div></div>` + list.map(([t, g]) => `<div class="sr" style="grid-template-columns:1.6fr 1fr 1fr"><div class="sn"><b style="font-size:12px">${esc(t)}</b></div><div class="sv"><small>on the winner</small>${g.w}/${g.n}</div><div class="sv"><small>strike</small><u class="${g.w / g.n >= .3 ? 'g' : g.w === 0 ? 'r' : ''}">${Math.round(g.w / g.n * 100)}%</u></div></div>`).join(''); }
 function savedList() { let ks = []; try { ks = Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).sort((x, y) => (JSON.parse(localStorage.getItem(y)).at || 0) - (JSON.parse(localStorage.getItem(x)).at || 0)).slice(0, 12); } catch {}
   $('saved').innerHTML = ks.map(k => `<a class="chip" href="#" data-k="${esc(k)}">${esc(k.slice(7))}</a>`).join('');
   $('saved').querySelectorAll('a').forEach(el => el.onclick = (ev) => { ev.preventDefault(); try { const v = JSON.parse(localStorage.getItem(el.dataset.k)); $('t1').value = v.a; $('t2').value = v.b; run(); } catch {} }); }
@@ -328,7 +356,7 @@ $('go').onclick = run; $('newrace').onclick = () => { $('pastewrap').classList.r
 document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => { try { const t = await navigator.clipboard.readText(); if (!t) { $('err').textContent = 'Clipboard is empty.'; return; } $(b.dataset.paste).value = t; $('err').textContent = ''; if ($('t1').value && ($('t2').value || /BY TRAINER/.test(t))) run(); } catch { $('err').textContent = 'Safari would not share the clipboard - long-press the box and tap Paste instead.'; } });
 const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
 $('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
-savedList(); loadDay(ukd());
+savedList(); loadDay(ukd()).then(drawRecord);
 window.__rp = { parseCard, parseCardMobile, parseAnyCard, parseStats, analyse };
 </script>
 </body></html>
