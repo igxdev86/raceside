@@ -146,6 +146,7 @@ function parseCard(txt) {
     else if (L.slice(j + 1, j + 5).some(x => /^Pro Card/.test((x || '').trim()))) { i++; continue; }
     const nm = (L[j] || '').trim(); if (!nm || /^(Silk|Show all)/.test(nm)) { i = j; continue; } b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || ''; j++;
     for (; j < i + 90 && j < L.length; j++) { const s = L[j].trim();
+      if (/^(h|t|v|b|p|e|w|ht|tp|bt|vt|tv|hv|hp|wh|tb|vb|pb)1?$/.test(s) && !b.gear) { b.gear = s; }
       if (/^\d+yo$/.test(s)) b.age = parseInt(s); else if (/^J:$/.test(s)) { b.jockey = (L[j + 1] || '').trim().replace(/^\d+/, ''); } else if (/^T:$/.test(s)) { const tl = (L[j + 1] || '').trim(); b.rtf = (tl.match(/(\d+)%$/) || [])[1] || null; b.trainer = tl.replace(/^\d+/, '').replace(/\s+\([A-Z]+\)\s*\d*%?$/, '').replace(/\s+\d+%$/, ''); }
       else if (/^\d+st \d+lb$/.test(s)) b.wgt = s; else if (/^NON-RUNNER$/.test(s)) b.nr = true;
       else if (!b.odds && b.trainer && /^(\d+\/\d+|Evs|EVS|\d+\.\d+)$/.test(s)) b.odds = s;
@@ -174,6 +175,7 @@ function parseCardMobile(txt) {
   for (let i = 0; i < L.length; i++) { if (L[i] !== 'J:') continue; const b = {};
     // walk back: weight, age, colour/sex, then skip ratings/headgear/form-figure lines to the name
     let k = i - 1; if (/^\d+st \d+lb$/.test(L[k] || '')) { b.wgt = L[k]; k--; } if (/^\d+yo$/.test(L[k] || '')) { b.age = parseInt(L[k]); k--; } if (isSex(L[k] || '')) k--;
+    for (let q = k; q > k - 4 && q > 0; q--) { if (/^(h|t|v|b|p|e|w|ht|tp|bt|vt|tv|hv|hp|wh|tb|vb|pb)1?$/.test(L[q] || '')) { b.gear = L[q]; break; } }
     while (k > 0 && junk(L[k])) k--; const nm = L[k] || ''; if (!nm || /^(Silk|Exclude|Form)$/.test(nm)) continue;
     b.name = nm.replace(/\s+(IRE|GB|GBR|FR|FRA|USA|JPN|SAF|CHI|CAN|GER|ARG|UAE|ARE|AUS|NZ|BRZ|ITY|SPA|TUR|KOR)$/, ''); b.country = (nm.match(/\s+([A-Z]{2,3})$/) || [])[1] || '';
     b.jockey = (L[i + 1] || '').replace(/^\d+/, '').replace(/\(\d+\)$/, '').trim(); let j = i + 2; if (L[j] === 'T:') { const tl = (L[j + 1] || ''); b.rtf = (tl.match(/(\d+)%$/) || [])[1] || null; b.trainer = tl.replace(/^\d+/, '').replace(/\s+\d+%$/, '').replace(/\s+\([A-Z]+\)$/, '').trim(); j += 2; }
@@ -212,6 +214,7 @@ function analyse(race, st) {
   const bests = race.runnersList.map(r => Math.max(...r.form.map(f => f.rpr).filter(v => v != null), 0)).filter(v => v > 0).sort((a, b) => b - a);
   const fieldMark = () => bests[Math.floor((bests.length - 1) / 3)];   // upper third of the field's best figures: what it usually takes to win this field
   if (mark == null && bests.length >= 2) { mark = fieldMark(); markSrc = 'the field (upper third of its best figures)'; }
+  if (/beginners|novice.*chase|maiden|bumper|nh flat/i.test(String(race.name || '')) && bests.length >= 2) { mark = fieldMark(); markSrc = 'the field (beginners/novice/maiden: history is not the yardstick)'; }
   // a mark nobody in the field has got near is the wrong yardstick: this race will be won below its usual level, so measure against the field
   if (mark != null && bests.length >= 2 && bests[0] < mark - 3) { mark = fieldMark(); markSrc = 'the field (race history is above every runner here)'; }
   const favW = past.filter(p => /F$/.test(p.sp)).length, y3 = past.filter(p => p.age === 3).length;
@@ -222,6 +225,7 @@ function analyse(race, st) {
     const improver = consistent && climbing && lastTwoBest; const nearMark = mark != null && seq.slice(-3).some(v => v >= mark - 2);
     // DISCOVERY: a big step up on the latest run that coincides with a change - new trip (±1f or more), new surface, or a jump from a long way below - is a new level, not a spike
     const fr = r.form.filter(f => f.rpr != null); const lastF = fr[fr.length - 1], prevF = fr[fr.length - 2];
+    const lastRaw = r.form[r.form.length - 1]; const nonComp = lastRaw && lastRaw.rpr == null && /^(PU|F|UR|BD|RR|RO|CO|SU|DSQ)/i.test(String(lastRaw.out || '')) ? String(lastRaw.out).match(/^[A-Z]+/i)[0].toUpperCase() : null;
     const surf = f => /^(St|St\/Slw|Slw|Fs|S)$/.test(String(f.going || '')) ? 'aw' : 'turf';
     const changed = lastF && prevF && ((lastF.distF != null && prevF.distF != null && Math.abs(lastF.distF - prevF.distF) >= 1) || surf(lastF) !== surf(prevF));
     const discovery = !!(lastF && prevF && changed && seq.length >= 3 && last - Math.max(...seq.slice(-3, -1)) >= 8 && last >= best - 6);
@@ -229,30 +233,31 @@ function analyse(race, st) {
     const lastOr = r.form.slice().reverse().find(f => f.or != null); const wellIn = r.or != null && !r.orNote && best != null && best - r.or >= 6 && lastOr && r.or <= lastOr.or;
     const timesAtMark = mark != null ? seq.filter(v => v >= mark - 1).length : 0; const bounce = timesAtMark >= 2 && last != null && best - last >= 3 && best - last <= 9;
     const declining = last != null && best != null && ((best - last >= 10) || (seq.length >= 3 && seq[seq.length - 1] < seq[seq.length - 2] && seq[seq.length - 2] < seq[seq.length - 3]));
+    const bounce2 = bounce && !declining;
     const trend = avgPrev != null ? Math.round(last - avgPrev) : null;
     // fit
     const h = st.horse[name0(r.name)] || {}; const fitG = wr(h.going), fitD = wr(h.dist), fitC = wr(h.course);
     const tr = st.trainer[r.trainer] || Object.entries(st.trainer).find(([k]) => k.split(' ').pop() === String(r.trainer).split(' ').pop())?.[1] || {}; const jk = st.jockey[r.jockey] || {};
     const pc = s => { const [w, n] = wr(s); return n ? w / n : null; }; const ret = s => num(s) || 0;
     const tags = [];
-    if (nearMark) tags.push(['AT THE MARK', 'y']); if (improver) tags.push(['CONSISTENT IMPROVER', 'g']); if (discovery) tags.push(['DISCOVERY · ' + (surf(lastF) !== surf(prevF) ? 'NEW SURFACE' : 'NEW TRIP'), 'g']); if (wellIn) tags.push(['WELL-IN ' + (best - r.or) + 'LB', 'g']); if (bounce) tags.push(['BOUNCE-BACK', 'v']); if (declining) tags.push(['DECLINING', 'r']);
-    if (last != null && last === best && seq.length >= 2) tags.push(['CAREER BEST LAST', 'g']);
+    if (nearMark) tags.push(['AT THE MARK', 'y']); if (improver) tags.push(['CONSISTENT IMPROVER', 'g']); if (discovery) tags.push(['DISCOVERY · ' + (surf(lastF) !== surf(prevF) ? 'NEW SURFACE' : 'NEW TRIP'), 'g']); if (wellIn) tags.push(['WELL-IN ' + (best - r.or) + 'LB', 'g']); if (bounce2) tags.push(['BOUNCE-BACK', 'v']); if (declining) tags.push(['DECLINING', 'r']);
+    if (last != null && last === best && seq.length >= 2 && !nonComp) tags.push(['CAREER BEST LAST', 'g']);
     if (fitD[0] >= 2 && fitD[0] / fitD[1] >= .4) tags.push(['TRIP ' + fitD.join('-'), 'b']); if (fitG[0] >= 2 && fitG[0] / fitG[1] >= .4) tags.push(['GOING ' + fitG.join('-'), 'b']); if (fitC[0] >= 1) tags.push(['COURSE ' + fitC.join('-'), 'b']);
     if (pc(tr.c5) >= .25 && wr(tr.c5)[1] >= 8) tags.push(['TRAINER ' + tr.c5pc + ' HERE', 'g']); if (ret(tr.c5ret) >= 15) tags.push(['TRAINER ' + tr.c5ret + ' HERE', 'g']);
     if (pc(jk.c5) >= .25 && wr(jk.c5)[1] >= 8) tags.push(['JOCKEY ' + jk.c5pc + ' HERE', 'g']); if (ret(jk.c5ret) >= 15) tags.push(['JOCKEY ' + jk.c5ret + ' HERE', 'g']);
     if (pc(tr.d14) != null && pc(tr.d14) < .08 && wr(tr.d14)[1] >= 10) tags.push(['TRAINER COLD', 'r']); if (pc(jk.d14) != null && pc(jk.d14) < .08 && wr(jk.d14)[1] >= 15) tags.push(['JOCKEY COLD', 'r']);
-    if (r.age === 3 && y3 >= 3) tags.push(['3YO · ' + y3 + '/' + past.length + ' WON', 'b']); if (seq.length >= 5 && last === best && seq.slice(-2).every(v => v >= best - 2) === false && last - Math.max(...seq.slice(0, -1)) >= 2) tags.push(['EXPOSED · BEST LAST', 'b']);
+    if (r.age === 3 && y3 >= 3) tags.push(['3YO · ' + y3 + '/' + past.length + ' WON', 'b']); if (r.gear && /1$/.test(r.gear)) tags.push([{ t: 'TONGUE-TIE', h: 'HOOD', v: 'VISOR', b: 'BLINKERS', p: 'CHEEKPIECES', e: 'EYESHIELD', ht: 'HOOD + TT', tp: 'TT + CHEEKPIECES', bt: 'BLINKERS + TT', vt: 'VISOR + TT', tv: 'TT + VISOR' }[r.gear.replace('1', '')] + ' 1ST TIME' || 'NEW HEADGEAR', 'v']); if (nonComp) tags.push([nonComp + ' LAST TIME', 'r']); if (r.rtf != null && +r.rtf >= 40 && +r.rtf === Math.max(...race.runnersList.map(q => q.rtf != null ? +q.rtf : 0))) tags.push(['TOP RTF ' + r.rtf + '%', 'g']); if (seq.length >= 5 && last === best && seq.slice(-2).every(v => v >= best - 2) === false && last - Math.max(...seq.slice(0, -1)) >= 2) tags.push(['EXPOSED · BEST LAST', 'b']);
     const gapRuns = (() => { const d = r.form[r.form.length - 1]; if (!d) return null; const m = String(d.date).match(/^(\d{2})([A-Z][a-z]{2})(\d{2})$/); if (!m) return null; const dt = new Date(`${m[1]} ${m[2]} 20${m[3]}`); return Math.round((Date.now() - dt) / 86400000); })();
     if (gapRuns != null && gapRuns > 120) tags.push(['OFF ' + Math.round(gapRuns / 30) + ' MONTHS', 'r']);
     // score: figures vs mark 45, signal 25, fit 15, connections 15
     const fig = mark != null && best != null ? Math.max(0, Math.min(1, 1 - (mark - Math.max(last || 0, (seq.slice(-3).length ? Math.max(...seq.slice(-3)) : 0)) + 4) / 14)) : .4;
-    const sig = improver ? 1 : discovery ? .85 : bounce ? .8 : declining ? .15 : nearMark ? .7 : .4; const hcap = (/handicap|\bhc\b/i.test(String(race.name || '')) && wellIn ? .12 : 0) - (gapRuns != null && gapRuns > 120 ? .08 : 0) - (tags.some(t => t[0] === 'TRAINER COLD') ? .04 : 0);
+    const sig = improver ? 1 : discovery ? .85 : bounce2 ? .8 : declining ? .15 : nearMark ? .7 : .4; const hcap = (/handicap|\bhc\b/i.test(String(race.name || '')) && wellIn ? .12 : 0) - (gapRuns != null && gapRuns > 120 ? .08 : 0) - (tags.some(t => t[0] === 'TRAINER COLD') ? .04 : 0);
     const fitS = Math.min(1, (fitD[1] ? fitD[0] / fitD[1] * .5 + Math.min(fitD[0], 3) / 3 * .5 : .3) * .5 + (fitG[1] ? fitG[0] / fitG[1] * .5 + Math.min(fitG[0], 3) / 3 * .5 : .3) * .3 + (fitC[0] ? 1 : .3) * .2);
     const cn = (s, rt) => { const [w, n] = wr(s); if (!n) return .3; return Math.min(1, w / n * 1.6 + (ret(rt) > 0 ? .15 : 0) + Math.min(n, 20) / 20 * .15); };
     const conn = cn(tr.c5, tr.c5ret) * .35 + cn(tr.d14, tr.d14ret) * .15 + cn(jk.c5, jk.c5ret) * .35 + cn(jk.d14, jk.d14ret) * .15;
     const score = Math.round(Math.min(1, fig * .45 + sig * .25 + fitS * .15 + conn * .15 + hcap) * 100);
     if (r.or == null) { const lo = r.form.slice().reverse().find(f => f.or != null); if (lo) { r.or = lo.or; r.orNote = 'last run'; } }
-    return { r, seq, last, best, trend, improver, bounce, nearMark, declining, discovery, wellIn, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
+    return { r, seq, last, best, trend, improver, bounce: bounce2, nearMark, declining, discovery, wellIn, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
   out.sort((a, b) => b.score - a.score);
   const marketWeak = past.length >= 4 && favW <= Math.floor(past.length / 4); return { mark, markSrc, lo, hi, favW, y3, past, out, gk, marketWeak };
 }
