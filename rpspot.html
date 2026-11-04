@@ -98,7 +98,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 <section>
 <div class="rh" id="rh"></div>
 <div class="kv" id="kv"></div>
-<h3>Totals &amp; averages <small>tap a column to sort · X1 = avg + odds · JK/TR = strike rate at this course · Comb = X1 + JK% + TR%</small></h3>
+<h3>Totals &amp; averages <small>tap a column to sort · X1 = avg + odds · JK/TR = strike rate at this course · Comb = X1 + JK% + TR% · fc = Racing Post forecast price (card copied before the market)</small></h3>
 <div class="card" id="totals"></div><div class="note" style="margin-top:-4px">Swipe the table sideways for X1, JK%, TR%, Comb. Tap any heading to sort high → low; tap again to flip.</div>
 <div class="verdict" id="verdict"></div>
 <h3>Best run v the mark <small>each horse's top RPR, highest first</small></h3>
@@ -189,7 +189,11 @@ function parseCardMobile(txt) {
     b.form.reverse(); if (b.nr) (race.nonRunners = race.nonRunners || []).push(b.name); else runners.push(b); }
   race.runnersList = runners; return race;
 }
-function parseAnyCard(txt) { const d = parseCard(txt); if (d.runnersList.length) return d; const m = parseCardMobile(txt); if (!m.runnersList.length) return d; return m; }
+function parseAnyCard(txt) { const d = parseCard(txt); const race = d.runnersList.length ? d : (parseCardMobile(txt).runnersList.length ? parseCardMobile(txt) : d);
+  // no live odds on the card (copied before the market opened): fall back to Racing Post's betting forecast
+  if (race.forecast && race.runnersList.some(r => !r.odds)) { const fc = {}; let cur = null; String(race.forecast).replace(/\.$/, '').split(',').forEach(part => { const m = part.trim().match(/^(\d+\/\d+|Evs|EVS)\s+(.+)$/i); if (m) { cur = m[1]; fc[m[2].trim().toLowerCase()] = cur; } else if (cur) fc[part.trim().toLowerCase()] = cur; });
+    race.runnersList.forEach(r => { if (!r.odds) { const k = r.name.toLowerCase(); if (fc[k]) { r.odds = fc[k]; r.oddsNote = 'forecast'; } } }); }
+  return race; }
 // ---------- STATS PARSER ----------
 function parseStats(txt) {
   const L = txt.split(/\r?\n/).map(s => s.replace(/ /g, ' ').trim()); const st = { trainer: {}, jockey: {}, horse: {}, past: [] };
@@ -283,7 +287,7 @@ function drawTotals() { const T = window.__TOT || []; const S = window.__SORT; c
   const mx = k => Math.max(...T.map(t => t[k] ?? -1e9)); const H = [['avg', 'Avg'], ['sum', 'Total'], ['x1', 'X1'], ['jk', 'JK%'], ['tr', 'TR%'], ['comb', 'Comb'], ['best', 'Best'], ['last', 'Last']];
   const fmt = (k, v) => v == null ? '—' : k === 'avg' || k === 'x1' || k === 'comb' ? v.toFixed(1) : k === 'jk' || k === 'tr' ? Math.round(v) + '%' : v;
   document.getElementById('totals').innerHTML = `<div class="tw"><div class="ta"><span></span><span>Horse</span>${H.map(([k, l]) => `<span class="v th ${S.k === k ? 'on' : ''}" data-k="${k}">${l}${S.k === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</span>`).join('')}</div>` + rows.map((t, i) => { const val = k => k === 'best' ? t.x.best : k === 'last' ? t.x.last : t[k];
-    return `<div class="ta"><span class="n">${i + 1}</span><span class="h"><b>${esc(t.x.r.name)}</b><span>${esc(t.x.r.odds || '')} · ${t.x.seq.length} run${t.x.seq.length === 1 ? '' : 's'} · ${t.x.seq.join(' ')}</span></span>${H.map(([k]) => `<span class="v ${S.k === k ? 'big' : ''} ${val(k) != null && val(k) === (k === 'best' ? Math.max(...T.map(q => q.x.best ?? -1e9)) : k === 'last' ? Math.max(...T.map(q => q.x.last ?? -1e9)) : mx(k)) ? 'hi' : ''} ${k === 'last' && window.__MARK != null && t.x.last >= window.__MARK - 2 ? 'mk' : ''}">${fmt(k, val(k))}</span>`).join('')}</div>`; }).join('') + `</div>`;
+    return `<div class="ta"><span class="n">${i + 1}</span><span class="h"><b>${esc(t.x.r.name)}</b><span>${esc(t.x.r.odds || '')}${t.x.r.oddsNote ? ' <i>fc</i>' : ''} · ${t.x.seq.length} run${t.x.seq.length === 1 ? '' : 's'} · ${t.x.seq.join(' ')}</span></span>${H.map(([k]) => `<span class="v ${S.k === k ? 'big' : ''} ${val(k) != null && val(k) === (k === 'best' ? Math.max(...T.map(q => q.x.best ?? -1e9)) : k === 'last' ? Math.max(...T.map(q => q.x.last ?? -1e9)) : mx(k)) ? 'hi' : ''} ${k === 'last' && window.__MARK != null && t.x.last >= window.__MARK - 2 ? 'mk' : ''}">${fmt(k, val(k))}</span>`).join('')}</div>`; }).join('') + `</div>`;
   document.querySelectorAll('#totals .th').forEach(h => h.onclick = () => { const k = h.dataset.k; if (window.__SORT.k === k) window.__SORT.dir = -window.__SORT.dir; else window.__SORT = { k, dir: -1 }; drawTotals(); }); }
 function render(race, st, A) {
   document.getElementById('out').style.display = 'block'; $('sheet').classList.remove('open');
