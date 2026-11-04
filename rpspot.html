@@ -60,7 +60,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 #sheet .pane h3{margin-top:4px}
 #bar{display:flex;align-items:center;gap:8px}
 /* totals table */
-.ta{display:grid;grid-template-columns:22px 1fr 54px 54px 48px 48px;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.ta:first-child{border-top:0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:800}.ta .n{color:var(--mut);font-weight:800;font-size:11px}.ta .h b{display:block;font-weight:900}.ta .h span{font-size:11px;color:var(--mut)}.ta .v{text-align:right;font-weight:800}.ta .v.big{font-size:17px;font-weight:900}.ta .v.hi{color:var(--mint)}.ta .v.mk{color:var(--gold)}
+.tw{overflow-x:auto}.ta{display:grid;grid-template-columns:20px 128px repeat(8,50px);min-width:560px;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.ta:first-child{border-top:0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:800}.ta .n{color:var(--mut);font-weight:800;font-size:11px}.ta .h b{display:block;font-weight:900}.ta .h span{font-size:11px;color:var(--mut)}.ta .v{text-align:right;font-weight:800}.ta .v.big{font-size:17px;font-weight:900}.ta .th{cursor:pointer;user-select:none}.ta .th.on{color:var(--gold)}.ta .v.hi{color:var(--mint)}.ta .v.mk{color:var(--gold)}
 </style></head>
 <body>
 <div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT</h1><button class="btn" id="newrace" style="padding:8px 14px;font-size:12px">+ NEW RACE</button><a class="chip" href="/breeders.html">BC</a></div>
@@ -98,8 +98,8 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 <section>
 <div class="rh" id="rh"></div>
 <div class="kv" id="kv"></div>
-<h3>Totals &amp; averages <small>last six RPRs · best average first</small></h3>
-<div class="card" id="totals"></div>
+<h3>Totals &amp; averages <small>tap a column to sort · X1 = avg + odds · JK/TR = strike rate at this course · Comb = X1 + JK% + TR%</small></h3>
+<div class="card" id="totals"></div><div class="note" style="margin-top:-4px">Swipe the table sideways for X1, JK%, TR%, Comb. Tap any heading to sort high → low; tap again to flip.</div>
 <div class="verdict" id="verdict"></div>
 <h3>Best run v the mark <small>each horse's top RPR, highest first</small></h3>
 <div class="card" id="bestlist"></div>
@@ -279,6 +279,12 @@ function readLine(x, A) { const n = x.seq.length; if (!n) return 'No ratings on 
   if (x.nearMark) return `Holding at the mark (${where}); consistent rather than improving - trust for the win if nothing else is climbing.`;
   if (x.trend > 3) return `Up ${x.trend} on its recent average but ${where || 'still short'}; a step forward, not yet a case.`;
   return `Flat line around ${Math.round(x.seq.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, n))}; ${where || 'nothing to suggest a step up'}.`; }
+function drawTotals() { const T = window.__TOT || []; const S = window.__SORT; const val0 = (t, k) => k === 'best' ? t.x.best : k === 'last' ? t.x.last : t[k]; const rows = T.slice().sort((a, b) => ((val0(b, S.k) ?? -1e9) - (val0(a, S.k) ?? -1e9)) * (S.dir < 0 ? 1 : -1));
+  const mx = k => Math.max(...T.map(t => t[k] ?? -1e9)); const H = [['avg', 'Avg'], ['sum', 'Total'], ['x1', 'X1'], ['jk', 'JK%'], ['tr', 'TR%'], ['comb', 'Comb'], ['best', 'Best'], ['last', 'Last']];
+  const fmt = (k, v) => v == null ? '—' : k === 'avg' || k === 'x1' || k === 'comb' ? v.toFixed(1) : k === 'jk' || k === 'tr' ? Math.round(v) + '%' : v;
+  document.getElementById('totals').innerHTML = `<div class="tw"><div class="ta"><span></span><span>Horse</span>${H.map(([k, l]) => `<span class="v th ${S.k === k ? 'on' : ''}" data-k="${k}">${l}${S.k === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</span>`).join('')}</div>` + rows.map((t, i) => { const val = k => k === 'best' ? t.x.best : k === 'last' ? t.x.last : t[k];
+    return `<div class="ta"><span class="n">${i + 1}</span><span class="h"><b>${esc(t.x.r.name)}</b><span>${esc(t.x.r.odds || '')} · ${t.x.seq.length} run${t.x.seq.length === 1 ? '' : 's'} · ${t.x.seq.join(' ')}</span></span>${H.map(([k]) => `<span class="v ${S.k === k ? 'big' : ''} ${val(k) != null && val(k) === (k === 'best' ? Math.max(...T.map(q => q.x.best ?? -1e9)) : k === 'last' ? Math.max(...T.map(q => q.x.last ?? -1e9)) : mx(k)) ? 'hi' : ''} ${k === 'last' && window.__MARK != null && t.x.last >= window.__MARK - 2 ? 'mk' : ''}">${fmt(k, val(k))}</span>`).join('')}</div>`; }).join('') + `</div>`;
+  document.querySelectorAll('#totals .th').forEach(h => h.onclick = () => { const k = h.dataset.k; if (window.__SORT.k === k) window.__SORT.dir = -window.__SORT.dir; else window.__SORT = { k, dir: -1 }; drawTotals(); }); }
 function render(race, st, A) {
   document.getElementById('out').style.display = 'block'; $('sheet').classList.remove('open');
   const nr = race.nonRunners && race.nonRunners.length ? 'NR ' + race.nonRunners.join(', ') : '';
@@ -297,10 +303,11 @@ function render(race, st, A) {
     return `<div class="bl"><div class="bt"><span class="n">${i + 1}</span><span class="h"><b>${esc(x.r.name)}</b><small>${when ? esc(when.date) + ' · ' + esc(when.cond || '') : ''}${ago === 0 ? ' · last run' : ago != null ? ' · ' + ago + ' run' + (ago === 1 ? '' : 's') + ' ago' : ''}</small></span><span class="o">${esc(x.r.odds || '')}</span><span class="bst ${d != null && d >= -2 ? 'at' : ''}">${x.best}</span><span class="d ${d == null ? '' : d >= 0 ? 'pos' : d >= -4 ? '' : 'neg'}">${d == null ? '' : (d > 0 ? '+' : '') + d}</span></div>
       <div class="bk">${k('LAST', x.last, A.mark != null && x.last >= A.mark - 2 ? 'hi' : '')}${k('AVG', x.seq.length ? (x.seq.reduce((a, b) => a + b, 0) / x.seq.length).toFixed(1) : null)}${k('TREND', x.trend == null ? null : (x.trend > 0 ? '+' : '') + x.trend, x.trend > 0 ? 'pos' : x.trend < 0 ? 'neg' : '')}${k('WGT', x.r.wgt ? x.r.wgt.replace('st ', '-').replace('lb', '') : null, MX.wgt != null && wlb(x.r.wgt) === MX.wgt ? 'hi' : '')}${k('OR', x.r.or, x.r.or != null && x.r.or === MX.or ? 'hi' : '')}${k('RPR', x.r.rprAdj, x.r.rprAdj != null && x.r.rprAdj === MX.rpr ? 'hi' : '')}${k('TS', x.r.tsAdj, x.r.tsAdj != null && x.r.tsAdj === MX.ts ? 'hi' : '')}${k('RTF', x.r.rtf != null ? x.r.rtf + '%' : null, x.r.rtf != null && +x.r.rtf === MX.rtf ? 'hi' : '')}${k('SCORE', x.score)}</div>
       <div class="tags" style="margin-top:4px">${x.tags.slice(0, 5).map(t => `<span class="tag ${t[1]}">${esc(t[0])}</span>`).join('')}</div></div>`; }).join('') : '<div class="note" style="padding:10px 12px">No ratings in the paste.</div>';
-  // TOTALS & AVERAGES
-  const tot = A.out.map(x => ({ x, sum: x.seq.reduce((a, b) => a + b, 0), avg: x.seq.length ? x.seq.reduce((a, b) => a + b, 0) / x.seq.length : null })).sort((a, b) => (b.avg || 0) - (a.avg || 0));
-  const bestAvg = tot[0] && tot[0].avg, bestSum = Math.max(...tot.map(t => t.sum));
-  document.getElementById('totals').innerHTML = `<div class="ta"><span></span><span>Horse</span><span class="v">Avg</span><span class="v">Total</span><span class="v">Best</span><span class="v">Last</span></div>` + tot.map((t, i) => `<div class="ta"><span class="n">${i + 1}</span><span class="h"><b>${esc(t.x.r.name)}</b><span>${esc(t.x.r.odds || '')} · ${t.x.seq.length} run${t.x.seq.length === 1 ? '' : 's'} · ${t.x.seq.join(' ')}</span></span><span class="v big ${t.avg === bestAvg ? 'hi' : ''}">${t.avg == null ? '—' : t.avg.toFixed(1)}</span><span class="v ${t.sum === bestSum ? 'hi' : ''}">${t.sum || '—'}</span><span class="v">${t.x.best ?? '—'}</span><span class="v ${A.mark != null && t.x.last >= A.mark - 2 ? 'mk' : ''}">${t.x.last ?? '—'}</span></div>`).join('');
+  // TOTALS & AVERAGES - sortable; X1 = average + decimal odds; JK/TR = strike rate at this course (5 seasons); COMBINED = X1 + JK% + TR%
+  const pcOf = s => { const [w, n] = wr(s); return n ? w / n * 100 : null; };
+  window.__TOT = A.out.map(x => { const sum = x.seq.reduce((a, b) => a + b, 0); const avg = x.seq.length ? sum / x.seq.length : null; const o = oddsNum(x.r.odds); const jk = pcOf(x.jk.c5), tr = pcOf(x.tr.c5);
+    return { x, sum, avg, odds: o, x1: avg != null && o != null ? avg + o : null, jk, tr, comb: avg != null && o != null ? avg + o + (jk || 0) + (tr || 0) : null }; });
+  window.__MARK = A.mark; window.__SORT = window.__SORT || { k: 'avg', dir: -1 }; drawTotals();
   const topS = A.out[0] ? A.out[0].score : 1;
   const cell = (a, lab) => { const [w, n] = a; const p = n ? w / n : null; return `<span class="fc"><small>${lab}</small><b class="${p >= .4 && n >= 2 ? 'pos' : p === 0 && n >= 3 ? 'neg' : ''}">${n ? w + '-' + n : '—'}</b><em>${n ? Math.round(p * 100) + '% · ' + w + ' win' + (w === 1 ? '' : 's') + ' from ' + n : 'no runs'}</em></span>`; };
   const ct = (lab, g) => `<span><small>${lab}</small>${g ? esc(g[0] || '—') : '—'}${g && g[1] ? ' <u>' + esc(g[1]) + '</u>' : ''} ${rc(g ? g[2] : '')}</span>`;
