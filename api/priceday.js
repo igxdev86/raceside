@@ -72,6 +72,7 @@ export default async function handler(req, res) {
   races.sort((a, b) => offMin(a.off) - offMin(b.off));
   const out = races.map((race) => ({
     t: race.off || '',
+    rd: race.date || '',
     dist: (() => {
       const f = parseFloat(race.dist_f);
       if (f > 0) return f;
