@@ -27,6 +27,7 @@ h3{margin:14px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercas
 <div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT · STUDY</h1><a class="chip" href="/rpspot.html">SPOTLIGHT</a></div>
 <section>
 <div class="ctl"><span class="note" style="margin:0">Window</span><a class="chip" data-d="7">7 days</a><a class="chip on" data-d="30">30 days</a><a class="chip" data-d="90">90 days</a><span class="note" id="st" style="margin:0 0 0 auto"></span></div>
+<div class="ctl"><button class="chip on" id="settleall" style="border:0">SETTLE ALL FROM RESULTS</button><span class="note" id="sst" style="margin:0"></span></div>
 <div class="kv" id="kv"></div>
 <div class="ctl" id="tagfilter"></div>
 </section>
@@ -43,11 +44,26 @@ const $ = id => document.getElementById(id); const esc = s => String(s == null ?
 const ukd = off => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() - off * 86400000));
 const fmtD = d => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(d + 'T12:00:00Z'));
 const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 0; let h = +m[1]; if (h < 10) h += 12; return h * 60 + +m[2]; };
-let ALL = [], FILTER = null;
-async function load(days) { $('st').textContent = 'loading…'; const ds = []; for (let i = 0; i < days; i++) ds.push(ukd(i)); const rows = [];
+let ALL = [], FILTER = null, DAYS = 30, LIB = null;
+// the parser and signal engine live in rpspot.html - load them once so settling here records the same rank and tags
+async function lib() { if (LIB) return LIB; const html = await (await fetch('/rpspot.html?t=' + Math.floor(Date.now() / 600000))).text(); const js = html.match(/<script>([\s\S]*?)<\/script>/)[1]; const core = js.slice(js.indexOf('const esc ='), js.indexOf('// ---------- RENDER')); LIB = new Function(core + '\nreturn { parseAnyCard, parseStats, analyse };')(); return LIB; }
+const normN = s => String(s || '').toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-z]/g, ''); const normC = s => String(s || '').toLowerCase().replace(/\s*\((aw|ire)\)/g, '').replace(/[^a-z]/g, '');
+const t2k = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return ''; let h = +m[1]; if (h >= 13) h -= 12; return h + ':' + m[2]; };
+const clean = t => String(t).replace(/ ·.*$| \d+LB$| \d+-\d+$| \d+%$| \+[\d.]+ HERE$/, '');
+async function dayRow(d) { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Date.now()); const j = await r.json(); return (j && j.state && j.state.races) ? j.state : null; }
+async function saveRow(d, dv) { dv.ts = Date.now(); await fetch('/api/yearstate?k=rpspot:day:' + d, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dv) }); }
+function makeWinner(L, rec, name) { const txt = (rec.a || '') + '\n' + (rec.b || ''); const race = L.parseAnyCard(txt); if (!race.runnersList.length) return null; const A = L.analyse(race, L.parseStats(txt)); const ix = A.out.findIndex(x => normN(x.r.name) === normN(name)); if (ix < 0) return null; const x = A.out[ix];
+  return { name: x.r.name, rank: ix + 1, n: A.out.length, odds: x.r.odds || '', tags: x.tags.map(t => clean(t[0])), score: x.score, allTags: A.out.map(y => y.tags.map(t => clean(t[0]))) }; }
+async function settleDay(d) { const dv = await dayRow(d); if (!dv) return 0; const open = Object.entries(dv.races).filter(([, r]) => !r.winner); if (!open.length) return 0; const L = await lib();
+  let winners = []; try { if (d === ukd(0)) { const j = await (await fetch('/api/todaywinners?t=' + Math.floor(Date.now() / 120000))).json(); winners = (j.winners || []); } else { const j = await (await fetch('/api/priceday?v=5&date=' + d)).json(); winners = (j.races || []).map(rc => { const w = (rc.runners || []).find(x => x.pos === '1'); return w ? { t: rc.t, course: rc.course, h: w.h } : null; }).filter(Boolean); } } catch { return 0; }
+  let n = 0; open.forEach(([k, r]) => { const sm = r.sum || {}; const w = winners.find(x => t2k(x.t) === t2k(sm.time) && normC(x.course) === normC(sm.course)); if (!w) return; const win = makeWinner(L, r, w.h); if (win) { win.auto = true; r.winner = win; n++; } });
+  if (n) await saveRow(d, dv); return n; }
+async function settleAll() { $('sst').textContent = 'checking results…'; let n = 0; const days = [...new Set(ALL.filter(r => !r.winner).map(r => r.d))]; for (const d of days) n += await settleDay(d); $('sst').textContent = n ? n + ' settled' : 'nothing new in the results feed'; await load(DAYS); }
+async function logManual(d, k) { const dv = await dayRow(d); const rec = dv && dv.races[k]; if (!rec) return; const L = await lib(); const txt = (rec.a || '') + '\n' + (rec.b || ''); const race = L.parseAnyCard(txt); const A = L.analyse(race, L.parseStats(txt));
+  const pick = prompt('Who won?\n' + A.out.map((x, i) => (i + 1) + ' ' + x.r.name).join('\n') + '\n\nType the number:'); const ix = parseInt(pick) - 1; if (!(ix >= 0 && ix < A.out.length)) return; const win = makeWinner(L, rec, A.out[ix].r.name); if (!win) return; rec.winner = win; await saveRow(d, dv); await load(DAYS); }
+async function load(days) { DAYS = days; $('st').textContent = 'loading…'; const ds = []; for (let i = 0; i < days; i++) ds.push(ukd(i)); const rows = [];
   await Promise.all(ds.map(async d => { try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Math.floor(Date.now() / 300000)); const j = await r.json(); Object.entries((j.state && j.state.races) || {}).forEach(([k, r]) => rows.push({ d, k, sum: r.sum || {}, winner: r.winner || null })); } catch {} }));
   ALL = rows.sort((a, b) => b.d.localeCompare(a.d) || t2m(b.sum.time) - t2m(a.sum.time)); $('st').textContent = ALL.length + ' races · ' + ALL.filter(r => r.winner).length + ' settled'; draw(); }
-const clean = t => String(t).replace(/ ·.*$| \d+LB$| \d+-\d+$| \d+%$| \+[\d.]+ HERE$/, '');
 function draw() { const settled = ALL.filter(r => r.winner); const T = {}; let fields = 0;
   settled.forEach(r => { fields += r.winner.n || 0; const won = new Set((r.winner.tags || []).map(clean)); (r.winner.allTags || []).forEach(tags => new Set(tags.map(clean)).forEach(t => { const g = T[t] = T[t] || { n: 0, w: 0 }; g.n++; })); won.forEach(t => { const g = T[t] = T[t] || { n: 0, w: 0 }; g.w++; }); });
   const rnd = settled.length && fields ? settled.length / fields * 100 : null;
@@ -57,9 +73,10 @@ function draw() { const settled = ALL.filter(r => r.winner); const T = {}; let f
   $('tagfilter').querySelectorAll('.chip').forEach(c => c.onclick = () => { FILTER = c.dataset.t || null; draw(); });
   const show = FILTER ? ALL.filter(r => r.winner && (r.winner.allTags || []).some(tags => tags.map(clean).includes(FILTER))) : ALL; let lastD = '';
   $('list').innerHTML = show.length ? show.map(r => { const hd = r.d !== lastD ? `<div class="dh">${esc(fmtD(r.d))}</div>` : ''; lastD = r.d; const w = r.winner; const tags = w ? (w.tags || []).map(clean) : [];
-    return hd + `<a class="rc" href="/rpspot.html?day=${esc(r.d)}&k=${encodeURIComponent(r.k)}"><span class="t">${esc(r.sum.time)}</span><span class="nm"><b>${esc(r.sum.course)}</b><span>${esc(String(r.sum.name).replace(/\s*\(.*$/, '').slice(0, 44))}${r.sum.n ? ' · ' + r.sum.n + ' run' : ''}</span><span>pick: ${esc(r.sum.pick)} ${esc(r.sum.odds)}</span>${tags.length ? `<div class="tags">${tags.map(t => `<span class="tag ${FILTER === t ? 'w' : ''}">${esc(t)}</span>`).join('')}</div>` : ''}</span><span class="w">${w ? `<b>${esc(w.name)}</b><small>${esc(w.odds)}</small><span class="rk ${w.rank === 1 ? 'one' : w.rank > 3 ? 'low' : ''}">${w.rank}/${w.n}</span>` : '<b class="miss">unsettled</b>'}</span></a>`; }).join('') : '<div class="note" style="padding:10px 12px">Nothing here.</div>';
+    return hd + `<a class="rc" href="/rpspot.html?day=${esc(r.d)}&k=${encodeURIComponent(r.k)}"><span class="t">${esc(r.sum.time)}</span><span class="nm"><b>${esc(r.sum.course)}</b><span>${esc(String(r.sum.name).replace(/\s*\(.*$/, '').slice(0, 44))}${r.sum.n ? ' · ' + r.sum.n + ' run' : ''}</span><span>pick: ${esc(r.sum.pick)} ${esc(r.sum.odds)}</span>${tags.length ? `<div class="tags">${tags.map(t => `<span class="tag ${FILTER === t ? 'w' : ''}">${esc(t)}</span>`).join('')}</div>` : ''}</span><span class="w">${w ? `<b>${esc(w.name)}</b><small>${esc(w.odds)}</small><span class="rk ${w.rank === 1 ? 'one' : w.rank > 3 ? 'low' : ''}">${w.rank}/${w.n}</span>` : `<b class="miss">unsettled</b><button class="chip logw" data-d="${esc(r.d)}" data-k="${esc(r.k)}" style="margin-top:4px">LOG WINNER</button>`}</span></a>`; }).join('') : '<div class="note" style="padding:10px 12px">Nothing here.</div>';
+  $('list').querySelectorAll('.logw').forEach(b => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); logManual(b.dataset.d, b.dataset.k); });
   $('sig').innerHTML = tagList.length ? tagList.map(([t, g]) => { const p = g.w / g.n * 100; return `<div class="sr"><b>${esc(t)}</b><span><small>won / carried</small>${g.w}/${g.n}</span><span><small>strike</small><u class="${rnd != null && p >= rnd * 1.5 ? 'g' : rnd != null && p < rnd * .6 ? 'r' : ''}">${p.toFixed(0)}%</u></span></div>`; }).join('') : '<div class="note" style="padding:10px 12px">Settle some races first.</div>'; }
 document.querySelectorAll('.chip[data-d]').forEach(c => c.onclick = () => { document.querySelectorAll('.chip[data-d]').forEach(x => x.classList.remove('on')); c.classList.add('on'); load(+c.dataset.d); });
-load(30);
+$('settleall').onclick = settleAll; load(30);
 </script>
 </body></html>
