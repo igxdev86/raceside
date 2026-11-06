@@ -1,0 +1,17 @@
+// Move analysed races to the day row matching the date on their Racing Post card, then settle from results. ARG = days back (default 14)
+import fs from 'fs';
+const BASE = 'https://raceside.vercel.app'; const DAYS = parseInt(process.env.ARG) || 14;
+const html = fs.readFileSync(new URL('../rpspot.html', import.meta.url), 'utf8'); const js = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const core = js.slice(js.indexOf('const esc ='), js.indexOf('// ---------- RENDER')); const L = new Function(core + '\nreturn { parseAnyCard, parseStats, analyse };')();
+const ukd = off => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() - off * 86400000));
+const rows = {}; const get = async d => { if (rows[d] !== undefined) return rows[d]; try { const j = await (await fetch(BASE + '/api/yearstate?k=rpspot:day:' + d + '&t=' + Date.now())).json(); rows[d] = (j.state && j.state.races) ? j.state : { races: {} }; } catch { rows[d] = { races: {} }; } return rows[d]; };
+const dirty = new Set(); let moved = 0;
+for (let i = 0; i <= DAYS; i++) { const d = ukd(i); const dv = await get(d); for (const [k, r] of Object.entries(dv.races)) { const race = L.parseAnyCard((r.a || '') + '\n' + (r.b || '')); const rd = race.date; if (!rd || rd === d) continue; const tv = await get(rd); tv.races[k] = { ...r, sum: { ...(r.sum || {}), date: rd } }; delete dv.races[k]; dirty.add(d); dirty.add(rd); moved++; } }
+// settle everything unsettled from results
+const t2k = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return ''; let h = +m[1]; if (h >= 13) h -= 12; return h + ':' + m[2]; }; const normC = s => String(s || '').toLowerCase().replace(/\s*\((aw|ire)\)/g, '').replace(/[^a-z]/g, ''); const normN = s => String(s || '').toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-z]/g, ''); const clean = t => String(t).replace(/ ·.*$| \d+LB$| \d+-\d+$| \d+%$| \+[\d.]+ HERE$/, '');
+let settled = 0; const unmatched = [];
+for (const d of Object.keys(rows)) { const dv = rows[d]; const open = Object.entries(dv.races).filter(([, r]) => !r.winner); if (!open.length) continue; let feed = []; try { const p = await (await fetch(BASE + '/api/priceday?v=6&date=' + d)).json(); feed = (p.races || []).map(rc => ({ t: rc.t, course: rc.course, w: ((rc.runners || []).find(x => x.pos === '1') || {}).h })); } catch {}
+  for (const [k, r] of open) { const sm = r.sum || {}; const w = feed.find(f => t2k(f.t) === t2k(sm.time) && normC(f.course) === normC(sm.course)); if (!w || !w.w) { unmatched.push(d + ' ' + sm.time + ' ' + sm.course); continue; } const txt = (r.a || '') + '\n' + (r.b || ''); const race = L.parseAnyCard(txt); if (!race.runnersList.length) continue; const A = L.analyse(race, L.parseStats(txt)); const ix = A.out.findIndex(x => normN(x.r.name) === normN(w.w)); if (ix < 0) { unmatched.push(d + ' ' + sm.time + ' ' + sm.course + ' (winner ' + w.w + ' not in field)'); continue; } const x = A.out[ix];
+    r.winner = { name: x.r.name, rank: ix + 1, n: A.out.length, odds: x.r.odds || '', tags: x.tags.map(t => clean(t[0])), score: x.score, allTags: A.out.map(y => y.tags.map(t => clean(t[0]))), auto: true }; settled++; dirty.add(d); } }
+for (const d of dirty) { rows[d].ts = Date.now(); await fetch(BASE + '/api/yearstate?k=rpspot:day:' + d, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rows[d]) }); }
+console.log(JSON.stringify({ moved, settled, saved: [...dirty], unmatched }));
