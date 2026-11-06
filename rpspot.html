@@ -66,7 +66,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 <div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT</h1><button class="btn" id="newrace" style="padding:8px 14px;font-size:12px">+ NEW RACE</button><a class="chip" href="/breeders.html">BC</a></div>
 
 <section id="todaywrap" style="padding-bottom:0">
-<h3 style="margin-top:10px">Today's races <small id="todayst">loading…</small></h3>
+<h3 style="margin-top:10px">Today's races <small id="todayst">loading…</small><button class="btn g" id="settle" style="margin-left:auto;padding:5px 10px;font-size:10px">SETTLE FROM RESULTS</button></h3>
 <div id="today"></div>
 </section>
 <section id="recwrap" style="padding-top:0">
@@ -357,7 +357,7 @@ function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\
     saveServer(key, { a, b, at: Date.now(), sum }); CUR = key; drawToday();
     try { $('out').scrollIntoView({ behavior: 'smooth' }); } catch {} }
   catch (e) { $('err').textContent = 'Could not read that: ' + e.message; } }
-const ukd = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date());
+const ukd = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() - (off || 0) * 86400000));
 let DAY = { races: {} }, CUR = null; let DAYD = ukd();
 async function loadDay(d) { DAYD = d; try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Date.now()); const j = await r.json(); DAY = (j && j.state && j.state.races) ? j.state : { races: {} }; } catch { DAY = { races: {} }; }
   // races analysed on this phone today before the server list existed: lift them in
@@ -371,7 +371,7 @@ async function loadDayQuiet(d) { try { const r = await fetch('/api/yearstate?k=r
 const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
 function drawToday() { const ks = Object.keys(DAY.races || {}).sort((x, y) => t2m(DAY.races[x].sum && DAY.races[x].sum.time) - t2m(DAY.races[y].sum && DAY.races[y].sum.time));
   $('todayst').textContent = ks.length ? ks.length + ' analysed · ' + DAYD : 'none yet · ' + DAYD;
-  $('today').innerHTML = ks.map(k => { const r = DAY.races[k], sm = r.sum || {}; return `<div class="tr${k === CUR ? ' on' : ''}" data-k="${esc(k)}"><span class="t">${esc(sm.time)}</span><span class="c"><b>${esc(sm.course)}</b><span>${esc(String(sm.name).replace(/\s*\(.*$/, '').slice(0, 40))}${sm.n ? ' · ' + sm.n + ' run' : ''}</span></span><span class="p">${esc(sm.pick)} ${esc(sm.odds)}<small>${esc((sm.tags || []).join(' · '))}</small>${r.winner ? `<small class="won">WON: ${esc(r.winner.name)}${r.winner.rank ? ' · ranked ' + r.winner.rank + '/' + r.winner.n : ''}</small>` : `<small><a href="#" class="setw" data-k="${esc(k)}">log winner ›</a></small>`}</span></div>`; }).join('');
+  $('today').innerHTML = ks.map(k => { const r = DAY.races[k], sm = r.sum || {}; return `<div class="tr${k === CUR ? ' on' : ''}" data-k="${esc(k)}"><span class="t">${esc(sm.time)}</span><span class="c"><b>${esc(sm.course)}</b><span>${esc(String(sm.name).replace(/\s*\(.*$/, '').slice(0, 40))}${sm.n ? ' · ' + sm.n + ' run' : ''}</span></span><span class="p">${esc(sm.pick)} ${esc(sm.odds)}<small>${esc((sm.tags || []).join(' · '))}</small>${r.winner ? `<small class="won">WON: ${esc(r.winner.name)}${r.winner.rank ? ' · ranked ' + r.winner.rank + '/' + r.winner.n : ''}${r.winner.auto ? ' · auto' : ''}</small>` : `<small><a href="#" class="setw" data-k="${esc(k)}">log winner ›</a></small>`}</span></div>`; }).join('');
   $('today').querySelectorAll('.setw').forEach(el => el.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); const r = DAY.races[el.dataset.k]; if (!r) return; const race = parseAnyCard((r.a || '') + '\n' + (r.b || '')); const A = analyse(race, parseStats((r.a || '') + '\n' + (r.b || '')));
     const names = A.out.map((x, i) => (i + 1) + ' ' + x.r.name); const pick = prompt('Who won?\n' + names.join('\n') + '\n\nType the number:'); const ix = parseInt(pick) - 1; if (!(ix >= 0 && ix < A.out.length)) return; const x = A.out[ix];
     r.winner = { name: x.r.name, rank: ix + 1, n: A.out.length, odds: x.r.odds || '', tags: x.tags.map(t => t[0].replace(/ ·.*$| \d+LB$| \d+-\d+$/, '')), score: x.score, allTags: A.out.map(y => y.tags.map(t => t[0].replace(/ ·.*$| \d+LB$| \d+-\d+$/, ''))) };
@@ -385,6 +385,21 @@ async function drawRecord() { const days = []; for (let i = 0; i < 21; i++) { co
   const el = $('record'); if (!el) return; if (!races) { el.innerHTML = '<div class="note" style="padding:10px 12px">Log winners from the list above and the record of each signal builds here.</div>'; return; }
   const list = Object.entries(T).filter(([, g]) => g.n >= 2).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n);
   el.innerHTML = `<div class="sr" style="grid-template-columns:1fr 1fr 1fr"><div class="sn"><b>${races} races logged</b></div><div class="sv"><small>top pick won</small>${top1}/${races}</div><div class="sv"><small>winner in top 3</small>${top3}/${races}</div></div>` + list.map(([t, g]) => `<div class="sr" style="grid-template-columns:1.6fr 1fr 1fr"><div class="sn"><b style="font-size:12px">${esc(t)}</b></div><div class="sv"><small>on the winner</small>${g.w}/${g.n}</div><div class="sv"><small>strike</small><u class="${g.w / g.n >= .3 ? 'g' : g.w === 0 ? 'r' : ''}">${Math.round(g.w / g.n * 100)}%</u></div></div>`).join(''); }
+// AUTO-SETTLE: look up the results feed and log the winner of every analysed race that has none yet
+const normN = s => String(s || '').toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-z]/g, '');
+const normC = s => String(s || '').toLowerCase().replace(/\s*\((aw|ire)\)/g, '').replace(/[^a-z]/g, '');
+const t2k = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return ''; let h = +m[1]; if (h >= 13) h -= 12; return h + ':' + m[2]; };   // 17:00 and 5:00 both → 5:00
+async function settleDay(d, dayObj) { let winners = []; try { if (d === ukd()) { const j = await (await fetch('/api/todaywinners?t=' + Math.floor(Date.now() / 120000))).json(); winners = (j && j.winners || []).map(w => ({ t: w.t, course: w.course, h: w.h })); }
+    else { const j = await (await fetch('/api/priceday?v=5&date=' + d)).json(); winners = (j && j.races || []).map(rc => { const w = (rc.runners || []).find(x => x.pos === '1'); return w ? { t: rc.t, course: rc.course, h: w.h } : null; }).filter(Boolean); } } catch { return 0; }
+  if (!winners.length) return 0; let n = 0;
+  Object.keys(dayObj.races || {}).forEach(k => { const r = dayObj.races[k]; if (r.winner) return; const sm = r.sum || {}; const w = winners.find(x => t2k(x.t) === t2k(sm.time) && normC(x.course) === normC(sm.course)); if (!w) return;
+    const txt = (r.a || '') + '\n' + (r.b || ''); const race = parseAnyCard(txt); if (!race.runnersList.length) return; const A = analyse(race, parseStats(txt)); const ix = A.out.findIndex(x => normN(x.r.name) === normN(w.h)); if (ix < 0) return; const x = A.out[ix]; const clean = t => t.replace(/ ·.*$| \d+LB$| \d+-\d+$| \d+%$/, '');
+    r.winner = { name: x.r.name, rank: ix + 1, n: A.out.length, odds: x.r.odds || '', tags: x.tags.map(t => clean(t[0])), score: x.score, allTags: A.out.map(y => y.tags.map(t => clean(t[0]))), auto: true }; n++; });
+  if (n) { dayObj.ts = Date.now(); try { await fetch('/api/yearstate?k=rpspot:day:' + d, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dayObj) }); } catch {} }
+  return n; }
+async function settleAll() { const st = $('todayst'); let total = 0; const n0 = await settleDay(DAYD, DAY); total += n0;
+  for (let i = 1; i <= 7; i++) { const d = ukd(i); try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Math.floor(Date.now() / 600000)); const j = await r.json(); const dv = j && j.state; if (!dv || !dv.races || !Object.values(dv.races).some(x => !x.winner)) continue; total += await settleDay(d, dv); } catch {} }
+  drawToday(); drawRecord(); st.textContent = (Object.keys(DAY.races || {}).length || 'none') + ' analysed · ' + DAYD + (total ? ' · ' + total + ' settled from results' : ''); }
 function savedList() { let ks = []; try { ks = Object.keys(localStorage).filter(k => k.startsWith('rpspot:')).sort((x, y) => (JSON.parse(localStorage.getItem(y)).at || 0) - (JSON.parse(localStorage.getItem(x)).at || 0)).slice(0, 12); } catch {}
   $('saved').innerHTML = ks.map(k => `<a class="chip" href="#" data-k="${esc(k)}">${esc(k.slice(7))}</a>`).join('');
   $('saved').querySelectorAll('a').forEach(el => el.onclick = (ev) => { ev.preventDefault(); try { const v = JSON.parse(localStorage.getItem(el.dataset.k)); $('t1').value = v.a; $('t2').value = v.b; run(); } catch {} }); }
@@ -392,7 +407,8 @@ $('go').onclick = run; $('newrace').onclick = () => { $('t1').value = ''; $('t2'
 document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => { try { const t = await navigator.clipboard.readText(); if (!t) { $('err').textContent = 'Clipboard is empty.'; return; } $(b.dataset.paste).value = t; $('err').textContent = ''; if ($('t1').value && ($('t2').value || /BY TRAINER/.test(t))) run(); } catch { $('err').textContent = 'Safari would not share the clipboard - long-press the box and tap Paste instead.'; } });
 const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
 $('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
-savedList(); loadDay(ukd()).then(drawRecord);
+savedList(); loadDay(ukd()).then(() => { drawRecord(); settleAll(); });
+$('settle').onclick = settleAll;
 window.__rp = { parseCard, parseCardMobile, parseAnyCard, parseStats, analyse };
 </script>
 </body></html>
