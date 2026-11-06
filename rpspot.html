@@ -63,7 +63,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 .tw{overflow-x:auto}.ta{display:grid;grid-template-columns:20px 128px repeat(8,50px);min-width:560px;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.ta:first-child{border-top:0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:800}.ta .n{color:var(--mut);font-weight:800;font-size:11px}.ta .h b{display:block;font-weight:900}.ta .h span{font-size:11px;color:var(--mut)}.ta .v{text-align:right;font-weight:800}.ta .v.big{font-size:17px;font-weight:900}.ta .th{cursor:pointer;user-select:none}.ta .th.on{color:var(--gold)}.ta .v.hi{color:var(--mint)}.ta .v.mk{color:var(--gold)}
 </style></head>
 <body>
-<div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT</h1><button class="btn" id="newrace" style="padding:8px 14px;font-size:12px">+ NEW RACE</button><a class="chip" href="/breeders.html">BC</a></div>
+<div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT</h1><button class="btn" id="newrace" style="padding:8px 14px;font-size:12px">+ NEW RACE</button><a class="chip" href="/rpstudy.html">STUDY</a></div>
 
 <section id="todaywrap" style="padding-bottom:0">
 <h3 style="margin-top:10px">Today's races <small id="todayst">loading…</small><button class="btn g" id="settle" style="margin-left:auto;padding:5px 10px;font-size:10px">SETTLE FROM RESULTS</button></h3>
@@ -408,7 +408,10 @@ $('go').onclick = run; $('newrace').onclick = () => { $('t1').value = ''; $('t2'
 document.querySelectorAll('[data-paste]').forEach(b => b.onclick = async () => { try { const t = await navigator.clipboard.readText(); if (!t) { $('err').textContent = 'Clipboard is empty.'; return; } $(b.dataset.paste).value = t; $('err').textContent = ''; if ($('t1').value && ($('t2').value || /BY TRAINER/.test(t))) run(); } catch { $('err').textContent = 'Safari would not share the clipboard - long-press the box and tap Paste instead.'; } });
 const BM = "javascript:(function(){var t=document.body.innerText;function d(){alert('Copied '+t.length+' characters. Open SPOTLIGHT and tap PASTE.')}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){prompt('Select all and copy:',t)})}else{prompt('Select all and copy:',t)}})()";
 $('bmcode').value = BM; $('bmcopy').onclick = async () => { try { await navigator.clipboard.writeText(BM); $('bmst').textContent = 'copied - now add the bookmark'; } catch { $('bmcode').select(); $('bmst').textContent = 'select the code and copy it'; } }; $('clr').onclick = () => { $('t1').value = ''; $('t2').value = ''; $('out').style.display = 'none'; $('status').textContent = ''; };
-savedList(); loadDay(ukd()).then(() => { drawRecord(); settleAll(); });
+savedList();
+{ const Q = new URLSearchParams(location.search); const qd = Q.get('day'), qk = Q.get('k');
+  if (qd && qk) loadDay(qd).then(() => { const r = DAY.races[qk]; if (r) { $('t1').value = r.a || ''; $('t2').value = r.b || ''; CUR = qk; run(); } drawRecord(); });
+  else loadDay(ukd()).then(() => { drawRecord(); settleAll(); }); }
 $('settle').onclick = settleAll;
 window.__rp = { parseCard, parseCardMobile, parseAnyCard, parseStats, analyse };
 </script>

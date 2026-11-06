@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPOTLIGHT STUDY — RACESIDE</title>
+<meta name="description" content="Every race analysed in Spotlight, with the result, where the winner ranked and which signals it carried.">
+<style>
+:root{--ink:#111318;--mut:#6b7280;--line:#e5e7eb;--panel:#f7f8fa;--gold:#b45309;--goldbg:#f59e0b;--rose:#e11d48;--mint:#15803d;--sky:#2563eb;--soft:#f3f4f6}
+*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font:15px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+a{color:var(--sky);text-decoration:none}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .brand{font-weight:900;letter-spacing:.14em;font-size:11px;color:var(--rose)}.top h1{margin:0;flex:1;font-size:14px;font-weight:900;letter-spacing:.03em}
+.chip{display:inline-block;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:800;letter-spacing:.06em;background:var(--soft);color:var(--mut);border:1px solid var(--line);cursor:pointer}.chip.on{background:var(--goldbg);color:#1a1200;border-color:var(--goldbg)}
+section{padding:8px 14px}
+h3{margin:14px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:900}h3 small{color:var(--mut);letter-spacing:0;text-transform:none;font-weight:600;margin-left:8px}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.kv div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}.kv b{display:block;font-size:18px;font-weight:900}.kv span{font-size:9px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.dh{padding:8px 12px;background:var(--panel);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:900;color:var(--mut);border-top:1px solid var(--line)}
+.rc{display:grid;grid-template-columns:46px 1fr auto;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:start}
+.rc .t{font-weight:900}.rc .nm b{display:block;font-weight:900}.rc .nm span{font-size:11px;color:var(--mut);display:block}
+.rc .w{text-align:right;font-size:12px}.rc .w b{display:block;font-weight:900;color:var(--mint)}.rc .w b.miss{color:var(--mut)}.rc .w small{display:block;color:var(--mut)}
+.tags{margin-top:4px}.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:1px 6px;margin:2px 4px 0 0;background:var(--soft);color:var(--mut);border:1px solid var(--line)}.tag.w{color:#166534;background:#dcfce7;border-color:#bbf7d0}
+.rk{display:inline-block;font-weight:900;border-radius:6px;padding:1px 7px;background:#fef3c7;color:#92400e}.rk.one{background:#dcfce7;color:#166534}.rk.low{background:var(--soft);color:var(--mut)}
+.note{color:var(--mut);font-size:12px;margin:6px 0}
+.sr{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:6px;padding:8px 12px;border-top:1px solid var(--line);font-size:12px;align-items:center}.sr:first-child{border-top:0}.sr b{font-weight:900}.sr small{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.sr u{text-decoration:none;font-weight:800;color:var(--sky)}.sr u.g{color:var(--mint)}.sr u.r{color:var(--rose)}
+</style></head>
+<body>
+<div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT · STUDY</h1><a class="chip" href="/rpspot.html">SPOTLIGHT</a></div>
+<section>
+<div class="ctl"><span class="note" style="margin:0">Window</span><a class="chip" data-d="7">7 days</a><a class="chip on" data-d="30">30 days</a><a class="chip" data-d="90">90 days</a><span class="note" id="st" style="margin:0 0 0 auto"></span></div>
+<div class="kv" id="kv"></div>
+<div class="ctl" id="tagfilter"></div>
+</section>
+<section>
+<h3>Races <small>newest first · tap a race to reopen the full analysis</small></h3>
+<div class="card" id="list"></div>
+</section>
+<section>
+<h3>Signals <small>won / carried it · strike v random (1 ÷ average field)</small></h3>
+<div class="card" id="sig"></div>
+</section>
+<script>
+const $ = id => document.getElementById(id); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ukd = off => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() - off * 86400000));
+const fmtD = d => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(d + 'T12:00:00Z'));
+const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 0; let h = +m[1]; if (h < 10) h += 12; return h * 60 + +m[2]; };
+let ALL = [], FILTER = null;
+async function load(days) { $('st').textContent = 'loading…'; const ds = []; for (let i = 0; i < days; i++) ds.push(ukd(i)); const rows = [];
+  await Promise.all(ds.map(async d => { try { const r = await fetch('/api/yearstate?k=rpspot:day:' + d + '&t=' + Math.floor(Date.now() / 300000)); const j = await r.json(); Object.entries((j.state && j.state.races) || {}).forEach(([k, r]) => rows.push({ d, k, sum: r.sum || {}, winner: r.winner || null })); } catch {} }));
+  ALL = rows.sort((a, b) => b.d.localeCompare(a.d) || t2m(b.sum.time) - t2m(a.sum.time)); $('st').textContent = ALL.length + ' races · ' + ALL.filter(r => r.winner).length + ' settled'; draw(); }
+const clean = t => String(t).replace(/ ·.*$| \d+LB$| \d+-\d+$| \d+%$| \+[\d.]+ HERE$/, '');
+function draw() { const settled = ALL.filter(r => r.winner); const T = {}; let fields = 0;
+  settled.forEach(r => { fields += r.winner.n || 0; const won = new Set((r.winner.tags || []).map(clean)); (r.winner.allTags || []).forEach(tags => new Set(tags.map(clean)).forEach(t => { const g = T[t] = T[t] || { n: 0, w: 0 }; g.n++; })); won.forEach(t => { const g = T[t] = T[t] || { n: 0, w: 0 }; g.w++; }); });
+  const rnd = settled.length && fields ? settled.length / fields * 100 : null;
+  $('kv').innerHTML = `<div><b>${settled.length}</b><span>settled</span></div><div><b>${settled.filter(r => r.winner.rank === 1).length}</b><span>top pick won</span></div><div><b>${settled.filter(r => r.winner.rank <= 3).length}</b><span>winner in top 3</span></div><div><b>${rnd != null ? rnd.toFixed(1) + '%' : '—'}</b><span>random strike</span></div>`;
+  const tagList = Object.entries(T).filter(([, g]) => g.n >= 5).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n);
+  $('tagfilter').innerHTML = `<a class="chip ${FILTER ? '' : 'on'}" data-t="">ALL</a>` + tagList.map(([t]) => `<a class="chip ${FILTER === t ? 'on' : ''}" data-t="${esc(t)}">${esc(t)}</a>`).join('');
+  $('tagfilter').querySelectorAll('.chip').forEach(c => c.onclick = () => { FILTER = c.dataset.t || null; draw(); });
+  const show = FILTER ? ALL.filter(r => r.winner && (r.winner.allTags || []).some(tags => tags.map(clean).includes(FILTER))) : ALL; let lastD = '';
+  $('list').innerHTML = show.length ? show.map(r => { const hd = r.d !== lastD ? `<div class="dh">${esc(fmtD(r.d))}</div>` : ''; lastD = r.d; const w = r.winner; const tags = w ? (w.tags || []).map(clean) : [];
+    return hd + `<a class="rc" href="/rpspot.html?day=${esc(r.d)}&k=${encodeURIComponent(r.k)}"><span class="t">${esc(r.sum.time)}</span><span class="nm"><b>${esc(r.sum.course)}</b><span>${esc(String(r.sum.name).replace(/\s*\(.*$/, '').slice(0, 44))}${r.sum.n ? ' · ' + r.sum.n + ' run' : ''}</span><span>pick: ${esc(r.sum.pick)} ${esc(r.sum.odds)}</span>${tags.length ? `<div class="tags">${tags.map(t => `<span class="tag ${FILTER === t ? 'w' : ''}">${esc(t)}</span>`).join('')}</div>` : ''}</span><span class="w">${w ? `<b>${esc(w.name)}</b><small>${esc(w.odds)}</small><span class="rk ${w.rank === 1 ? 'one' : w.rank > 3 ? 'low' : ''}">${w.rank}/${w.n}</span>` : '<b class="miss">unsettled</b>'}</span></a>`; }).join('') : '<div class="note" style="padding:10px 12px">Nothing here.</div>';
+  $('sig').innerHTML = tagList.length ? tagList.map(([t, g]) => { const p = g.w / g.n * 100; return `<div class="sr"><b>${esc(t)}</b><span><small>won / carried</small>${g.w}/${g.n}</span><span><small>strike</small><u class="${rnd != null && p >= rnd * 1.5 ? 'g' : rnd != null && p < rnd * .6 ? 'r' : ''}">${p.toFixed(0)}%</u></span></div>`; }).join('') : '<div class="note" style="padding:10px 12px">Settle some races first.</div>'; }
+document.querySelectorAll('.chip[data-d]').forEach(c => c.onclick = () => { document.querySelectorAll('.chip[data-d]').forEach(x => x.classList.remove('on')); c.classList.add('on'); load(+c.dataset.d); });
+load(30);
+</script>
+</body></html>
