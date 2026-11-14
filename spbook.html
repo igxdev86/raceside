@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SP BOOK — RACESIDE</title>
+<meta name="description" content="Today's racecards with a bet slip. Bets are struck at Starting Price and settled automatically from the results feed; the book keeps your bank, open bets and P/L.">
+<style>
+:root{--ink:#111318;--mut:#6b7280;--line:#e5e7eb;--panel:#f7f8fa;--gold:#b45309;--goldbg:#f59e0b;--rose:#e11d48;--mint:#15803d;--sky:#2563eb;--soft:#f3f4f6}
+*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font:15px/1.5 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%;padding-bottom:120px}
+a{color:var(--sky);text-decoration:none}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .brand{font-weight:900;letter-spacing:.14em;font-size:11px;color:var(--rose)}.top h1{margin:0;flex:1;font-size:14px;font-weight:900;letter-spacing:.03em}
+.chip{display:inline-block;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:800;letter-spacing:.06em;background:var(--soft);color:var(--mut);border:1px solid var(--line);cursor:pointer;white-space:nowrap}.chip.on{background:var(--goldbg);color:#1a1200;border-color:var(--goldbg)}
+section{padding:10px 14px}
+h3{margin:18px 0 10px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:900;display:flex;align-items:center;gap:8px}h3 small{color:var(--mut);letter-spacing:0;text-transform:none;font-weight:600}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}.kv b{display:block;font-size:20px;font-weight:900}.kv span{font-size:10px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}.kv b.pos{color:var(--mint)}.kv b.neg{color:var(--rose)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.race{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
+.race .hd{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:var(--panel);border-bottom:1px solid var(--line)}
+.race .hd .t{font-weight:900;font-size:17px}.race .hd .c{flex:1}.race .hd .c b{display:block;font-weight:900}.race .hd .c span{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.race .hd .n{font-size:11px;color:var(--mut);white-space:nowrap}
+.race .bd{display:none}.race.open .bd{display:block}
+.rn{display:grid;grid-template-columns:34px 1fr 64px;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);cursor:pointer}.rn:first-child{border-top:0}.rn:active{background:var(--panel)}
+.rn .num{font-weight:900;font-size:15px;border-radius:8px;background:var(--soft);text-align:center;padding:6px 0}
+.rn .h b{display:block;font-weight:900;font-size:15px}.rn .h span{display:block;font-size:11px;color:var(--mut)}.rn .h em{font-style:normal;font-size:11px;color:var(--mut);margin-right:6px}
+.rn .pr{text-align:center;font-weight:900;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:8px 0;background:#fff}.rn.sel .pr{background:var(--goldbg);border-color:var(--goldbg);color:#1a1200}
+.rn.gone{opacity:.45;pointer-events:none}
+/* slip */
+#slip{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 30px rgba(0,0,0,.12);padding:10px 14px calc(14px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto;transform:translateY(calc(100% - 58px));transition:transform .2s}
+#slip.open{transform:none}
+#slip .sh{display:flex;align-items:center;gap:10px;cursor:pointer;padding-bottom:8px}#slip .sh b{font-size:14px;font-weight:900;flex:1}#slip .sh .cnt{background:var(--rose);color:#fff;border-radius:999px;font-size:11px;font-weight:900;padding:2px 8px}
+.sl{display:grid;grid-template-columns:1fr 64px 76px 28px;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.sl .h b{display:block;font-weight:900}.sl .h span{display:block;font-size:11px;color:var(--mut)}
+.sl input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 8px;font-size:15px;font-weight:800;text-align:right}
+.sl .ew{display:flex;flex-direction:column;gap:3px}.sl .ew button{border:1px solid var(--line);background:var(--soft);border-radius:8px;font-size:10px;font-weight:900;padding:5px 0;color:var(--mut)}.sl .ew button.on{background:#dbeafe;border-color:#93c5fd;color:#1e40af}
+.sl .x{border:0;background:none;color:var(--mut);font-size:20px;cursor:pointer}
+.sf{display:flex;align-items:center;gap:10px;padding-top:10px}.sf .tot{flex:1;font-size:13px;color:var(--mut)}.sf .tot b{display:block;font-size:18px;color:var(--ink)}
+.btn{background:var(--goldbg);color:#1a1200;font-weight:900;letter-spacing:.08em;border:0;border-radius:999px;padding:13px 22px;font-size:14px;cursor:pointer}.btn:disabled{opacity:.4}.btn.g{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+/* bets */
+.bt{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}.bt:first-child{border-top:0}.bt .h b{display:block;font-weight:900}.bt .h span{display:block;font-size:11px;color:var(--mut)}.bt .r{text-align:right}.bt .r b{display:block;font-weight:900}.bt .r b.pos{color:var(--mint)}.bt .r b.neg{color:var(--rose)}.bt .r b.open{color:var(--sky)}.bt .r small{display:block;font-size:11px;color:var(--mut)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.note{color:var(--mut);font-size:12px;margin:6px 0 10px;line-height:1.5}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#111318;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:800;z-index:30;display:none}
+</style></head>
+<body>
+<div class="top"><span class="brand">RACESIDE</span><h1>SP BOOK</h1><a class="chip" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener" style="background:#dcfce7;color:#166534;border-color:#bbf7d0">RADIO</a><a class="chip" href="/rpspot.html">SPOTLIGHT</a></div>
+
+<section>
+<div class="kv" id="kv"></div>
+<div class="note" style="margin-top:10px">Every bet is struck at <b>Starting Price</b> and settled from the results feed when the race is in — win, or each-way at the standard place terms for the field. The price on the card is a guide only.</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn g" id="settle" style="padding:8px 14px;font-size:11px">SETTLE OPEN BETS</button><span class="note" id="sst" style="margin:0"></span></div>
+</section>
+
+<section>
+<h3>Racecards <small id="cardst">loading…</small></h3>
+<div class="tabs" id="meetings"></div>
+<div id="cards"></div>
+</section>
+
+<section>
+<h3>Open bets <small id="openst"></small></h3>
+<div class="card" id="open"></div>
+<h3>Settled <small id="setst"></small></h3>
+<div class="card" id="settled"></div>
+</section>
+
+<div id="slip"><div class="sh" id="sliphd"><b>BET SLIP</b><span class="cnt" id="slipcnt">0</span><span class="note" style="margin:0" id="sliptot"></span></div><div id="slipbody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id); const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ukd = (off) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(Date.now() - (off || 0) * 86400000));
+const nowMin = () => { const s = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()); return (+s.slice(0, 2)) * 60 + (+s.slice(3, 5)); };
+const t2m = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return 0; let h = +m[1]; if (h < 10) h += 12; return h * 60 + +m[2]; };
+const t2k = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); if (!m) return ''; let h = +m[1]; if (h >= 13) h -= 12; return h + ':' + m[2]; };
+const normN = s => String(s || '').toLowerCase().replace(/\s*\(.*?\)/g, '').replace(/[^a-z]/g, ''); const normC = s => String(s || '').toLowerCase().replace(/\s*\((aw|ire)\)/g, '').replace(/[^a-z]/g, '');
+const FR = [[1,10],[1,8],[1,6],[1,5],[1,4],[2,7],[3,10],[1,3],[2,5],[4,9],[1,2],[8,15],[4,7],[8,13],[4,6],[8,11],[4,5],[5,6],[10,11],[1,1],[11,10],[6,5],[5,4],[11,8],[6,4],[13,8],[7,4],[15,8],[2,1],[9,4],[5,2],[11,4],[3,1],[10,3],[7,2],[4,1],[9,2],[5,1],[11,2],[6,1],[13,2],[7,1],[15,2],[8,1],[9,1],[10,1],[11,1],[12,1],[14,1],[16,1],[18,1],[20,1],[22,1],[25,1],[28,1],[33,1],[40,1],[50,1],[66,1],[80,1],[100,1],[125,1],[150,1],[200,1]];
+const frac = dec => { const v = Number(dec); if (!(v > 1)) return '—'; const o = v - 1; let b = FR[0]; FR.forEach(f => { if (Math.abs(f[0] / f[1] - o) < Math.abs(b[0] / b[1] - o)) b = f; }); return b[0] === b[1] ? 'EVS' : b[0] + '/' + b[1]; };
+const money = v => (v < 0 ? '-' : '') + '£' + Math.abs(v).toFixed(2);
+// place terms: field size → [places, fraction]; handicaps 16+ pay 4 places at 1/4
+const terms = (n, hcap) => n >= 16 ? (hcap ? [4, 4] : [3, 5]) : n >= 8 ? [3, 5] : n >= 5 ? [2, 4] : [1, 1];
+
+let BOOK = { bank: 1000, bets: [], ts: 0 }; let RIDES = []; let SLIP = []; let MEET = null;
+async function loadBook() { try { const r = await fetch('/api/yearstate?k=spbook:v1&t=' + Date.now()); const j = await r.json(); if (j && j.state && Array.isArray(j.state.bets)) BOOK = j.state; } catch {} drawBook(); }
+async function saveBook() { BOOK.ts = Date.now(); try { const r = await fetch('/api/yearstate?k=spbook:v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(BOOK) }); if (!r.ok) toast('Could not save - try again'); } catch { toast('Could not save - offline?'); } }
+function toast(m) { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2200); }
+
+// ---------- CARDS ----------
+async function loadCards() { try { const r = await fetch('/api/upcoming?t=' + Math.floor(Date.now() / 120000)); const j = await r.json(); RIDES = (j && j.rides || []).filter(x => x.day === 'today'); } catch { RIDES = []; }
+  const by = {}; RIDES.forEach(x => { const k = x.t + '|' + x.course; (by[k] = by[k] || { t: x.t, course: x.course, date: x.date || ukd(), rname: x.rname, rtype: x.rtype, dist: x.dist, going: x.going, rclass: x.rclass, rs: [] }).rs.push(x); });
+  const races = Object.values(by).sort((a, b) => t2m(a.t) - t2m(b.t)); races.forEach(r => r.rs.sort((a, b) => (parseInt(a.num) || 99) - (parseInt(b.num) || 99)));
+  const courses = [...new Set(races.map(r => r.course))]; if (!MEET || !courses.includes(MEET)) MEET = null;
+  $('cardst').textContent = races.length ? races.length + ' races · ' + courses.length + ' meetings' : 'no card yet';
+  $('meetings').innerHTML = `<span class="chip ${MEET ? '' : 'on'}" data-c="">ALL</span>` + courses.map(c => `<span class="chip ${MEET === c ? 'on' : ''}" data-c="${esc(c)}">${esc(c).toUpperCase()}</span>`).join('');
+  $('meetings').querySelectorAll('.chip').forEach(c => c.onclick = () => { MEET = c.dataset.c || null; loadCards(); });
+  const nm = nowMin(); const show = races.filter(r => !MEET || r.course === MEET);
+  $('cards').innerHTML = show.map((r, i) => { const gone = t2m(r.t) + 2 < nm; const openNow = !gone && (i === 0 || show.slice(0, i).every(q => t2m(q.t) + 2 < nm)) && !MEET ? '' : ''; const hcap = /handicap/i.test(r.rtype + ' ' + r.rname); const [pl, fr] = terms(r.rs.length, hcap);
+    return `<div class="race ${gone ? '' : ''}" data-k="${esc(r.t + '|' + r.course)}"><div class="hd"><span class="t">${esc(r.t)}</span><span class="c"><b>${esc(r.course)}</b><span>${esc(r.rname)}${r.rclass ? ' · C' + esc(r.rclass) : ''}${r.dist ? ' · ' + esc(r.dist) + 'f' : ''}</span></span><span class="n">${r.rs.length} run<br>${pl > 1 ? pl + ' pl 1/' + fr : 'win only'}${gone ? '<br><b style="color:var(--rose)">OFF</b>' : ''}</span></div>
+      <div class="bd">${r.rs.map(x => { const sel = SLIP.some(s => s.key === r.t + '|' + r.course + '|' + x.h); return `<div class="rn ${sel ? 'sel' : ''} ${gone ? 'gone' : ''}" data-k="${esc(r.t + '|' + r.course)}" data-h="${esc(x.h)}"><span class="num">${esc(x.num || '–')}</span><span class="h"><b>${esc(x.h)}</b><span><em>${esc(x.form || '')}</em>${esc(x.jockey)} · ${esc(x.trainer)}${x.ofr ? ' · OR ' + x.ofr : ''}</span></span><span class="pr">${esc(frac(x.d))}</span></div>`; }).join('')}</div></div>`; }).join('') || '<div class="note">No races.</div>';
+  $('cards').querySelectorAll('.race .hd').forEach(h => h.onclick = () => h.parentNode.classList.toggle('open'));
+  $('cards').querySelectorAll('.rn').forEach(el => el.onclick = () => { const r = races.find(q => q.t + '|' + q.course === el.dataset.k); const x = r && r.rs.find(q => q.h === el.dataset.h); if (!x) return; const key = el.dataset.k + '|' + x.h; const i = SLIP.findIndex(s => s.key === key);
+    if (i >= 0) SLIP.splice(i, 1); else SLIP.push({ key, date: r.date, t: r.t, course: r.course, rname: r.rname, h: x.h, num: x.num, guide: x.d, n: r.rs.length, hcap: /handicap/i.test(r.rtype + ' ' + r.rname), stake: 10, ew: false }); el.classList.toggle('sel'); drawSlip(true); });
+  // open the next race by default
+  const nxt = $('cards').querySelector('.race'); if (nxt && !MEET) { const first = [...$('cards').querySelectorAll('.race')].find(e => !e.querySelector('.n b')); (first || nxt).classList.add('open'); } else if (nxt) nxt.classList.add('open'); }
+
+// ---------- SLIP ----------
+function drawSlip(open) { $('slipcnt').textContent = SLIP.length; const tot = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0); $('sliptot').textContent = SLIP.length ? 'stake ' + money(tot) : '';
+  $('slipbody').innerHTML = SLIP.length ? SLIP.map((s, i) => { const [pl, fr] = terms(s.n, s.hcap); return `<div class="sl"><span class="h"><b>${esc(s.h)}</b><span>${esc(s.t)} ${esc(s.course)} · guide ${esc(frac(s.guide))} · ${s.n} run</span></span><input type="number" inputmode="decimal" min="1" step="1" value="${s.stake}" data-i="${i}"><span class="ew"><button data-i="${i}" data-ew="0" class="${s.ew ? '' : 'on'}">WIN</button><button data-i="${i}" data-ew="1" class="${s.ew ? 'on' : ''}" ${pl < 2 ? 'disabled' : ''}>E/W ${pl > 1 ? pl + 'pl 1/' + fr : ''}</button></span><button class="x" data-i="${i}">×</button></div>`; }).join('') + `<div class="sf"><span class="tot">total stake<b>${money(tot)}</b>${tot > BOOK.bank ? '<span style="color:var(--rose)"> · over your bank</span>' : ''}</span><button class="btn g" id="slipclear">CLEAR</button><button class="btn" id="place" ${tot > BOOK.bank || !tot ? 'disabled' : ''}>PLACE AT SP</button></div>` : '<div class="note">Tap a price on the card to add a horse.</div>';
+  $('slipbody').querySelectorAll('input').forEach(inp => inp.oninput = () => { SLIP[+inp.dataset.i].stake = Math.max(0, parseFloat(inp.value) || 0); const tot2 = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0); $('sliptot').textContent = 'stake ' + money(tot2); $('slipbody').querySelector('.tot b').textContent = money(tot2); $('place').disabled = tot2 > BOOK.bank || !tot2; });
+  $('slipbody').querySelectorAll('.ew button').forEach(b => b.onclick = () => { SLIP[+b.dataset.i].ew = b.dataset.ew === '1'; drawSlip(true); });
+  $('slipbody').querySelectorAll('.x').forEach(b => b.onclick = () => { SLIP.splice(+b.dataset.i, 1); drawSlip(true); loadCards(); });
+  const pc = $('place'); if (pc) pc.onclick = placeBets; const cl = $('slipclear'); if (cl) cl.onclick = () => { SLIP = []; drawSlip(false); loadCards(); };
+  if (open != null) $('slip').classList.toggle('open', !!open && SLIP.length > 0); }
+$('sliphd').onclick = () => $('slip').classList.toggle('open');
+async function placeBets() { const tot = SLIP.reduce((a, s) => a + s.stake * (s.ew ? 2 : 1), 0); if (!tot || tot > BOOK.bank) return;
+  SLIP.forEach(s => BOOK.bets.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: s.date, t: s.t, course: s.course, rname: s.rname, h: s.h, num: s.num, guide: s.guide, n: s.n, hcap: s.hcap, stake: s.stake, ew: s.ew, placedAt: new Date().toISOString(), status: 'open' }));
+  BOOK.bank -= tot; await saveBook(); toast(SLIP.length + ' bet' + (SLIP.length > 1 ? 's' : '') + ' struck at SP · ' + money(tot)); SLIP = []; drawSlip(false); drawBook(); loadCards(); }
+
+// ---------- SETTLE ----------
+const resCache = {};
+async function results(d) { if (resCache[d]) return resCache[d]; try { const j = await (await fetch('/api/priceday?v=6&date=' + d + '&t=' + Math.floor(Date.now() / 120000))).json(); resCache[d] = (j && j.races) || []; } catch { resCache[d] = []; } return resCache[d]; }
+function settleOne(b, rc) { const rs = (rc.runners || []).filter(x => x && x.pos); const n = rs.length || b.n; const me = (rc.runners || []).find(x => normN(x.h) === normN(b.h)); if (!me) return { status: 'void', ret: b.stake * (b.ew ? 2 : 1), sp: null, pos: null, note: 'non-runner' };
+  const sp = Number(me.d) > 1 ? Number(me.d) : null; if (!sp || !me.pos) return null;   // SP not in yet
+  const pos = parseInt(me.pos) || 99; const [pl, fr] = terms(n, b.hcap); let ret = 0;
+  if (pos === 1) ret += b.stake * sp; if (b.ew && pos <= pl) ret += b.stake * (1 + (sp - 1) / fr);
+  return { status: pos === 1 ? 'won' : (b.ew && pos <= pl) ? 'placed' : 'lost', ret: Math.round(ret * 100) / 100, sp, pos, n, places: pl, fr }; }
+async function settle() { $('sst').textContent = 'checking…'; const open = BOOK.bets.filter(b => b.status === 'open'); let n = 0; const today = ukd(), nm = nowMin();
+  for (const b of open) { if (b.date > today || (b.date === today && t2m(b.t) + 8 > nm)) continue; const rcs = await results(b.date); const rc = rcs.find(r => t2k(r.t) === t2k(b.t) && normC(r.course) === normC(b.course)); if (!rc) continue; const s = settleOne(b, rc); if (!s) continue; Object.assign(b, s, { settledAt: new Date().toISOString() }); BOOK.bank += s.ret; n++; }
+  if (n) await saveBook(); $('sst').textContent = n ? n + ' settled' : 'nothing new in results'; drawBook(); }
+
+// ---------- BOOK ----------
+function drawBook() { const settled = BOOK.bets.filter(b => b.status !== 'open'); const open = BOOK.bets.filter(b => b.status === 'open'); const staked = settled.reduce((a, b) => a + b.stake * (b.ew ? 2 : 1), 0); const ret = settled.reduce((a, b) => a + (b.ret || 0), 0); const pl = ret - staked; const inPlay = open.reduce((a, b) => a + b.stake * (b.ew ? 2 : 1), 0);
+  $('kv').innerHTML = `<div><b>${money(BOOK.bank)}</b><span>bank</span></div><div><b class="${pl > 0 ? 'pos' : pl < 0 ? 'neg' : ''}">${pl > 0 ? '+' : ''}${money(pl)}</b><span>P/L · ${staked ? (pl / staked * 100).toFixed(0) + '% ROI' : 'no bets settled'}</span></div><div><b>${money(inPlay)}</b><span>in play · ${open.length} open</span></div>`;
+  const row = b => `<div class="bt"><span class="h"><b>${esc(b.h)}</b><span>${esc(b.date)} · ${esc(b.t)} ${esc(b.course)} · ${esc(String(b.rname || '').slice(0, 36))}</span><span>${b.ew ? 'E/W' : 'WIN'} ${money(b.stake)}${b.ew ? ' (' + money(b.stake * 2) + ')' : ''} · guide ${esc(frac(b.guide))}${b.sp ? ' · SP ' + esc(frac(b.sp)) : ''}${b.pos ? ' · fin ' + esc(b.pos) + '/' + esc(b.n) : ''}${b.note ? ' · ' + esc(b.note) : ''}</span></span><span class="r">${b.status === 'open' ? '<b class="open">OPEN</b><small>at SP</small>' : `<b class="${b.ret - b.stake * (b.ew ? 2 : 1) > 0 ? 'pos' : b.ret - b.stake * (b.ew ? 2 : 1) < 0 ? 'neg' : ''}">${b.status.toUpperCase()}</b><small>${money(b.ret - b.stake * (b.ew ? 2 : 1))}</small>`}</span></div>`;
+  const sortB = (a, b) => (b.date + b.t).localeCompare(a.date + a.t);
+  $('open').innerHTML = open.length ? open.sort((a, b) => (a.date + a.t).localeCompare(b.date + b.t)).map(row).join('') : '<div class="note" style="padding:10px 14px">No open bets.</div>'; $('openst').textContent = open.length ? money(inPlay) + ' in play' : '';
+  $('settled').innerHTML = settled.length ? settled.sort(sortB).slice(0, 60).map(row).join('') : '<div class="note" style="padding:10px 14px">Nothing settled yet.</div>'; $('setst').textContent = settled.length ? settled.length + ' bets · ' + settled.filter(b => b.status === 'won').length + ' won' : ''; }
+$('settle').onclick = settle;
+loadBook().then(() => { loadCards(); settle(); }); setInterval(loadCards, 180000); setInterval(settle, 300000);
+</script>
+</body></html>
