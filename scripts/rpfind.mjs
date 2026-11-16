@@ -10,4 +10,4 @@ for (const d of day.split(',')) {
     else out.push({ d, k, sum: r.sum, winner: r.winner });
   }
 }
-fs.writeFileSync('out.json', JSON.stringify(out, null, 1));
+console.log(JSON.stringify(out, null, 1));
