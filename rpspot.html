@@ -61,6 +61,7 @@ td.pos{color:var(--mint);font-weight:800}td.neg{color:var(--rose)}td.top{color:v
 #bar{display:flex;align-items:center;gap:8px}
 /* totals table */
 .tw{overflow-x:auto}.ta{display:grid;grid-template-columns:20px 128px repeat(8,50px);min-width:560px;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}.ta:first-child{border-top:0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:800}.ta .n{color:var(--mut);font-weight:800;font-size:11px}.ta .h b{display:block;font-weight:900}.ta .h span{font-size:11px;color:var(--mut)}.ta .v{text-align:right;font-weight:800}.ta .v.big{font-size:17px;font-weight:900}.ta .th{cursor:pointer;user-select:none}.ta .th.on{color:var(--gold)}.ta .v.hi{color:var(--mint)}.ta .v.mk{color:var(--gold)}
+.plotbox{background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:12px 14px;margin-bottom:12px}.plotbox b{display:block;color:#c2410c;font-size:11px;letter-spacing:.18em;margin-bottom:6px}.plotbox div{margin:4px 0;font-size:14px}.plotbox span{display:block;color:#9a3412;font-size:11px;margin-top:6px}
 </style></head>
 <body>
 <div class="top"><span class="brand">RACESIDE</span><h1>SPOTLIGHT</h1><a class="chip" href="https://betfair.mediaondemand.net/?sport=horses&theme=dark&playerbg=ffb80c&highlights=0&queuebuttoncolor=fff&showmenu" target="_blank" rel="noopener" style="background:#dcfce7;color:#166534;border-color:#bbf7d0">RADIO</a><button class="btn" id="newrace" style="padding:8px 14px;font-size:12px">+ NEW RACE</button><a class="chip" href="/rpstudy.html">STUDY</a></div>
@@ -257,15 +258,21 @@ function analyse(race, st) {
     // OVERPRICED: best figure within 10 of the top of the field, priced at 5x the favourite or more, and the last run either rated or excused (non-completion) - the eye-catcher
     { const fav = Math.min(...race.runnersList.map(q => oddsNum(q.odds) || 999)); const o = oddsNum(r.odds); const topBest = Math.max(...race.runnersList.map(q => Math.max(...q.form.map(f => f.rpr).filter(v => v != null), 0)));
       if (o != null && fav < 999 && o >= fav * 5 && o >= 8 && best != null && topBest - best <= 10 && (nonComp || last >= best - 6)) tags.push(['OVERPRICED v FIGURES', 'y']); }
+    // PLOT (handicaps): the Sony Bill shape - best figure far above today's mark, mark has fallen hard, a reason for change (first-time headgear or a top jockey on a horse from a quiet yard), and a big price
+    const isHcap = /handicap|\bhc\b/i.test(String(race.name || '')); const careerBest = Math.max(best || 0, r.rprAdj != null ? +r.rprAdj : 0) || null; const headroom = r.or != null && careerBest != null ? careerBest - r.or : null;
+    const orHist = r.form.map(f => f.or).filter(v => v != null); const orDrop = orHist.length && r.or != null ? Math.max(...orHist) - r.or : 0;
+    const topJock = pc(jk.d14) != null && pc(jk.d14) >= .15 && wr(jk.d14)[1] >= 20; const quietYard = pc(tr.d14) != null && pc(tr.d14) < .1 && wr(tr.d14)[1] >= 8; const newGear = !!(r.gear && /1$/.test(r.gear));
+    const plot = isHcap && headroom != null && headroom >= 15 && orDrop >= 8 && (newGear || (topJock && quietYard)) && (oddsNum(r.odds) == null || oddsNum(r.odds) >= 8);
+    if (plot) tags.unshift(['PLOT · ' + headroom + 'LB IN HAND · OR -' + orDrop, 'g']); else if (isHcap && headroom != null && headroom >= 15) tags.push(['HEADROOM ' + headroom + 'LB', 'g']);
     // score: figures vs mark 45, signal 25, fit 15, connections 15
     const fig = mark != null && best != null ? Math.max(0, Math.min(1, 1 - (mark - Math.max(last || 0, (seq.slice(-3).length ? Math.max(...seq.slice(-3)) : 0)) + 4) / 14)) : .4;
     const sig = improver ? 1 : discovery ? .85 : bounce2 ? .8 : declining ? .15 : nearMark ? .7 : .4; const hcap = (/handicap|\bhc\b/i.test(String(race.name || '')) && wellIn ? .12 : 0) - (gapRuns != null && gapRuns > 120 ? .08 : 0) - (tags.some(t => t[0] === 'TRAINER COLD') ? .04 : 0);
     const fitS = Math.min(1, (fitD[1] ? fitD[0] / fitD[1] * .5 + Math.min(fitD[0], 3) / 3 * .5 : .3) * .5 + (fitG[1] ? fitG[0] / fitG[1] * .5 + Math.min(fitG[0], 3) / 3 * .5 : .3) * .3 + (fitC[0] ? 1 : .3) * .2);
     const cn = (s, rt) => { const [w, n] = wr(s); if (!n) return .3; return Math.min(1, w / n * 1.6 + (ret(rt) > 0 ? .15 : 0) + Math.min(n, 20) / 20 * .15); };
     const conn = cn(tr.c5, tr.c5ret) * .35 + cn(tr.d14, tr.d14ret) * .15 + cn(jk.c5, jk.c5ret) * .35 + cn(jk.d14, jk.d14ret) * .15;
-    const score = Math.round(Math.min(1, fig * .45 + sig * .25 + fitS * .15 + conn * .15 + hcap) * 100);
+    const score = Math.round(Math.min(1, fig * .45 + sig * .25 + fitS * .15 + conn * .15 + hcap + (plot ? .15 : 0)) * 100);
     if (r.or == null) { const lo = r.form.slice().reverse().find(f => f.or != null); if (lo) { r.or = lo.or; r.orNote = 'last run'; } }
-    return { r, seq, last, best, trend, improver, bounce: bounce2, nearMark, declining, discovery, wellIn, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
+    return { r, seq, last, best, trend, improver, bounce: bounce2, nearMark, declining, discovery, wellIn, plot, headroom, orDrop, tags, score, fitG, fitD, fitC, tr, jk, oddsN: oddsNum(r.odds) }; });
   out.sort((a, b) => b.score - a.score);
   const marketWeak = past.length >= 4 && favW <= Math.floor(past.length / 4); return { mark, markSrc, lo, hi, favW, y3, past, out, gk, marketWeak };
 }
@@ -284,8 +291,8 @@ function readLine(x, A) { const n = x.seq.length; if (!n) return 'No ratings on 
   if (x.trend > 3) return `Up ${x.trend} on its recent average but ${where || 'still short'}; a step forward, not yet a case.`;
   return `Flat line around ${Math.round(x.seq.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, n))}; ${where || 'nothing to suggest a step up'}.`; }
 function drawTotals() { const T = window.__TOT || []; const S = window.__SORT; const val0 = (t, k) => k === 'best' ? t.x.best : k === 'last' ? t.x.last : t[k]; const rows = T.slice().sort((a, b) => ((val0(b, S.k) ?? -1e9) - (val0(a, S.k) ?? -1e9)) * (S.dir < 0 ? 1 : -1));
-  const mx = k => Math.max(...T.map(t => t[k] ?? -1e9)); const H = [['avg', 'Avg'], ['sum', 'Total'], ['x1', 'X1'], ['jk', 'JK%'], ['tr', 'TR%'], ['comb', 'Comb'], ['best', 'Best'], ['last', 'Last']];
-  const fmt = (k, v) => v == null ? '—' : k === 'avg' || k === 'x1' || k === 'comb' ? v.toFixed(1) : k === 'jk' || k === 'tr' ? Math.round(v) + '%' : v;
+  const mx = k => Math.max(...T.map(t => t[k] ?? -1e9)); const H = [['avg', 'Avg'], ['sum', 'Total'], ['x1', 'X1'], ['jk', 'JK%'], ['tr', 'TR%'], ['comb', 'Comb'], ['head', 'Head'], ['best', 'Best'], ['last', 'Last']];
+  const fmt = (k, v) => v == null ? '—' : k === 'head' ? (v > 0 ? '+' + v : String(v)) : k === 'avg' || k === 'x1' || k === 'comb' ? v.toFixed(1) : k === 'jk' || k === 'tr' ? Math.round(v) + '%' : v;
   document.getElementById('totals').innerHTML = `<div class="tw"><div class="ta"><span></span><span>Horse</span>${H.map(([k, l]) => `<span class="v th ${S.k === k ? 'on' : ''}" data-k="${k}">${l}${S.k === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</span>`).join('')}</div>` + rows.map((t, i) => { const val = k => k === 'best' ? t.x.best : k === 'last' ? t.x.last : t[k];
     return `<div class="ta"><span class="n">${i + 1}</span><span class="h"><b>${esc(t.x.r.name)}</b><span>${esc(t.x.r.odds || '')}${t.x.r.oddsNote ? ' <i>fc</i>' : ''} · ${t.x.seq.length} run${t.x.seq.length === 1 ? '' : 's'} · ${t.x.seq.join(' ')}</span></span>${H.map(([k]) => `<span class="v ${S.k === k ? 'big' : ''} ${val(k) != null && val(k) === (k === 'best' ? Math.max(...T.map(q => q.x.best ?? -1e9)) : k === 'last' ? Math.max(...T.map(q => q.x.last ?? -1e9)) : mx(k)) ? 'hi' : ''} ${k === 'last' && window.__MARK != null && t.x.last >= window.__MARK - 2 ? 'mk' : ''}">${fmt(k, val(k))}</span>`).join('')}</div>`; }).join('') + `</div>`;
   document.querySelectorAll('#totals .th').forEach(h => h.onclick = () => { const k = h.dataset.k; if (window.__SORT.k === k) window.__SORT.dir = -window.__SORT.dir; else window.__SORT = { k, dir: -1 }; drawTotals(); }); }
@@ -294,10 +301,14 @@ function render(race, st, A) {
   const nr = race.nonRunners && race.nonRunners.length ? 'NR ' + race.nonRunners.join(', ') : '';
   document.getElementById('rh').innerHTML = `<div class="k">${race.date ? esc(race.date) + ' · ' : ''}${esc(race.time || '')} ${esc(race.course || '').toUpperCase()}${race.going ? ' · ' + esc(race.going).toUpperCase() : ''}</div><h2>${esc(race.title || race.name || '')}</h2><div class="sub">${esc(race.dist || '')}${race.runnersList.length ? ' · ' + race.runnersList.length + ' run' : ''}${nr ? ' · ' + esc(nr) : ''}</div>`;
   document.getElementById('kv').innerHTML = `<div><b>${A.mark ?? '—'}</b><span>mark</span></div><div><b>${A.past.length ? A.favW + '/' + A.past.length : '—'}</b><span>favs won</span></div><div><b>${A.past.length ? A.y3 + '/' + A.past.length : '—'}</b><span>3yo won</span></div>`;
+  const plots = A.out.filter(x => x.plot); const plotKey = (race.date || '') + '|' + (race.time || '') + '|' + (race.course || '');
+  if (plots.length && !window.__PLOTSENT) { window.__PLOTSENT = true; let seen = {}; try { seen = JSON.parse(localStorage.getItem('rpspot:plotsent') || '{}'); } catch {}
+    if (!seen[plotKey]) { seen[plotKey] = 1; try { localStorage.setItem('rpspot:plotsent', JSON.stringify(seen)); } catch {}
+      fetch('/api/plotalert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ race: { date: race.date, time: race.time, course: race.course, name: race.name || race.title }, horses: plots.map(x => ({ name: x.r.name, odds: x.r.odds, or: x.r.or, best: x.best, headroom: x.headroom, orDrop: x.orDrop, jockey: x.r.jockey, trainer: x.r.trainer, tags: x.tags.map(t => t[0]) })) }) }).catch(() => {}); } }
   const at = A.out.filter(x => x.nearMark), imp = A.out.filter(x => x.improver), bb = A.out.filter(x => x.bounce), dec = A.out.filter(x => x.declining);
   const chips = (arr, cls) => arr.length ? arr.map(x => `<span class="tag ${cls}">${esc(x.r.name)}${x.r.odds ? ' <i>' + esc(x.r.odds) + '</i>' : ''}</span>`).join('') : '<span class="tag">none</span>';
   const strongestImp = imp.slice().sort((a, b) => (b.last || 0) - (a.last || 0))[0];
-  document.getElementById('verdict').innerHTML = `<div class="vl"><b>AT THE MARK</b>${chips(at, 'y')}</div><div class="vl"><b>IMPROVERS</b>${chips(imp, 'g')}${strongestImp ? `<div class="note" style="margin:4px 0 0">Strongest: ${esc(strongestImp.r.name)} — last ${strongestImp.last}${A.mark != null ? (strongestImp.last >= A.mark - 2 ? ', at the mark' : ', ' + (A.mark - strongestImp.last) + 'lb short') : ''}</div>` : ''}</div><div class="vl"><b>BOUNCE-BACK</b>${chips(bb, 'v')}</div><div class="vl"><b>DECLINING</b>${chips(dec, 'r')}</div>${A.marketWeak ? `<div class="note" style="margin:6px 0 0;color:var(--rose)">Favourites ${A.favW}/${A.past.length} in this race's history - the market is a poor guide here; exposed horses with a career-best last run win it at prices.</div>` : ''}${race.verdict ? `<details class="rpv"><summary>Racing Post verdict</summary><p>${esc(race.verdict)}</p></details>` : ''}`;
+  document.getElementById('verdict').innerHTML = `${plots.length ? `<div class="plotbox"><b>PLOT</b>${plots.map(x => `<div><strong>${esc(x.r.name)}</strong> ${esc(x.r.odds || '')} — best RPR ${x.r.or + x.headroom} v OR ${x.r.or} (${x.headroom}lb in hand), mark down ${x.orDrop}lb${x.r.gear && /1$/.test(x.r.gear) ? ', new headgear' : ''}, ${esc(x.r.jockey)} for ${esc(x.r.trainer)}</div>`).join('')}<span>The Sony Bill shape. Emailed to you.</span></div>` : ''}<div class="vl"><b>AT THE MARK</b>${chips(at, 'y')}</div><div class="vl"><b>IMPROVERS</b>${chips(imp, 'g')}${strongestImp ? `<div class="note" style="margin:4px 0 0">Strongest: ${esc(strongestImp.r.name)} — last ${strongestImp.last}${A.mark != null ? (strongestImp.last >= A.mark - 2 ? ', at the mark' : ', ' + (A.mark - strongestImp.last) + 'lb short') : ''}</div>` : ''}</div><div class="vl"><b>BOUNCE-BACK</b>${chips(bb, 'v')}</div><div class="vl"><b>DECLINING</b>${chips(dec, 'r')}</div>${A.marketWeak ? `<div class="note" style="margin:6px 0 0;color:var(--rose)">Favourites ${A.favW}/${A.past.length} in this race's history - the market is a poor guide here; exposed horses with a career-best last run win it at prices.</div>` : ''}${race.verdict ? `<details class="rpv"><summary>Racing Post verdict</summary><p>${esc(race.verdict)}</p></details>` : ''}`;
   const wlb = w => { const m = String(w || '').match(/(\d+)st (\d+)lb/); return m ? +m[1] * 14 + +m[2] : null; }; const mx = arr => { const v = arr.filter(v => v != null && !isNaN(v)); return v.length ? Math.max(...v) : null; };
   const MX = { wgt: mx(A.out.map(x => wlb(x.r.wgt))), or: mx(A.out.map(x => x.r.or)), rpr: mx(A.out.map(x => x.r.rprAdj)), ts: mx(A.out.map(x => x.r.tsAdj)), rtf: mx(A.out.map(x => x.r.rtf != null ? +x.r.rtf : null)) };
   // BEST RUN LIST: top figure per horse against the mark, with when it ran it and its last
@@ -310,7 +321,7 @@ function render(race, st, A) {
   // TOTALS & AVERAGES - sortable; X1 = average + decimal odds; JK/TR = strike rate at this course (5 seasons); COMBINED = X1 + JK% + TR%
   const pcOf = s => { const [w, n] = wr(s); return n ? w / n * 100 : null; };
   window.__TOT = A.out.map(x => { const sum = x.seq.reduce((a, b) => a + b, 0); const avg = x.seq.length ? sum / x.seq.length : null; const o = oddsNum(x.r.odds); const jk = pcOf(x.jk.c5), tr = pcOf(x.tr.c5);
-    return { x, sum, avg, odds: o, x1: avg != null && o != null ? avg + o : null, jk, tr, comb: avg != null && o != null ? avg + o + (jk || 0) + (tr || 0) : null }; });
+    return { x, sum, avg, odds: o, x1: avg != null && o != null ? avg + o : null, head: x.headroom, jk, tr, comb: avg != null && o != null ? avg + o + (jk || 0) + (tr || 0) : null }; });
   window.__MARK = A.mark; window.__SORT = window.__SORT || { k: 'avg', dir: -1 }; drawTotals();
   const topS = A.out[0] ? A.out[0].score : 1;
   const cell = (a, lab) => { const [w, n] = a; const p = n ? w / n : null; return `<span class="fc"><small>${lab}</small><b class="${p >= .4 && n >= 2 ? 'pos' : p === 0 && n >= 3 ? 'neg' : ''}">${n ? w + '-' + n : '—'}</b><em>${n ? Math.round(p * 100) + '% · ' + w + ' win' + (w === 1 ? '' : 's') + ' from ' + n : 'no runs'}</em></span>`; };
@@ -347,7 +358,7 @@ function render(race, st, A) {
 }
 // ---------- WIRING ----------
 const $ = id => document.getElementById(id);
-function run() { const a = $('t1').value, b = $('t2').value; const both = a + '\n' + b; $('err').textContent = '';
+function run() { window.__PLOTSENT = false; const a = $('t1').value, b = $('t2').value; const both = a + '\n' + b; $('err').textContent = '';
   try { const race = parseAnyCard(both); const st = parseStats(both); if (race.date) $('rh').dataset.rd = race.date;
     if (!race.runnersList.length) { $('err').textContent = 'No runners found — paste the Pro Card page (the one with the form lines under each horse).'; return; }
     if (!st.past.length && !Object.keys(st.trainer).length) $('err').textContent = 'Stats page not found (no By Trainer / Past Winners) — signals still run on the form lines; connections and the mark will be blank.';
