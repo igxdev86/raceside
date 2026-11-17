@@ -34,16 +34,15 @@ h3{margin:16px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercas
 <div class="kv" id="kv"></div>
 <div class="kv" id="money" style="margin-top:8px;grid-template-columns:repeat(2,1fr)"></div>
 <div class="bar"><i id="prog" style="width:0"></i></div>
-<div class="note" style="margin-top:12px">The looser versions, for comparison - this is what the eye tends to remember:</div>
-<div class="kv" id="loose"></div>
+</section>
+<section>
+<h3>Hits <small id="hitst">newest first</small></h3>
+<div class="note" id="filt" style="margin:-4px 0 8px"></div>
+<div class="card" id="hits"></div>
 </section>
 <section>
 <h3>Today · both numbers running <small>from the live card</small></h3>
 <div class="note" id="todayst" style="margin:-4px 0 8px"></div><div class="card" id="today"></div>
-</section>
-<section>
-<h3>Hits <small>newest first</small></h3>
-<div class="card" id="hits"></div>
 </section>
 <section>
 <h3>Target <small>where it pays · races · hits v chance · ROI at the chosen stake</small></h3>
@@ -53,6 +52,8 @@ h3{margin:16px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercas
 <h3 style="margin-top:10px;color:var(--mut)">Class</h3><div class="card" id="g_class"></div>
 <h3 style="margin-top:10px;color:var(--mut)">Distance</h3><div class="card" id="g_dist"></div>
 <h3 style="margin-top:10px;color:var(--mut)">Course <small>2+ hits</small></h3><div class="card" id="g_course"></div>
+<div class="note" style="margin-top:12px">The looser versions, for comparison - this is what the eye tends to remember:</div>
+<div class="kv" id="loose"></div>
 </section>
 <section>
 <h3>By day <small>races with both numbers · hits · £1 reverse forecast P/L</small></h3>
@@ -98,6 +99,8 @@ function draw(all, days) { LAST = { all, days }; all.sort((a, b) => (b.d + b.t).
   const wonN = all.filter(x => x.won).length, b3 = all.filter(x => x.both3).length; const exWon = all.reduce((a, x) => a + 2 / x.n, 0), exB3 = all.reduce((a, x) => a + 6 / (x.n * (x.n - 1)), 0);
   $('loose').innerHTML = `<div><b>${wonN}</b><span>4 or 7 won · ${(wonN / races * 100).toFixed(0)}% v chance ${(exWon / races * 100).toFixed(0)}%</span></div><div><b>${b3}</b><span>both in first 3 · ${(b3 / races * 100).toFixed(1)}% v ${(exB3 / races * 100).toFixed(1)}%</span></div><div><b>${races}</b><span>races with both running</span></div>`;
   $('kv').innerHTML = `<div><b>${hits.length}</b><span>hits in ${races} races</span></div><div><b>${races ? (hits.length / races * 100).toFixed(1) + '%' : '—'}</b><span>strike · chance ${races ? (expected / races * 100).toFixed(1) + '%' : '—'}</span></div><div><b>${expected.toFixed(1)}</b><span>hits chance predicts${hits.some(x => x.est) ? ' · Irish CSFs est.' : ''}</span></div>`;
+  $('hitst').textContent = hits.length + ' in ' + races + ' races · newest first'; const lab = sel => { const c = document.querySelector(`.chip.on[data-${sel}]`); return c ? c.textContent.trim() : ''; };
+  $('filt').innerHTML = `<b>${esc(lab('d'))}</b> · ${esc(lab('c'))} · ${esc(lab('m'))} runners · both SPs ${esc(lab('o'))} · £${UNIT} RF`;
   $('hits').innerHTML = hits.length ? `<div class="hh"><span>Date</span><span>Race</span><span>Ran</span><span>1st · SP</span><span>2nd · SP</span><span>CSF · £${UNIT} RF</span></div>` + hits.map(x => `<div class="hit"><div class="hd"><span class="dt">${esc(fmtD(x.d))}</span><b>${esc(x.t)} ${esc(x.course)}</b><span class="rn">${x.n} ran</span><span class="ty">${esc(x.type)}${x.cls && x.cls !== '?' ? ' · C' + esc(x.cls) : ''}</span><em>${x.csf ? (x.est ? '≈ £' + x.csf.toFixed(2) + ' <small>est</small>' : '£' + x.csf.toFixed(2)) : '—'}<small>${x.csf ? '→ ' + money(x.csf * UNIT) : ''}</small></em></div>
     <div class="rw"><i class="${x.p1.num === '4' ? 'four' : 'seven'}">${esc(x.p1.num)}</i><span>${esc(x.p1.h)}</span><s>${esc(frac(x.p1.d)) || '—'}</s></div><div class="rw"><i class="${x.p2.num === '4' ? 'four' : 'seven'}">${esc(x.p2.num)}</i><span>${esc(x.p2.h)}</span><s>${esc(frac(x.p2.d)) || '—'}</s></div></div>`).join('') : '<div class="note" style="padding:10px 12px">No 4-7 or 7-4 finishes with these filters.</div>';
   const byD = {}; all.forEach(x => { const g = byD[x.d] = byD[x.d] || { n: 0, h: 0, ret: 0 }; g.n++; if (x.hit) { g.h++; g.ret += x.csf || 0; } });
