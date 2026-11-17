@@ -1,0 +1,22 @@
+name: fs47 data
+on:
+  schedule:
+    - cron: '50 22 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: fs47
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: node scripts/fs47build.mjs
+      - run: |
+          git config user.name fs47 && git config user.email fs47@users.noreply.github.com
+          git add fs47.json && (git commit -q -m "fs47 data $(date -u +%F)" && (git pull --rebase -q origin main; git push -q origin main)) || echo "no change"
